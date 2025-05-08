@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::time::Duration;
 
 // ------------------------------------------------------------------------------------------------
 // Enums
@@ -37,6 +36,15 @@ pub enum CATStatusProposal {
     Failure,
 }
 
+/// A wrapper around different types of transactions that can go into a subblock
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SubBlockTransaction {
+    /// A normal transaction or CAT
+    Regular(TransactionWrapper),
+    /// A status update for a CAT
+    StatusUpdate(StatusUpdateTransaction),
+}
+
 // ------------------------------------------------------------------------------------------------
 // Types
 // ------------------------------------------------------------------------------------------------
@@ -54,8 +62,6 @@ pub struct Transaction {
     pub chain_id: ChainId,
     /// The actual transaction data (just a string for now)
     pub data: String,
-    /// When this transaction was created
-    pub timestamp: Duration,
 }
 
 /// A wrapper around a transaction that includes metadata
@@ -79,6 +85,17 @@ pub struct CATId(pub String);
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct BlockId(pub u64);
 
+/// A transaction that updates the status of a CAT
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusUpdateTransaction {
+    /// The ID of the CAT being updated
+    pub cat_id: TransactionId,
+    /// Whether the CAT succeeded or failed
+    pub success: bool,
+    /// The chain this status update is for
+    pub chain_id: ChainId,
+}
+
 /// A subBlock containing transactions for a specific chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubBlock {
@@ -87,7 +104,7 @@ pub struct SubBlock {
     /// The chain this subBlock is for
     pub chain_id: ChainId,
     /// The transactions in this subBlock
-    pub transactions: Vec<TransactionWrapper>,
+    pub transactions: Vec<SubBlockTransaction>,
 }
 
 /// Registration information for a chain
@@ -123,7 +140,6 @@ pub struct CAT {
     pub status: CATStatus,
     pub conflicts: Vec<CATId>,
 }
-
 
 impl fmt::Display for TransactionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

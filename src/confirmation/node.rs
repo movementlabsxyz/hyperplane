@@ -2,7 +2,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{Duration, interval};
-use crate::types::{BlockId, ChainId, ChainRegistration, SubBlock, TransactionWrapper};
+use crate::types::{
+    BlockId, ChainId, ChainRegistration, SubBlock, TransactionWrapper,
+    SubBlockTransaction,
+};
 use super::{ConfirmationLayer, ConfirmationLayerError};
 
 /// A simple node implementation of the ConfirmationLayer
@@ -82,11 +85,11 @@ impl ConfirmationNode {
                         if let Some(chain_txs) = txs.get_mut(chain_id) {
                             if !chain_txs.is_empty() {
                                 println!("Creating subblock for chain {} with {} transactions", chain_id.0, chain_txs.len());
-                                // Create subblock with transactions
+                                // Create a subblock for this chain
                                 let subblock = SubBlock {
                                     block_id: BlockId(block_id),
                                     chain_id: chain_id.clone(),
-                                    transactions: chain_txs.drain(..).collect(),
+                                    transactions: chain_txs.drain(..).map(SubBlockTransaction::Regular).collect(),
                                 };
                                 // Store the subblock
                                 subblocks.write().await.insert((chain_id.clone(), BlockId(block_id)), subblock);

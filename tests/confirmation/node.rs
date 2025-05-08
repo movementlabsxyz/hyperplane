@@ -1,6 +1,6 @@
 use hyperplane::{
     confirmation::{ConfirmationLayer, ConfirmationNode},
-    types::{BlockId, ChainId, Transaction, TransactionId, TransactionWrapper},
+    types::{BlockId, ChainId, Transaction, TransactionId, TransactionWrapper, SubBlockTransaction},
 };
 use std::time::Duration;
 
@@ -90,7 +90,6 @@ async fn test_normal_transactions() {
         id: TransactionId("test-tx".to_string()),
         chain_id: chain_id.clone(),
         data: "test data".to_string(),
-        timestamp: Duration::from_secs(0),
     };
     let tx_wrapper = TransactionWrapper {
         transaction: tx.clone(),
@@ -117,8 +116,13 @@ async fn test_normal_transactions() {
 
     // Verify the transaction was included and is not a CAT
     assert_eq!(subblock.transactions.len(), 1);
-    assert_eq!(subblock.transactions[0].transaction.id, tx.id);
-    assert!(!subblock.transactions[0].is_cat);
+    match &subblock.transactions[0] {
+        SubBlockTransaction::Regular(tx_wrapper) => {
+            assert_eq!(tx_wrapper.transaction.id, tx.id);
+            assert!(!tx_wrapper.is_cat);
+        }
+        SubBlockTransaction::StatusUpdate(_) => panic!("Expected Regular transaction"),
+    }
 }
 
 /// Tests CAT transaction handling in confirmation node:
@@ -148,13 +152,11 @@ async fn test_cat_transactions() {
         id: cat_id.clone(),
         chain_id: chain1.clone(),
         data: "cat data for chain 1".to_string(),
-        timestamp: Duration::from_secs(0),
     };
     let tx2 = Transaction {
         id: cat_id.clone(),
         chain_id: chain2.clone(),
         data: "cat data for chain 2".to_string(),
-        timestamp: Duration::from_secs(0),
     };
 
     // Create wrappers for both transactions
@@ -192,8 +194,13 @@ async fn test_cat_transactions() {
     // Verify both chains received the CAT
     assert_eq!(subblock1.transactions.len(), 1);
     assert_eq!(subblock2.transactions.len(), 1);
-    assert_eq!(subblock1.transactions[0].transaction.id, cat_id);
-    assert_eq!(subblock2.transactions[0].transaction.id, cat_id);
-    assert!(subblock1.transactions[0].is_cat);
-    assert!(subblock2.transactions[0].is_cat);
+    match (&subblock1.transactions[0], &subblock2.transactions[0]) {
+        (SubBlockTransaction::Regular(tx1), SubBlockTransaction::Regular(tx2)) => {
+            assert_eq!(tx1.transaction.id, cat_id);
+            assert_eq!(tx2.transaction.id, cat_id);
+            assert!(tx1.is_cat);
+            assert!(tx2.is_cat);
+        }
+        _ => panic!("Expected Regular transactions"),
+    }
 } 

@@ -2,7 +2,6 @@ use hyperplane::{
     types::{ChainId, Transaction, TransactionId, TransactionWrapper, TransactionStatus, CATStatusProposal},
     hyper_ig::executor::{HyperIGNode, HyperIG},
 };
-use std::time::Duration;
 
 /// Tests normal transaction success path in HyperIG:
 /// - Non-dependent transaction execution
@@ -17,7 +16,6 @@ async fn test_normal_transaction_success() {
         id: TransactionId("normal-tx".to_string()),
         chain_id: ChainId("test-chain".to_string()),
         data: "any data".to_string(),
-        timestamp: Duration::from_secs(0),
     };
     
     // Execute the transaction
@@ -51,7 +49,6 @@ async fn test_normal_transaction_pending() {
         id: TransactionId("normal-tx".to_string()),
         chain_id: ChainId("test-chain".to_string()),
         data: "dependent".to_string(),
-        timestamp: Duration::from_secs(0),
     };
     
     // Execute the transaction
@@ -92,7 +89,6 @@ async fn test_cat_success_proposal() {
         id: TransactionId("cat-tx".to_string()),
         chain_id: ChainId("test-chain".to_string()),
         data: "success".to_string(),
-        timestamp: Duration::from_secs(0),
     };
     let tx_wrapper = TransactionWrapper {
         transaction: tx.clone(),
@@ -140,7 +136,6 @@ async fn test_cat_failure_proposal() {
         id: TransactionId("cat-tx".to_string()),
         chain_id: ChainId("test-chain".to_string()),
         data: "failure".to_string(),
-        timestamp: Duration::from_secs(0),
     };
     let tx_wrapper = TransactionWrapper {
         transaction: tx.clone(),
