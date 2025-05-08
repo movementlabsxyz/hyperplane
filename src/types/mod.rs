@@ -17,7 +17,14 @@ pub struct Transaction {
     pub data: String,
     /// When this transaction was created
     pub timestamp: Duration,
-    /// Whether this transaction is a Crosschain Atomic Transaction (CAT)
+}
+
+/// A wrapper around a transaction that includes metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionWrapper {
+    /// The actual transaction
+    pub transaction: Transaction,
+    /// Whether this transaction is part of a Crosschain Atomic Transaction (CAT)
     pub is_cat: bool,
 }
 
@@ -41,7 +48,7 @@ pub struct SubBlock {
     /// The chain this subBlock is for
     pub chain_id: ChainId,
     /// The transactions in this subBlock
-    pub transactions: Vec<Transaction>,
+    pub transactions: Vec<TransactionWrapper>,
 }
 
 /// Registration information for a chain

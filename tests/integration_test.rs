@@ -1,6 +1,6 @@
 use hyperplane::{
     confirmation::{ConfirmationLayer, ConfirmationNode},
-    types::{BlockId, ChainId, Transaction, TransactionId},
+    types::{BlockId, ChainId, Transaction, TransactionId, TransactionWrapper},
 };
 use std::time::Duration;
 
@@ -72,15 +72,20 @@ async fn test_confirmation_node_transactions() {
         .await
         .expect("Failed to register chain");
 
-    // Submit a normal transaction (not a CAT)
+    // Create a normal transaction (not a CAT)
     let tx = Transaction {
         id: TransactionId("test-tx".to_string()),
         chain_id: chain_id.clone(),
         data: "test data".to_string(),
         timestamp: Duration::from_secs(0),
+    };
+    let tx_wrapper = TransactionWrapper {
+        transaction: tx.clone(),
         is_cat: false,
     };
-    node.submit_transaction(tx.clone())
+
+    // Submit the transaction
+    node.submit_transaction(tx_wrapper)
         .await
         .expect("Failed to submit transaction");
 
@@ -99,7 +104,7 @@ async fn test_confirmation_node_transactions() {
 
     // Verify the transaction was included and is not a CAT
     assert_eq!(subblock.transactions.len(), 1);
-    assert_eq!(subblock.transactions[0].id, tx.id);
+    assert_eq!(subblock.transactions[0].transaction.id, tx.id);
     assert!(!subblock.transactions[0].is_cat);
 }
 
@@ -119,28 +124,36 @@ async fn test_confirmation_node_cat_transactions() {
         .await
         .expect("Failed to register chain 2");
 
-    // Submit a CAT transaction to both chains
+    // Create CAT transactions for both chains
     let cat_id = TransactionId("cat-tx".to_string());
     let tx1 = Transaction {
         id: cat_id.clone(),
         chain_id: chain1.clone(),
         data: "cat data for chain 1".to_string(),
         timestamp: Duration::from_secs(0),
-        is_cat: true,
     };
     let tx2 = Transaction {
         id: cat_id.clone(),
         chain_id: chain2.clone(),
         data: "cat data for chain 2".to_string(),
         timestamp: Duration::from_secs(0),
+    };
+
+    // Create wrappers for both transactions
+    let tx_wrapper1 = TransactionWrapper {
+        transaction: tx1.clone(),
+        is_cat: true,
+    };
+    let tx_wrapper2 = TransactionWrapper {
+        transaction: tx2.clone(),
         is_cat: true,
     };
 
     // Submit both transactions
-    node.submit_transaction(tx1.clone())
+    node.submit_transaction(tx_wrapper1)
         .await
         .expect("Failed to submit CAT to chain 1");
-    node.submit_transaction(tx2.clone())
+    node.submit_transaction(tx_wrapper2)
         .await
         .expect("Failed to submit CAT to chain 2");
 
@@ -161,8 +174,8 @@ async fn test_confirmation_node_cat_transactions() {
     // Verify both chains received the CAT
     assert_eq!(subblock1.transactions.len(), 1);
     assert_eq!(subblock2.transactions.len(), 1);
-    assert_eq!(subblock1.transactions[0].id, cat_id);
-    assert_eq!(subblock2.transactions[0].id, cat_id);
+    assert_eq!(subblock1.transactions[0].transaction.id, cat_id);
+    assert_eq!(subblock2.transactions[0].transaction.id, cat_id);
     assert!(subblock1.transactions[0].is_cat);
     assert!(subblock2.transactions[0].is_cat);
 } 

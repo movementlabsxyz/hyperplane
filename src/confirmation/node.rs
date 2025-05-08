@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{Duration, interval};
-use crate::types::{BlockId, ChainId, ChainRegistration, SubBlock, Transaction};
+use crate::types::{BlockId, ChainId, ChainRegistration, SubBlock, TransactionWrapper};
 use super::{ConfirmationLayer, ConfirmationLayerError};
 
 /// A simple node implementation of the ConfirmationLayer
@@ -14,7 +14,7 @@ pub struct ConfirmationNode {
     /// Block interval
     block_interval: Arc<RwLock<Duration>>,
     /// Pending transactions for each chain
-    pending_txs: Arc<RwLock<HashMap<ChainId, Vec<Transaction>>>>,
+    pending_txs: Arc<RwLock<HashMap<ChainId, Vec<TransactionWrapper>>>>,
     /// Stored subblocks by chain and block ID
     subblocks: Arc<RwLock<HashMap<(ChainId, BlockId), SubBlock>>>,
 }
@@ -174,20 +174,20 @@ impl ConfirmationLayer for ConfirmationNode {
         Ok(*self.block_interval.read().await)
     }
 
-    async fn submit_transaction(&mut self, transaction: Transaction) -> Result<(), ConfirmationLayerError> {
+    async fn submit_transaction(&mut self, transaction: TransactionWrapper) -> Result<(), ConfirmationLayerError> {
         let chains = self.chains.read().await;
         
         // Check if chain exists and is active
-        let registration = chains.get(&transaction.chain_id)
-            .ok_or_else(|| ConfirmationLayerError::ChainNotFound(transaction.chain_id.clone()))?;
+        let registration = chains.get(&transaction.transaction.chain_id)
+            .ok_or_else(|| ConfirmationLayerError::ChainNotFound(transaction.transaction.chain_id.clone()))?;
         
         if !registration.active {
-            return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
+            return Err(ConfirmationLayerError::ChainNotFound(transaction.transaction.chain_id));
         }
 
         // Add transaction to pending queue
         let mut pending_txs = self.pending_txs.write().await;
-        if let Some(chain_txs) = pending_txs.get_mut(&transaction.chain_id) {
+        if let Some(chain_txs) = pending_txs.get_mut(&transaction.transaction.chain_id) {
             chain_txs.push(transaction);
             Ok(())
         } else {
