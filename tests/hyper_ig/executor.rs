@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{ChainId, Transaction, TransactionId, TransactionWrapper, TransactionStatus, CATStatusProposal},
+    types::{ChainId, Transaction, TransactionId, TransactionWrapper, TransactionStatus, CATStatusProposal, SubBlockTransaction, StatusUpdateTransaction},
     hyper_ig::executor::{HyperIGNode, HyperIG},
 };
 
@@ -19,10 +19,10 @@ async fn test_normal_transaction_success() {
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(TransactionWrapper {
+    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
         transaction: tx.clone(),
         is_cat: false,
-    })
+    }))
         .await
         .expect("Failed to execute transaction");
     
@@ -52,10 +52,10 @@ async fn test_normal_transaction_pending() {
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(TransactionWrapper {
+    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
         transaction: tx.clone(),
         is_cat: false,
-    })
+    }))
         .await
         .expect("Failed to execute transaction");
     
@@ -96,7 +96,7 @@ async fn test_cat_success_proposal() {
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(tx_wrapper)
+    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(tx_wrapper))
         .await
         .expect("Failed to execute transaction");
     
@@ -143,7 +143,7 @@ async fn test_cat_failure_proposal() {
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(tx_wrapper)
+    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(tx_wrapper))
         .await
         .expect("Failed to execute transaction");
     
@@ -167,4 +167,122 @@ async fn test_cat_failure_proposal() {
         .await
         .expect("Failed to get proposed status");
     assert!(matches!(proposed_status, CATStatusProposal::Failure));
+}
+
+/// Tests status update success path in HyperIG:
+/// - CAT transaction submission
+/// - Status update submission
+/// - Status change verification
+/// - Pending list removal
+#[tokio::test]
+async fn test_status_update_success() {
+    let mut hig = HyperIGNode::new();
+    
+    // First submit a CAT transaction
+    let cat_id = TransactionId("cat-tx".to_string());
+    let tx = Transaction {
+        id: cat_id.clone(),
+        chain_id: ChainId("test-chain".to_string()),
+        data: "any data".to_string(),
+    };
+    
+    // Execute the CAT transaction
+    hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
+        transaction: tx,
+        is_cat: true,
+    }))
+        .await
+        .expect("Failed to execute CAT transaction");
+    
+    // Verify it's pending
+    let status = hig.get_transaction_status(cat_id.clone())
+        .await
+        .expect("Failed to get transaction status");
+    assert!(matches!(status, TransactionStatus::Pending));
+    
+    // Submit a success status update
+    let status_update = StatusUpdateTransaction {
+        cat_id: cat_id.clone(),
+        success: true,
+        chain_id: ChainId("test-chain".to_string()),
+    };
+    
+    // Execute the status update
+    let new_status = hig.execute_transaction_wrapper(SubBlockTransaction::StatusUpdate(status_update))
+        .await
+        .expect("Failed to execute status update");
+    
+    // Verify the status was updated to Success
+    assert!(matches!(new_status, TransactionStatus::Success));
+    
+    // Verify we can retrieve the new status
+    let retrieved_status = hig.get_transaction_status(cat_id.clone())
+        .await
+        .expect("Failed to get transaction status");
+    assert!(matches!(retrieved_status, TransactionStatus::Success));
+    
+    // Verify it's no longer in the pending list
+    let pending = hig.get_pending_transactions()
+        .await
+        .expect("Failed to get pending transactions");
+    assert!(!pending.contains(&cat_id));
+}
+
+/// Tests status update failure path in HyperIG:
+/// - CAT transaction submission
+/// - Status update submission
+/// - Status change verification
+/// - Pending list removal
+#[tokio::test]
+async fn test_status_update_failure() {
+    let mut hig = HyperIGNode::new();
+    
+    // First submit a CAT transaction
+    let cat_id = TransactionId("cat-tx".to_string());
+    let tx = Transaction {
+        id: cat_id.clone(),
+        chain_id: ChainId("test-chain".to_string()),
+        data: "any data".to_string(),
+    };
+    
+    // Execute the CAT transaction
+    hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
+        transaction: tx,
+        is_cat: true,
+    }))
+        .await
+        .expect("Failed to execute CAT transaction");
+    
+    // Verify it's pending
+    let status = hig.get_transaction_status(cat_id.clone())
+        .await
+        .expect("Failed to get transaction status");
+    assert!(matches!(status, TransactionStatus::Pending));
+    
+    // Submit a failure status update
+    let status_update = StatusUpdateTransaction {
+        cat_id: cat_id.clone(),
+        success: false,
+        chain_id: ChainId("test-chain".to_string()),
+    };
+    
+    // Execute the status update
+    let new_status = hig.execute_transaction_wrapper(SubBlockTransaction::StatusUpdate(status_update))
+        .await
+        .expect("Failed to execute status update");
+    
+    // Verify the status was updated to Failure
+    assert!(matches!(new_status, TransactionStatus::Failure));
+    
+    // Verify we can retrieve the new status
+    let retrieved_status = hig.get_transaction_status(cat_id.clone())
+        .await
+        .expect("Failed to get transaction status");
+    assert!(matches!(retrieved_status, TransactionStatus::Failure));
+    
+    // Verify it's no longer in the pending list
+    let pending = hig.get_pending_transactions()
+        .await
+        .expect("Failed to get pending transactions");
+    assert!(!pending.contains(&cat_id));
 } 
