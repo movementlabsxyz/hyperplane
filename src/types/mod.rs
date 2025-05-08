@@ -14,6 +14,26 @@ pub struct ChainId(pub String);
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CATId(pub String);
 
+/// A unique identifier for a block
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct BlockId(pub u64);
+
+/// A subBlock containing transactions for a specific chain
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubBlock {
+    pub block_id: BlockId,
+    pub chain_id: ChainId,
+    pub transactions: Vec<SignedTransaction>,
+}
+
+/// Registration information for a chain
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainRegistration {
+    pub chain_id: ChainId,
+    pub registration_block: BlockId,
+    pub active: bool,
+}
+
 /// A single transaction that can be part of a CAT
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
@@ -38,14 +58,14 @@ pub enum CATStatus {
     Failure,    /// One or more transactions in the CAT have failed
 }
 
-/// A status update for a transaction from the Hyper IG
+/// A status update for a transaction from the Hyper IG to the Hyper Scheduler
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionStatusUpdate {
     pub transaction_id: TransactionId,
     pub status: TransactionStatus,
 }
 
-/// A status update for a CAT from the Hyper Scheduler
+/// A status update for a CAT from the Hyper Scheduler to the confirmation layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CATStatusUpdate {
     pub cat_id: CATId,
