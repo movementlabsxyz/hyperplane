@@ -1,14 +1,10 @@
+pub mod types;
+pub mod confirmation;
 pub mod hyper_scheduler;
 pub mod hyper_ig;
-pub mod resolver;
-pub mod confirmation;
 pub mod network;
-pub mod types;
 
-// Re-export commonly used types
-pub use hyper_scheduler::*;
-pub use hyper_ig::*;
-pub use resolver::*;
-pub use confirmation::*;
-pub use network::*;
-pub use types::*; 
+pub use hyper_ig::executor::HyperIG;
+pub use hyper_ig::resolver::Resolver;
+pub use hyper_scheduler::HyperScheduler;
+pub use confirmation::ConfirmationLayer; 
