@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::time::Duration;
 use thiserror::Error;
-use crate::types::{BlockId, ChainId, ChainRegistration, SubBlock};
+use crate::types::{BlockId, ChainId, ChainRegistration, SubBlock, Transaction};
 
 mod node;
 pub use node::ConfirmationNode;
@@ -37,4 +37,7 @@ pub trait ConfirmationLayer: Send + Sync {
 
     /// Get the current block interval
     async fn get_block_interval(&self) -> Result<Duration, ConfirmationLayerError>;
+
+    /// Submit a transaction to be included in the next block
+    async fn submit_transaction(&mut self, transaction: Transaction) -> Result<(), ConfirmationLayerError>;
 } 
