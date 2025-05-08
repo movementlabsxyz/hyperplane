@@ -1,16 +1,29 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use aptos_types::transaction::SignedTransaction;
+use std::time::Duration;
 
 /// A unique identifier for a transaction
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TransactionId(pub String);
 
+/// A simple transaction type for testing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Transaction {
+    /// Unique identifier for this transaction
+    pub id: TransactionId,
+    /// The chain this transaction is for
+    pub chain_id: ChainId,
+    /// The actual transaction data (just a string for now)
+    pub data: String,
+    /// When this transaction was created
+    pub timestamp: Duration,
+}
+
 /// A unique identifier for a chain
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ChainId(pub String);
 
-/// A unique identifier for a CAT
+/// A unique identifier for a Crosschain Atomic Transaction (CAT)
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CATId(pub String);
 
@@ -21,41 +34,49 @@ pub struct BlockId(pub u64);
 /// A subBlock containing transactions for a specific chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubBlock {
+    /// The block ID this subBlock belongs to
     pub block_id: BlockId,
+    /// The chain this subBlock is for
     pub chain_id: ChainId,
-    pub transactions: Vec<SignedTransaction>,
+    /// The transactions in this subBlock
+    pub transactions: Vec<Transaction>,
 }
 
 /// Registration information for a chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainRegistration {
+    /// The chain ID
     pub chain_id: ChainId,
+    /// The block at which this chain registered
     pub registration_block: BlockId,
+    /// Whether this chain is currently active
     pub active: bool,
 }
 
-/// A single transaction that can be part of a CAT
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Transaction {
-    pub id: TransactionId,
-    pub aptos_tx: SignedTransaction,
-    pub destination_chain: ChainId,
-}
-
-/// Status of a transaction in the system
+/// Status of a transaction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TransactionStatus {
-    Pending,    /// Transaction is waiting to be processed
-    Success,    /// Transaction by the chain itself would be successful
-    Failure,    /// Transaction by the chain itself would fail
+    /// Transaction is pending execution
+    Pending,
+    /// Transaction has been executed successfully
+    Executed,
+    /// Transaction failed to execute
+    Failed(String),
+    /// Transaction was cancelled
+    Cancelled,
 }
 
-/// Status of a Crosschain Atomic Transaction
+/// Status of a Crosschain Atomic Transaction (CAT)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CATStatus {
-    Pending,    /// CAT is waiting to be processed
-    Success,    /// All transactions in the CAT have been shown to be successful
-    Failure,    /// One or more transactions in the CAT have failed
+    /// CAT is pending execution
+    Pending,
+    /// CAT has been executed successfully
+    Executed,
+    /// CAT failed to execute
+    Failed(String),
+    /// CAT was cancelled
+    Cancelled,
 }
 
 /// A status update for a transaction from the Hyper IG to the Hyper Scheduler
@@ -103,8 +124,9 @@ impl fmt::Display for CATStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CATStatus::Pending => write!(f, "Pending"),
-            CATStatus::Success => write!(f, "Success"),
-            CATStatus::Failure => write!(f, "Failure"),
+            CATStatus::Executed => write!(f, "Executed"),
+            CATStatus::Failed(reason) => write!(f, "Failed: {}", reason),
+            CATStatus::Cancelled => write!(f, "Cancelled"),
         }
     }
 } 

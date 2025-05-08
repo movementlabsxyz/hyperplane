@@ -2,6 +2,7 @@
 
 ## General
 - Always consider the plan in PLAN.md
+- make an integration test that tests the overall protocol as we develop it.
 
 ## Code Style
 - Use `///` for public API docs, `//` for inline comments

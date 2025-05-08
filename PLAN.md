@@ -5,6 +5,14 @@
 - [x] Directory structure creation
 - [x] Main `lib.rs` with module declarations
 
+## Integration Testing
+- [x] Basic integration test setup
+- [x] Confirmation node integration tests
+- [ ] Execution node integration tests
+- [ ] Hyper Scheduler integration tests
+- [ ] Hyper IG integration tests
+- [ ] End-to-end protocol tests
+
 ## Core Modules
 
 ### Types Module (`src/types/mod.rs`)
@@ -42,7 +50,8 @@
 - [ ] Documentation
 
 ### Confirmation Layer Module (`src/confirmation/mod.rs`)
-- [ ] Basic trait definition
+- [x] Basic trait definition
+- [x] Simple node implementation
 - [ ] Centralized confirmation implementation
 - [ ] BFT confirmation implementation (`src/confirmation/bft.rs`)
 - [ ] Tests

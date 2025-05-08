@@ -11,20 +11,17 @@
 
 ## Components
 
-### Hyper Scheduler
+### Hyper Scheduler (HS)
 The coordination layer that manages transaction scheduling and conflict resolution. It maintains the global view of transaction dependencies and ensures consistent ordering.
 
-### Hyper IG (Information Gateway)
+### Hyper Information Gateway (HIG)
 Acts as the information gateway for transaction processing, handling the flow of transaction data between components. It manages transaction execution, generates proposals, and ensures proper information routing throughout the system.
 
 ### Resolver
 Resolves transaction acceptance by combining views from both the scheduler and sequencer. It ensures finality and consistency across the network.
 
-### Confirmation Layer
+### Confirmation Layer (CL)
 Provides transaction finality through either centralized or BFT (Byzantine Fault Tolerant) confirmation mechanisms. This layer ensures that transactions are permanently recorded and cannot be reversed.
-
-### Database
-Provides state management and transaction storage. Supports both in-memory and file-backed storage options for different deployment scenarios.
 
 ### Network
 Handles communication between nodes using either mock implementations for testing or real libp2p/gRPC for production deployments.
@@ -37,21 +34,49 @@ hyperplane/
 │   └── lib.rs
 ├── hyper_ig/               # information gateway for tx processing
 │   └── lib.rs
-├── resolver/               # resolves tx acceptance from coordinator + sequencer view
+├── resolver/               # resolves tx acceptance from hyper_scheduler + sequencer view
 │   └── lib.rs
 ├── confirmation/           # simulates centralized or BFT confirmation layer
 │   └── lib.rs
-├── db/                     # simple in-memory or file-backed state + tx store
-│   └── mod.rs
 ├── network/                # mock or real libp2p/gRPC transport traits
 │   └── mod.rs
 ├── types/                  # shared types: transactions, Crosschain Atomic Transactions, statuses, etc.
 │   └── mod.rs
 └── bin/
-    ├── node.rs             # runs a node with db + confirmation + net
-    ├── coordinator.rs      # runs standalone coordinator
+    ├── node.rs             # runs a node with confirmation + net
+    ├── hyper_scheduler.rs  # runs standalone hyper scheduler
     └── simulator.rs        # simulates multi-node exec+resolve flow
 ```
+
+## Testing
+
+### Running Tests
+
+To run all tests:
+```bash
+cargo test
+```
+
+To run integration tests:
+```bash
+cargo test --test integration_test
+```
+
+To run a specific integration test:
+```bash
+cargo test --test integration_test test_confirmation_node_basic
+```
+
+To run tests with output:
+```bash
+cargo test -- --nocapture
+```
+
+### Test Structure
+
+- Unit tests are located in each module's `#[cfg(test)]` section
+- Integration tests are in `tests/integration_test.rs`
+- As we develop new components, we add corresponding integration tests
 
 ## Getting Started
 
@@ -64,4 +89,3 @@ hyperplane/
 ## License
 
 [Coming soon]
-

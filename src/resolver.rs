@@ -12,7 +12,7 @@ pub enum ResolverError {
 
 #[async_trait]
 pub trait Resolver {
-    /// Resolve the status of a transaction based on coordinator and sequencer views
+    /// Resolve the status of a transaction based on hyper_scheduler and sequencer views
     async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, ResolverError>;
     
     /// Get the current resolution status of a transaction
