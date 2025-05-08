@@ -72,21 +72,22 @@ async fn test_confirmation_node_transactions() {
         .await
         .expect("Failed to register chain");
 
-    // Submit a transaction
+    // Submit a normal transaction (not a CAT)
     let tx = Transaction {
         id: TransactionId("test-tx".to_string()),
         chain_id: chain_id.clone(),
         data: "test data".to_string(),
         timestamp: Duration::from_secs(0),
+        is_cat: false,
     };
     node.submit_transaction(tx.clone())
         .await
         .expect("Failed to submit transaction");
 
-    // Wait for a block to be produced (wait longer to ensure block is created)
+    // Wait for a block to be produced
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    // check that 5 blocks have been produced
+    // Check that 5 blocks have been produced
     let current_block = node.get_current_block().await.expect("Failed to get current block");
     assert_eq!(current_block, BlockId(5));
 
@@ -96,7 +97,72 @@ async fn test_confirmation_node_transactions() {
         .expect("Failed to get subblock");
     println!("Subblock transactions: {:?}", subblock.transactions);
 
-    // Verify the transaction was included
+    // Verify the transaction was included and is not a CAT
     assert_eq!(subblock.transactions.len(), 1);
     assert_eq!(subblock.transactions[0].id, tx.id);
+    assert!(!subblock.transactions[0].is_cat);
+}
+
+#[tokio::test]
+async fn test_confirmation_node_cat_transactions() {
+    // Create a new confirmation node with a short block interval
+    let mut node = ConfirmationNode::with_block_interval(Duration::from_millis(100))
+        .expect("Failed to create node");
+
+    // Register two chains
+    let chain1 = ChainId("chain-1".to_string());
+    let chain2 = ChainId("chain-2".to_string());
+    node.register_chain(chain1.clone())
+        .await
+        .expect("Failed to register chain 1");
+    node.register_chain(chain2.clone())
+        .await
+        .expect("Failed to register chain 2");
+
+    // Submit a CAT transaction to both chains
+    let cat_id = TransactionId("cat-tx".to_string());
+    let tx1 = Transaction {
+        id: cat_id.clone(),
+        chain_id: chain1.clone(),
+        data: "cat data for chain 1".to_string(),
+        timestamp: Duration::from_secs(0),
+        is_cat: true,
+    };
+    let tx2 = Transaction {
+        id: cat_id.clone(),
+        chain_id: chain2.clone(),
+        data: "cat data for chain 2".to_string(),
+        timestamp: Duration::from_secs(0),
+        is_cat: true,
+    };
+
+    // Submit both transactions
+    node.submit_transaction(tx1.clone())
+        .await
+        .expect("Failed to submit CAT to chain 1");
+    node.submit_transaction(tx2.clone())
+        .await
+        .expect("Failed to submit CAT to chain 2");
+
+    // Wait for a block to be produced
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Get the subblocks for block 0
+    let subblock1 = node.get_subblock(chain1.clone(), BlockId(0))
+        .await
+        .expect("Failed to get subblock for chain 1");
+    let subblock2 = node.get_subblock(chain2.clone(), BlockId(0))
+        .await
+        .expect("Failed to get subblock for chain 2");
+
+    println!("Chain 1 subblock transactions: {:?}", subblock1.transactions);
+    println!("Chain 2 subblock transactions: {:?}", subblock2.transactions);
+
+    // Verify both chains received the CAT
+    assert_eq!(subblock1.transactions.len(), 1);
+    assert_eq!(subblock2.transactions.len(), 1);
+    assert_eq!(subblock1.transactions[0].id, cat_id);
+    assert_eq!(subblock2.transactions[0].id, cat_id);
+    assert!(subblock1.transactions[0].is_cat);
+    assert!(subblock2.transactions[0].is_cat);
 } 

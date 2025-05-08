@@ -17,6 +17,8 @@ pub struct Transaction {
     pub data: String,
     /// When this transaction was created
     pub timestamp: Duration,
+    /// Whether this transaction is a Crosschain Atomic Transaction (CAT)
+    pub is_cat: bool,
 }
 
 /// A unique identifier for a chain
