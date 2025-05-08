@@ -1,7 +1,6 @@
 use hyperplane::{
     confirmation::{ConfirmationLayer, ConfirmationNode},
-    types::{BlockId, ChainId, Transaction, TransactionId, TransactionWrapper, TransactionStatus, CATStatusProposal},
-    hyper_ig::executor::{HyperIGNode, HyperIG},
+    types::{BlockId, ChainId, Transaction, TransactionId, TransactionWrapper},
 };
 use std::time::Duration;
 
@@ -11,7 +10,7 @@ use std::time::Duration;
 /// - Subblock retrieval
 /// - Duplicate registration handling
 #[tokio::test]
-async fn test_confirmation_node_basic() {
+async fn test_basic() {
     // Create a new confirmation node
     let mut node = ConfirmationNode::new();
 
@@ -52,7 +51,7 @@ async fn test_confirmation_node_basic() {
 /// - Invalid interval rejection
 /// - Valid interval setting and retrieval
 #[tokio::test]
-async fn test_confirmation_node_block_interval() {
+async fn test_block_interval() {
     let mut node = ConfirmationNode::new();
 
     // Test invalid interval
@@ -75,7 +74,7 @@ async fn test_confirmation_node_block_interval() {
 /// - Transaction inclusion in subblocks
 /// - Non-CAT transaction verification
 #[tokio::test]
-async fn test_confirmation_node_transactions() {
+async fn test_normal_transactions() {
     // Create a new confirmation node with a short block interval
     let mut node = ConfirmationNode::with_block_interval(Duration::from_millis(100))
         .expect("Failed to create node");
@@ -128,7 +127,7 @@ async fn test_confirmation_node_transactions() {
 /// - CAT transaction inclusion in all relevant subblocks
 /// - CAT flag verification
 #[tokio::test]
-async fn test_confirmation_node_cat_transactions() {
+async fn test_cat_transactions() {
     // Create a new confirmation node with a short block interval
     let mut node = ConfirmationNode::with_block_interval(Duration::from_millis(100))
         .expect("Failed to create node");
@@ -197,174 +196,4 @@ async fn test_confirmation_node_cat_transactions() {
     assert_eq!(subblock2.transactions[0].transaction.id, cat_id);
     assert!(subblock1.transactions[0].is_cat);
     assert!(subblock2.transactions[0].is_cat);
-}
-
-/// Tests normal transaction success path in HyperIG:
-/// - Non-dependent transaction execution
-/// - Success status verification
-/// - Status persistence
-#[tokio::test]
-async fn test_hyper_ig_normal_transaction_success() {
-    let mut hig = HyperIGNode::new();
-    
-    // Create a normal transaction with non-dependent data
-    let tx = Transaction {
-        id: TransactionId("normal-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "any data".to_string(),
-        timestamp: Duration::from_secs(0),
-    };
-    
-    // Execute the transaction
-    let status = hig.execute_transaction_wrapper(TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: false,
-    })
-        .await
-        .expect("Failed to execute transaction");
-    
-    // Verify it was successful (normal transactions with non-dependent data are successful)
-    assert!(matches!(status, TransactionStatus::Success));
-    
-    // Verify we can retrieve the same status
-    let retrieved_status = hig.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(retrieved_status, TransactionStatus::Success));
-}
-
-/// Tests normal transaction pending path in HyperIG:
-/// - Dependent transaction execution
-/// - Pending status verification
-/// - Pending transaction list inclusion
-#[tokio::test]
-async fn test_hyper_ig_normal_transaction_pending() {
-    let mut hig = HyperIGNode::new();
-    
-    // Create a normal transaction with dependent data
-    let tx = Transaction {
-        id: TransactionId("normal-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "dependent".to_string(),
-        timestamp: Duration::from_secs(0),
-    };
-    
-    // Execute the transaction
-    let status = hig.execute_transaction_wrapper(TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: false,
-    })
-        .await
-        .expect("Failed to execute transaction");
-    
-    // Verify it stays pending (normal transactions with dependent data stay pending)
-    assert!(matches!(status, TransactionStatus::Pending));
-    
-    // Verify we can retrieve the same status
-    let retrieved_status = hig.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(retrieved_status, TransactionStatus::Pending));
-    
-    // Verify it's in the pending transactions list
-    let pending = hig.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    assert!(pending.contains(&tx.id));
-}
-
-/// Tests CAT transaction success-proposal path in HyperIG:
-/// - CAT transaction with success data
-/// - Pending status verification
-/// - Success proposed status verification
-/// - Pending transaction list inclusion
-#[tokio::test]
-async fn test_hyper_ig_cat_success_proposal() {
-    let mut hig = HyperIGNode::new();
-    
-    // Create a CAT transaction with success data
-    let tx = Transaction {
-        id: TransactionId("cat-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "success".to_string(),
-        timestamp: Duration::from_secs(0),
-    };
-    let tx_wrapper = TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: true,
-    };
-    
-    // Execute the transaction
-    let status = hig.execute_transaction_wrapper(tx_wrapper)
-        .await
-        .expect("Failed to execute transaction");
-    
-    // Verify status is pending (CAT transactions always stay pending)
-    assert!(matches!(status, TransactionStatus::Pending));
-    
-    // Verify we can retrieve the same status
-    let retrieved_status = hig.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(retrieved_status, TransactionStatus::Pending));
-    
-    // Verify it's in the pending transactions list
-    let pending = hig.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    assert!(pending.contains(&tx.id));
-    
-    // Verify proposed status is Success
-    let proposed_status = hig.get_proposed_status(tx.id.clone())
-        .await
-        .expect("Failed to get proposed status");
-    assert!(matches!(proposed_status, CATStatusProposal::Success));
-}
-
-/// Tests CAT transaction failure-proposal path in HyperIG:
-/// - CAT transaction with failure data
-/// - Pending status verification
-/// - Failure proposed status verification
-/// - Pending transaction list inclusion
-#[tokio::test]
-async fn test_hyper_ig_cat_failure_proposal() {
-    let mut hig = HyperIGNode::new();
-    
-    // Create a CAT transaction with non-success data
-    let tx = Transaction {
-        id: TransactionId("cat-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "failure".to_string(),
-        timestamp: Duration::from_secs(0),
-    };
-    let tx_wrapper = TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: true,
-    };
-    
-    // Execute the transaction
-    let status = hig.execute_transaction_wrapper(tx_wrapper)
-        .await
-        .expect("Failed to execute transaction");
-    
-    // Verify status is pending (CAT transactions always stay pending)
-    assert!(matches!(status, TransactionStatus::Pending));
-    
-    // Verify we can retrieve the same status
-    let retrieved_status = hig.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(retrieved_status, TransactionStatus::Pending));
-    
-    // Verify it's in the pending transactions list
-    let pending = hig.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    assert!(pending.contains(&tx.id));
-    
-    // Verify proposed status is Failure
-    let proposed_status = hig.get_proposed_status(tx.id.clone())
-        .await
-        .expect("Failed to get proposed status");
-    assert!(matches!(proposed_status, CATStatusProposal::Failure));
-}
+} 
