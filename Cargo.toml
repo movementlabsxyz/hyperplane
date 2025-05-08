@@ -1,0 +1,33 @@
+[package]
+name = "hyperplane"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A protocol for coordinating and executing transactions with conflict awareness"
+
+[dependencies]
+tokio = { version = "1.36", features = ["full"] }
+libp2p = { version = "0.53", features = ["tokio", "tcp", "dns", "noise", "yamux"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+async-trait = "0.1"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+anyhow = "1.0"
+aptos-core = { git = "https://github.com/aptos-labs/aptos-core.git", branch = "main" }
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "node"
+path = "src/bin/node.rs"
+
+[[bin]]
+name = "coordinator"
+path = "src/bin/coordinator.rs"
+
+[[bin]]
+name = "simulator"
+path = "src/bin/simulator.rs" 
