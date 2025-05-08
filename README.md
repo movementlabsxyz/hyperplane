@@ -9,6 +9,14 @@
   <em>The place where we let the CAT out of the box.</em>
 </p>
 
+## Cross-chain Atomic Transactions (CATs)
+
+Hyperplane is a protocol for coordinating and executing cross-chain atomic transactions (CATs).
+
+Cross-chain atomic transactions are atomic transactions that span multiple chains. They must only be executed and applied to the persistent state of the system if all participating chains simulated the transaction successfully.
+
+While CATs are pending resolution, their state changes (and the state changes of dependent transactions) are stored in temporary forks (or *superpositions*). Once the CAT is resolved through the Hyperplane protocol, the state of the system is finalized.
+
 ## Components
 
 ### Hyper Scheduler (HS)
@@ -67,9 +75,9 @@ To run a specific integration test:
 cargo test --test integration_test test_confirmation_node_basic
 ```
 
-To run tests with output:
+To run tests with debug output:
 ```bash
-cargo test -- --nocapture
+cargo test -- --nocapture --test-threads=1
 ```
 
 ### Test Structure
