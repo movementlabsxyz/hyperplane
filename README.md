@@ -1,6 +1,13 @@
 # Hyperplane
 
-A protocol for coordinating and executing transactions with conflict awareness.
+<p align="center">
+  <img src="documentation/cat.jpg" alt="A cat silhouette" width="60"/>
+  <img src="documentation/box.jpg" alt="A box" width="60"/>
+</p>
+
+<p align="center">
+  <em>The place where we let the CAT out of the box.</em>
+</p>
 
 ## Components
 
