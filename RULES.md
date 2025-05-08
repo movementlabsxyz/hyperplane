@@ -24,6 +24,7 @@
 
 ## Testing
 - Write unit tests for all public APIs
+- Above each test give a short description of what it is testing
 - Test both success and failure cases
 - Use `#[tokio::test]` for async tests
 - Document test prerequisites

@@ -1,4 +1,4 @@
-use crate::types::{CAT, CATId, CATStatus, TransactionId, TransactionStatus};
+use crate::types::{CAT, CATId, CATStatus, TransactionId, CATStatusProposal};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -20,8 +20,8 @@ pub trait HyperScheduler {
     /// Get all pending CATs
     async fn get_pending_cats(&self) -> Result<Vec<CAT>, HyperSchedulerError>;
 
-    /// Submit a transaction status update from the Hyper IG
-    async fn submit_transaction_status(&mut self, tx_id: TransactionId, status: TransactionStatus) -> Result<(), HyperSchedulerError>;
+    /// Receive a CAT status proposal from the Hyper IG
+    async fn receive_cat_status_proposal(&mut self, tx_id: TransactionId, status: CATStatusProposal) -> Result<(), HyperSchedulerError>;
 
     /// Submit a CAT status update to the confirmation layer
     async fn submit_cat_status(&mut self, cat_id: CATId, status: CATStatus) -> Result<(), HyperSchedulerError>;

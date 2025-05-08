@@ -2,6 +2,45 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::Duration;
 
+// ------------------------------------------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------------------------------------------
+
+/// Status of a transaction
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransactionStatus {
+    /// Transaction is pending
+    Pending,
+    /// Transaction is successful and accepted
+    Success,
+    /// Transaction failed
+    /// NOTE: we distinguish not between failed due to execution or due to dependency
+    Failure,
+}
+
+/// Status of a CAT
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum CATStatus {
+    /// CAT is pending execution
+    Pending,
+    /// CAT is successful and accepted
+    Success,
+    /// CAT failed
+    /// NOTE: we distinguish not between failed due to execution or due to dependency
+    Failure,
+}
+
+/// The proposed status of a CAT from the Hyper IG to the Hyper Scheduler
+#[derive(Debug, Clone, PartialEq)]
+pub enum CATStatusProposal {
+    Success,
+    Failure,
+}
+
+// ------------------------------------------------------------------------------------------------
+// Types
+// ------------------------------------------------------------------------------------------------
+
 /// A unique identifier for a transaction
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct TransactionId(pub String);
@@ -62,32 +101,6 @@ pub struct ChainRegistration {
     pub active: bool,
 }
 
-/// Status of a transaction
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum TransactionStatus {
-    /// Transaction is pending execution
-    Pending,
-    /// Transaction has been executed successfully
-    Executed,
-    /// Transaction failed to execute
-    Failed(String),
-    /// Transaction was cancelled
-    Cancelled,
-}
-
-/// Status of a Crosschain Atomic Transaction (CAT)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CATStatus {
-    /// CAT is pending execution
-    Pending,
-    /// CAT has been executed successfully
-    Executed,
-    /// CAT failed to execute
-    Failed(String),
-    /// CAT was cancelled
-    Cancelled,
-}
-
 /// A status update for a transaction from the Hyper IG to the Hyper Scheduler
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransactionStatusUpdate {
@@ -111,6 +124,7 @@ pub struct CAT {
     pub conflicts: Vec<CATId>,
 }
 
+
 impl fmt::Display for TransactionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -133,9 +147,8 @@ impl fmt::Display for CATStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CATStatus::Pending => write!(f, "Pending"),
-            CATStatus::Executed => write!(f, "Executed"),
-            CATStatus::Failed(reason) => write!(f, "Failed: {}", reason),
-            CATStatus::Cancelled => write!(f, "Cancelled"),
+            CATStatus::Success => write!(f, "Success"),
+            CATStatus::Failure => write!(f, "Failure"),
         }
     }
 } 
