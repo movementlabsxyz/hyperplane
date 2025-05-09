@@ -39,11 +39,6 @@ async fn test_cat_status_update_submission() {
     // Wait for block production (2x block interval to be safe)
     tokio::time::sleep(Duration::from_millis(200)).await;
 
-    // Get the current block
-    let current_block = hs_node.confirmation_layer().unwrap().get_current_block()
-        .await
-        .expect("Failed to get current block");
-
     // Get the subblock for our chain in block 0
     let subblock = hs_node.confirmation_layer().unwrap().get_subblock(chain_id.clone(), hyperplane::types::BlockId("0".to_string()))
         .await
@@ -90,7 +85,7 @@ async fn test_multiple_cat_status_update_submissions() {
     // Track which block each transaction was included in
     let mut transaction_blocks = Vec::new();
 
-    for (i, (cat_id, status)) in updates.iter().enumerate() {
+    for (_i, (cat_id, status)) in updates.iter().enumerate() {
         // Send the status update
         hs_node.send_cat_status_update(cat_id.clone(), status.clone())
             .await
