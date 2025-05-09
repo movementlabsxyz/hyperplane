@@ -88,7 +88,7 @@ async fn test_cat_success_proposal() {
     let tx = Transaction {
         id: TransactionId("cat-tx".to_string()),
         chain_id: ChainId("test-chain".to_string()),
-        data: "success".to_string(),
+        data: "successful simulation".to_string(),
     };
     let tx_wrapper = TransactionWrapper {
         transaction: tx.clone(),

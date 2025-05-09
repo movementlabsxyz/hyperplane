@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
-use crate::types::{TransactionId, TransactionStatus, SubBlockTransaction, CATStatusProposal, TransactionStatusUpdate};
+use crate::types::{TransactionId, TransactionStatus, SubBlockTransaction, CATStatusProposal, TransactionStatusUpdate, TransactionWrapper, StatusUpdateTransaction};
 use super::{HyperIG, HyperIGError};
 
 /// A simple node implementation of the HyperIG
@@ -22,60 +22,66 @@ impl HyperIGNode {
             cat_proposed_statuses: HashMap::new(),
         }
     }
+
+    /// Handle a regular transaction (CAT or normal)
+    fn handle_regular_transaction(&mut self, tx_wrapper: TransactionWrapper) -> Result<TransactionStatus, anyhow::Error> {
+        if tx_wrapper.is_cat {
+            // CAT transactions always stay pending
+            self.transaction_statuses.insert(tx_wrapper.transaction.id.clone(), TransactionStatus::Pending);
+            self.pending_transactions.insert(tx_wrapper.transaction.id.clone());
+            
+            // Set proposed status based on data
+            let proposed_status = if tx_wrapper.transaction.data == "successful simulation" {
+                CATStatusProposal::Success
+            } else {
+                CATStatusProposal::Failure
+            };
+            self.cat_proposed_statuses.insert(tx_wrapper.transaction.id.clone(), proposed_status);
+            
+            Ok(TransactionStatus::Pending)
+        } else {
+            // For normal transactions, check if data is dependent
+            // TODO: This is a dummy implementation for testing.
+            if tx_wrapper.transaction.data == "dependent" {
+                self.transaction_statuses.insert(tx_wrapper.transaction.id.clone(), TransactionStatus::Pending);
+                self.pending_transactions.insert(tx_wrapper.transaction.id.clone());
+                Ok(TransactionStatus::Pending)
+            } else {
+                self.transaction_statuses.insert(tx_wrapper.transaction.id.clone(), TransactionStatus::Success);
+                Ok(TransactionStatus::Success)
+            }
+        }
+    }
+
+    /// Handle a status update transaction
+    fn handle_status_update(&mut self, status_update: StatusUpdateTransaction) -> Result<TransactionStatus, anyhow::Error> {
+        let new_status = if status_update.success {
+            TransactionStatus::Success
+        } else {
+            TransactionStatus::Failure
+        };
+        
+        // Update the status
+        self.transaction_statuses.insert(status_update.cat_id.clone(), new_status.clone());
+        
+        // Remove from pending if it was there
+        self.pending_transactions.remove(&status_update.cat_id);
+        
+        // Remove from proposed statuses
+        self.cat_proposed_statuses.remove(&status_update.cat_id);
+        
+        Ok(new_status)
+    }
 }
 
 #[async_trait]
 impl HyperIG for HyperIGNode {
     async fn execute_transaction_wrapper(&mut self, transaction: SubBlockTransaction) -> Result<TransactionStatus, anyhow::Error> {
         match transaction {
-            SubBlockTransaction::Regular(tx_wrapper) => {
-                // For regular transactions, check if it's a CAT
-                if tx_wrapper.is_cat {
-                    // CAT transactions always stay pending
-                    self.transaction_statuses.insert(tx_wrapper.transaction.id.clone(), TransactionStatus::Pending);
-                    self.pending_transactions.insert(tx_wrapper.transaction.id.clone());
-                    
-                    // Set proposed status based on data
-                    let proposed_status = if tx_wrapper.transaction.data == "success" {
-                        CATStatusProposal::Success
-                    } else {
-                        CATStatusProposal::Failure
-                    };
-                    self.cat_proposed_statuses.insert(tx_wrapper.transaction.id.clone(), proposed_status);
-                    
-                    Ok(TransactionStatus::Pending)
-                } else {
-                    // For normal transactions, check if data is dependent
-                    // TODO: This is a dummy implementation for testing.
-                    if tx_wrapper.transaction.data == "dependent" {
-                        self.transaction_statuses.insert(tx_wrapper.transaction.id.clone(), TransactionStatus::Pending);
-                        self.pending_transactions.insert(tx_wrapper.transaction.id.clone());
-                        Ok(TransactionStatus::Pending)
-                    } else {
-                        self.transaction_statuses.insert(tx_wrapper.transaction.id.clone(), TransactionStatus::Success);
-                        Ok(TransactionStatus::Success)
-                    }
-                }
-            }
-            SubBlockTransaction::StatusUpdate(status_update) => {
-                // For status updates, update the CAT's status
-                let new_status = if status_update.success {
-                    TransactionStatus::Success
-                } else {
-                    TransactionStatus::Failure
-                };
-                
-                // Update the status
-                self.transaction_statuses.insert(status_update.cat_id.clone(), new_status.clone());
-                
-                // Remove from pending if it was there
-                self.pending_transactions.remove(&status_update.cat_id);
-                
-                // Remove from proposed statuses
-                self.cat_proposed_statuses.remove(&status_update.cat_id);
-                
-                Ok(new_status)
-            }
+            // TODO: we probably cannot distinguish between regular and status update transactions on the confirmation layer. 
+            // so we need to consider how we handle in the resolver.
+            SubBlockTransaction::Regular(tx_wrapper) => self.handle_regular_transaction(tx_wrapper),
+            SubBlockTransaction::StatusUpdate(status_update) => self.handle_status_update(status_update),
         }
     }
 
