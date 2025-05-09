@@ -1,2 +1,3 @@
 mod confirmation;
-mod hyper_ig; 
+mod hyper_ig;
+mod integration; 

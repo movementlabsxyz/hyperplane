@@ -72,7 +72,6 @@ impl ConfirmationNode {
                 // Get current block
                 let mut block = current_block.write().await;
                 let block_id = block.0.clone();
-                println!("Producing block {}", block_id);
                 
                 // Create subblocks for each chain
                 let mut txs = pending_txs.write().await;
