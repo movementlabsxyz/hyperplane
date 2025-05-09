@@ -19,81 +19,68 @@ While CATs are pending resolution, their state changes (and the state changes of
 
 ## Components
 
-### Hyper Scheduler (HS)
-The coordination layer that manages transaction scheduling and conflict resolution. It maintains the global view of transaction dependencies and ensures consistent ordering.
-
 ### Hyper Information Gateway (HIG)
-Acts as the information gateway for transaction processing, handling the flow of transaction data between components. It manages transaction execution, generates proposals, and ensures proper information routing throughout the system.
+The Hyper IG is responsible for:
+- Executing transactions and managing their status
+- Generating proposals for CAT transactions
+- Resolving CAT transactions based on hyper_scheduler and sequencer views
+- Managing transaction dependencies and state changes
 
-### Resolver
-Resolves transaction acceptance by combining views from both the scheduler and sequencer. It ensures finality and consistency across the network.
+### Hyper Scheduler (HS)
+The coordination layer that:
+- Manages transaction scheduling and conflict resolution
+- Maintains the global view of transaction dependencies
+- Ensures consistent ordering of transactions
+- Coordinates CAT resolution across chains
 
 ### Confirmation Layer (CL)
-Provides transaction finality through either centralized or BFT (Byzantine Fault Tolerant) confirmation mechanisms. This layer ensures that transactions are permanently recorded and cannot be reversed.
+Provides transaction finality through:
+- Centralized confirmation mechanism
+- BFT (Byzantine Fault Tolerant) confirmation mechanism (planned)
+- Ensures transactions are permanently recorded and cannot be reversed
+- Manages chain registration and block production
 
 ### Network
-Handles communication between nodes using either mock implementations for testing or real libp2p/gRPC for production deployments.
+Handles communication between nodes using:
+- Mock implementations for testing
+- libp2p backend (planned)
+- gRPC implementation (optional)
 
 ## Project Structure
 ```
 hyperplane/
-├── Cargo.toml
-├── hyper_scheduler/         # coordination logic for Crosschain Atomic Transactions
-│   └── lib.rs
-├── hyper_ig/               # information gateway for tx processing
-│   └── lib.rs
-├── resolver/               # resolves tx acceptance from hyper_scheduler + sequencer view
-│   └── lib.rs
-├── confirmation/           # simulates centralized or BFT confirmation layer
-│   └── lib.rs
-├── network/                # mock or real libp2p/gRPC transport traits
-│   └── mod.rs
-├── types/                  # shared types: transactions, Crosschain Atomic Transactions, statuses, etc.
-│   └── mod.rs
-└── bin/
-    ├── node.rs             # runs a node with confirmation + net
-    ├── hyper_scheduler.rs  # runs standalone hyper scheduler
-    └── simulator.rs        # simulates multi-node exec+resolve flow
+├── src/
+│   ├── types/           # Core type definitions
+│   ├── hyper_ig/        # Hyper Information Gateway
+│   ├── hyper_scheduler/ # Hyper Scheduler
+│   ├── confirmation/    # Confirmation Layer
+│   └── network/         # Network communication
+├── tests/               # Integration tests
+├── examples/            # Example usage
+└── documentation/       # Project documentation
 ```
 
-## Testing
+## Development Status
 
-### Running Tests
+The project is currently in active development. See [PLAN.md](PLAN.md) for the implementation roadmap and [RULES.md](RULES.md) for development guidelines.
 
-To run all tests:
-```bash
-cargo test
-```
+### Current Features
+- Basic type definitions and core data structures
+- Hyper IG implementation with transaction execution and status management
+- Confirmation layer with centralized confirmation mechanism
+- Basic integration tests for core components
 
-To run integration tests:
-```bash
-cargo test --test integration_test
-```
+### Planned Features
+- BFT confirmation engine
+- libp2p network backend
+- Metrics and observability
+- Performance profiling
+- Production deployment setup
 
-To run a specific integration test:
-```bash
-cargo test --test integration_test test_confirmation_node_basic
-```
+## Contributing
 
-To run tests with debug output:
-```bash
-cargo test -- --nocapture --test-threads=1
-```
-
-### Test Structure
-
-- Unit tests are located in each module's `#[cfg(test)]` section
-- Integration tests are in `tests/integration_test.rs`
-- As we develop new components, we add corresponding integration tests
-
-## Getting Started
-
-[Coming soon]
-
-## Development
-
-[Coming soon]
+Please read [RULES.md](RULES.md) for development guidelines and contribution rules.
 
 ## License
 
-[Coming soon]
+This project is licensed under the MIT License - see the LICENSE file for details.

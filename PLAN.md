@@ -6,11 +6,11 @@
 - [x] Main `lib.rs` with module declarations
 
 ## Integration Testing
-- [x] Basic integration test setup
-- [x] Confirmation node integration tests
-- [ ] Execution node integration tests
-- [ ] Hyper Scheduler integration tests
-- [ ] Hyper IG integration tests
+(note: integration tests check two or more components working together)
+- [ ] Basic integration test setup
+- [ ] Confirmation node + Hyper IG integration tests
+- [ ] Hyper IG + Hyper Scheduler integration tests
+- [ ] Hyper Scheduler + confirmation node integration tests
 - [ ] End-to-end protocol tests
 
 ## Core Modules
@@ -21,8 +21,20 @@
   - [x] `Transaction`
   - [x] `TransactionStatus`
   - [x] `CAT`
+  - [x] `SubBlockTransaction`
+  - [x] `TransactionWrapper`
+  - [x] `ChainId`
+  - [x] `CATId`
+  - [x] `BlockId`
+  - [x] `StatusUpdateTransaction`
+  - [x] `CATStatus`
+  - [x] `CATStatusProposal`
+  - [x] `SubBlock`
+  - [x] `ChainRegistration`
+  - [x] `TransactionStatusUpdate`
+  - [x] `CATStatusUpdate`
 - [ ] Additional required types:
-  - [ ] `NodeId`, `PeerId`, `ChainId`
+  - [ ] `NodeId`, `PeerId`
   - [ ] Network message types
   - [ ] `ExecutionProposal`, `CrosschainAtomicTransactionStatus`, `CrosschainAtomicTransactionId`
   - [ ] State model types (e.g. `LedgerState`, `ChangeSet`)
@@ -36,9 +48,9 @@
 
 ### Hyper-IG Module (`src/hyper_ig/mod.rs`)
 - [x] Basic trait definition
-- [ ] Execution logic
 - [ ] Transaction simulation
 - [ ] Proposal generation
+- [ ] Execution logic after transactions received success status
 - [ ] Tests
 - [ ] Documentation
 

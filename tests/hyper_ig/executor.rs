@@ -1,6 +1,6 @@
 use hyperplane::{
-    types::{ChainId, Transaction, TransactionId, TransactionWrapper, TransactionStatus, CATStatusProposal, SubBlockTransaction, StatusUpdateTransaction},
-    hyper_ig::executor::{HyperIGNode, HyperIG},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate, TransactionStatusUpdate},
+    hyper_ig::{HyperIG, HyperIGNode},
 };
 
 /// Tests normal transaction success path in HyperIG:
@@ -14,15 +14,11 @@ async fn test_normal_transaction_success() {
     // Create a normal transaction with non-dependent data
     let tx = Transaction {
         id: TransactionId("normal-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
         data: "any data".to_string(),
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: false,
-    }))
+    let status = hig.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     
@@ -47,15 +43,11 @@ async fn test_normal_transaction_pending() {
     // Create a normal transaction with dependent data
     let tx = Transaction {
         id: TransactionId("normal-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "dependent".to_string(),
+        data: "DEPENDENT".to_string(),
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: false,
-    }))
+    let status = hig.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     
@@ -87,16 +79,11 @@ async fn test_cat_success_proposal() {
     // Create a CAT transaction with success data
     let tx = Transaction {
         id: TransactionId("cat-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "successful simulation".to_string(),
-    };
-    let tx_wrapper = TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: true,
+        data: "CAT.SIMULATION.SUCCESS".to_string(),
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(tx_wrapper))
+    let status = hig.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     
@@ -119,7 +106,7 @@ async fn test_cat_success_proposal() {
     let proposed_status = hig.get_proposed_status(tx.id.clone())
         .await
         .expect("Failed to get proposed status");
-    assert!(matches!(proposed_status, CATStatusProposal::Success));
+    assert!(matches!(proposed_status, CATStatusUpdate::Success));
 }
 
 /// Tests CAT transaction failure-proposal path in HyperIG:
@@ -134,16 +121,11 @@ async fn test_cat_failure_proposal() {
     // Create a CAT transaction with non-success data
     let tx = Transaction {
         id: TransactionId("cat-tx".to_string()),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "failure".to_string(),
-    };
-    let tx_wrapper = TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: true,
+        data: "CAT.SIMULATION.FAILURE".to_string(),
     };
     
     // Execute the transaction
-    let status = hig.execute_transaction_wrapper(SubBlockTransaction::Regular(tx_wrapper))
+    let status = hig.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     
@@ -166,7 +148,7 @@ async fn test_cat_failure_proposal() {
     let proposed_status = hig.get_proposed_status(tx.id.clone())
         .await
         .expect("Failed to get proposed status");
-    assert!(matches!(proposed_status, CATStatusProposal::Failure));
+    assert!(matches!(proposed_status, CATStatusUpdate::Failure));
 }
 
 /// Tests status update success path in HyperIG:
@@ -182,15 +164,11 @@ async fn test_status_update_success() {
     let cat_id = TransactionId("cat-tx".to_string());
     let tx = Transaction {
         id: cat_id.clone(),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "any data".to_string(),
+        data: "CAT.SIMULATION.SUCCESS".to_string(),
     };
     
     // Execute the CAT transaction
-    hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
-        transaction: tx,
-        is_cat: true,
-    }))
+    hig.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute CAT transaction");
     
@@ -201,21 +179,17 @@ async fn test_status_update_success() {
     assert!(matches!(status, TransactionStatus::Pending));
     
     // Submit a success status update
-    let status_update = StatusUpdateTransaction {
-        cat_id: cat_id.clone(),
-        success: true,
-        chain_id: ChainId("test-chain".to_string()),
+    let status_update = TransactionStatusUpdate {
+        transaction_id: cat_id.clone(),
+        status: TransactionStatus::Success,
     };
     
-    // Execute the status update
-    let new_status = hig.execute_transaction_wrapper(SubBlockTransaction::StatusUpdate(status_update))
+    // Submit the status update
+    hig.submit_cat_status_proposal(status_update)
         .await
-        .expect("Failed to execute status update");
+        .expect("Failed to submit status update");
     
-    // Verify the status was updated to Success
-    assert!(matches!(new_status, TransactionStatus::Success));
-    
-    // Verify we can retrieve the new status
+    // Verify the CAT transaction status was updated to Success
     let retrieved_status = hig.get_transaction_status(cat_id.clone())
         .await
         .expect("Failed to get transaction status");
@@ -241,15 +215,11 @@ async fn test_status_update_failure() {
     let cat_id = TransactionId("cat-tx".to_string());
     let tx = Transaction {
         id: cat_id.clone(),
-        chain_id: ChainId("test-chain".to_string()),
-        data: "any data".to_string(),
+        data: "CAT.SIMULATION.FAILURE".to_string(),
     };
     
     // Execute the CAT transaction
-    hig.execute_transaction_wrapper(SubBlockTransaction::Regular(TransactionWrapper {
-        transaction: tx,
-        is_cat: true,
-    }))
+    hig.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute CAT transaction");
     
@@ -260,21 +230,17 @@ async fn test_status_update_failure() {
     assert!(matches!(status, TransactionStatus::Pending));
     
     // Submit a failure status update
-    let status_update = StatusUpdateTransaction {
-        cat_id: cat_id.clone(),
-        success: false,
-        chain_id: ChainId("test-chain".to_string()),
+    let status_update = TransactionStatusUpdate {
+        transaction_id: cat_id.clone(),
+        status: TransactionStatus::Failure,
     };
     
-    // Execute the status update
-    let new_status = hig.execute_transaction_wrapper(SubBlockTransaction::StatusUpdate(status_update))
+    // Submit the status update
+    hig.submit_cat_status_proposal(status_update)
         .await
-        .expect("Failed to execute status update");
+        .expect("Failed to submit status update");
     
-    // Verify the status was updated to Failure
-    assert!(matches!(new_status, TransactionStatus::Failure));
-    
-    // Verify we can retrieve the new status
+    // Verify the CAT transaction status was updated to Failure
     let retrieved_status = hig.get_transaction_status(cat_id.clone())
         .await
         .expect("Failed to get transaction status");

@@ -1,6 +1,6 @@
 use hyperplane::{
-    confirmation::{ConfirmationLayer, ConfirmationNode},
-    types::{BlockId, ChainId, Transaction, TransactionId, TransactionWrapper, SubBlockTransaction},
+    confirmation::{ConfirmationLayer, ConfirmationNode, ConfirmationLayerError},
+    types::{BlockId, ChainId, TransactionId, CLTransaction},
 };
 use std::time::Duration;
 
@@ -19,7 +19,7 @@ async fn test_basic() {
     assert_eq!(block_interval, Duration::from_secs(1));
 
     let current_block = node.get_current_block().await.expect("Failed to get current block");
-    assert_eq!(current_block, BlockId(0));
+    assert_eq!(current_block, BlockId("0".to_string()));
 
     // Register a chain
     let chain_id = ChainId("test-chain".to_string());
@@ -35,16 +35,12 @@ async fn test_basic() {
     assert!(chains[0].active);
 
     // Test subblock retrieval
-    let subblock = node.get_subblock(chain_id.clone(), BlockId(0))
+    let subblock = node.get_subblock(chain_id.clone(), BlockId("0".to_string()))
         .await
         .expect("Failed to get subblock");
-    assert_eq!(subblock.block_id, BlockId(0));
+    assert_eq!(subblock.block_id, BlockId("0".to_string()));
     assert_eq!(subblock.chain_id, chain_id);
     assert!(subblock.transactions.is_empty());
-
-    // Test duplicate registration
-    let result = node.register_chain(chain_id.clone()).await;
-    assert!(result.is_err());
 }
 
 /// Tests block interval configuration:
@@ -72,7 +68,6 @@ async fn test_block_interval() {
 /// - Transaction submission
 /// - Block production
 /// - Transaction inclusion in subblocks
-/// - Non-CAT transaction verification
 #[tokio::test]
 async fn test_normal_transactions() {
     // Create a new confirmation node with a short block interval
@@ -85,19 +80,15 @@ async fn test_normal_transactions() {
         .await
         .expect("Failed to register chain");
 
-    // Create a normal transaction (not a CAT)
-    let tx = Transaction {
+    // Create a normal transaction
+    let tx = CLTransaction {
         id: TransactionId("test-tx".to_string()),
         chain_id: chain_id.clone(),
         data: "test data".to_string(),
     };
-    let tx_wrapper = TransactionWrapper {
-        transaction: tx.clone(),
-        is_cat: false,
-    };
 
     // Submit the transaction
-    node.submit_transaction(tx_wrapper)
+    node.submit_subblock_transaction(tx.clone())
         .await
         .expect("Failed to submit transaction");
 
@@ -106,101 +97,130 @@ async fn test_normal_transactions() {
 
     // Check that 5 blocks have been produced
     let current_block = node.get_current_block().await.expect("Failed to get current block");
-    assert_eq!(current_block, BlockId(5));
+    assert_eq!(current_block, BlockId("5".to_string()));
 
     // Get the subblock for block 0 where the transaction was included
-    let subblock = node.get_subblock(chain_id.clone(), BlockId(0))
+    let subblock = node.get_subblock(chain_id.clone(), BlockId("0".to_string()))
         .await
         .expect("Failed to get subblock");
     println!("Subblock transactions: {:?}", subblock.transactions);
 
-    // Verify the transaction was included and is not a CAT
+    // Verify the transaction was included
     assert_eq!(subblock.transactions.len(), 1);
-    match &subblock.transactions[0] {
-        SubBlockTransaction::Regular(tx_wrapper) => {
-            assert_eq!(tx_wrapper.transaction.id, tx.id);
-            assert!(!tx_wrapper.is_cat);
-        }
-        SubBlockTransaction::StatusUpdate(_) => panic!("Expected Regular transaction"),
-    }
+    assert_eq!(subblock.transactions[0].data, "test data");
 }
 
-/// Tests CAT transaction handling in confirmation node:
-/// - Multiple chain registration
-/// - CAT transaction submission to multiple chains
-/// - CAT transaction inclusion in all relevant subblocks
-/// - CAT flag verification
 #[tokio::test]
-async fn test_cat_transactions() {
+async fn test_register_chain() {
+    let mut node = ConfirmationNode::new();
+    
+    // Register a chain
+    let chain_id = ChainId("test_chain".to_string());
+    let result = node.register_chain(chain_id.clone()).await;
+    assert!(result.is_ok());
+    
+    // Verify chain is registered
+    let chains = node.get_registered_chains().await.unwrap();
+    assert_eq!(chains.len(), 1);
+    assert_eq!(chains[0].chain_id, chain_id);
+}
+
+#[tokio::test]
+async fn test_get_current_block() {
+    let node = ConfirmationNode::new();
+    
+    // Get current block
+    let block = node.get_current_block().await.unwrap();
+    assert_eq!(block, BlockId("0".to_string()));
+}
+
+#[tokio::test]
+async fn test_get_subblock() {
+    let mut node = ConfirmationNode::new();
+    
+    // Register a chain
+    let chain_id = ChainId("test_chain".to_string());
+    node.register_chain(chain_id.clone()).await.unwrap();
+    
+    // Get subblock for non-existent block
+    let block_id = BlockId("999".to_string());
+    let subblock = node.get_subblock(chain_id.clone(), block_id.clone()).await.unwrap();
+    assert_eq!(subblock.block_id, block_id);
+    assert_eq!(subblock.chain_id, chain_id);
+    assert!(subblock.transactions.is_empty());
+}
+
+#[tokio::test]
+async fn test_submit_transaction() {
     // Create a new confirmation node with a short block interval
     let mut node = ConfirmationNode::with_block_interval(Duration::from_millis(100))
         .expect("Failed to create node");
-
-    // Register two chains
-    let chain1 = ChainId("chain-1".to_string());
-    let chain2 = ChainId("chain-2".to_string());
-    node.register_chain(chain1.clone())
-        .await
-        .expect("Failed to register chain 1");
-    node.register_chain(chain2.clone())
-        .await
-        .expect("Failed to register chain 2");
-
-    // Create CAT transactions for both chains
-    let cat_id = TransactionId("cat-tx".to_string());
-    let tx1 = Transaction {
-        id: cat_id.clone(),
-        chain_id: chain1.clone(),
-        data: "cat data for chain 1".to_string(),
+    
+    // Register a chain
+    let chain_id = ChainId("test_chain".to_string());
+    node.register_chain(chain_id.clone()).await.unwrap();
+    
+    // Submit a transaction
+    let transaction = CLTransaction {
+        id: TransactionId("test-tx".to_string()),
+        chain_id: chain_id.clone(),
+        data: "test_data".to_string(),
     };
-    let tx2 = Transaction {
-        id: cat_id.clone(),
-        chain_id: chain2.clone(),
-        data: "cat data for chain 2".to_string(),
-    };
-
-    // Create wrappers for both transactions
-    let tx_wrapper1 = TransactionWrapper {
-        transaction: tx1.clone(),
-        is_cat: true,
-    };
-    let tx_wrapper2 = TransactionWrapper {
-        transaction: tx2.clone(),
-        is_cat: true,
-    };
-
-    // Submit both transactions
-    node.submit_transaction(tx_wrapper1)
-        .await
-        .expect("Failed to submit CAT to chain 1");
-    node.submit_transaction(tx_wrapper2)
-        .await
-        .expect("Failed to submit CAT to chain 2");
-
-    // Wait for a block to be produced
+    let result = node.submit_subblock_transaction(transaction).await;
+    assert!(result.is_ok());
+    
+    // Wait for block production (500ms should be enough for 5 blocks)
     tokio::time::sleep(Duration::from_millis(500)).await;
+    
+    // Get subblock and verify transaction
+    let subblock = node.get_subblock(chain_id, BlockId("0".to_string())).await.unwrap();
+    assert_eq!(subblock.transactions.len(), 1);
+    assert_eq!(subblock.transactions[0].data, "test_data");
+}
 
-    // Get the subblocks for block 0
-    let subblock1 = node.get_subblock(chain1.clone(), BlockId(0))
-        .await
-        .expect("Failed to get subblock for chain 1");
-    let subblock2 = node.get_subblock(chain2.clone(), BlockId(0))
-        .await
-        .expect("Failed to get subblock for chain 2");
+#[tokio::test]
+async fn test_set_block_interval() {
+    let mut node = ConfirmationNode::new();
+    
+    // Set block interval
+    let interval = Duration::from_secs(2);
+    let result = node.set_block_interval(interval).await;
+    assert!(result.is_ok());
+    
+    // Verify block interval
+    let current_interval = node.get_block_interval().await.unwrap();
+    assert_eq!(current_interval, interval);
+}
 
-    println!("Chain 1 subblock transactions: {:?}", subblock1.transactions);
-    println!("Chain 2 subblock transactions: {:?}", subblock2.transactions);
+#[tokio::test]
+async fn test_invalid_block_interval() {
+    let mut node = ConfirmationNode::new();
+    
+    // Try to set zero interval
+    let result = node.set_block_interval(Duration::from_secs(0)).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::InvalidBlockInterval(_))));
+}
 
-    // Verify both chains received the CAT
-    assert_eq!(subblock1.transactions.len(), 1);
-    assert_eq!(subblock2.transactions.len(), 1);
-    match (&subblock1.transactions[0], &subblock2.transactions[0]) {
-        (SubBlockTransaction::Regular(tx1), SubBlockTransaction::Regular(tx2)) => {
-            assert_eq!(tx1.transaction.id, cat_id);
-            assert_eq!(tx2.transaction.id, cat_id);
-            assert!(tx1.is_cat);
-            assert!(tx2.is_cat);
-        }
-        _ => panic!("Expected Regular transactions"),
-    }
+#[tokio::test]
+async fn test_chain_not_found() {
+    let node = ConfirmationNode::new();
+    
+    // Try to get subblock for non-existent chain
+    let chain_id = ChainId("non_existent".to_string());
+    let block_id = BlockId("0".to_string());
+    let result = node.get_subblock(chain_id, block_id).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))));
+}
+
+#[tokio::test]
+async fn test_chain_already_registered() {
+    let mut node = ConfirmationNode::new();
+    
+    // Register a chain
+    let chain_id = ChainId("test_chain".to_string());
+    node.register_chain(chain_id.clone()).await.unwrap();
+    
+    // Try to register the same chain again
+    let result = node.register_chain(chain_id).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::ChainAlreadyRegistered(_))));
 } 

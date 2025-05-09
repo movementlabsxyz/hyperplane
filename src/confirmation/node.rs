@@ -3,8 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{Duration, interval};
 use crate::types::{
-    BlockId, ChainId, ChainRegistration, SubBlock, TransactionWrapper,
-    SubBlockTransaction,
+    BlockId, ChainId, ChainRegistration, SubBlock, CLTransaction, Transaction,
 };
 use super::{ConfirmationLayer, ConfirmationLayerError};
 
@@ -17,7 +16,7 @@ pub struct ConfirmationNode {
     /// Block interval
     block_interval: Arc<RwLock<Duration>>,
     /// Pending transactions for each chain
-    pending_txs: Arc<RwLock<HashMap<ChainId, Vec<TransactionWrapper>>>>,
+    pending_txs: Arc<RwLock<HashMap<ChainId, Vec<CLTransaction>>>>,
     /// Stored subblocks by chain and block ID
     subblocks: Arc<RwLock<HashMap<(ChainId, BlockId), SubBlock>>>,
 }
@@ -27,7 +26,7 @@ impl ConfirmationNode {
     pub fn new() -> Self {
         let node = Self {
             chains: Arc::new(RwLock::new(HashMap::new())),
-            current_block: Arc::new(RwLock::new(BlockId(0))),
+            current_block: Arc::new(RwLock::new(BlockId("0".to_string()))),
             block_interval: Arc::new(RwLock::new(Duration::from_secs(1))),
             pending_txs: Arc::new(RwLock::new(HashMap::new())),
             subblocks: Arc::new(RwLock::new(HashMap::new())),
@@ -45,7 +44,7 @@ impl ConfirmationNode {
         }
         let node = Self {
             chains: Arc::new(RwLock::new(HashMap::new())),
-            current_block: Arc::new(RwLock::new(BlockId(0))),
+            current_block: Arc::new(RwLock::new(BlockId("0".to_string()))),
             block_interval: Arc::new(RwLock::new(interval)),
             pending_txs: Arc::new(RwLock::new(HashMap::new())),
             subblocks: Arc::new(RwLock::new(HashMap::new())),
@@ -72,7 +71,7 @@ impl ConfirmationNode {
                 
                 // Get current block
                 let mut block = current_block.write().await;
-                let block_id = block.0;
+                let block_id = block.0.clone();
                 println!("Producing block {}", block_id);
                 
                 // Create subblocks for each chain
@@ -87,19 +86,22 @@ impl ConfirmationNode {
                                 println!("Creating subblock for chain {} with {} transactions", chain_id.0, chain_txs.len());
                                 // Create a subblock for this chain
                                 let subblock = SubBlock {
-                                    block_id: BlockId(block_id),
+                                    block_id: BlockId(block_id.clone()),
                                     chain_id: chain_id.clone(),
-                                    transactions: chain_txs.drain(..).map(SubBlockTransaction::Regular).collect(),
+                                    transactions: chain_txs.drain(..).map(|tx| Transaction {
+                                        id: tx.id,
+                                        data: tx.data,
+                                    }).collect(),
                                 };
                                 // Store the subblock
-                                subblocks.write().await.insert((chain_id.clone(), BlockId(block_id)), subblock);
+                                subblocks.write().await.insert((chain_id.clone(), BlockId(block_id.clone())), subblock);
                             }
                         }
                     }
                 }
                 
                 // Increment block ID
-                block.0 += 1;
+                block.0 = (block.0.parse::<u64>().unwrap() + 1).to_string();
             }
         });
     }
@@ -119,14 +121,14 @@ impl ConfirmationLayer for ConfirmationNode {
         let current_block = self.current_block.read().await.clone();
         
         // Register the chain
-        chains.insert(
-            chain_id.clone(),
-            ChainRegistration {
-                chain_id: chain_id.clone(),
-                registration_block: current_block.clone(),
-                active: true,
-            },
-        );
+        let registration = ChainRegistration {
+            chain_id: chain_id.clone(),
+            name: format!("Chain {}", chain_id),
+            rpc_url: format!("http://localhost:8000"),
+            registration_block: current_block.clone(),
+            active: true,
+        };
+        chains.insert(chain_id.clone(), registration);
 
         // Initialize empty transaction queue for this chain
         self.pending_txs.write().await.insert(chain_id, Vec::new());
@@ -177,20 +179,20 @@ impl ConfirmationLayer for ConfirmationNode {
         Ok(*self.block_interval.read().await)
     }
 
-    async fn submit_transaction(&mut self, transaction: TransactionWrapper) -> Result<(), ConfirmationLayerError> {
+    async fn submit_subblock_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
         let chains = self.chains.read().await;
         
         // Check if chain exists and is active
-        let registration = chains.get(&transaction.transaction.chain_id)
-            .ok_or_else(|| ConfirmationLayerError::ChainNotFound(transaction.transaction.chain_id.clone()))?;
+        let registration = chains.get(&transaction.chain_id)
+            .ok_or_else(|| ConfirmationLayerError::ChainNotFound(transaction.chain_id.clone()))?;
         
         if !registration.active {
-            return Err(ConfirmationLayerError::ChainNotFound(transaction.transaction.chain_id));
+            return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
         }
 
         // Add transaction to pending queue
         let mut pending_txs = self.pending_txs.write().await;
-        if let Some(chain_txs) = pending_txs.get_mut(&transaction.transaction.chain_id) {
+        if let Some(chain_txs) = pending_txs.get_mut(&transaction.chain_id) {
             chain_txs.push(transaction);
             Ok(())
         } else {
