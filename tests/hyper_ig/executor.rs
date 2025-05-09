@@ -185,7 +185,7 @@ async fn test_status_update_success() {
     };
     
     // Submit the status update
-    hig.submit_cat_status_proposal(status_update)
+    hig.send_cat_status_proposal(status_update)
         .await
         .expect("Failed to submit status update");
     
@@ -236,7 +236,7 @@ async fn test_status_update_failure() {
     };
     
     // Submit the status update
-    hig.submit_cat_status_proposal(status_update)
+    hig.send_cat_status_proposal(status_update)
         .await
         .expect("Failed to submit status update");
     

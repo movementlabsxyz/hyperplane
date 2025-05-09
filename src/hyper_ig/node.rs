@@ -106,7 +106,7 @@ impl HyperIG for HyperIGNode {
         Ok(self.pending_transactions.iter().cloned().collect())
     }
 
-    async fn submit_cat_status_proposal(&mut self, update: TransactionStatusUpdate) -> Result<(), HyperIGError> {
+    async fn send_cat_status_proposal(&mut self, update: TransactionStatusUpdate) -> Result<(), HyperIGError> {
         // For now, just update the status directly
         self.transaction_statuses.insert(update.transaction_id.clone(), update.status.clone());
         self.pending_transactions.remove(&update.transaction_id);

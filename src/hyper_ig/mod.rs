@@ -29,7 +29,7 @@ pub trait HyperIG: Send + Sync {
     async fn get_pending_transactions(&self) -> Result<Vec<TransactionId>, anyhow::Error>;
 
     /// Submit a cat status proposal to the Hyper Scheduler
-    async fn submit_cat_status_proposal(&mut self, update: TransactionStatusUpdate) -> Result<(), HyperIGError>;
+    async fn send_cat_status_proposal(&mut self, update: TransactionStatusUpdate) -> Result<(), HyperIGError>;
 
     /// Resolve the status of a CAT transaction based on hyper_scheduler and sequencer views
     async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError>;
