@@ -33,12 +33,17 @@ impl HyperIGNode {
     }
 
     /// Get a reference to the hyper scheduler
+    /// TODO: this is a dummy implementation for testing. Later we should have a communication channel between HIG and HS
     pub fn hyper_scheduler(&self) -> Option<&Box<dyn HyperScheduler>> {
         self.hyper_scheduler.as_ref()
     }
 
     /// Process a subblock
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
+        println!("[HIG] Processing subblock: block_id={}, chain_id={}, tx_count={}", subblock.block_id.0, subblock.chain_id.0, subblock.transactions.len());
+        for tx in &subblock.transactions {
+            println!("[HIG] Executing transaction: id={}, data={}", tx.id.0, tx.data);
+        }
         for tx in subblock.transactions {
             self.execute_transaction(tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
         }
@@ -78,24 +83,37 @@ impl HyperIGNode {
 
     /// Handle a status update transaction
     fn handle_status_update(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        // if data == "STATUS_UPDATE.SUCCESS" or "STATUS_UPDATE.FAILURE"
-        let new_status = match transaction.data.as_str() {
-            "STATUS_UPDATE.SUCCESS" => TransactionStatus::Success,
-            "STATUS_UPDATE.FAILURE" => TransactionStatus::Failure,
-            _ => return Err(anyhow::anyhow!("Invalid status update")),
+        println!("[HIG] Handling status update: id={}, data={}", transaction.id.0, transaction.data);
+        // if data starts with "STATUS_UPDATE.SUCCESS" or "STATUS_UPDATE.FAILURE"
+        let new_status = if transaction.data.starts_with("STATUS_UPDATE.SUCCESS") {
+            TransactionStatus::Success
+        } else if transaction.data.starts_with("STATUS_UPDATE.FAILURE") {
+            TransactionStatus::Failure
+        } else {
+            println!("[HIG] Invalid status update data: {}", transaction.data);
+            return Err(anyhow::anyhow!("Invalid status update"));
         };
         
-        // Update the status
-        self.transaction_statuses.insert(transaction.id.clone(), new_status.clone());
+        // Extract the original CAT ID from the data
+        let cat_id = if let Some(cat_id) = transaction.data.split("CAT_ID:").nth(1) {
+            TransactionId(cat_id.to_string())
+        } else {
+            println!("[HIG] Could not extract CAT ID from status update data: {}", transaction.data);
+            return Err(anyhow::anyhow!("Invalid status update data format"));
+        };
+        
+        // Update the status for the original CAT transaction
+        println!("[HIG] Setting transaction {} status to {:?}", cat_id.0, new_status);
+        self.transaction_statuses.insert(cat_id.clone(), new_status.clone());
         
         // Remove from pending if it was there
-        self.pending_transactions.remove(&transaction.id);
+        self.pending_transactions.remove(&cat_id);
         
         // Remove from proposed statuses
-        self.cat_proposed_statuses.remove(&transaction.id);
+        self.cat_proposed_statuses.remove(&cat_id);
         
-        // Return Pending to match test expectations
-        Ok(TransactionStatus::Pending)
+        // Return the new status
+        Ok(new_status)
     }
 }
 

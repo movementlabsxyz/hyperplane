@@ -13,6 +13,16 @@ pub struct HyperSchedulerNode {
     chain_ids: HashSet<ChainId>,
 }
 
+impl Clone for HyperSchedulerNode {
+    fn clone(&self) -> Self {
+        Self {
+            cat_statuses: self.cat_statuses.clone(),
+            confirmation_layer: None,
+            chain_ids: self.chain_ids.clone(),
+        }
+    }
+}
+
 impl HyperSchedulerNode {
     /// Create a new HyperSchedulerNode
     pub fn new() -> Self {
@@ -67,12 +77,14 @@ impl HyperScheduler for HyperSchedulerNode {
     }
 
     async fn send_cat_status_update(&mut self, cat_id: CATId, status: CATStatusUpdate) -> Result<(), HyperSchedulerError> {
+        println!("[HS] send_cat_status_update called for CAT {} with status {:?}", cat_id.0, status);
         // Update the CAT status
         self.cat_statuses.insert(cat_id.clone(), status.clone());
 
         // Submit a CLtransaction to the confirmation layer if available
         if let Some(cl) = &mut self.confirmation_layer {
             if self.chain_ids.is_empty() {
+                println!("[HS] No chain IDs set, cannot send status update");
                 return Err(HyperSchedulerError::Internal("No chain IDs set".to_string()));
             }
 
@@ -84,15 +96,17 @@ impl HyperScheduler for HyperSchedulerNode {
             // Send the status update to all registered chains
             for chain_id in &self.chain_ids {
                 let tx = CLTransaction {
-                    id: TransactionId(cat_id.0.clone()),
+                    id: TransactionId(cat_id.0.clone()+".UPDATE"),
                     data: status_str.clone(),
                     chain_id: chain_id.clone(),
                 };
-
-                cl.submit_subblock_transaction(tx)
+                println!("[HS] Submitting status update transaction to CL: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
+                cl.submit_transaction(tx)
                     .await
                     .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
             }
+        } else {
+            println!("[HS] No confirmation layer set, cannot send status update");
         }
 
         Ok(())

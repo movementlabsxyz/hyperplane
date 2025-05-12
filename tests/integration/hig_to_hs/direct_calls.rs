@@ -11,23 +11,23 @@ use hyperplane::{
 #[tokio::test]
 async fn test_single_cat_status_storage() {
     // Create a Hyper IG node and Hyper Scheduler node
-    let mut hig_node = HyperIGNode::new();
-    let hs_node = HyperSchedulerNode::new();
+    let mut hig = HyperIGNode::new();
+    let hs: HyperSchedulerNode = HyperSchedulerNode::new();
 
     // Set the hyper scheduler in the Hyper IG node
-    hig_node.set_hyper_scheduler(Box::new(hs_node));
+    hig.set_hyper_scheduler(Box::new(hs));
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
     let status = CATStatusUpdate::Success;
 
     // Propose the status update
-    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
+    hig.send_cat_status_proposal(cat_id.clone(), status.clone())
         .await
         .expect("Failed to propose CAT status update");
 
     // Get the proposed status from the Hyper IG node
-    let proposed_status = hig_node.get_proposed_status(TransactionId(cat_id.0.clone()))
+    let proposed_status = hig.get_proposed_status(TransactionId(cat_id.0.clone()))
         .await
         .expect("Failed to get proposed status");
 
@@ -42,11 +42,11 @@ async fn test_single_cat_status_storage() {
 #[tokio::test]
 async fn test_multiple_cat_status_storage() {
     // Create a Hyper IG node and Hyper Scheduler node
-    let mut hig_node = HyperIGNode::new();
-    let hs_node = HyperSchedulerNode::new();
+    let mut hig = HyperIGNode::new();
+    let hs = HyperSchedulerNode::new();
 
     // Set the hyper scheduler in the Hyper IG node
-    hig_node.set_hyper_scheduler(Box::new(hs_node));
+    hig.set_hyper_scheduler(Box::new(hs));
 
     // Create multiple CAT IDs and status updates
     let updates = vec![
@@ -57,12 +57,12 @@ async fn test_multiple_cat_status_storage() {
 
     // Propose each status update
     for (cat_id, status) in updates.clone() {
-        hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
+        hig.send_cat_status_proposal(cat_id.clone(), status.clone())
             .await
             .expect("Failed to propose CAT status update");
 
         // Get the proposed status from the Hyper IG node
-        let proposed_status = hig_node.get_proposed_status(TransactionId(cat_id.0.clone()))
+        let proposed_status = hig.get_proposed_status(TransactionId(cat_id.0.clone()))
             .await
             .expect("Failed to get proposed status");
 
@@ -71,12 +71,12 @@ async fn test_multiple_cat_status_storage() {
     }
 }
 
-/// Tests that a status update is properly sent and processed:
+/// Tests that a status proposal is properly sent and processed:
 /// - HIG proposes a Success status update
-/// - HS stores the status update
-/// - Verify the status is correctly stored in HS
+/// - HS stores the status proposal
+/// - Verify the status proposal is correctly stored in HS
 #[tokio::test]
-async fn test_status_update_success() {
+async fn test_status_proposal_success() {
     let mut hig = HyperIGNode::new();
     let hs = HyperSchedulerNode::new();
     hig.set_hyper_scheduler(Box::new(hs));
@@ -100,12 +100,12 @@ async fn test_status_update_success() {
     assert_eq!(status, CATStatusUpdate::Success);
 }
 
-/// Tests that a status update is properly sent and processed:
+/// Tests that a status proposal is properly sent and processed:
 /// - HIG proposes a Failure status update
-/// - HS stores the status update
-/// - Verify the status is correctly stored in HS
+/// - HS stores the status proposal
+/// - Verify the status proposal is correctly stored in HS
 #[tokio::test]
-async fn test_status_update_failure() {
+async fn test_status_proposal_failure() {
     let mut hig = HyperIGNode::new();
     let hs = HyperSchedulerNode::new();
     hig.set_hyper_scheduler(Box::new(hs));

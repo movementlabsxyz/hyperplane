@@ -21,6 +21,18 @@ pub struct ConfirmationNode {
     subblocks: Arc<RwLock<HashMap<(ChainId, BlockId), SubBlock>>>,
 }
 
+impl Clone for ConfirmationNode {
+    fn clone(&self) -> Self {
+        Self {
+            chains: Arc::new(RwLock::new(HashMap::new())),
+            current_block: Arc::new(RwLock::new(BlockId("0".to_string()))),
+            block_interval: Arc::new(RwLock::new(Duration::from_millis(100))),
+            pending_txs: Arc::new(RwLock::new(HashMap::new())),
+            subblocks: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+}
+
 impl ConfirmationNode {
     /// Create a new confirmation node with default settings
     pub fn new() -> Self {
@@ -178,7 +190,7 @@ impl ConfirmationLayer for ConfirmationNode {
         Ok(*self.block_interval.read().await)
     }
 
-    async fn submit_subblock_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
+    async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
         let chains = self.chains.read().await;
         
         // Check if chain exists and is active

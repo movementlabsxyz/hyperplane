@@ -88,7 +88,7 @@ async fn test_normal_transactions() {
     };
 
     // Submit the transaction
-    node.submit_subblock_transaction(tx.clone())
+    node.submit_transaction(tx.clone())
         .await
         .expect("Failed to submit transaction");
 
@@ -166,7 +166,7 @@ async fn test_submit_transaction() {
         chain_id: chain_id.clone(),
         data: "test_data".to_string(),
     };
-    let result = node.submit_subblock_transaction(transaction).await;
+    let result = node.submit_transaction(transaction).await;
     assert!(result.is_ok());
     
     // Wait for block production (500ms should be enough for 5 blocks)

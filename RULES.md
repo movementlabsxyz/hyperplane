@@ -2,6 +2,7 @@
 
 ## General
 - Always consider the plan in PLAN.md
+- be concise in your responses.
 - make an integration test that tests the overall protocol as we develop it.
 
 ## Code Style

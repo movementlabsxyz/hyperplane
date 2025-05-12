@@ -163,12 +163,10 @@ async fn test_status_update() {
     let cat_id2 = CATId("cat2".to_string());
     let status = CATStatusUpdate::Success;
 
-    // HS sends the status update message for chain1
+    // HS sends the status update message for chain1 and chain2
     hs.send_cat_status_update(cat_id1.clone(), status.clone())
         .await
         .expect("Failed to send status update for chain1");
-
-    // HS sends the status update message for chain2
     hs.send_cat_status_update(cat_id2.clone(), status.clone())
         .await
         .expect("Failed to send status update for chain2");

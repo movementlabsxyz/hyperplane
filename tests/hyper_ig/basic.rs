@@ -70,7 +70,7 @@ async fn test_normal_transaction_pending() {
     assert!(pending.contains(&tx.id));
 }
 
-/// Tests CAT transaction success-proposal path in HyperIG:
+/// Tests CAT transaction success-proposal path in HyperIG (destined for the Hyper Scheduler):
 /// - CAT transaction with success data
 /// - Pending status verification
 /// - Success proposed status verification
@@ -114,7 +114,7 @@ async fn test_cat_success_proposal() {
     assert!(matches!(proposed_status, CATStatusUpdate::Success));
 }
 
-/// Tests CAT transaction failure-proposal path in HyperIG:
+/// Tests CAT transaction failure-proposal path in HyperIG (destined for the Hyper Scheduler):
 /// - CAT transaction with failure data
 /// - Pending status verification
 /// - Failure proposed status verification
@@ -155,3 +155,37 @@ async fn test_cat_failure_proposal() {
         .expect("Failed to get proposed status");
     assert!(matches!(proposed_status, CATStatusUpdate::Failure));
 } 
+
+/// Test CAT transaction success-update path in HyperIG (received from the Confirmation Layer):
+/// - CAT transaction with success data
+/// - Success update verification
+/// - Success status verification
+/// - Pending transaction list inclusion
+#[tokio::test]
+async fn test_cat_success_update() {
+    let mut hig = HyperIGNode::new();
+    // set a dummy scheduler, to avoid the need to call the scheduler
+    hig.set_hyper_scheduler(Box::new(NoOpScheduler));
+
+    // Create a CAT transaction with success data
+    let tx = Transaction {
+        id: TransactionId("cat-tx".to_string()),
+        data: "STATUS_UPDATE.SUCCESS".to_string(),
+    };
+    
+    // Execute the transaction
+    let status = hig.execute_transaction(tx.clone())
+        .await
+        .expect("Failed to execute transaction");
+
+    // Verify status is success
+    assert!(matches!(status, TransactionStatus::Success));
+
+    // Verify update is successful
+    let get_status = hig.get_transaction_status(tx.id.clone())
+        .await
+        .expect("Failed to get transaction status");
+    assert!(matches!(get_status, TransactionStatus::Success));
+}
+
+

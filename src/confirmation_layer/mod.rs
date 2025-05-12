@@ -38,6 +38,6 @@ pub trait ConfirmationLayer: Send + Sync {
     /// Get the current block interval
     async fn get_block_interval(&self) -> Result<Duration, ConfirmationLayerError>;
 
-    /// Submit a transaction to be included in the next block
-    async fn submit_subblock_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError>;
+    /// Submit a subblock transaction to be included in the next block
+    async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError>;
 } 
