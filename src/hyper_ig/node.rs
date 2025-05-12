@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
-use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate, CAT, CATId};
+use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate, CAT, CATId, SubBlock};
 use super::{HyperIG, HyperIGError};
 use crate::hyper_scheduler::HyperScheduler;
 
@@ -35,6 +35,14 @@ impl HyperIGNode {
     /// Get a reference to the hyper scheduler
     pub fn hyper_scheduler(&self) -> Option<&Box<dyn HyperScheduler>> {
         self.hyper_scheduler.as_ref()
+    }
+
+    /// Process a subblock
+    pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
+        for tx in subblock.transactions {
+            self.execute_transaction(tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
+        }
+        Ok(())
     }
 
     /// Handle a CAT transaction

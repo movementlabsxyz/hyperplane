@@ -5,10 +5,10 @@ use hyperplane::{
 };
 use tokio::time::Duration;
 
-/// Tests that a CAT status update is properly submitted to the confirmation layer:
-/// - Hyper Scheduler sends a CAT status update to one target chain (note, this is for testing, there should be at least two target chains normally)
-/// - Confirmation Layer receives and queues the transaction
-/// - Transaction is included in the next block
+/// Tests that a single CAT status update is properly included in a block:
+/// - Hyper Scheduler sends a CAT status update for a single target chain
+/// - Verify it is included in the next block
+/// - Verify the transaction is correctly processed
 #[tokio::test]
 async fn test_cat_status_update_one_target_chain() {
     // Create a confirmation node with a short block interval for testing
@@ -53,7 +53,7 @@ async fn test_cat_status_update_one_target_chain() {
 }
 
 /// Tests that multiple CAT status updates are properly queued and included in blocks:
-/// - Send multiple CAT status updates, but only one target chain (note, this is for testing, there should be at least two target chains normally)
+/// - Send multiple CAT status updates, for a single target chain (note, this is for testing, there should be at least two target chains normally)
 /// - Verify they are included in subsequent blocks
 /// - Verify the order is maintained
 #[tokio::test]
@@ -135,7 +135,10 @@ async fn test_multiple_cat_status_updates_one_target_chain() {
     }
 }
 
-/// Integration: HS sends a status update message for two chains, CL verifies the message is queued and subblocks contain it
+/// Tests that a status update is properly sent and processed:
+/// - The Hyper Scheduler sends a status update for multiple chains
+/// - The Confirmation Layer receives and queues the transaction
+/// - The transaction is included in the next block for each chain
 #[tokio::test]
 async fn test_status_update() {
     let mut hs = HyperSchedulerNode::new();

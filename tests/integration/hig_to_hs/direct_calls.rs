@@ -5,9 +5,9 @@ use hyperplane::{
 };
 
 /// Tests the storage of a single CAT status update in HS:
-/// 1. HIG proposes a Success status for a CAT
-/// 2. HS receives and stores the status
-/// 3. HS can retrieve the stored Success status
+/// - HIG proposes a Success status for a CAT
+/// - HS receives and stores the status
+/// - HS can retrieve the stored Success status
 #[tokio::test]
 async fn test_single_cat_status_storage() {
     // Create a Hyper IG node and Hyper Scheduler node
@@ -36,9 +36,9 @@ async fn test_single_cat_status_storage() {
 }
 
 /// Tests the storage of multiple CAT status updates in HS:
-/// 1. HIG proposes Success and Failure statuses for different CATs
-/// 2. HS stores each status update
-/// 3. HS can retrieve all stored statuses in the correct order
+/// - HIG proposes Success and Failure statuses for different CATs
+/// - HS stores each status update
+/// - HS can retrieve all stored statuses in the correct order
 #[tokio::test]
 async fn test_multiple_cat_status_storage() {
     // Create a Hyper IG node and Hyper Scheduler node
@@ -71,7 +71,10 @@ async fn test_multiple_cat_status_storage() {
     }
 }
 
-/// Integration: HIG proposes a Success status update, HS stores it
+/// Tests that a status update is properly sent and processed:
+/// - HIG proposes a Success status update
+/// - HS stores the status update
+/// - Verify the status is correctly stored in HS
 #[tokio::test]
 async fn test_status_update_success() {
     let mut hig = HyperIGNode::new();
@@ -97,7 +100,10 @@ async fn test_status_update_success() {
     assert_eq!(status, CATStatusUpdate::Success);
 }
 
-/// Integration: HIG proposes a Failure status update, HS stores it
+/// Tests that a status update is properly sent and processed:
+/// - HIG proposes a Failure status update
+/// - HS stores the status update
+/// - Verify the status is correctly stored in HS
 #[tokio::test]
 async fn test_status_update_failure() {
     let mut hig = HyperIGNode::new();
