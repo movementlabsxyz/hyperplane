@@ -1,4 +1,4 @@
-use hyperplane::confirmation::ConfirmationNode;
+use hyperplane::confirmation_layer::ConfirmationNode;
 
 #[tokio::main]
 async fn main() {

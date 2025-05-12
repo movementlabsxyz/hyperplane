@@ -1,1 +1,1 @@
-pub mod dummy_scheduler;
+pub mod dummy_hyper_scheduler;

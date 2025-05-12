@@ -1,7 +1,7 @@
 use crate::types::{CATId, TransactionId, CATStatusUpdate, CLTransaction, ChainId};
-use crate::confirmation::ConfirmationLayer;
+use crate::confirmation_layer::ConfirmationLayer;
 use super::{HyperScheduler, HyperSchedulerError};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// A node that implements the HyperScheduler trait
 pub struct HyperSchedulerNode {
@@ -9,8 +9,8 @@ pub struct HyperSchedulerNode {
     cat_statuses: HashMap<CATId, CATStatusUpdate>,
     /// The confirmation layer for submitting transactions
     confirmation_layer: Option<Box<dyn ConfirmationLayer>>,
-    /// The chain ID for submitting transactions
-    chain_id: Option<ChainId>,
+    /// The chain IDs for submitting transactions
+    chain_ids: HashSet<ChainId>,
 }
 
 impl HyperSchedulerNode {
@@ -19,7 +19,7 @@ impl HyperSchedulerNode {
         Self {
             cat_statuses: HashMap::new(),
             confirmation_layer: None,
-            chain_id: None,
+            chain_ids: HashSet::new(),
         }
     }
 
@@ -30,7 +30,7 @@ impl HyperSchedulerNode {
 
     /// Set the chain ID to use for submitting transactions
     pub fn set_chain_id(&mut self, chain_id: ChainId) {
-        self.chain_id = Some(chain_id);
+        self.chain_ids.insert(chain_id);
     }
 
     /// Get a reference to the confirmation layer
@@ -72,23 +72,27 @@ impl HyperScheduler for HyperSchedulerNode {
 
         // Submit a CLtransaction to the confirmation layer if available
         if let Some(cl) = &mut self.confirmation_layer {
-            let chain_id = self.chain_id.clone()
-                .ok_or_else(|| HyperSchedulerError::Internal("Chain ID not set".to_string()))?;
+            if self.chain_ids.is_empty() {
+                return Err(HyperSchedulerError::Internal("No chain IDs set".to_string()));
+            }
 
             let status_str = match status {
                 CATStatusUpdate::Success => "STATUS_UPDATE.SUCCESS.CAT_ID:".to_string() + &cat_id.0,
                 CATStatusUpdate::Failure => "STATUS_UPDATE.FAILURE.CAT_ID:".to_string() + &cat_id.0,
             };
 
-            let tx = CLTransaction {
-                id: TransactionId(cat_id.0.clone()),
-                data: status_str.to_string(),
-                chain_id,
-            };
+            // Send the status update to all registered chains
+            for chain_id in &self.chain_ids {
+                let tx = CLTransaction {
+                    id: TransactionId(cat_id.0.clone()),
+                    data: status_str.clone(),
+                    chain_id: chain_id.clone(),
+                };
 
-            cl.submit_subblock_transaction(tx)
-                .await
-                .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
+                cl.submit_subblock_transaction(tx)
+                    .await
+                    .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
+            }
         }
 
         Ok(())

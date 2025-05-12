@@ -1,5 +1,5 @@
 use hyperplane::{
-    confirmation::{ConfirmationLayer, ConfirmationNode, ConfirmationLayerError},
+    confirmation_layer::{ConfirmationLayer, ConfirmationNode, ConfirmationLayerError},
     types::{BlockId, ChainId, TransactionId, CLTransaction},
 };
 use std::time::Duration;

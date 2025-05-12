@@ -1,4 +1,4 @@
-use crate::common::dummy_scheduler::NoOpScheduler;
+use crate::common::dummy_hyper_scheduler::NoOpScheduler;
 use hyperplane::{
     types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate},
     hyper_ig::{HyperIG, HyperIGNode},
