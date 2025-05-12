@@ -56,8 +56,13 @@ impl HyperScheduler for HyperSchedulerNode {
         Ok(self.cat_statuses.keys().cloned().collect())
     }
 
-    async fn receive_cat_status_proposal(&mut self, _tx_id: TransactionId, _status: CATStatusUpdate) -> Result<(), HyperSchedulerError> {
-        // TODO: Implement the logic to receive a CAT status proposal
+    async fn receive_cat_status_proposal(&mut self, tx_id: TransactionId, status: CATStatusUpdate) -> Result<(), HyperSchedulerError> {
+        // Convert TransactionId to CATId
+        let cat_id = CATId(tx_id.0);
+        
+        // Store the status update
+        self.cat_statuses.insert(cat_id, status);
+        
         Ok(())
     }
 

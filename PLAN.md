@@ -7,10 +7,10 @@
 
 ## Integration Testing
 (note: integration tests check two or more components working together)
-- [ ] Basic integration test setup
-- [ ] Confirmation node + Hyper IG integration tests
+- [x] Basic integration test setup
+- [x] Hyper Scheduler + confirmation node integration tests
 - [ ] Hyper IG + Hyper Scheduler integration tests
-- [ ] Hyper Scheduler + confirmation node integration tests
+- [ ] Confirmation node + Hyper IG integration tests
 - [ ] End-to-end protocol tests
 
 ## Core Modules

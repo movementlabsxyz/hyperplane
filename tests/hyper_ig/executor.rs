@@ -1,5 +1,6 @@
+use crate::common::dummy_scheduler::NoOpScheduler;
 use hyperplane::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate, TransactionStatusUpdate},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate},
     hyper_ig::{HyperIG, HyperIGNode},
 };
 
@@ -38,7 +39,9 @@ async fn test_normal_transaction_success() {
 /// - Pending transaction list inclusion
 #[tokio::test]
 async fn test_normal_transaction_pending() {
-    let mut hig = HyperIGNode::new();
+    let mut hig: HyperIGNode = HyperIGNode::new();
+    // set a dummy scheduler, to avoid the need to call the scheduler
+    hig.set_hyper_scheduler(Box::new(NoOpScheduler));
     
     // Create a normal transaction with dependent data
     let tx = Transaction {
@@ -75,6 +78,8 @@ async fn test_normal_transaction_pending() {
 #[tokio::test]
 async fn test_cat_success_proposal() {
     let mut hig = HyperIGNode::new();
+    // set a dummy scheduler, to avoid the need to call the scheduler
+    hig.set_hyper_scheduler(Box::new(NoOpScheduler));
     
     // Create a CAT transaction with success data
     let tx = Transaction {
@@ -149,106 +154,4 @@ async fn test_cat_failure_proposal() {
         .await
         .expect("Failed to get proposed status");
     assert!(matches!(proposed_status, CATStatusUpdate::Failure));
-}
-
-/// Tests status update success path in HyperIG:
-/// - CAT transaction submission
-/// - Status update submission
-/// - Status change verification
-/// - Pending list removal
-#[tokio::test]
-async fn test_status_update_success() {
-    let mut hig = HyperIGNode::new();
-    
-    // First submit a CAT transaction
-    let cat_id = TransactionId("cat-tx".to_string());
-    let tx = Transaction {
-        id: cat_id.clone(),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
-    };
-    
-    // Execute the CAT transaction
-    hig.execute_transaction(tx.clone())
-        .await
-        .expect("Failed to execute CAT transaction");
-    
-    // Verify it's pending
-    let status = hig.get_transaction_status(cat_id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(status, TransactionStatus::Pending));
-    
-    // Submit a success status update
-    let status_update = TransactionStatusUpdate {
-        transaction_id: cat_id.clone(),
-        status: TransactionStatus::Success,
-    };
-    
-    // Submit the status update
-    hig.send_cat_status_proposal(status_update)
-        .await
-        .expect("Failed to submit status update");
-    
-    // Verify the CAT transaction status was updated to Success
-    let retrieved_status = hig.get_transaction_status(cat_id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(retrieved_status, TransactionStatus::Success));
-    
-    // Verify it's no longer in the pending list
-    let pending = hig.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    assert!(!pending.contains(&cat_id));
-}
-
-/// Tests status update failure path in HyperIG:
-/// - CAT transaction submission
-/// - Status update submission
-/// - Status change verification
-/// - Pending list removal
-#[tokio::test]
-async fn test_status_update_failure() {
-    let mut hig = HyperIGNode::new();
-    
-    // First submit a CAT transaction
-    let cat_id = TransactionId("cat-tx".to_string());
-    let tx = Transaction {
-        id: cat_id.clone(),
-        data: "CAT.SIMULATION.FAILURE".to_string(),
-    };
-    
-    // Execute the CAT transaction
-    hig.execute_transaction(tx.clone())
-        .await
-        .expect("Failed to execute CAT transaction");
-    
-    // Verify it's pending
-    let status = hig.get_transaction_status(cat_id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(status, TransactionStatus::Pending));
-    
-    // Submit a failure status update
-    let status_update = TransactionStatusUpdate {
-        transaction_id: cat_id.clone(),
-        status: TransactionStatus::Failure,
-    };
-    
-    // Submit the status update
-    hig.send_cat_status_proposal(status_update)
-        .await
-        .expect("Failed to submit status update");
-    
-    // Verify the CAT transaction status was updated to Failure
-    let retrieved_status = hig.get_transaction_status(cat_id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    assert!(matches!(retrieved_status, TransactionStatus::Failure));
-    
-    // Verify it's no longer in the pending list
-    let pending = hig.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    assert!(!pending.contains(&cat_id));
 } 

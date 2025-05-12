@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use async_trait::async_trait;
-use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate, TransactionStatusUpdate, CAT};
+use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusUpdate, CAT, CATId};
 use super::{HyperIG, HyperIGError};
+use crate::hyper_scheduler::HyperScheduler;
 
 /// A simple node implementation of the HyperIG
 pub struct HyperIGNode {
@@ -11,6 +12,8 @@ pub struct HyperIGNode {
     pending_transactions: HashSet<TransactionId>,
     /// Proposed status for CAT transactions
     cat_proposed_statuses: HashMap<TransactionId, CATStatusUpdate>,
+    /// The hyper scheduler for submitting CAT status updates
+    hyper_scheduler: Option<Box<dyn HyperScheduler>>,
 }
 
 impl HyperIGNode {
@@ -20,7 +23,18 @@ impl HyperIGNode {
             transaction_statuses: HashMap::new(),
             pending_transactions: HashSet::new(),
             cat_proposed_statuses: HashMap::new(),
+            hyper_scheduler: None,
         }
+    }
+
+    /// Set the hyper scheduler to use for submitting CAT status updates
+    pub fn set_hyper_scheduler(&mut self, hs: Box<dyn HyperScheduler>) {
+        self.hyper_scheduler = Some(hs);
+    }
+
+    /// Get a reference to the hyper scheduler
+    pub fn hyper_scheduler(&self) -> Option<&Box<dyn HyperScheduler>> {
+        self.hyper_scheduler.as_ref()
     }
 
     /// Handle a CAT transaction
@@ -106,12 +120,21 @@ impl HyperIG for HyperIGNode {
         Ok(self.pending_transactions.iter().cloned().collect())
     }
 
-    async fn send_cat_status_proposal(&mut self, update: TransactionStatusUpdate) -> Result<(), HyperIGError> {
-        // For now, just update the status directly
-        self.transaction_statuses.insert(update.transaction_id.clone(), update.status.clone());
-        self.pending_transactions.remove(&update.transaction_id);
-        self.cat_proposed_statuses.remove(&update.transaction_id);
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusUpdate) -> Result<(), HyperIGError> {
+        let hs = self.hyper_scheduler.as_mut()
+            .ok_or_else(|| HyperIGError::Internal("Hyper scheduler not set".to_string()))?;
+
+        // Convert CATId to TransactionId for the proposal
+        let tx_id = TransactionId(cat_id.0.clone());
         
+        // Store the proposed status locally
+        self.cat_proposed_statuses.insert(tx_id.clone(), status.clone());
+
+        // Send the proposal to the hyper scheduler
+        hs.receive_cat_status_proposal(tx_id, status)
+            .await
+            .map_err(|e| HyperIGError::Internal(e.to_string()))?;
+
         Ok(())
     }
 

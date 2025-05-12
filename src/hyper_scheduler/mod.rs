@@ -16,7 +16,7 @@ pub enum HyperSchedulerError {
 }
 
 #[async_trait]
-pub trait HyperScheduler {
+pub trait HyperScheduler: Send + Sync {
     /// Get the current status update of a CAT
     async fn get_cat_status(&self, id: CATId) -> Result<CATStatusUpdate, HyperSchedulerError>;
     
