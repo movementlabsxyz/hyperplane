@@ -4,10 +4,11 @@ use tokio::time::{Duration, sleep, interval};
 use tokio::sync::mpsc;
 use hyperplane::{
     types::{Transaction, TransactionId, ChainId, CLTransaction, SubBlock, CATStatusUpdate},
-    confirmation_layer::{ConfirmationLayerError, ConfirmationLayer},
+    confirmation_layer::{ConfirmationLayerError, ConfirmationLayer, ConfirmationLayerNode},
 };
 use std::collections::HashSet;
 use std::collections::HashMap;
+use async_trait;
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -56,9 +57,10 @@ async fn test_mutex_concurrent_access_v13() {
     {
         let cl_node_with_lock = cl_node.lock().await;
         // Verify registered chains
-        assert_eq!(cl_node_with_lock.registered_chains.len(), 2, "Should have exactly 2 registered chains");
-        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain1".to_string())), "chain1 should be registered");
-        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain2".to_string())), "chain2 should be registered");
+        let registered_chains = cl_node_with_lock.get_registered_chains().await.unwrap();
+        assert_eq!(registered_chains.len(), 2, "Should have exactly 2 registered chains");
+        assert!(registered_chains.contains(&ChainId("chain1".to_string())), "chain1 should be registered");
+        assert!(registered_chains.contains(&ChainId("chain2".to_string())), "chain2 should be registered");
 
         // Get subblock for registered chain
         match cl_node_with_lock.get_subblock(ChainId("chain1".to_string()), 0).await {
@@ -125,17 +127,19 @@ async fn test_mutex_concurrent_access_v13() {
     
     // Check the state
     let cl_node_with_lock_3 = cl_node.lock().await;
-    println!("Main task: current block is {}", cl_node_with_lock_3.current_block);
+    let current_block = cl_node_with_lock_3.get_current_block().await.unwrap();
+    println!("Main task: current block is {}", current_block);
     println!("Main task: processed {} transactions", cl_node_with_lock_3.processed_transactions.len());
     println!("Main task: {} transactions still pending", cl_node_with_lock_3.pending_transactions.len());
     println!("Main task: produced {} blocks", cl_node_with_lock_3.blocks.len());
-    println!("Main task: registered chains: {:?}", cl_node_with_lock_3.registered_chains);
+    let registered_chains = cl_node_with_lock_3.get_registered_chains().await.unwrap();
+    println!("Main task: registered chains: {:?}", registered_chains);
     
     // Verify the state has been updated
-    assert!(cl_node_with_lock_3.current_block > 0, "Block should have been incremented");
+    assert!(current_block > 0, "Block should have been incremented");
     assert!(!cl_node_with_lock_3.processed_transactions.is_empty(), "Should have processed some transactions");
     assert!(!cl_node_with_lock_3.blocks.is_empty(), "Should have produced some blocks");
-    assert_eq!(cl_node_with_lock_3.registered_chains.len(), 2, "Should have exactly 2 registered chains");
+    assert_eq!(registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
     match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0).await {
@@ -151,7 +155,7 @@ async fn test_mutex_concurrent_access_v13() {
     
     // Make sure the processor task is still running by checking the state again
     let state_guard = cl_node.lock().await;
-    let current_block = state_guard.current_block;
+    let current_block = state_guard.get_current_block().await.unwrap();
     let processed_count = state_guard.processed_transactions.len();
     let block_count = state_guard.blocks.len();
     println!("Main task: final check - block is {}, processed {} transactions in {} blocks", 
@@ -165,91 +169,6 @@ async fn test_mutex_concurrent_access_v13() {
     assert!(block_count > 25, "Should have produced more than 25 blocks in 3 seconds, did {}", block_count);
     
     println!("=== Test completed successfully ===\n");
-}
-
-/// v13: Node that matches CL node functionality exactly
-struct TestConfirmationLayerNode {
-    /// Currently registered chains
-    pub registered_chains: Vec<ChainId>,
-    /// Current block number
-    pub current_block: u64,
-    /// Block interval
-    pub block_interval: Duration,
-    /// Pending transactions
-    pub pending_transactions: Vec<CLTransaction>,
-    /// Processed transactions
-    pub processed_transactions: Vec<(ChainId, CLTransaction)>,
-    /// Block history
-    pub blocks: Vec<u64>,
-    /// Block to transactions mapping
-    pub block_transactions: HashMap<u64, Vec<(ChainId, CLTransaction)>>,
-    /// Receiver for messages from Hyper Scheduler
-    pub receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
-    /// Sender for messages to Hyper IG
-    pub sender_cl_to_hig: mpsc::Sender<SubBlock>,
-    /// Sender for transactions from Hyper Scheduler
-    pub sender_hs_to_cl: mpsc::Sender<CLTransaction>,
-}
-
-impl TestConfirmationLayerNode {
-    fn new(
-        receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
-        sender_cl_to_hig: mpsc::Sender<SubBlock>,
-        block_interval: Duration,
-    ) -> Self {
-        let (sender_hs_to_cl, _) = mpsc::channel(100);
-        Self {
-            registered_chains: Vec::new(),
-            current_block: 0,
-            block_interval,
-            pending_transactions: Vec::new(),
-            processed_transactions: Vec::new(),
-            blocks: Vec::new(),
-            block_transactions: HashMap::new(),
-            receiver_hs_to_cl,
-            sender_cl_to_hig,
-            sender_hs_to_cl,
-        }
-    }
-
-    async fn register_chain(&mut self, chain_id: ChainId) -> Result<(), ConfirmationLayerError> {
-        if self.registered_chains.contains(&chain_id) {
-            return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
-        }
-        self.registered_chains.push(chain_id);
-        Ok(())
-    }
-
-    async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
-        if !self.registered_chains.contains(&transaction.chain_id) {
-            return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
-        }
-        self.pending_transactions.push(transaction);
-        Ok(())
-    }
-
-    async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
-        if !self.registered_chains.contains(&chain_id) {
-            return Err(ConfirmationLayerError::ChainNotFound(chain_id));
-        }
-        // For simplicity, just return a dummy subblock
-        Ok(SubBlock {
-            chain_id: chain_id.clone(),
-            block_id,
-            transactions: self.processed_transactions
-                .iter()
-                .filter(|(cid, _)| cid == &chain_id)
-                .map(|(_, tx)| Transaction {
-                    id: tx.id.clone(),
-                    data: tx.data.clone(),
-                })
-                .collect(),
-        })
-    }
-
-    async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError> {
-        Ok(self.current_block)
-    }
 }
 
 /// v12: Hyper Scheduler node
@@ -296,7 +215,7 @@ impl TestHIGNodev12 {
 }
 
 /// Helper function to create test nodes with basic setup
-async fn setup_test_nodes( interval: Duration) -> (TestHSNodev12, Arc<Mutex<TestConfirmationLayerNode>>, TestHIGNodev12) {
+async fn setup_test_nodes(interval: Duration) -> (TestHSNodev12, Arc<Mutex<ConfirmationLayerNode>>, TestHIGNodev12) {
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
     let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
@@ -304,11 +223,11 @@ async fn setup_test_nodes( interval: Duration) -> (TestHSNodev12, Arc<Mutex<Test
     
     // Create nodes with their channels
     let hs_node = TestHSNodev12::new(sender_hs_to_cl, receiver_hig_to_hs);
-    let cl_node = Arc::new(Mutex::new(TestConfirmationLayerNode::new(
+    let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
         sender_cl_to_hig,
         interval,
-    )));
+    ).expect("Failed to create ConfirmationLayerNode")));
     let hig_node = TestHIGNodev12::new(receiver_cl_to_hig, sender_hig_to_hs);
     
     // Clone the state for the processor task
@@ -323,7 +242,7 @@ async fn setup_test_nodes( interval: Duration) -> (TestHSNodev12, Arc<Mutex<Test
 }
 
 /// Helper function to run the processor task
-async fn run_transaction_processor_v13(cl_node: Arc<Mutex<TestConfirmationLayerNode>>) {
+async fn run_transaction_processor_v13(cl_node: Arc<Mutex<ConfirmationLayerNode>>) {
     let mut interval = interval(cl_node.lock().await.block_interval);
     loop {
         interval.tick().await;
@@ -411,28 +330,5 @@ async fn run_spammer_v12(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId)
         // wait for 300ms before sending next transaction
         sleep(Duration::from_millis(300)).await;
     }
-}
-
-#[tokio::test]
-async fn test_confirmation_layer() {
-    let mut cl = TestConfirmationLayerNode::new(
-        mpsc::channel(100).1,
-        mpsc::channel(100).0,
-        Duration::from_millis(100),
-    );
-    let chain_id = ChainId("1".to_string());
-    
-    // Test registering a chain
-    cl.register_chain(chain_id.clone()).await.unwrap();
-    
-    // Test getting current block
-    let current_block = cl.get_current_block().await.unwrap();
-    assert_eq!(current_block, 0);
-    
-    // Test getting subblock
-    let subblock = cl.get_subblock(chain_id.clone(), 0).await.unwrap();
-    assert_eq!(subblock.chain_id, chain_id);
-    assert_eq!(subblock.block_id, 0);
-    assert!(subblock.transactions.is_empty());
 }
 
