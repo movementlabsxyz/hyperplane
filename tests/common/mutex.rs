@@ -3,14 +3,9 @@ use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep, interval};
 use tokio::sync::mpsc;
 use hyperplane::{
-    types::{Transaction, TransactionId, ChainId, BlockId, CLTransaction, SubBlock, CATStatusUpdate},
-    types::communication::Channel,
-    hyper_scheduler::node::HyperSchedulerNode,
-    confirmation_layer::node::{ConfirmationLayerNode, ConfirmationLayerNodeWrapper},
-    confirmation_layer::ConfirmationLayer,
-    hyper_ig::node::HyperIGNode,
+    types::{Transaction, TransactionId, ChainId, CLTransaction, SubBlock, CATStatusUpdate},
 };
-use crate::common::testnodes;
+use std::collections::HashSet;
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
 // V11: copies v1 but uses correct types
@@ -55,7 +50,7 @@ async fn test_mutex_concurrent_access_v11() {
         }
 
         // Try to get subblock for unregistered chain
-        match state.get_subblock(ChainId("chain3".to_string()), BlockId("0".to_string())) {
+        match state.get_subblock(ChainId("chain3".to_string()), 0) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
             Err(e) => println!("[Test] Expected error when getting subblock for unregistered chain: {}", e),
         }
@@ -139,7 +134,7 @@ async fn test_mutex_concurrent_access_v11() {
     assert_eq!(state_guard.registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
-    match state_guard.get_subblock(ChainId("chain1".to_string()), BlockId("0".to_string())) {
+    match state_guard.get_subblock(ChainId("chain1".to_string()), 0) {
         Ok(subblock) => println!("[Test] Successfully got subblock for chain1: {:?}", subblock),
         Err(e) => panic!("Failed to get subblock for chain1: {}", e),
     }
@@ -176,7 +171,7 @@ struct TestNodeStateV11 {
     current_block: u64,
     processed_transactions: Vec<(ChainId, CLTransaction)>,
     pending_transactions: Vec<CLTransaction>,
-    blocks: Vec<BlockId>,
+    blocks: Vec<u64>,
     registered_chains: Vec<ChainId>,
 }
 
@@ -214,7 +209,7 @@ impl TestNodeStateV11 {
         Ok(())
     }
 
-    fn get_subblock(&self, chain_id: ChainId, block_id: BlockId) -> Result<SubBlock, String> {
+    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
         if !self.registered_chains.contains(&chain_id) {
             return Err(format!("Chain {} is not registered", chain_id.0));
         }
@@ -244,7 +239,7 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
         
         // Process any new transactions from the channel
         while let Ok(transaction) = state.receiver_hs_to_cl.try_recv() {
-            println!("[Processor] received transaction from chain {}: {}", transaction.chain_id.0, transaction.data);
+            println!("[Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
             if state.registered_chains.contains(&transaction.chain_id) {
                 state.pending_transactions.push(transaction);
             }
@@ -266,14 +261,14 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
         state.pending_transactions = remaining;
         
         // Create a block
-        let block_id = BlockId(state.current_block.to_string());
-        state.blocks.push(block_id.clone());
+        let block_id = 0;
+        state.blocks.push(block_id);
         
         // Send subblocks for each chain with only this block's transactions
         for chain_id in &state.registered_chains {
             let subblock = SubBlock {
                 chain_id: chain_id.clone(),
-                block_id: block_id.clone(),
+                block_id,
                 transactions: processed_this_block
                     .iter()
                     .filter(|(cid, _)| cid == chain_id)
@@ -320,21 +315,26 @@ async fn run_adder_v11(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
-// V12: Integrates with actual node setup
+// V12: Integrates closer to actual node setup
 // - - - - - - - - - - - - - - - - - - - - - - - 
 
-/// V12: Integrates with actual node setup
-/// - Uses setup_test_nodes for proper node initialization
-/// - Connects nodes with proper channels
-/// - Tests full node communication flow
-/// - Verifies node behavior matches v11's expectations
+/// V12: Integrates closer to actual node setup
 #[tokio::test]
 async fn test_mutex_concurrent_access_v12() {
     println!("\n=== Starting test_mutex_concurrent_access_v12 ===");
     
     // Get the test nodes using our new helper function
-    let (hs_node, cl_node, _hig_node) = setup_test_nodes().await;
+    let (hs_node, cl_node, _hig_node) = setup_test_nodes(Duration::from_millis(100)).await;
     
+    // Test initial state
+    println!("[Test] Testing initial state...");
+    {
+        let cl_node_with_lock = cl_node.lock().await;
+        let current_block = cl_node_with_lock.get_current_block().await.unwrap();
+        println!("[Test] Initial block number: {}", current_block);
+        assert_eq!(current_block, 0, "Initial block should be 0");
+    }
+
     // Register chains first
     println!("[Test] Registering chains...");
     {
@@ -349,9 +349,30 @@ async fn test_mutex_concurrent_access_v12() {
         }
 
         // Try to get subblock for unregistered chain
-        match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), BlockId("0".to_string())) {
+        match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), 0) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
             Err(e) => println!("[Test] Expected error when getting subblock for unregistered chain: {}", e),
+        }
+    }
+
+    // Verify chain registration and get subblock for registered chain
+    println!("[Test] Verifying chain registration and subblock retrieval...");
+    {
+        let cl_node_with_lock = cl_node.lock().await;
+        // Verify registered chains
+        assert_eq!(cl_node_with_lock.registered_chains.len(), 2, "Should have exactly 2 registered chains");
+        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain1".to_string())), "chain1 should be registered");
+        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain2".to_string())), "chain2 should be registered");
+
+        // Get subblock for registered chain
+        match cl_node_with_lock.get_subblock(ChainId("chain1".to_string()), 0) {
+            Ok(subblock) => {
+                println!("[Test] Successfully got subblock for chain1: {:?}", subblock);
+                assert_eq!(subblock.chain_id, ChainId("chain1".to_string()), "Subblock should be for chain1");
+                assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
+                assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
+            },
+            Err(e) => panic!("Failed to get subblock for chain1: {}", e),
         }
     }
 
@@ -388,15 +409,18 @@ async fn test_mutex_concurrent_access_v12() {
         }
     }
 
+    // wait for 1 second
+    sleep(Duration::from_secs(1)).await;
+
     // Spawn tasks to add more transactions for different chains
     let sender_for_chain1 = hs_node.get_sender_to_cl();
     let _adder_handle1 = tokio::spawn(async move {
-        run_adder_v12(sender_for_chain1, ChainId("chain1".to_string())).await;
+        run_spammer_v12(sender_for_chain1, ChainId("chain1".to_string())).await;
     });
 
     let sender_for_chain2 = hs_node.get_sender_to_cl();
     let _adder_handle2 = tokio::spawn(async move {
-        run_adder_v12(sender_for_chain2, ChainId("chain2".to_string())).await;
+        run_spammer_v12(sender_for_chain2, ChainId("chain2".to_string())).await;
     });
 
     // Wait for a few seconds to let the processor run
@@ -418,7 +442,7 @@ async fn test_mutex_concurrent_access_v12() {
     assert_eq!(cl_node_with_lock_3.registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
-    match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), BlockId("0".to_string())) {
+    match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0) {
         Ok(subblock) => println!("[Test] Successfully got subblock for chain1: {:?}", subblock),
         Err(e) => panic!("Failed to get subblock for chain1: {}", e),
     }
@@ -440,26 +464,26 @@ async fn test_mutex_concurrent_access_v12() {
     // Ensure the processor is still running and processing transactions
     // With 100ms interval, we should process ~20 blocks in 2 seconds
     // But only ~7 transactions per chain (one every 3 blocks)
-    assert!(current_block > 15, "Block should have been incremented more than 15 times in 2 seconds");
-    assert!(processed_count > 10, "Should have processed more than 10 transactions in 2 seconds (5 per chain)");
-    assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
+    assert!(current_block > 25, "Block should have been incremented more than 25 times in 3 seconds, did {}", current_block);
+    assert!(processed_count > 15, "Should have processed more than 15 transactions in 3 seconds (5 per chain), did {}", processed_count);
+    assert!(block_count > 25, "Should have produced more than 25 blocks in 3 seconds, did {}", block_count);
     
     println!("=== Test completed successfully ===\n");
 }
 
 /// v12: Node that matches CL node functionality
-struct TestNodev12 {
+struct TestConfirmationLayerNode {
     msg_receiver: mpsc::Receiver<CLTransaction>,
     subblock_sender: mpsc::Sender<SubBlock>,
     block_interval: Duration,
     current_block: u64,
     processed_transactions: Vec<(ChainId, CLTransaction)>,
     pending_transactions: Vec<CLTransaction>,
-    blocks: Vec<BlockId>,
+    blocks: Vec<u64>,
     registered_chains: Vec<ChainId>,
 }
 
-impl TestNodev12 {
+impl TestConfirmationLayerNode {
     fn new(
         receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
         sender_cl_to_hig: mpsc::Sender<SubBlock>,
@@ -493,7 +517,7 @@ impl TestNodev12 {
         Ok(())
     }
 
-    fn get_subblock(&self, chain_id: ChainId, block_id: BlockId) -> Result<SubBlock, String> {
+    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
         if !self.registered_chains.contains(&chain_id) {
             return Err(format!("Chain {} is not registered", chain_id.0));
         }
@@ -511,11 +535,16 @@ impl TestNodev12 {
                 .collect(),
         })
     }
+
+    async fn get_current_block(&self) -> Result<u64, String> {
+        Ok(self.current_block)
+    }
 }
 
 /// v12: Hyper Scheduler node
 struct TestHSNodev12 {
     sender_hs_to_cl: mpsc::Sender<CLTransaction>,
+    #[allow(dead_code)]
     receiver_hig_to_hs: mpsc::Receiver<CATStatusUpdate>,
 }
 
@@ -537,7 +566,9 @@ impl TestHSNodev12 {
 
 /// v12: Hyper IG node
 struct TestHIGNodev12 {
+    #[allow(dead_code)]
     receiver_cl_to_hig: mpsc::Receiver<SubBlock>,
+    #[allow(dead_code)]
     sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>,
 }
 
@@ -554,7 +585,7 @@ impl TestHIGNodev12 {
 }
 
 /// Helper function to create test nodes with basic setup
-async fn setup_test_nodes() -> (TestHSNodev12, Arc<Mutex<TestNodev12>>, TestHIGNodev12) {
+async fn setup_test_nodes( interval: Duration) -> (TestHSNodev12, Arc<Mutex<TestConfirmationLayerNode>>, TestHIGNodev12) {
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
     let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
@@ -562,10 +593,10 @@ async fn setup_test_nodes() -> (TestHSNodev12, Arc<Mutex<TestNodev12>>, TestHIGN
     
     // Create nodes with their channels
     let hs_node = TestHSNodev12::new(sender_hs_to_cl, receiver_hig_to_hs);
-    let cl_node = Arc::new(Mutex::new(TestNodev12::new(
+    let cl_node = Arc::new(Mutex::new(TestConfirmationLayerNode::new(
         receiver_hs_to_cl,
         sender_cl_to_hig,
-        Duration::from_millis(100), // 100ms block interval
+        interval,
     )));
     let hig_node = TestHIGNodev12::new(receiver_cl_to_hig, sender_hig_to_hs);
     
@@ -574,14 +605,14 @@ async fn setup_test_nodes() -> (TestHSNodev12, Arc<Mutex<TestNodev12>>, TestHIGN
     
     // Spawn the processor task
     let _processor_handle = tokio::spawn(async move {
-        run_processor_v12(cl_node_for_processor).await;
+        run_transaction_processor_v12(cl_node_for_processor).await;
     });
 
     (hs_node, cl_node, hig_node)
 }
 
 /// Helper function to run the processor task
-async fn run_processor_v12(cl_node: Arc<Mutex<TestNodev12>>) {
+async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerNode>>) {
     let mut interval = interval(cl_node.lock().await.block_interval);
     loop {
         interval.tick().await;
@@ -590,7 +621,7 @@ async fn run_processor_v12(cl_node: Arc<Mutex<TestNodev12>>) {
         
         // Process any new transactions from the channel
         while let Ok(transaction) = state.msg_receiver.try_recv() {
-            println!("[Processor] received transaction from chain {}: {}", transaction.chain_id.0, transaction.data);
+            println!("[Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
             if state.registered_chains.contains(&transaction.chain_id) {
                 state.pending_transactions.push(transaction);
             }
@@ -612,14 +643,14 @@ async fn run_processor_v12(cl_node: Arc<Mutex<TestNodev12>>) {
         state.pending_transactions = remaining;
         
         // Create a block
-        let block_id = BlockId(state.current_block.to_string());
-        state.blocks.push(block_id.clone());
+        let block_id = 0;
+        state.blocks.push(block_id);
         
         // Send subblocks for each chain with only this block's transactions
         for chain_id in &state.registered_chains {
             let subblock = SubBlock {
                 chain_id: chain_id.clone(),
-                block_id: block_id.clone(),
+                block_id,
                 transactions: processed_this_block
                     .iter()
                     .filter(|(cid, _)| cid == chain_id)
@@ -650,7 +681,7 @@ async fn run_processor_v12(cl_node: Arc<Mutex<TestNodev12>>) {
 }
 
 /// Helper function to run the adder task
-async fn run_adder_v12(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
+async fn run_spammer_v12(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
     for i in 1..=10 {
         let tx = CLTransaction {
             id: TransactionId(format!("tx{}.{}", i, chain_id.0)),
@@ -661,7 +692,75 @@ async fn run_adder_v12(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
             println!("Error sending transaction: {}", e);
             break;
         }
+        // wait for 300ms before sending next transaction
         sleep(Duration::from_millis(300)).await;
     }
+}
+
+#[derive(Debug, Clone)]
+struct TestConfirmationLayer {
+    registered_chains: HashSet<ChainId>,
+    current_block: u64,
+    processed_transactions: Vec<(ChainId, Transaction)>,
+}
+
+impl TestConfirmationLayer {
+    fn new() -> Self {
+        Self {
+            registered_chains: HashSet::new(),
+            current_block: 0,
+            processed_transactions: Vec::new(),
+        }
+    }
+
+    fn get_current_block(&self) -> Result<u64, String> {
+        Ok(self.current_block)
+    }
+
+    fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, String> {
+        if self.registered_chains.contains(&chain_id) {
+            return Err(format!("Chain {} is already registered", chain_id.0));
+        }
+        self.registered_chains.insert(chain_id);
+        Ok(self.current_block)
+    }
+
+    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
+        if !self.registered_chains.contains(&chain_id) {
+            return Err(format!("Chain {} is not registered", chain_id.0));
+        }
+        Ok(SubBlock {
+            chain_id: chain_id.clone(),
+            block_id,
+            transactions: self.processed_transactions
+                .iter()
+                .filter(|(cid, _)| cid == &chain_id)
+                .map(|(_, tx)| Transaction {
+                    id: tx.id.clone(),
+                    data: tx.data.clone(),
+                })
+                .collect(),
+        })
+    }
+}
+
+#[tokio::test]
+async fn test_confirmation_layer() {
+    let mut cl = TestConfirmationLayer::new();
+    let chain_id = ChainId("1".to_string());
+    
+    // Test registering a chain
+    let block_id = cl.register_chain(chain_id.clone()).unwrap();
+    assert_eq!(block_id, 0);
+    
+    // Test getting current block
+    let current_block = cl.get_current_block().unwrap();
+    assert_eq!(current_block, 0);
+    
+    // Test getting subblock
+    let subblock = cl.get_subblock(chain_id.clone(), block_id).unwrap();
+    assert_eq!(subblock.chain_id, chain_id);
+    assert_eq!(subblock.block_id, block_id);
+    assert!(subblock.transactions.is_empty());
 }
 

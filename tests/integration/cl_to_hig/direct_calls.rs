@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, TransactionStatus, ChainId, BlockId, CLTransaction},
+    types::{Transaction, TransactionId, TransactionStatus, ChainId, CLTransaction},
     hyper_ig::HyperIG,
     confirmation_layer::ConfirmationLayer,
 };
@@ -35,11 +35,9 @@ async fn test_process_subblock() {
     // Wait for block production
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
-    let current_block_num = current_block.0.parse::<u64>().unwrap();
 
     // Get subblock
-    let block_id = BlockId(current_block_num.to_string());
-    let subblock = cl_node.get_subblock(chain_id, block_id)
+    let subblock = cl_node.get_subblock(chain_id, current_block)
         .await
         .expect("Failed to get subblock");
 
@@ -82,11 +80,9 @@ async fn test_process_cat_subblock() {
     // Wait for block production
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
-    let current_block_num = current_block.0.parse::<u64>().unwrap();
 
     // Get subblock
-    let block_id = BlockId(current_block_num.to_string());
-    let subblock = cl_node.get_subblock(chain_id, block_id)
+    let subblock = cl_node.get_subblock(chain_id, current_block)
         .await
         .expect("Failed to get subblock");
 
@@ -130,14 +126,12 @@ async fn test_process_multiple_subblocks_new_transactions() {
     // Wait for block production and get the current block
     tokio::time::sleep(Duration::from_millis(200)).await;
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
-    let current_block_num = current_block.0.parse::<u64>().unwrap();
-    println!("Current block number after tx1: {}", current_block_num);
+    println!("Current block number after tx1: {}", current_block);
 
     // Look for tx1 in all blocks up to the current one
     let mut found_subblock1 = None;
-    for block_num in 0..=current_block_num {
-        let block_id = BlockId(block_num.to_string());
-        if let Ok(subblock) = cl_node.get_subblock(chain_id.clone(), block_id).await {
+    for block_num in 0..=current_block {
+        if let Ok(subblock) = cl_node.get_subblock(chain_id.clone(), block_num).await {
             if subblock.transactions.iter().any(|tx| tx.id == tx1.id) {
                 found_subblock1 = Some(subblock);
                 break;
@@ -171,14 +165,12 @@ async fn test_process_multiple_subblocks_new_transactions() {
     // Wait for block production and get the current block
     tokio::time::sleep(Duration::from_millis(200)).await;
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
-    let current_block_num = current_block.0.parse::<u64>().unwrap();
-    println!("Current block number after tx2: {}", current_block_num);
+    println!("Current block number after tx2: {}", current_block);
 
     // Look for tx2 in all blocks up to the current one
     let mut found_subblock2 = None;
-    for block_num in 0..=current_block_num {
-        let block_id = BlockId(block_num.to_string());
-        if let Ok(subblock) = cl_node.get_subblock(chain_id.clone(), block_id).await {
+    for block_num in 0..=current_block {
+        if let Ok(subblock) = cl_node.get_subblock(chain_id.clone(), block_num).await {
             if subblock.transactions.iter().any(|tx| tx.id == tx2.id) {
                 found_subblock2 = Some(subblock);
                 break;

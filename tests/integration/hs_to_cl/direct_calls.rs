@@ -3,7 +3,6 @@ use hyperplane::{
         CATId,
         CATStatusLimited,
         ChainId,
-        BlockId,
         TransactionId,
     },
     hyper_scheduler::HyperScheduler,
@@ -57,11 +56,9 @@ async fn test_cat_status_update_one_target_chain() {
 
     // Get the current block
     let current_block = cl_node.lock().await.get_current_block().await.expect("Failed to get current block");
-    let current_block_num = current_block.0.parse::<u64>().unwrap();
 
     // Get the subblock
-    let block_id = BlockId(current_block_num.to_string());
-    let subblock = cl_node.lock().await.get_subblock(chain_id, block_id)
+    let subblock = cl_node.lock().await.get_subblock(chain_id, current_block)
         .await
         .expect("Failed to get subblock");
 
@@ -226,11 +223,10 @@ async fn test_cat_status_update() {
 
     // Get current block
     let current_block = cl_node.lock().await.get_current_block().await.expect("Failed to get current block");
-    assert_eq!(current_block, BlockId("5".to_string()));
+    assert_eq!(current_block, 5);
 
     // Get subblock and verify transaction
-    let block_id = BlockId("0".to_string());
-    let subblock = cl_node.lock().await.get_subblock(chain_id, block_id)
+    let subblock = cl_node.lock().await.get_subblock(chain_id, 0)
         .await
         .expect("Failed to get subblock");
     assert_eq!(subblock.transactions.len(), 1);
@@ -290,11 +286,10 @@ async fn test_multiple_cat_status_updates() {
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     // Verify transactions in subblocks
-    let block_id = BlockId("0".to_string());
-    let subblock1 = cl_node.lock().await.get_subblock(chain_id_1, block_id.clone())
+    let subblock1 = cl_node.lock().await.get_subblock(chain_id_1, 0)
         .await
         .expect("Failed to get subblock 1");
-    let subblock2 = cl_node.lock().await.get_subblock(chain_id_2, block_id)
+    let subblock2 = cl_node.lock().await.get_subblock(chain_id_2, 0)
         .await
         .expect("Failed to get subblock 2");
 

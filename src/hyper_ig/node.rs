@@ -34,7 +34,7 @@ impl HyperIGNode {
 
     /// Process a subblock
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
-        tracing::info!("Processing subblock: block_id={}, chain_id={}, tx_count={}", subblock.block_id.0, subblock.chain_id.0, subblock.transactions.len());
+        tracing::info!("Processing subblock: block_id={}, chain_id={}, tx_count={}", subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
         for tx in &subblock.transactions {
             tracing::info!("Executing transaction: id={}, data={}", tx.id.0, tx.data);
         }

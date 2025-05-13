@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, ChainId, BlockId, CLTransaction, CATId},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, ChainId, CLTransaction, CATId},
     hyper_ig::HyperIG,
     hyper_scheduler::HyperScheduler,
     confirmation_layer::ConfirmationLayer,
@@ -52,15 +52,13 @@ async fn test_cat_complete_flow() {
     println!("[test.CL] Waiting for block production...");
     tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
     let current_block = hs_node.confirmation_layer_mut().unwrap().get_current_block().await.expect("Failed to get current block");
-    let current_block_num = current_block.0.parse::<u64>().unwrap();
-    println!("[test.CL] Current block number after CAT tx: {}", current_block_num);
+    println!("[test.CL] Current block number after CAT tx: {}", current_block);
 
     // Look for CAT transaction in all blocks up to the current one
     println!("[test.CL] Searching for CAT transaction in blocks...");
     let mut found_subblock = None;
-    for block_num in 0..current_block_num {
-        let block_id = BlockId(block_num.to_string());
-        let subblock = hs_node.confirmation_layer_mut().unwrap().get_subblock(chain_id.clone(), block_id.clone())
+    for block_num in 0..current_block {
+        let subblock = hs_node.confirmation_layer_mut().unwrap().get_subblock(chain_id.clone(), block_num)
             .await
             .expect(&format!("Failed to get subblock for block {}", block_num));
         println!("[test.CL] Checking block {} for CAT tx: tx_count={}", block_num, subblock.transactions.len());
@@ -121,15 +119,13 @@ async fn test_cat_complete_flow() {
     println!("\n[test.CL] Waiting for block production after status update...");
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
     let current_block = hs_node.confirmation_layer_mut().unwrap().get_current_block().await.expect("Failed to get current block");
-    let current_block_num = current_block.0.parse::<u64>().unwrap();
-    println!("[test.CL] Current block number after status update: {}", current_block_num);
+    println!("[test.CL] Current block number after status update: {}", current_block);
 
     // Look for status update transaction in all blocks up to the current one
     println!("[test.CL] Searching for status update transaction in blocks...");
     let mut found_subblock = None;
-    for block_num in 0..current_block_num {
-        let block_id = BlockId(block_num.to_string());
-        let subblock = hs_node.confirmation_layer_mut().unwrap().get_subblock(chain_id.clone(), block_id.clone())
+    for block_num in 0..current_block {
+        let subblock = hs_node.confirmation_layer_mut().unwrap().get_subblock(chain_id.clone(), block_num)
             .await
             .expect(&format!("Failed to get subblock for block {}", block_num));
         println!("[test.CL] Checking block {} for status update: tx_count={}", block_num, subblock.transactions.len());

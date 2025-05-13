@@ -27,6 +27,7 @@ struct Transaction {
 #[derive(Clone, Debug)]
 struct SubBlock {
     chain_id: String,
+    #[allow(dead_code)]
     block_id: u64,
     messages: Vec<String>,
 }
@@ -34,6 +35,7 @@ struct SubBlock {
 /// A simplified version of a block
 #[derive(Clone, Debug)]
 struct Block {
+    #[allow(dead_code)]
     id: u64,
     messages: Vec<String>,
 }
@@ -173,6 +175,7 @@ async fn test_mutex_concurrent_access_v8() {
 
 /// Error types for the CL node
 #[derive(Debug)]
+#[allow(dead_code)]
 enum NodeError {
     ChainNotFound(String),
     ChainAlreadyRegistered(String),
@@ -497,6 +500,7 @@ async fn test_mutex_concurrent_access_v9() {
 #[derive(Clone, Debug)]
 struct SubBlockV9 {
     chain_id: ChainId,
+    #[allow(dead_code)]
     block_id: BlockId,
     transactions: Vec<Transaction>,
 }
@@ -504,6 +508,7 @@ struct SubBlockV9 {
 /// A simplified version of a block with proper types
 #[derive(Clone, Debug)]
 struct BlockV9 {
+    #[allow(dead_code)]
     id: BlockId,
     transactions: Vec<Transaction>,
 }
@@ -852,6 +857,7 @@ struct CLTransaction {
 #[derive(Clone, Debug)]
 struct SubBlockV10 {
     chain_id: ChainId,
+    #[allow(dead_code)]
     block_id: BlockId,
     transactions: Vec<CLTransaction>,
 }
@@ -859,6 +865,7 @@ struct SubBlockV10 {
 /// A simplified version of a block with proper types
 #[derive(Clone, Debug)]
 struct BlockV10 {
+    #[allow(dead_code)]
     id: BlockId,
     transactions: Vec<CLTransaction>,
 }
