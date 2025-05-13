@@ -521,8 +521,173 @@ async fn run_adder_v4(sender: mpsc::Sender<String>) {
 #[tokio::test]
 async fn test_mutex_concurrent_access_v5() {
     println!("\n=== Starting test_mutex_concurrent_access_v5 ===");
-    // TODO: Implement test with multiple chains
+    
+    // Create a channel for messages
+    let (sender, receiver) = mpsc::channel(100);
+    
+    // Create a shared state wrapped in Arc<Mutex>
+    let state = Arc::new(Mutex::new(TestNodeStateV5::new(
+        receiver,
+        Duration::from_millis(100), // 100ms block interval
+    )));
+    
+    // Clone the state for the processor task
+    let state_for_processor = state.clone();
+    
+    // Spawn the processor task
+    let _processor_handle = tokio::spawn(async move {
+        run_processor_v5(state_for_processor).await;
+    });
+
+    // Spawn tasks to add messages for different chains
+    let sender_for_chain1 = sender.clone();
+    let _adder_handle1 = tokio::spawn(async move {
+        run_adder_v5(sender_for_chain1, "chain1").await;
+    });
+
+    let sender_for_chain2 = sender.clone();
+    let _adder_handle2 = tokio::spawn(async move {
+        run_adder_v5(sender_for_chain2, "chain2").await;
+    });
+    
+    // Wait for a few seconds to let the processor run
+    println!("Main task: waiting for 1 second...");
+    sleep(Duration::from_secs(1)).await;
+    
+    // Check the state
+    let state_guard = state.lock().await;
+    println!("Main task: current block is {}", state_guard.current_block);
+    println!("Main task: processed {} messages", state_guard.processed_messages.len());
+    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
+    println!("Main task: produced {} blocks", state_guard.blocks.len());
+    
+    // Verify the state has been updated
+    assert!(state_guard.current_block > 0, "Block should have been incremented");
+    assert!(!state_guard.processed_messages.is_empty(), "Should have processed some messages");
+    assert!(!state_guard.blocks.is_empty(), "Should have produced some blocks");
+    
+    // Drop the first state lock
+    drop(state_guard);
+    
+    // The processor task will continue running until the test ends
+    sleep(Duration::from_secs(1)).await;
+    
+    // Make sure the processor task is still running by checking the state again
+    let state_guard = state.lock().await;
+    let current_block = state_guard.current_block;
+    let processed_count = state_guard.processed_messages.len();
+    let block_count = state_guard.blocks.len();
+    println!("Main task: final check - block is {}, processed {} messages in {} blocks", 
+        current_block, processed_count, block_count);
+    
+    // Ensure the processor is still running and processing messages
+    // With 100ms interval, we should process ~20 blocks in 2 seconds
+    // But only ~7 messages per chain (one every 3 blocks)
+    assert!(current_block > 15, "Block should have been incremented more than 15 times in 2 seconds");
+    assert!(processed_count > 10, "Should have processed more than 10 messages in 2 seconds (5 per chain)");
+    assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
+    
     println!("=== Test completed successfully ===\n");
+}
+
+/// A simplified version of ConfirmationLayerNode's state with message channel and block production
+struct TestNodeStateV5 {
+    current_block: u64,
+    pending_messages: Vec<(String, String)>, // (chain_id, message)
+    processed_messages: Vec<(String, String)>, // (chain_id, message)
+    message_receiver: mpsc::Receiver<(String, String)>, // (chain_id, message)
+    blocks: Vec<Block>,
+    block_interval: Duration,
+}
+
+impl TestNodeStateV5 {
+    fn new(message_receiver: mpsc::Receiver<(String, String)>, block_interval: Duration) -> Self {
+        Self {
+            current_block: 0,
+            pending_messages: Vec::new(),
+            processed_messages: Vec::new(),
+            message_receiver,
+            blocks: Vec::new(),
+            block_interval,
+        }
+    }
+}
+
+/// A function that continuously processes messages and updates state
+async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
+    println!("[Processor] task started");
+    
+    // Get the block interval
+    let block_interval = {
+        let state = state.lock().await;
+        state.block_interval
+    };
+    
+    // Create an interval for block production
+    let mut interval = interval(block_interval);
+    
+    loop {
+        // Wait for the next block interval
+        interval.tick().await;
+        
+        // Acquire the lock and process messages
+        let mut state = state.lock().await;
+        
+        // Check for new messages from channel
+        while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
+            println!("[Processor] received message from chain {}: {}", chain_id, message);
+            state.pending_messages.push((chain_id, message));
+        }
+        
+        // Create a new block
+        let block_id = state.current_block;
+        let mut block = Block {
+            id: block_id,
+            messages: Vec::new(),
+        };
+        
+        // Move pending messages to the block
+        while !state.pending_messages.is_empty() {
+            let (chain_id, message) = state.pending_messages.remove(0);
+            let formatted_message = format!("[{}] {}", chain_id, message);
+            block.messages.push(formatted_message.clone());
+            state.processed_messages.push((chain_id, message));
+        }
+        
+        // Store the block
+        state.blocks.push(block.clone());
+        state.current_block += 1;
+        
+        // Print block status
+        if !block.messages.is_empty() {
+            print!("[Processor] produced block {} with {} messages", block_id, block.messages.len());
+            for msg in &block.messages {
+                print!("  - \"{}\"", msg);
+            }
+            println!();
+        } else {
+            println!("[Processor] produced empty block {}", block_id);
+        }
+        
+        // Release the lock by dropping state
+        drop(state);
+    }
+}
+
+/// A function that gradually adds messages to the state through channel
+async fn run_adder_v5(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
+    println!("[Adder-{}] task started", chain_id);
+    for i in 1..=7 {
+        // Wait for ~3 blocks (300ms) before adding next message
+        sleep(Duration::from_millis(300)).await;
+        let message = format!("message{}", i);
+        if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
+            println!("[Adder-{}] failed to send message: {}", chain_id, e);
+            break;
+        }
+        println!("[Adder-{}] sent message{}", chain_id, i);
+    }
+    println!("[Adder-{}] task completed", chain_id);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
