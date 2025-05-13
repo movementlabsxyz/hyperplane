@@ -4,6 +4,7 @@ use tokio::time::{Duration, sleep, interval};
 use tokio::sync::mpsc;
 use hyperplane::{
     types::{Transaction, TransactionId, ChainId, CLTransaction, SubBlock, CATStatusUpdate},
+    confirmation_layer::{ConfirmationLayerError, ConfirmationLayer},
 };
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -34,17 +35,17 @@ async fn test_mutex_concurrent_access_v13() {
     println!("[Test] Registering chains...");
     {
         let mut cl_node_with_lock = cl_node.lock().await;
-        cl_node_with_lock.register_chain(ChainId("chain1".to_string())).expect("Failed to register chain1");
-        cl_node_with_lock.register_chain(ChainId("chain2".to_string())).expect("Failed to register chain2");
+        cl_node_with_lock.register_chain(ChainId("chain1".to_string())).await.expect("Failed to register chain1");
+        cl_node_with_lock.register_chain(ChainId("chain2".to_string())).await.expect("Failed to register chain2");
         
         // Try to register chain1 again (should fail)
-        match cl_node_with_lock.register_chain(ChainId("chain1".to_string())) {
+        match cl_node_with_lock.register_chain(ChainId("chain1".to_string())).await {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
             Err(e) => println!("[Test] Expected error when registering chain1 twice: {}", e),
         }
 
         // Try to get subblock for unregistered chain
-        match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), 0) {
+        match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), 0).await {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
             Err(e) => println!("[Test] Expected error when getting subblock for unregistered chain: {}", e),
         }
@@ -60,7 +61,7 @@ async fn test_mutex_concurrent_access_v13() {
         assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain2".to_string())), "chain2 should be registered");
 
         // Get subblock for registered chain
-        match cl_node_with_lock.get_subblock(ChainId("chain1".to_string()), 0) {
+        match cl_node_with_lock.get_subblock(ChainId("chain1".to_string()), 0).await {
             Ok(subblock) => {
                 println!("[Test] Successfully got subblock for chain1: {:?}", subblock);
                 assert_eq!(subblock.chain_id, ChainId("chain1".to_string()), "Subblock should be for chain1");
@@ -82,7 +83,7 @@ async fn test_mutex_concurrent_access_v13() {
             data: "message1.chain1".to_string(),
             chain_id: ChainId("chain1".to_string()),
         };
-        cl_node_with_lock_2.submit_transaction(tx1).expect("Failed to submit transaction for chain1");
+        cl_node_with_lock_2.submit_transaction(tx1).await.expect("Failed to submit transaction for chain1");
         
         // Submit a transaction for chain2
         let tx2 = CLTransaction {
@@ -90,7 +91,7 @@ async fn test_mutex_concurrent_access_v13() {
             data: "message1.chain2".to_string(),
             chain_id: ChainId("chain2".to_string()),
         };
-        cl_node_with_lock_2.submit_transaction(tx2).expect("Failed to submit transaction for chain2");
+        cl_node_with_lock_2.submit_transaction(tx2).await.expect("Failed to submit transaction for chain2");
         
         // Try to submit a transaction for unregistered chain (should fail)
         let tx3 = CLTransaction {
@@ -98,7 +99,7 @@ async fn test_mutex_concurrent_access_v13() {
             data: "message1.chain3".to_string(),
             chain_id: ChainId("chain3".to_string()),
         };
-        match cl_node_with_lock_2.submit_transaction(tx3) {
+        match cl_node_with_lock_2.submit_transaction(tx3).await {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
             Err(e) => println!("[Test] Expected error when submitting transaction for unregistered chain: {}", e),
         }
@@ -137,7 +138,7 @@ async fn test_mutex_concurrent_access_v13() {
     assert_eq!(cl_node_with_lock_3.registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
-    match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0) {
+    match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0).await {
         Ok(subblock) => println!("[Test] Successfully got subblock for chain1: {:?}", subblock),
         Err(e) => panic!("Failed to get subblock for chain1: {}", e),
     }
@@ -211,25 +212,25 @@ impl TestConfirmationLayerNode {
         }
     }
 
-    fn register_chain(&mut self, chain_id: ChainId) -> Result<(), String> {
+    async fn register_chain(&mut self, chain_id: ChainId) -> Result<(), ConfirmationLayerError> {
         if self.registered_chains.contains(&chain_id) {
-            return Err(format!("Chain {} is already registered", chain_id.0));
+            return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
         self.registered_chains.push(chain_id);
         Ok(())
     }
 
-    fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), String> {
+    async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
         if !self.registered_chains.contains(&transaction.chain_id) {
-            return Err(format!("Chain {} is not registered", transaction.chain_id.0));
+            return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
         }
         self.pending_transactions.push(transaction);
         Ok(())
     }
 
-    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
+    async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
         if !self.registered_chains.contains(&chain_id) {
-            return Err(format!("Chain {} is not registered", chain_id.0));
+            return Err(ConfirmationLayerError::ChainNotFound(chain_id));
         }
         // For simplicity, just return a dummy subblock
         Ok(SubBlock {
@@ -246,7 +247,7 @@ impl TestConfirmationLayerNode {
         })
     }
 
-    async fn get_current_block(&self) -> Result<u64, String> {
+    async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError> {
         Ok(self.current_block)
     }
 }
@@ -422,14 +423,14 @@ async fn test_confirmation_layer() {
     let chain_id = ChainId("1".to_string());
     
     // Test registering a chain
-    cl.register_chain(chain_id.clone()).unwrap();
+    cl.register_chain(chain_id.clone()).await.unwrap();
     
     // Test getting current block
     let current_block = cl.get_current_block().await.unwrap();
     assert_eq!(current_block, 0);
     
     // Test getting subblock
-    let subblock = cl.get_subblock(chain_id.clone(), 0).unwrap();
+    let subblock = cl.get_subblock(chain_id.clone(), 0).await.unwrap();
     assert_eq!(subblock.chain_id, chain_id);
     assert_eq!(subblock.block_id, 0);
     assert!(subblock.transactions.is_empty());
