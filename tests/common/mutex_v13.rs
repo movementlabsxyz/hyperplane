@@ -5,6 +5,8 @@ use tokio::sync::mpsc;
 use hyperplane::{
     types::{Transaction, TransactionId, ChainId, CLTransaction, SubBlock, CATStatusUpdate},
     confirmation_layer::{ConfirmationLayerError, ConfirmationLayer, ConfirmationLayerNode},
+    hyper_scheduler::HyperSchedulerNode,
+    hyper_ig::HyperIGNode,
 };
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -113,12 +115,12 @@ async fn test_mutex_concurrent_access_v13() {
     // Spawn tasks to add more transactions for different chains
     let sender_for_chain1 = hs_node.get_sender_to_cl();
     let _adder_handle1 = tokio::spawn(async move {
-        run_spammer_v12(sender_for_chain1, ChainId("chain1".to_string())).await;
+        run_spammer_v13(sender_for_chain1, ChainId("chain1".to_string())).await;
     });
 
     let sender_for_chain2 = hs_node.get_sender_to_cl();
     let _adder_handle2 = tokio::spawn(async move {
-        run_spammer_v12(sender_for_chain2, ChainId("chain2".to_string())).await;
+        run_spammer_v13(sender_for_chain2, ChainId("chain2".to_string())).await;
     });
 
     // Wait for a few seconds to let the processor run
@@ -171,64 +173,21 @@ async fn test_mutex_concurrent_access_v13() {
     println!("=== Test completed successfully ===\n");
 }
 
-/// v12: Hyper Scheduler node
-struct TestHSNodev12 {
-    sender_hs_to_cl: mpsc::Sender<CLTransaction>,
-    #[allow(dead_code)]
-    receiver_hig_to_hs: mpsc::Receiver<CATStatusUpdate>,
-}
-
-impl TestHSNodev12 {
-    fn new(
-        sender_hs_to_cl: mpsc::Sender<CLTransaction>,
-        receiver_hig_to_hs: mpsc::Receiver<CATStatusUpdate>,
-    ) -> Self {
-        Self {
-            sender_hs_to_cl,
-            receiver_hig_to_hs,
-        }
-    }
-
-    pub fn get_sender_to_cl(&self) -> mpsc::Sender<CLTransaction> {
-        self.sender_hs_to_cl.clone()
-    }
-}
-
-/// v12: Hyper IG node
-struct TestHIGNodev12 {
-    #[allow(dead_code)]
-    receiver_cl_to_hig: mpsc::Receiver<SubBlock>,
-    #[allow(dead_code)]
-    sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>,
-}
-
-impl TestHIGNodev12 {
-    fn new(
-        receiver_cl_to_hig: mpsc::Receiver<SubBlock>,
-        sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>,
-    ) -> Self {
-        Self {
-            receiver_cl_to_hig,
-            sender_hig_to_hs,
-        }
-    }
-}
-
 /// Helper function to create test nodes with basic setup
-async fn setup_test_nodes(interval: Duration) -> (TestHSNodev12, Arc<Mutex<ConfirmationLayerNode>>, TestHIGNodev12) {
+async fn setup_test_nodes(interval: Duration) -> (HyperSchedulerNode, Arc<Mutex<ConfirmationLayerNode>>, HyperIGNode) {
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
     let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
     
     // Create nodes with their channels
-    let hs_node = TestHSNodev12::new(sender_hs_to_cl, receiver_hig_to_hs);
+    let hs_node = HyperSchedulerNode::new(receiver_hig_to_hs, sender_hs_to_cl);
     let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
         sender_cl_to_hig,
         interval,
     ).expect("Failed to create ConfirmationLayerNode")));
-    let hig_node = TestHIGNodev12::new(receiver_cl_to_hig, sender_hig_to_hs);
+    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs);
     
     // Clone the state for the processor task
     let cl_node_for_processor = cl_node.clone();
@@ -316,7 +275,7 @@ async fn run_transaction_processor_v13(cl_node: Arc<Mutex<ConfirmationLayerNode>
 }
 
 /// Helper function to run the adder task
-async fn run_spammer_v12(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
+async fn run_spammer_v13(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
     for i in 1..=10 {
         let tx = CLTransaction {
             id: TransactionId(format!("tx{}.{}", i, chain_id.0)),

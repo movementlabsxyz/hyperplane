@@ -30,6 +30,11 @@ impl HyperSchedulerNode {
         }
     }
 
+    /// Get a clone of the sender to the confirmation layer
+    pub fn get_sender_to_cl(&self) -> mpsc::Sender<CLTransaction> {
+        self.sender_to_cl.as_ref().expect("Sender to CL not set").clone()
+    }
+
     /// Start the message processing loop
     pub async fn start(&mut self) {
         let mut receiver = self.receiver_from_hig.take().expect("Receiver already taken");
