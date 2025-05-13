@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep};
+use tokio::sync::mpsc;
 
 /// A simplified version of ConfirmationLayerNode's state
 struct TestNodeState {
@@ -163,7 +164,7 @@ async fn run_processor_v2(state: Arc<Mutex<TestNodeState>>) {
         if !state.pending_messages.is_empty() {
             let message = state.pending_messages.remove(0);
             state.processed_messages.push(message.clone());
-            println!("with message: {}", message);
+            println!(" with message: {}", message);
         } else {
             println!(" (no messages)");
         }
@@ -194,16 +195,139 @@ async fn run_adder_v2(state: Arc<Mutex<TestNodeState>>) {
 // V3: Adds a message processing (like CL node)
 // - - - - - - - - - - - - - - - - - - - - - - - 
 
-/// V3: Adds a message processing (like CL node)
+
+/// V3: Adds message processing (like CL node)
 /// - Adds a channel for receiving messages
 /// - Processes messages in the incrementer
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_mutex_concurrent_access_v3() {
     println!("\n=== Starting test_mutex_concurrent_access_v3 ===");
-    // TODO: Implement test with message processing
+    
+    // Create a channel for messages
+    let (sender, receiver) = mpsc::channel(100);
+    
+    // Create a shared state wrapped in Arc<Mutex>
+    let state = Arc::new(Mutex::new(TestNodeStateV3::new(receiver)));
+    
+    // Clone the state for the processor task
+    let state_for_processor = state.clone();
+    
+    // Spawn the processor task
+    let _processor_handle = tokio::spawn(async move {
+        run_processor_v3(state_for_processor).await;
+    });
+
+    // Spawn a task to add messages gradually
+    let _adder_handle = tokio::spawn(async move {
+        run_adder_v3(sender).await;
+    });
+    
+    // Wait for a few seconds to let the processor run
+    println!("Main task: waiting for 1 second...");
+    sleep(Duration::from_secs(1)).await;
+    
+    // Check the state
+    let state_guard = state.lock().await;
+    println!("Main task: current block is {}", state_guard.current_block);
+    println!("Main task: processed {} messages", state_guard.processed_messages.len());
+    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
+    
+    // Verify the state has been updated
+    assert!(state_guard.current_block > 0, "Block should have been incremented");
+    assert!(!state_guard.processed_messages.is_empty(), "Should have processed some messages");
+    
+    // Drop the first state lock
+    drop(state_guard);
+    
+    // The processor task will continue running until the test ends
+    sleep(Duration::from_secs(1)).await;
+    
+    // Make sure the processor task is still running by checking the state again
+    let state_guard = state.lock().await;
+    let current_block = state_guard.current_block;
+    let processed_count = state_guard.processed_messages.len();
+    println!("Main task: final check - block is {}, processed {} messages", current_block, processed_count);
+    
+    // Ensure the processor is still running and processing messages
+    // With 100ms sleep, we should process ~20 blocks in 2 seconds
+    // But only ~7 messages (one every 3 blocks)
+    assert!(current_block > 15, "Block should have been incremented more than 15 times in 2 seconds");
+    assert!(processed_count > 5, "Should have processed more than 5 messages in 2 seconds");
+    
     println!("=== Test completed successfully ===\n");
 }
+
+
+/// A simplified version of ConfirmationLayerNode's state with message channel
+struct TestNodeStateV3 {
+    current_block: u64,
+    pending_messages: Vec<String>,
+    processed_messages: Vec<String>,
+    message_receiver: mpsc::Receiver<String>,
+}
+
+impl TestNodeStateV3 {
+    fn new(message_receiver: mpsc::Receiver<String>) -> Self {
+        Self {
+            current_block: 0,
+            pending_messages: Vec::new(),
+            processed_messages: Vec::new(),
+            message_receiver,
+        }
+    }
+}
+
+/// A function that continuously processes messages and updates state
+async fn run_processor_v3(state: Arc<Mutex<TestNodeStateV3>>) {
+    println!("[Processor] task started");
+    loop {
+        // Acquire the lock and process messages
+        let mut state = state.lock().await;
+        
+        // Check for new messages from channel
+        while let Ok(message) = state.message_receiver.try_recv() {
+            println!("[Processor] received message from channel: {}", message);
+            state.pending_messages.push(message);
+        }
+        
+        // Always increment block, even if no messages
+        state.current_block += 1;
+        print!("[Processor] block is now {}", state.current_block);
+        
+        // Process any pending messages
+        if !state.pending_messages.is_empty() {
+            let message = state.pending_messages.remove(0);
+            state.processed_messages.push(message.clone());
+            println!(" with message: {}", message);
+        } else {
+            println!(" (no messages)");
+        }
+        
+        // Release the lock by dropping state
+        drop(state);
+        
+        // Sleep for a second
+        sleep(Duration::from_millis(100)).await;
+    }
+}
+
+/// A function that gradually adds messages to the state through channel
+async fn run_adder_v3(sender: mpsc::Sender<String>) {
+    println!("[Adder] task started");
+    for i in 1..=7 {
+        // Wait for ~3 blocks (300ms) before adding next message
+        sleep(Duration::from_millis(300)).await;
+        let message = format!("message{}", i);
+        if let Err(e) = sender.send(message.clone()).await {
+            println!("[Adder] failed to send message: {}", e);
+            break;
+        }
+        println!("[Adder] sent message{}", i);
+    }
+    println!("[Adder] task completed");
+}
+
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
 // V4: Adds block production (like CL node)
