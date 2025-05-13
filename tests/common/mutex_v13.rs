@@ -6,6 +6,7 @@ use hyperplane::{
     types::{Transaction, TransactionId, ChainId, CLTransaction, SubBlock, CATStatusUpdate},
 };
 use std::collections::HashSet;
+use std::collections::HashMap;
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -165,16 +166,28 @@ async fn test_mutex_concurrent_access_v13() {
     println!("=== Test completed successfully ===\n");
 }
 
-/// v12: Node that matches CL node functionality
+/// v13: Node that matches CL node functionality exactly
 struct TestConfirmationLayerNode {
-    msg_receiver: mpsc::Receiver<CLTransaction>,
-    subblock_sender: mpsc::Sender<SubBlock>,
-    block_interval: Duration,
-    current_block: u64,
-    processed_transactions: Vec<(ChainId, CLTransaction)>,
-    pending_transactions: Vec<CLTransaction>,
-    blocks: Vec<u64>,
-    registered_chains: Vec<ChainId>,
+    /// Currently registered chains
+    pub registered_chains: Vec<ChainId>,
+    /// Current block number
+    pub current_block: u64,
+    /// Block interval
+    pub block_interval: Duration,
+    /// Pending transactions
+    pub pending_transactions: Vec<CLTransaction>,
+    /// Processed transactions
+    pub processed_transactions: Vec<(ChainId, CLTransaction)>,
+    /// Block history
+    pub blocks: Vec<u64>,
+    /// Block to transactions mapping
+    pub block_transactions: HashMap<u64, Vec<(ChainId, CLTransaction)>>,
+    /// Receiver for messages from Hyper Scheduler
+    pub receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
+    /// Sender for messages to Hyper IG
+    pub sender_cl_to_hig: mpsc::Sender<SubBlock>,
+    /// Sender for transactions from Hyper Scheduler
+    pub sender_hs_to_cl: mpsc::Sender<CLTransaction>,
 }
 
 impl TestConfirmationLayerNode {
@@ -183,15 +196,18 @@ impl TestConfirmationLayerNode {
         sender_cl_to_hig: mpsc::Sender<SubBlock>,
         block_interval: Duration,
     ) -> Self {
+        let (sender_hs_to_cl, _) = mpsc::channel(100);
         Self {
-            msg_receiver: receiver_hs_to_cl,
-            subblock_sender: sender_cl_to_hig,
-            block_interval,
-            current_block: 0,
-            processed_transactions: Vec::new(),
-            pending_transactions: Vec::new(),
-            blocks: Vec::new(),
             registered_chains: Vec::new(),
+            current_block: 0,
+            block_interval,
+            pending_transactions: Vec::new(),
+            processed_transactions: Vec::new(),
+            blocks: Vec::new(),
+            block_transactions: HashMap::new(),
+            receiver_hs_to_cl,
+            sender_cl_to_hig,
+            sender_hs_to_cl,
         }
     }
 
@@ -314,7 +330,7 @@ async fn run_transaction_processor_v13(cl_node: Arc<Mutex<TestConfirmationLayerN
         let mut state = cl_node.lock().await;
         
         // Process any new transactions from the channel
-        while let Ok(transaction) = state.msg_receiver.try_recv() {
+        while let Ok(transaction) = state.receiver_hs_to_cl.try_recv() {
             println!("[Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
             if state.registered_chains.contains(&transaction.chain_id) {
                 state.pending_transactions.push(transaction);
@@ -337,8 +353,25 @@ async fn run_transaction_processor_v13(cl_node: Arc<Mutex<TestConfirmationLayerN
         state.pending_transactions = remaining;
         
         // Create a block
-        let block_id = 0;
+        let block_id = state.current_block;
         state.blocks.push(block_id);
+        
+        // Store transactions for this block
+        state.block_transactions.insert(block_id, processed_this_block.clone());
+        
+        // Add processed transactions
+        state.processed_transactions.extend(processed_this_block.clone());
+        
+        // Print block status
+        if !processed_this_block.is_empty() {
+            print!("[Processor] produced block {} with {} transactions", state.current_block, processed_this_block.len());
+            for (_, tx) in &processed_this_block {
+                print!("  - id={}, data={}", tx.id.0, tx.data);
+            }
+            println!();
+        } else {
+            println!("[Processor] produced empty block {}", state.current_block);
+        }
         
         // Send subblocks for each chain with only this block's transactions
         for chain_id in &state.registered_chains {
@@ -354,22 +387,10 @@ async fn run_transaction_processor_v13(cl_node: Arc<Mutex<TestConfirmationLayerN
                     })
                     .collect(),
             };
-            if let Err(e) = state.subblock_sender.send(subblock).await {
+            if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
                 println!("Error sending subblock: {}", e);
                 break;
             }
-        }
-        state.processed_transactions.extend(processed_this_block.iter().cloned());
-        
-        // Print block status
-        if !processed_this_block.is_empty() {
-            print!("[Processor] produced block {} with {} transactions", state.current_block, processed_this_block.len());
-            for (_, tx) in &processed_this_block {
-                print!("  - id={}, data={}", tx.id.0, tx.data);
-            }
-            println!();
-        } else {
-            println!("[Processor] produced empty block {}", state.current_block);
         }
     }
 }
@@ -391,70 +412,26 @@ async fn run_spammer_v12(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId)
     }
 }
 
-#[derive(Debug, Clone)]
-struct TestConfirmationLayer {
-    registered_chains: HashSet<ChainId>,
-    current_block: u64,
-    processed_transactions: Vec<(ChainId, Transaction)>,
-}
-
-impl TestConfirmationLayer {
-    fn new() -> Self {
-        Self {
-            registered_chains: HashSet::new(),
-            current_block: 0,
-            processed_transactions: Vec::new(),
-        }
-    }
-
-    fn get_current_block(&self) -> Result<u64, String> {
-        Ok(self.current_block)
-    }
-
-    fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, String> {
-        if self.registered_chains.contains(&chain_id) {
-            return Err(format!("Chain {} is already registered", chain_id.0));
-        }
-        self.registered_chains.insert(chain_id);
-        Ok(self.current_block)
-    }
-
-    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
-        if !self.registered_chains.contains(&chain_id) {
-            return Err(format!("Chain {} is not registered", chain_id.0));
-        }
-        Ok(SubBlock {
-            chain_id: chain_id.clone(),
-            block_id,
-            transactions: self.processed_transactions
-                .iter()
-                .filter(|(cid, _)| cid == &chain_id)
-                .map(|(_, tx)| Transaction {
-                    id: tx.id.clone(),
-                    data: tx.data.clone(),
-                })
-                .collect(),
-        })
-    }
-}
-
 #[tokio::test]
 async fn test_confirmation_layer() {
-    let mut cl = TestConfirmationLayer::new();
+    let mut cl = TestConfirmationLayerNode::new(
+        mpsc::channel(100).1,
+        mpsc::channel(100).0,
+        Duration::from_millis(100),
+    );
     let chain_id = ChainId("1".to_string());
     
     // Test registering a chain
-    let block_id = cl.register_chain(chain_id.clone()).unwrap();
-    assert_eq!(block_id, 0);
+    cl.register_chain(chain_id.clone()).unwrap();
     
     // Test getting current block
-    let current_block = cl.get_current_block().unwrap();
+    let current_block = cl.get_current_block().await.unwrap();
     assert_eq!(current_block, 0);
     
     // Test getting subblock
-    let subblock = cl.get_subblock(chain_id.clone(), block_id).unwrap();
+    let subblock = cl.get_subblock(chain_id.clone(), 0).unwrap();
     assert_eq!(subblock.chain_id, chain_id);
-    assert_eq!(subblock.block_id, block_id);
+    assert_eq!(subblock.block_id, 0);
     assert!(subblock.transactions.is_empty());
 }
 

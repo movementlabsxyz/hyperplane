@@ -74,7 +74,7 @@ impl ConfirmationLayerNodeWrapper {
     /// Get the registered chains
     pub async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError> {
         let node = self.inner.lock().await;
-        Ok(node.chains.clone())
+        Ok(node.registered_chains.clone())
     }
 
     /// Get the block interval
@@ -131,7 +131,7 @@ impl ConfirmationLayer for ConfirmationLayerNodeWrapper {
 /// A simple node implementation of the ConfirmationLayer
 pub struct ConfirmationLayerNode {
     /// Currently registered chains
-    pub chains: Vec<ChainId>,
+    pub registered_chains: Vec<ChainId>,
     /// Current block number
     pub current_block: u64,
     /// Block interval
@@ -157,7 +157,7 @@ impl ConfirmationLayerNode {
     pub fn new(receiver_hs_to_cl: mpsc::Receiver<CLTransaction>, sender_cl_to_hig: mpsc::Sender<SubBlock>) -> Self {
         let (sender_hs_to_cl, _) = mpsc::channel(100);
         Self {
-            chains: Vec::new(),
+            registered_chains: Vec::new(),
             current_block: 0,
             block_interval: Duration::from_millis(100),
             pending_transactions: Vec::new(),
@@ -181,7 +181,7 @@ impl ConfirmationLayerNode {
             return Err(ConfirmationLayerError::InvalidBlockInterval(interval));
         }
         Ok(Self {
-            chains: Vec::new(),
+            registered_chains: Vec::new(),
             current_block: 0,
             block_interval: interval,
             pending_transactions: Vec::new(),
@@ -216,7 +216,7 @@ impl ConfirmationLayerNode {
             let mut processed_this_block = Vec::new();
             let mut remaining = Vec::new();
             for tx in self.pending_transactions.drain(..) {
-                if self.chains.contains(&tx.chain_id) {
+                if self.registered_chains.contains(&tx.chain_id) {
                     processed_this_block.push((tx.chain_id.clone(), tx.clone()));
                 } else {
                     remaining.push(tx);
@@ -228,7 +228,7 @@ impl ConfirmationLayerNode {
             self.block_transactions.insert(self.current_block, processed_this_block.clone());
 
             // Create and send subblocks for each chain
-            for chain_id in &self.chains {
+            for chain_id in &self.registered_chains {
                 let subblock = SubBlock {
                     chain_id: chain_id.clone(),
                     block_id: self.current_block,
@@ -256,15 +256,15 @@ impl ConfirmationLayerNode {
 #[async_trait::async_trait]
 impl ConfirmationLayer for ConfirmationLayerNode {
     async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError> {
-        if self.chains.contains(&chain_id) {
+        if self.registered_chains.contains(&chain_id) {
             return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
-        self.chains.push(chain_id);
+        self.registered_chains.push(chain_id);
         Ok(self.current_block)
     }
 
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
-        if !self.chains.contains(&transaction.chain_id) {
+        if !self.registered_chains.contains(&transaction.chain_id) {
             return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
         }
         self.pending_transactions.push(transaction);
@@ -272,7 +272,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
     }
 
     async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
-        if !self.chains.contains(&chain_id) {
+        if !self.registered_chains.contains(&chain_id) {
             return Err(ConfirmationLayerError::ChainNotFound(chain_id));
         }
         
@@ -300,7 +300,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
     }
 
     async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError> {
-        Ok(self.chains.clone())
+        Ok(self.registered_chains.clone())
     }
 
     async fn set_block_interval(&mut self, interval: Duration) -> Result<(), ConfirmationLayerError> {
