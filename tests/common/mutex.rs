@@ -1,0 +1,266 @@
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio::time::{Duration, sleep};
+
+/// A simplified version of ConfirmationLayerNode's state
+struct TestNodeState {
+    current_block: u64,
+    pending_messages: Vec<String>,
+    processed_messages: Vec<String>,
+}
+
+impl TestNodeState {
+    fn new() -> Self {
+        Self {
+            current_block: 0,
+            pending_messages: Vec::new(),
+            processed_messages: Vec::new(),
+        }
+    }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - 
+// V1: Simple counter with incrementer
+// - - - - - - - - - - - - - - - - - - - - - - - 
+
+/// V1 (current): Simple counter with incrementer
+/// - Basic mutex usage
+/// - Single value being updated
+/// - Simple sleep-based yielding
+#[tokio::test]
+async fn test_mutex_concurrent_access_v1() {
+    println!("\n=== Starting test_mutex_concurrent_access ===");
+    
+    // Create a shared counter wrapped in Arc<Mutex>
+    let counter = Arc::new(Mutex::new(0));
+    
+    // Clone the counter for the incrementer task
+    let counter_for_incrementer = counter.clone();
+    
+    // Spawn the incrementer task
+    let _incrementer_handle = tokio::spawn(async move {
+        run_processer_v1(counter_for_incrementer).await;
+    });
+    
+    // Wait for a few seconds to let the incrementer run
+    println!("Main task: waiting for 2 seconds...");
+    sleep(Duration::from_secs(1)).await;
+    
+    // Check the counter value
+    let counter_value = *counter.lock().await;
+    println!("Main task: counter is {}", counter_value);
+    
+    // Verify the counter has been incremented
+    assert!(counter_value > 0, "Counter should have been incremented");
+    assert!(counter_value <= 11, "Counter should not have incremented more than 11 times in 1 second (leaving a bit of buffer here)");
+    
+    // The incrementer task will continue running until the test ends
+
+    // wait now for 3 seconds
+    sleep(Duration::from_secs(1)).await;
+    // make sure the incrementer task is still running, so check again the counter value
+    let counter_value = *counter.lock().await;
+    // ensure the counter value is still incrementing
+    assert!(counter_value > 15, "Counter should have been incremented more than 15 times in 2 seconds");
+    println!("Main task: counter is {}", counter_value);
+    println!("=== Test completed successfully ===\n");
+}
+
+/// A function that continuously increments a counter
+async fn run_processer_v1(counter: Arc<Mutex<i32>>) {
+    println!("Incrementer task started");
+    loop {
+        // Acquire the lock and increment the counter
+        let mut counter = counter.lock().await;
+        *counter += 1;
+        println!("Incrementer: counter is now {}", *counter);
+        
+        // Release the lock by dropping the counter
+        drop(counter);
+        
+        // Sleep for a second
+        sleep(Duration::from_millis(100)).await;
+    }
+}
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - 
+// V2: Adds a more complex state structure (like ConfirmationLayerNode)
+// - - - - - - - - - - - - - - - - - - - - - - - 
+
+/// V2: Adds a more complex state structure (like ConfirmationLayerNode)
+/// - Uses a struct with multiple fields instead of just a counter
+/// - Still keeps the simple incrementer pattern
+#[tokio::test]
+async fn test_mutex_concurrent_access_v2() {
+    println!("\n=== Starting test_mutex_concurrent_access_v2 ===");
+    
+    // Create a shared state wrapped in Arc<Mutex>
+    let state = Arc::new(Mutex::new(TestNodeState::new()));
+    
+    // Clone the state for the processor task
+    let state_for_processor = state.clone();
+    
+    // Spawn the processor task
+    let _processor_handle = tokio::spawn(async move {
+        run_processor_v2(state_for_processor).await;
+    });
+
+    // Spawn a task to add messages gradually
+    let state_for_adder = state.clone();
+    let _adder_handle = tokio::spawn(async move {
+        run_adder_v2(state_for_adder).await;
+    });
+    
+    // Wait for a few seconds to let the processor run
+    println!("Main task: waiting for 1 second...");
+    sleep(Duration::from_secs(1)).await;
+    
+    // Check the state
+    let state_guard = state.lock().await;
+    println!("Main task: current block is {}", state_guard.current_block);
+    println!("Main task: processed {} messages", state_guard.processed_messages.len());
+    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
+    
+    // Verify the state has been updated
+    assert!(state_guard.current_block > 0, "Block should have been incremented");
+    assert!(!state_guard.processed_messages.is_empty(), "Should have processed some messages");
+    
+    // Drop the first state lock
+    drop(state_guard);
+    
+    // The processor task will continue running until the test ends
+    sleep(Duration::from_secs(1)).await;
+    
+    // Make sure the processor task is still running by checking the state again
+    let state_guard = state.lock().await;
+    let current_block = state_guard.current_block;
+    let processed_count = state_guard.processed_messages.len();
+    println!("Main task: final check - block is {}, processed {} messages", current_block, processed_count);
+    
+    // Ensure the processor is still running and processing messages
+    // With 100ms sleep, we should process ~20 blocks in 2 seconds
+    // But only ~7 messages (one every 3 blocks)
+    assert!(current_block > 15, "Block should have been incremented more than 15 times in 2 seconds");
+    assert!(processed_count > 5, "Should have processed more than 5 messages in 2 seconds");
+    
+    println!("=== Test completed successfully ===\n");
+}
+
+
+/// A function that continuously processes messages and updates state
+async fn run_processor_v2(state: Arc<Mutex<TestNodeState>>) {
+    println!("[Processor] task started");
+    loop {
+        // Acquire the lock and process messages
+        let mut state = state.lock().await;
+        
+        // Always increment block, even if no messages
+        state.current_block += 1;
+        print!("[Processor] block is now {}", state.current_block);
+        
+        // Process any pending messages
+        if !state.pending_messages.is_empty() {
+            let message = state.pending_messages.remove(0);
+            state.processed_messages.push(message.clone());
+            println!("with message: {}", message);
+        } else {
+            println!(" (no messages)");
+        }
+        
+        // Release the lock by dropping state
+        drop(state);
+        
+        // Sleep for a second
+        sleep(Duration::from_millis(100)).await;
+    }
+}
+
+
+/// A function that gradually adds messages to the state
+async fn run_adder_v2(state: Arc<Mutex<TestNodeState>>) {
+    println!("[Adder] task started");
+    for i in 1..=7 {
+        // Wait for ~3 blocks (300ms) before adding next message
+        sleep(Duration::from_millis(300)).await;
+        let mut state = state.lock().await;
+        state.pending_messages.push(format!("message{}", i));
+        println!("[Adder] added message{}", i);
+    }
+    println!("[Adder] task completed");
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - 
+// V3: Adds a message processing (like CL node)
+// - - - - - - - - - - - - - - - - - - - - - - - 
+
+/// V3: Adds a message processing (like CL node)
+/// - Adds a channel for receiving messages
+/// - Processes messages in the incrementer
+/// - Still keeps the simple mutex pattern
+#[tokio::test]
+async fn test_mutex_concurrent_access_v3() {
+    println!("\n=== Starting test_mutex_concurrent_access_v3 ===");
+    // TODO: Implement test with message processing
+    println!("=== Test completed successfully ===\n");
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - 
+// V4: Adds block production (like CL node)
+// - - - - - - - - - - - - - - - - - - - - - - - 
+
+/// V4: Adds block production (like CL node)
+/// - Adds interval-based block production
+/// - Processes messages into blocks
+/// - Still keeps the simple mutex pattern
+#[tokio::test]
+async fn test_mutex_concurrent_access_v4() {
+    println!("\n=== Starting test_mutex_concurrent_access_v4 ===");
+    // TODO: Implement test with block production
+    println!("=== Test completed successfully ===\n");
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - 
+// V5: Adds multiple chains (like CL node)
+// - - - - - - - - - - - - - - - - - - - - - - - 
+
+/// V5: Adds multiple chains (like CL node)
+/// - Adds support for multiple chains
+/// - Processes messages for different chains
+/// - Still keeps the simple mutex pattern
+#[tokio::test]
+async fn test_mutex_concurrent_access_v5() {
+    println!("\n=== Starting test_mutex_concurrent_access_v5 ===");
+    // TODO: Implement test with multiple chains
+    println!("=== Test completed successfully ===\n");
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - 
+// V6: Adds subblock creation (like CL node)
+// - - - - - - - - - - - - - - - - - - - - - - - 
+
+/// V6: Adds subblock creation (like CL node)
+/// - Creates subblocks from messages
+/// - Sends subblocks to a receiver
+/// - Still keeps the simple mutex pattern
+#[tokio::test]
+async fn test_mutex_concurrent_access_v6() {
+    println!("\n=== Starting test_mutex_concurrent_access_v6 ===");
+    // TODO: Implement test with subblock creation
+    println!("=== Test completed successfully ===\n");
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - 
+// V7: Adds full CL node functionality
+// - - - - - - - - - - - - - - - - - - - - - - - 
+
+/// V7: Adds full CL node functionality
+/// - Combines all previous features
+/// - Matches test_basic functionality
+/// - Still keeps the simple mutex pattern
+#[tokio::test]
+async fn test_mutex_concurrent_access_v7() {
+    println!("\n=== Starting test_mutex_concurrent_access_v7 ===");
+    // TODO: Implement test with full CL node functionality
+    println!("=== Test completed successfully ===\n");
+}
