@@ -21,7 +21,7 @@ use tokio::sync::Mutex;
 #[tokio::test]
 async fn test_cat_status_update_one_target_chain() {
     // use testnodes from common
-    let (hs_node, cl_node, _) = testnodes::setup_test_nodes();
+    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap nodes in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -30,11 +30,11 @@ async fn test_cat_status_update_one_target_chain() {
     let cl_node_clone = cl_node.clone();
 
     // Start the message processing loops
-    let hs_handle = tokio::spawn(async move {
+    let _hs_handle = tokio::spawn(async move {
         let mut node = hs_node_clone.lock().await;
         node.start().await;
     });
-    let cl_handle = tokio::spawn(async move {
+    let _cl_handle = tokio::spawn(async move {
         let mut node = cl_node_clone.lock().await;
         node.start().await;
     });
@@ -70,10 +70,6 @@ async fn test_cat_status_update_one_target_chain() {
         tx.id == TransactionId("test-cat.UPDATE".to_string()) &&
         tx.data.starts_with("STATUS_UPDATE.SUCCESS.CAT_ID:")
     ));
-
-    // Clean up
-    hs_handle.abort();
-    cl_handle.abort();
 }
 
 /// Tests that multiple CAT status updates are properly queued and included in blocks:
@@ -83,17 +79,32 @@ async fn test_cat_status_update_one_target_chain() {
 #[tokio::test]
 async fn test_multiple_cat_status_updates_one_target_chain() {
     // use testnodes from common
-    let (mut hs_node, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Wrap nodes in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let cl_node = Arc::new(Mutex::new(cl_node));
+    let hs_node_clone = hs_node.clone();
+    let cl_node_clone = cl_node.clone();
+
+    // Start the message processing loops
+    let _hs_handle = tokio::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+    let _cl_handle = tokio::spawn(async move {
+        let mut node = cl_node_clone.lock().await;
+        node.start().await;
+    });
 
     // Register a test chain
     let chain_id = ChainId("test-chain".to_string());
-    cl_node.register_chain(chain_id.clone())
+    cl_node.lock().await.register_chain(chain_id.clone())
         .await
         .expect("Failed to register chain");
 
-    // Set the confirmation layer and chain ID
-    hs_node.set_confirmation_layer(Box::new(cl_node));
-    hs_node.set_chain_id(chain_id.clone());
+    // Set the chain ID in HS
+    hs_node.lock().await.set_chain_id(chain_id.clone());
 
     // Create and send multiple CAT status updates
     let updates = vec![
@@ -104,7 +115,7 @@ async fn test_multiple_cat_status_updates_one_target_chain() {
 
     // Send each update
     for (cat_id, status) in updates.clone() {
-        hs_node.send_cat_status_update(cat_id.clone(), status.clone())
+        hs_node.lock().await.send_cat_status_update(cat_id.clone(), status.clone())
             .await
             .expect("Failed to send status update");
 
@@ -112,7 +123,7 @@ async fn test_multiple_cat_status_updates_one_target_chain() {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
         // Verify the status update was processed
-        let current_status = hs_node.get_cat_status(cat_id).await.unwrap();
+        let current_status = hs_node.lock().await.get_cat_status(cat_id).await.unwrap();
         assert_eq!(current_status, status);
     }
 }
@@ -124,27 +135,42 @@ async fn test_multiple_cat_status_updates_one_target_chain() {
 #[tokio::test]
 async fn test_status_update() {
     // use testnodes from common
-    let (mut hs_node, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Wrap nodes in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let cl_node = Arc::new(Mutex::new(cl_node));
+    let hs_node_clone = hs_node.clone();
+    let cl_node_clone = cl_node.clone();
+
+    // Start the message processing loops
+    let _hs_handle = tokio::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+    let _cl_handle = tokio::spawn(async move {
+        let mut node = cl_node_clone.lock().await;
+        node.start().await;
+    });
 
     // Register chains 1 and 2 in the confirmation layer
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
-    cl_node.register_chain(chain_id_1.clone())
+    cl_node.lock().await.register_chain(chain_id_1.clone())
         .await
         .expect("Failed to register chain 1");
-    cl_node.register_chain(chain_id_2.clone())
+    cl_node.lock().await.register_chain(chain_id_2.clone())
         .await
         .expect("Failed to register chain 2");
 
-    // Set the confirmation layer and chain ID
-    hs_node.set_confirmation_layer(Box::new(cl_node));
-    hs_node.set_chain_id(chain_id_1.clone());
+    // Set the chain ID in HS
+    hs_node.lock().await.set_chain_id(chain_id_1.clone());
 
     // Create a CAT status update transaction
     let cat_id = CATId("test-cat".to_string());
     
     // Send the CAT status update through the hyper scheduler
-    hs_node.send_cat_status_update(cat_id.clone(), CATStatusLimited::Success)
+    hs_node.lock().await.send_cat_status_update(cat_id.clone(), CATStatusLimited::Success)
         .await
         .expect("Failed to send status update");
 
@@ -152,6 +178,128 @@ async fn test_status_update() {
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     // Verify the status update was processed
-    let status = hs_node.get_cat_status(cat_id).await.unwrap();
+    let status = hs_node.lock().await.get_cat_status(cat_id).await.unwrap();
     assert_eq!(status, CATStatusLimited::Success);
-} 
+}
+
+/// Tests that a CAT status update is properly processed:
+/// - Hyper Scheduler sends a CAT status update
+/// - Verify the transaction is included in the next block
+/// - Verify the transaction data matches the expected format
+#[tokio::test]
+async fn test_cat_status_update() {
+    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Wrap nodes in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let cl_node = Arc::new(Mutex::new(cl_node));
+    let hs_node_clone = hs_node.clone();
+    let cl_node_clone = cl_node.clone();
+
+    // Start the message processing loops
+    let _hs_handle = tokio::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+    let _cl_handle = tokio::spawn(async move {
+        let mut node = cl_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Register a chain
+    let chain_id = ChainId("test-chain".to_string());
+    cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+
+    // Set the chain ID in HS
+    hs_node.lock().await.set_chain_id(chain_id.clone());
+
+    // Create a CAT transaction
+    let cat_id = CATId("test-tx".to_string());
+
+    // Submit the transaction
+    hs_node.lock().await.send_cat_status_update(cat_id.clone(), CATStatusLimited::Success)
+        .await
+        .expect("Failed to submit transaction");
+
+    // Wait for block production
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Get current block
+    let current_block = cl_node.lock().await.get_current_block().await.expect("Failed to get current block");
+    assert_eq!(current_block, BlockId("5".to_string()));
+
+    // Get subblock and verify transaction
+    let block_id = BlockId("0".to_string());
+    let subblock = cl_node.lock().await.get_subblock(chain_id, block_id)
+        .await
+        .expect("Failed to get subblock");
+    assert_eq!(subblock.transactions.len(), 1);
+    assert_eq!(subblock.transactions[0].data, "test data");
+}
+
+/// Tests that multiple CAT status updates are properly processed across different chains:
+/// - Register two different chains
+/// - Send CAT status updates for each chain
+/// - Verify the transactions are included in the correct subblocks
+/// - Verify the transaction data matches the expected format for each chain
+#[tokio::test]
+async fn test_multiple_cat_status_updates() {
+    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Wrap nodes in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let cl_node = Arc::new(Mutex::new(cl_node));
+    let hs_node_clone = hs_node.clone();
+    let cl_node_clone = cl_node.clone();
+
+    // Start the message processing loops
+    let _hs_handle = tokio::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+    let _cl_handle = tokio::spawn(async move {
+        let mut node = cl_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Register two chains
+    let chain_id_1 = ChainId("test-chain-1".to_string());
+    let chain_id_2 = ChainId("test-chain-2".to_string());
+    cl_node.lock().await.register_chain(chain_id_1.clone())
+        .await
+        .expect("Failed to register chain 1");
+    cl_node.lock().await.register_chain(chain_id_2.clone())
+        .await
+        .expect("Failed to register chain 2");
+
+    // Set the chain ID in HS
+    hs_node.lock().await.set_chain_id(chain_id_1.clone());
+
+    // Create and submit transactions for both chains
+    let cat_id_1 = CATId("test-tx-1".to_string());
+    let cat_id_2 = CATId("test-tx-2".to_string());
+
+    hs_node.lock().await.send_cat_status_update(cat_id_1.clone(), CATStatusLimited::Success)
+        .await
+        .expect("Failed to submit transaction 1");
+    hs_node.lock().await.send_cat_status_update(cat_id_2.clone(), CATStatusLimited::Success)
+        .await
+        .expect("Failed to submit transaction 2");
+
+    // Wait for block production
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Verify transactions in subblocks
+    let block_id = BlockId("0".to_string());
+    let subblock1 = cl_node.lock().await.get_subblock(chain_id_1, block_id.clone())
+        .await
+        .expect("Failed to get subblock 1");
+    let subblock2 = cl_node.lock().await.get_subblock(chain_id_2, block_id)
+        .await
+        .expect("Failed to get subblock 2");
+
+    assert_eq!(subblock1.transactions.len(), 1);
+    assert_eq!(subblock1.transactions[0].data, "test data 1");
+    assert_eq!(subblock2.transactions.len(), 1);
+    assert_eq!(subblock2.transactions[0].data, "test data 2");
+}

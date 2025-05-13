@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 #[tokio::test]
 async fn test_single_cat_status_storage() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -61,7 +61,7 @@ async fn test_single_cat_status_storage() {
 #[tokio::test]
 async fn test_multiple_cat_status_storage() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -107,7 +107,7 @@ async fn test_multiple_cat_status_storage() {
 #[tokio::test]
 async fn test_status_proposal_failure() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -135,7 +135,7 @@ async fn test_status_proposal_failure() {
 #[tokio::test]
 async fn test_send_cat_status_proposal() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -155,7 +155,7 @@ async fn test_send_cat_status_proposal() {
 #[tokio::test]
 async fn test_process_cat_transaction() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -176,7 +176,7 @@ async fn test_process_cat_transaction() {
 #[tokio::test]
 async fn test_process_status_update() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -202,7 +202,7 @@ async fn test_process_status_update() {
 #[tokio::test]
 async fn test_hig_to_hs_status_proposal() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -232,7 +232,7 @@ async fn test_hig_to_hs_status_proposal() {
 #[tokio::test]
 async fn test_hig_to_hs_status_proposal_failure() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -262,7 +262,7 @@ async fn test_hig_to_hs_status_proposal_failure() {
 #[tokio::test]
 async fn test_hig_to_hs_multiple_status_proposals() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -294,4 +294,4 @@ async fn test_hig_to_hs_multiple_status_proposals() {
         let stored_status = hs_node.lock().await.get_cat_status(cat_id.clone()).await.unwrap();
         assert_eq!(stored_status, CATStatusLimited::Success);
     }
-} 
+}

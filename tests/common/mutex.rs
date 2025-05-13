@@ -3,7 +3,7 @@ use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep, interval};
 use tokio::sync::mpsc;
 use hyperplane::{
-    types::{Transaction, TransactionId, ChainId, BlockId, CLTransaction, SubBlock},
+    types::{Transaction, TransactionId, ChainId, BlockId, CLTransaction, SubBlock, CATStatusUpdate},
     types::communication::Channel,
     hyper_scheduler::node::HyperSchedulerNode,
     confirmation_layer::node::{ConfirmationLayerNode, ConfirmationLayerNodeWrapper},
@@ -23,13 +23,13 @@ async fn test_mutex_concurrent_access_v11() {
     println!("\n=== Starting test_mutex_concurrent_access_v11 ===");
     
     // Create channels for messages and subblocks
-    let (msg_sender, msg_receiver) = mpsc::channel(100);
-    let (subblock_sender, mut subblock_receiver) = mpsc::channel(100);
+    let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
+    let (sender_cl_to_hig, _receiver_cl_to_hig) = mpsc::channel(100);
     
     // Create a shared state wrapped in Arc<Mutex>
     let state = Arc::new(Mutex::new(TestNodeStateV11::new(
-        msg_receiver,
-        subblock_sender,
+        receiver_hs_to_cl,
+        sender_cl_to_hig,
         Duration::from_millis(100), // 100ms block interval
     )));
     
@@ -95,12 +95,12 @@ async fn test_mutex_concurrent_access_v11() {
     }
 
     // Spawn tasks to add more transactions for different chains
-    let sender_for_chain1 = msg_sender.clone();
+    let sender_for_chain1 = sender_hs_to_cl.clone();
     let _adder_handle1 = tokio::spawn(async move {
         run_adder_v11(sender_for_chain1, ChainId("chain1".to_string())).await;
     });
 
-    let sender_for_chain2 = msg_sender.clone();
+    let sender_for_chain2 = sender_hs_to_cl.clone();
     let _adder_handle2 = tokio::spawn(async move {
         run_adder_v11(sender_for_chain2, ChainId("chain2".to_string())).await;
     });
@@ -170,8 +170,8 @@ async fn test_mutex_concurrent_access_v11() {
 
 /// V11: State struct that matches CL node functionality
 struct TestNodeStateV11 {
-    msg_receiver: mpsc::Receiver<CLTransaction>,
-    subblock_sender: mpsc::Sender<SubBlock>,
+    receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
+    sender_cl_to_hig: mpsc::Sender<SubBlock>,
     block_interval: Duration,
     current_block: u64,
     processed_transactions: Vec<(ChainId, CLTransaction)>,
@@ -182,13 +182,13 @@ struct TestNodeStateV11 {
 
 impl TestNodeStateV11 {
     fn new(
-        msg_receiver: mpsc::Receiver<CLTransaction>,
-        subblock_sender: mpsc::Sender<SubBlock>,
+        receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
+        sender_cl_to_hig: mpsc::Sender<SubBlock>,
         block_interval: Duration,
     ) -> Self {
         Self {
-            msg_receiver,
-            subblock_sender,
+            receiver_hs_to_cl,
+            sender_cl_to_hig,
             block_interval,
             current_block: 0,
             processed_transactions: Vec::new(),
@@ -243,7 +243,7 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
         let mut state = state.lock().await;
         
         // Process any new transactions from the channel
-        while let Ok(transaction) = state.msg_receiver.try_recv() {
+        while let Ok(transaction) = state.receiver_hs_to_cl.try_recv() {
             println!("[Processor] received transaction from chain {}: {}", transaction.chain_id.0, transaction.data);
             if state.registered_chains.contains(&transaction.chain_id) {
                 state.pending_transactions.push(transaction);
@@ -283,7 +283,7 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
                     })
                     .collect(),
             };
-            if let Err(e) = state.subblock_sender.send(subblock).await {
+            if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
                 println!("Error sending subblock: {}", e);
                 break;
             }
@@ -332,43 +332,24 @@ async fn run_adder_v11(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
 async fn test_mutex_concurrent_access_v12() {
     println!("\n=== Starting test_mutex_concurrent_access_v12 ===");
     
-    // Get the actual node (note: setup_test_nodes may be buggy and need fixing)
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    // Get the test nodes using our new helper function
+    let (hs_node, cl_node, _hig_node) = setup_test_nodes().await;
     
-    // Create channels for messages and subblocks
-    let (msg_sender, msg_receiver) = mpsc::channel(100);
-    let (subblock_sender, mut subblock_receiver) = mpsc::channel(100);
-    
-    // Create a shared state wrapped in Arc<Mutex>
-    let state = Arc::new(Mutex::new(TestNodeStatev12::new(
-        msg_receiver,
-        subblock_sender,
-        Duration::from_millis(100), // 100ms block interval
-    )));
-    
-    // Clone the state for the processor task
-    let state_for_processor = state.clone();
-    
-    // Spawn the processor task
-    let _processor_handle = tokio::spawn(async move {
-        run_processor_v12(state_for_processor).await;
-    });
-
     // Register chains first
     println!("[Test] Registering chains...");
     {
-        let mut state = state.lock().await;
-        state.register_chain(ChainId("chain1".to_string())).expect("Failed to register chain1");
-        state.register_chain(ChainId("chain2".to_string())).expect("Failed to register chain2");
+        let mut cl_node_with_lock = cl_node.lock().await;
+        cl_node_with_lock.register_chain(ChainId("chain1".to_string())).expect("Failed to register chain1");
+        cl_node_with_lock.register_chain(ChainId("chain2".to_string())).expect("Failed to register chain2");
         
         // Try to register chain1 again (should fail)
-        match state.register_chain(ChainId("chain1".to_string())) {
+        match cl_node_with_lock.register_chain(ChainId("chain1".to_string())) {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
             Err(e) => println!("[Test] Expected error when registering chain1 twice: {}", e),
         }
 
         // Try to get subblock for unregistered chain
-        match state.get_subblock(ChainId("chain3".to_string()), BlockId("0".to_string())) {
+        match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), BlockId("0".to_string())) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
             Err(e) => println!("[Test] Expected error when getting subblock for unregistered chain: {}", e),
         }
@@ -377,7 +358,7 @@ async fn test_mutex_concurrent_access_v12() {
     // Submit transactions for different chains
     println!("[Test] Submitting transactions...");
     {
-        let mut state = state.lock().await;
+        let mut cl_node_with_lock_2 = cl_node.lock().await;
         
         // Submit a transaction for chain1
         let tx1 = CLTransaction {
@@ -385,7 +366,7 @@ async fn test_mutex_concurrent_access_v12() {
             data: "message1.chain1".to_string(),
             chain_id: ChainId("chain1".to_string()),
         };
-        state.submit_transaction(tx1).expect("Failed to submit transaction for chain1");
+        cl_node_with_lock_2.submit_transaction(tx1).expect("Failed to submit transaction for chain1");
         
         // Submit a transaction for chain2
         let tx2 = CLTransaction {
@@ -393,7 +374,7 @@ async fn test_mutex_concurrent_access_v12() {
             data: "message1.chain2".to_string(),
             chain_id: ChainId("chain2".to_string()),
         };
-        state.submit_transaction(tx2).expect("Failed to submit transaction for chain2");
+        cl_node_with_lock_2.submit_transaction(tx2).expect("Failed to submit transaction for chain2");
         
         // Try to submit a transaction for unregistered chain (should fail)
         let tx3 = CLTransaction {
@@ -401,55 +382,55 @@ async fn test_mutex_concurrent_access_v12() {
             data: "message1.chain3".to_string(),
             chain_id: ChainId("chain3".to_string()),
         };
-        match state.submit_transaction(tx3) {
+        match cl_node_with_lock_2.submit_transaction(tx3) {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
             Err(e) => println!("[Test] Expected error when submitting transaction for unregistered chain: {}", e),
         }
     }
 
     // Spawn tasks to add more transactions for different chains
-    let sender_for_chain1 = msg_sender.clone();
+    let sender_for_chain1 = hs_node.get_sender_to_cl();
     let _adder_handle1 = tokio::spawn(async move {
         run_adder_v12(sender_for_chain1, ChainId("chain1".to_string())).await;
     });
 
-    let sender_for_chain2 = msg_sender.clone();
+    let sender_for_chain2 = hs_node.get_sender_to_cl();
     let _adder_handle2 = tokio::spawn(async move {
         run_adder_v12(sender_for_chain2, ChainId("chain2".to_string())).await;
     });
-    
+
     // Wait for a few seconds to let the processor run
     println!("Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
-    let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} transactions", state_guard.processed_transactions.len());
-    println!("Main task: {} transactions still pending", state_guard.pending_transactions.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
-    println!("Main task: registered chains: {:?}", state_guard.registered_chains);
+    let cl_node_with_lock_3 = cl_node.lock().await;
+    println!("Main task: current block is {}", cl_node_with_lock_3.current_block);
+    println!("Main task: processed {} transactions", cl_node_with_lock_3.processed_transactions.len());
+    println!("Main task: {} transactions still pending", cl_node_with_lock_3.pending_transactions.len());
+    println!("Main task: produced {} blocks", cl_node_with_lock_3.blocks.len());
+    println!("Main task: registered chains: {:?}", cl_node_with_lock_3.registered_chains);
     
     // Verify the state has been updated
-    assert!(state_guard.current_block > 0, "Block should have been incremented");
-    assert!(!state_guard.processed_transactions.is_empty(), "Should have processed some transactions");
-    assert!(!state_guard.blocks.is_empty(), "Should have produced some blocks");
-    assert_eq!(state_guard.registered_chains.len(), 2, "Should have exactly 2 registered chains");
+    assert!(cl_node_with_lock_3.current_block > 0, "Block should have been incremented");
+    assert!(!cl_node_with_lock_3.processed_transactions.is_empty(), "Should have processed some transactions");
+    assert!(!cl_node_with_lock_3.blocks.is_empty(), "Should have produced some blocks");
+    assert_eq!(cl_node_with_lock_3.registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
-    match state_guard.get_subblock(ChainId("chain1".to_string()), BlockId("0".to_string())) {
+    match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), BlockId("0".to_string())) {
         Ok(subblock) => println!("[Test] Successfully got subblock for chain1: {:?}", subblock),
         Err(e) => panic!("Failed to get subblock for chain1: {}", e),
     }
     
     // Drop the first state lock
-    drop(state_guard);
+    drop(cl_node_with_lock_3);
     
-    // The processor task will continue running until the test ends
+    // Wait for a bit more to let transactions be processed
     sleep(Duration::from_secs(1)).await;
     
     // Make sure the processor task is still running by checking the state again
-    let state_guard = state.lock().await;
+    let state_guard = cl_node.lock().await;
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_transactions.len();
     let block_count = state_guard.blocks.len();
@@ -466,8 +447,8 @@ async fn test_mutex_concurrent_access_v12() {
     println!("=== Test completed successfully ===\n");
 }
 
-/// v12: State struct that matches CL node functionality
-struct TestNodeStatev12 {
+/// v12: Node that matches CL node functionality
+struct TestNodev12 {
     msg_receiver: mpsc::Receiver<CLTransaction>,
     subblock_sender: mpsc::Sender<SubBlock>,
     block_interval: Duration,
@@ -478,15 +459,15 @@ struct TestNodeStatev12 {
     registered_chains: Vec<ChainId>,
 }
 
-impl TestNodeStatev12 {
+impl TestNodev12 {
     fn new(
-        msg_receiver: mpsc::Receiver<CLTransaction>,
-        subblock_sender: mpsc::Sender<SubBlock>,
+        receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
+        sender_cl_to_hig: mpsc::Sender<SubBlock>,
         block_interval: Duration,
     ) -> Self {
         Self {
-            msg_receiver,
-            subblock_sender,
+            msg_receiver: receiver_hs_to_cl,
+            subblock_sender: sender_cl_to_hig,
             block_interval,
             current_block: 0,
             processed_transactions: Vec::new(),
@@ -532,13 +513,80 @@ impl TestNodeStatev12 {
     }
 }
 
+/// v12: Hyper Scheduler node
+struct TestHSNodev12 {
+    sender_hs_to_cl: mpsc::Sender<CLTransaction>,
+    receiver_hig_to_hs: mpsc::Receiver<CATStatusUpdate>,
+}
+
+impl TestHSNodev12 {
+    fn new(
+        sender_hs_to_cl: mpsc::Sender<CLTransaction>,
+        receiver_hig_to_hs: mpsc::Receiver<CATStatusUpdate>,
+    ) -> Self {
+        Self {
+            sender_hs_to_cl,
+            receiver_hig_to_hs,
+        }
+    }
+
+    pub fn get_sender_to_cl(&self) -> mpsc::Sender<CLTransaction> {
+        self.sender_hs_to_cl.clone()
+    }
+}
+
+/// v12: Hyper IG node
+struct TestHIGNodev12 {
+    receiver_cl_to_hig: mpsc::Receiver<SubBlock>,
+    sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>,
+}
+
+impl TestHIGNodev12 {
+    fn new(
+        receiver_cl_to_hig: mpsc::Receiver<SubBlock>,
+        sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>,
+    ) -> Self {
+        Self {
+            receiver_cl_to_hig,
+            sender_hig_to_hs,
+        }
+    }
+}
+
+/// Helper function to create test nodes with basic setup
+async fn setup_test_nodes() -> (TestHSNodev12, Arc<Mutex<TestNodev12>>, TestHIGNodev12) {
+    // Create channels for communication
+    let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
+    let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
+    let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
+    
+    // Create nodes with their channels
+    let hs_node = TestHSNodev12::new(sender_hs_to_cl, receiver_hig_to_hs);
+    let cl_node = Arc::new(Mutex::new(TestNodev12::new(
+        receiver_hs_to_cl,
+        sender_cl_to_hig,
+        Duration::from_millis(100), // 100ms block interval
+    )));
+    let hig_node = TestHIGNodev12::new(receiver_cl_to_hig, sender_hig_to_hs);
+    
+    // Clone the state for the processor task
+    let cl_node_for_processor = cl_node.clone();
+    
+    // Spawn the processor task
+    let _processor_handle = tokio::spawn(async move {
+        run_processor_v12(cl_node_for_processor).await;
+    });
+
+    (hs_node, cl_node, hig_node)
+}
+
 /// Helper function to run the processor task
-async fn run_processor_v12(state: Arc<Mutex<TestNodeStatev12>>) {
-    let mut interval = interval(state.lock().await.block_interval);
+async fn run_processor_v12(cl_node: Arc<Mutex<TestNodev12>>) {
+    let mut interval = interval(cl_node.lock().await.block_interval);
     loop {
         interval.tick().await;
         
-        let mut state = state.lock().await;
+        let mut state = cl_node.lock().await;
         
         // Process any new transactions from the channel
         while let Ok(transaction) = state.msg_receiver.try_recv() {

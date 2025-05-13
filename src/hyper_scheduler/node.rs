@@ -1,10 +1,8 @@
-use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId};
+use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate};
 use crate::confirmation_layer::ConfirmationLayer;
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
-use crate::types::communication::{Sender, Receiver, Message};
-use crate::types::communication::hig_to_hs::CATStatusUpdateMessage;
-use crate::types::communication::hs_to_cl::CLTransactionMessage;
+use tokio::sync::mpsc;
 
 /// A node that implements the HyperScheduler trait
 pub struct HyperSchedulerNode {
@@ -15,14 +13,14 @@ pub struct HyperSchedulerNode {
     /// The chain IDs for submitting transactions
     chain_ids: HashSet<ChainId>,
     /// Receiver for messages from Hyper IG
-    receiver_from_hig: Option<Receiver<CATStatusUpdateMessage>>,
+    receiver_from_hig: Option<mpsc::Receiver<CATStatusUpdate>>,
     /// Sender for messages to CL
-    sender_to_cl: Option<Sender<CLTransactionMessage>>,
+    sender_to_cl: Option<mpsc::Sender<CLTransaction>>,
 }
 
 impl HyperSchedulerNode {
     /// Create a new HyperSchedulerNode
-    pub fn new(receiver_from_hig: Receiver<CATStatusUpdateMessage>, sender_to_cl: Sender<CLTransactionMessage>) -> Self {
+    pub fn new(receiver_from_hig: mpsc::Receiver<CATStatusUpdate>, sender_to_cl: mpsc::Sender<CLTransaction>) -> Self {
         Self {
             cat_statuses: HashMap::new(),
             confirmation_layer: None,
@@ -35,14 +33,10 @@ impl HyperSchedulerNode {
     /// Start the message processing loop
     pub async fn start(&mut self) {
         let mut receiver = self.receiver_from_hig.take().expect("Receiver already taken");
-        while let Some(message) = receiver.receive().await {
-            match message {
-                Message::Message(msg) => {
-                    tracing::info!("Received status proposal for {}: {:?}", msg.cat_status_update.cat_id, msg.cat_status_update);
-                    if let Err(e) = self.receive_cat_status_proposal(msg.cat_status_update.cat_id.clone(), msg.cat_status_update.status.clone()).await {
-                        tracing::error!("Failed to process status proposal for {}: {}", msg.cat_status_update.cat_id, e);
-                    }
-                }
+        while let Some(status_update) = receiver.recv().await {
+            tracing::info!("Received status proposal for {}: {:?}", status_update.cat_id, status_update);
+            if let Err(e) = self.receive_cat_status_proposal(status_update.cat_id.clone(), status_update.status.clone()).await {
+                tracing::error!("Failed to process status proposal for {}: {}", status_update.cat_id, e);
             }
         }
     }

@@ -13,7 +13,7 @@ use crate::common::testnodes;
 #[tokio::test]
 async fn test_process_subblock() {
     // Initialize components
-    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain
     let chain_id = ChainId("test-chain".to_string());
@@ -60,7 +60,7 @@ async fn test_process_subblock() {
 #[tokio::test]
 async fn test_process_cat_subblock() {
     // Initialize components
-    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain
     let chain_id = ChainId("test-chain".to_string());
@@ -107,7 +107,7 @@ async fn test_process_cat_subblock() {
 #[tokio::test]
 async fn test_process_multiple_subblocks_new_transactions() {
     // Create HIG and CL nodes
-    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register a test chain
     let chain_id = ChainId("test-chain".to_string());
@@ -197,4 +197,4 @@ async fn test_process_multiple_subblocks_new_transactions() {
         .await
         .expect("Failed to get tx2 status");
     assert!(matches!(status2, TransactionStatus::Success));
-} 
+}

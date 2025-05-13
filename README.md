@@ -77,6 +77,12 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 - Performance profiling
 - Production deployment setup
 
+## Testing
+
+```
+cargo test  mytest -- --test-threads=1 --nocapture
+```
+
 ## Contributing
 
 Please read [RULES.md](RULES.md) for development guidelines and contribution rules.

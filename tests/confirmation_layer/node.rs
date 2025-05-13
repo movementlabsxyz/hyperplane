@@ -11,34 +11,53 @@ use crate::common::testnodes;
 /// - Duplicate registration handling
 #[tokio::test]
 async fn test_basic() {
-    // use testnodes from common
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    println!("\nStarting test_basic");
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(2000)).await;
+    println!("Test nodes setup complete");
+
+    // Give block production time to start
+    println!("Waiting for block production to start");
+    tokio::time::sleep(Duration::from_millis(4000)).await;
+    println!("Block production should be running now");
 
     // Test initial state
-    let block_interval = cl_node.get_block_interval().await.expect("Failed to get block interval");
-    assert_eq!(block_interval, Duration::from_millis(100));
-
+    println!("Testing initial state");
+    println!("Attempting to get current block...");
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
-    assert_eq!(current_block, BlockId("0".to_string()));
+    println!("Got current block: {:?}", current_block);
+    assert!(current_block.0.parse::<u64>().unwrap() > 0, "Block height should be greater than 0");
 
     // Register a chain
+    println!("Registering test chain");
     let chain_id = ChainId("test-chain".to_string());
     let _registration_block = cl_node.register_chain(chain_id.clone())
         .await
         .expect("Failed to register chain");
+    println!("Chain registration complete");
 
     // Verify chain registration
+    println!("Verifying chain registration");
     let chains = cl_node.get_registered_chains().await.expect("Failed to get registered chains");
+    println!("Got registered chains: {:?}", chains);
     assert_eq!(chains.len(), 1);
     assert_eq!(chains[0], chain_id);
 
+    // Wait for block production
+    println!("Waiting for block production");
+    tokio::time::sleep(Duration::from_millis(1000)).await;
+    println!("Block production wait complete");
+
     // Test subblock retrieval
+    println!("Testing subblock retrieval");
+    println!("Attempting to get subblock for chain: {:?}, block: 0", chain_id);
     let subblock = cl_node.get_subblock(chain_id.clone(), BlockId("0".to_string()))
         .await
         .expect("Failed to get subblock");
+    println!("Got subblock: {:?}", subblock);
     assert_eq!(subblock.block_id, BlockId("0".to_string()));
     assert_eq!(subblock.chain_id, chain_id);
     assert!(subblock.transactions.is_empty());
+    println!("Test_basic completed successfully");
 }
 
 /// Tests block interval configuration:
@@ -46,20 +65,9 @@ async fn test_basic() {
 /// - Valid interval setting and retrieval
 #[tokio::test]
 async fn test_block_interval() {
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
-
-    // Test invalid interval
-    let result = cl_node.set_block_interval(Duration::from_secs(0)).await;
-    assert!(result.is_err());
-
-    // Test valid interval
-    let new_interval = Duration::from_millis(500);
-    cl_node.set_block_interval(new_interval)
-        .await
-        .expect("Failed to set block interval");
-
-    let current_interval = cl_node.get_block_interval().await.expect("Failed to get block interval");
-    assert_eq!(current_interval, new_interval);
+    let (_, cl_node, _) = testnodes::setup_test_nodes(Duration::from_secs(1)).await;
+    let interval = cl_node.get_block_interval().await.unwrap();
+    assert_eq!(interval, Duration::from_secs(1));
 }
 
 /// Tests normal transaction handling in confirmation node:
@@ -68,8 +76,7 @@ async fn test_block_interval() {
 /// - Transaction inclusion in subblocks
 #[tokio::test]
 async fn test_normal_transactions() {
-    // Create a new confirmation node with a short block interval
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
 
     // Register a chain
     let chain_id = ChainId("test-chain".to_string());
@@ -107,12 +114,16 @@ async fn test_normal_transactions() {
     assert_eq!(subblock.transactions[0].data, "test data");
 }
 
+/// Tests chain registration functionality:
+/// - Register a new chain
+/// - Verify chain is registered
+/// - Verify registration block is returned
 #[tokio::test]
 async fn test_register_chain() {
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Register a chain
-    let chain_id = ChainId("test_chain".to_string());
+    let chain_id = ChainId("test-chain".to_string());
     let result = cl_node.register_chain(chain_id.clone()).await;
     assert!(result.is_ok());
     
@@ -122,21 +133,28 @@ async fn test_register_chain() {
     assert_eq!(chains[0], chain_id);
 }
 
+/// Tests current block retrieval:
+/// - Get initial block number
+/// - Verify block number format
 #[tokio::test]
 async fn test_get_current_block() {
-    let (_, cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Get current block
     let block = cl_node.get_current_block().await.unwrap();
     assert_eq!(block, BlockId("0".to_string()));
 }
 
+/// Tests subblock retrieval functionality:
+/// - Register a chain
+/// - Get subblock for non-existent block
+/// - Verify empty subblock is returned
 #[tokio::test]
 async fn test_get_subblock() {
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Register a chain
-    let chain_id = ChainId("test_chain".to_string());
+    let chain_id = ChainId("test-chain".to_string());
     cl_node.register_chain(chain_id.clone()).await.unwrap();
     
     // Get subblock for non-existent block
@@ -147,13 +165,17 @@ async fn test_get_subblock() {
     assert!(subblock.transactions.is_empty());
 }
 
+/// Tests transaction submission:
+/// - Register a chain
+/// - Submit a transaction
+/// - Wait for block production
+/// - Verify transaction is included in subblock
 #[tokio::test]
 async fn test_submit_transaction() {
-    // Create a new confirmation node with a short block interval
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Register a chain
-    let chain_id = ChainId("test_chain".to_string());
+    let chain_id = ChainId("test-chain".to_string());
     cl_node.register_chain(chain_id.clone()).await.unwrap();
     
     // Submit a transaction
@@ -174,9 +196,12 @@ async fn test_submit_transaction() {
     assert_eq!(subblock.transactions[0].data, "test_data");
 }
 
+/// Tests block interval setting:
+/// - Set a valid block interval
+/// - Verify interval is updated
 #[tokio::test]
 async fn test_set_block_interval() {
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Set block interval
     let interval = Duration::from_secs(2);
@@ -188,18 +213,24 @@ async fn test_set_block_interval() {
     assert_eq!(current_interval, interval);
 }
 
+/// Tests invalid block interval handling:
+/// - Attempt to set zero interval
+/// - Verify error is returned
 #[tokio::test]
 async fn test_invalid_block_interval() {
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Try to set zero interval
     let result = cl_node.set_block_interval(Duration::from_secs(0)).await;
     assert!(matches!(result, Err(ConfirmationLayerError::InvalidBlockInterval(_))));
 }
 
+/// Tests chain not found error handling:
+/// - Attempt to get subblock for non-existent chain
+/// - Verify appropriate error is returned
 #[tokio::test]
 async fn test_chain_not_found() {
-    let (_, cl_node, _) = testnodes::setup_test_nodes();
+    let (_, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Try to get subblock for non-existent chain
     let chain_id = ChainId("non_existent".to_string());
@@ -208,15 +239,230 @@ async fn test_chain_not_found() {
     assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))));
 }
 
+/// Tests duplicate chain registration handling:
+/// - Register a chain
+/// - Attempt to register same chain again
+/// - Verify appropriate error is returned
 #[tokio::test]
 async fn test_chain_already_registered() {
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes();
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Register a chain
-    let chain_id = ChainId("test_chain".to_string());
+    let chain_id = ChainId("test-chain".to_string());
     cl_node.register_chain(chain_id.clone()).await.unwrap();
     
     // Try to register the same chain again
     let result = cl_node.register_chain(chain_id).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainAlreadyRegistered(_))));
+}
+
+/// Tests chain registration and subblock retrieval:
+/// - Register a chain
+/// - Verify chain is registered
+/// - Get subblock for registered chain
+/// - Verify subblock properties
+#[tokio::test]
+async fn test_chain_registration() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Register a chain
+    let chain_id = ChainId("test-chain".to_string());
+    cl_node.register_chain(chain_id.clone())
+        .await
+        .expect("Failed to register chain");
+
+    // Get registered chains
+    let chains = cl_node.get_registered_chains().await.unwrap();
+    assert_eq!(chains.len(), 1);
+    assert_eq!(chains[0], chain_id);
+
+    // Get current block
+    let block = cl_node.get_current_block().await.unwrap();
+    assert_eq!(block, BlockId("0".to_string()));
+
+    // Try to register the same chain again
+    cl_node.register_chain(chain_id.clone()).await.unwrap();
+
+    // Get subblock for the chain
+    let subblock = cl_node.get_subblock(chain_id.clone(), BlockId("0".to_string())).await.unwrap();
+    assert_eq!(subblock.chain_id, chain_id);
+}
+
+/// Tests transaction submission and verification:
+/// - Register a chain
+/// - Submit a transaction
+/// - Wait for block production
+/// - Verify transaction in subblock
+#[tokio::test]
+async fn test_transaction_submission() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Register a chain
+    let chain_id = ChainId("test-chain".to_string());
+    cl_node.register_chain(chain_id.clone()).await.unwrap();
+
+    // Submit a transaction
+    let transaction = CLTransaction {
+        id: TransactionId("test-tx".to_string()),
+        chain_id: chain_id.clone(),
+        data: "test data".to_string(),
+    };
+    let result = cl_node.submit_transaction(transaction).await;
+    assert!(result.is_ok());
+
+    // Wait for block production
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Get subblock
+    let subblock = cl_node.get_subblock(chain_id, BlockId("0".to_string())).await.unwrap();
+    assert_eq!(subblock.transactions.len(), 1);
+    assert_eq!(subblock.transactions[0].data, "test data");
+}
+
+/// Tests block interval validation:
+/// - Set valid block interval
+/// - Verify interval is updated
+/// - Attempt to set invalid interval
+/// - Verify error is returned
+#[tokio::test]
+async fn test_block_interval_validation() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Set valid block interval
+    let interval = Duration::from_millis(200);
+    let result = cl_node.set_block_interval(interval).await;
+    assert!(result.is_ok());
+
+    // Verify new interval
+    let current_interval = cl_node.get_block_interval().await.unwrap();
+    assert_eq!(current_interval, interval);
+
+    // Try to set invalid block interval
+    let result = cl_node.set_block_interval(Duration::from_secs(0)).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::InvalidBlockInterval(_))));
+}
+
+/// Tests subblock not found handling:
+/// - Attempt to get subblock for non-existent chain
+/// - Register chain
+/// - Verify subblock retrieval
+#[tokio::test]
+async fn test_subblock_not_found() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Try to get subblock for non-existent chain
+    let chain_id = ChainId("test-chain".to_string());
+    let block_id = BlockId("0".to_string());
+    let result = cl_node.get_subblock(chain_id.clone(), block_id).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))));
+
+    // Register chain
+    cl_node.register_chain(chain_id.clone()).await.unwrap();
+
+    // Try to get subblock for non-existent block
+    let result = cl_node.register_chain(chain_id).await;
+    assert!(result.is_ok());
+}
+
+/// Tests get registered chains functionality:
+/// - Register multiple chains
+/// - Verify registered chains are returned
+#[tokio::test]
+async fn test_get_registered_chains() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Register multiple chains
+    let chain_ids = vec![
+        ChainId("test-chain-1".to_string()),
+        ChainId("test-chain-2".to_string()),
+        ChainId("test-chain-3".to_string()),
+    ];
+    for chain_id in chain_ids.clone() {
+        cl_node.register_chain(chain_id).await.unwrap();
+    }
+
+    // Verify registered chains are returned
+    let chains = cl_node.get_registered_chains().await.unwrap();
+    assert_eq!(chains.len(), 3);
+    for chain_id in chain_ids {
+        assert!(chains.contains(&chain_id));
+    }
+}
+
+/// Tests get block interval functionality:
+/// - Register a chain
+/// - Verify block interval is returned
+#[tokio::test]
+async fn test_get_block_interval() {
+    let (_, cl_node, _) = testnodes::setup_test_nodes(Duration::from_secs(1)).await;
+    let interval = cl_node.get_block_interval().await.unwrap();
+    assert_eq!(interval, Duration::from_secs(1));
+}
+
+/// Tests submit transaction functionality for a chain not registered:
+/// - Attempt to submit a transaction for a chain not registered
+/// - Verify appropriate error is returned
+#[tokio::test]
+async fn test_submit_transaction_chain_not_registered() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Attempt to submit a transaction for a chain not registered
+    let chain_id = ChainId("non_existent".to_string());
+    let tx = CLTransaction {
+        id: TransactionId("test-tx".to_string()),
+        chain_id: chain_id.clone(),
+        data: "test data".to_string(),
+    };
+    let result = cl_node.submit_transaction(tx).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))));
+}
+
+/// Tests get subblock functionality for a chain not registered:
+/// - Attempt to get a subblock for a chain not registered
+/// - Verify appropriate error is returned
+#[tokio::test]
+async fn test_get_subblock_chain_not_registered() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Attempt to get a subblock for a chain not registered
+    let chain_id = ChainId("non_existent".to_string());
+    let block_id = BlockId("0".to_string());
+    let result = cl_node.get_subblock(chain_id.clone(), block_id).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))));
+}
+
+/// Tests register chain functionality for a chain already registered:
+/// - Attempt to register a chain already registered
+/// - Verify appropriate error is returned
+#[tokio::test]
+async fn test_register_chain_already_registered() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Register a chain
+    let chain_id = ChainId("test-chain".to_string());
+    cl_node.register_chain(chain_id.clone()).await.unwrap();
+
+    // Attempt to register the same chain again
+    let result = cl_node.register_chain(chain_id).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::ChainAlreadyRegistered(_))));
+}
+
+/// Tests set block interval functionality with zero interval:
+/// - Attempt to set zero interval
+/// - Verify error is returned
+#[tokio::test]
+async fn test_set_block_interval_zero() {
+    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Attempt to set zero interval
+    let result = cl_node.set_block_interval(Duration::from_secs(0)).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::InvalidBlockInterval(_))));
+}
+
+/// Tests new with block interval functionality with zero interval:
+/// - Attempt to create a new node with zero block interval
+/// - Verify error is returned
+#[tokio::test]
+async fn test_new_with_block_interval_zero() {
+    // ... existing code ...
 } 

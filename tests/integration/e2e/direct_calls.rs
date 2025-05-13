@@ -5,6 +5,7 @@ use hyperplane::{
     confirmation_layer::ConfirmationLayer,
 };
 use crate::common::testnodes;
+use std::time::Duration;
 /// Tests the complete flow of a CAT transaction through all components:
 /// 1. CAT created in CL with success simulation
 /// 2. HIG processes it and forwards success proposal to HS
@@ -17,7 +18,7 @@ async fn test_cat_complete_flow() {
     
     // - - - - - - - - - Setup - - - - - - - - -
     println!("\n[test.Setup] Initializing components...");
-    let (mut hs_node, mut cl_node, mut hig_node) = testnodes::setup_test_nodes();
+    let (mut hs_node, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());

@@ -3,6 +3,7 @@ use hyperplane::{
     hyper_ig::HyperIG,
 };
 use crate::common::testnodes;
+use tokio::time::Duration;
 /// Tests normal transaction success path in HyperIG:
 /// - Non-dependent transaction execution
 /// - Success status verification
@@ -10,7 +11,7 @@ use crate::common::testnodes;
 #[tokio::test]
 async fn test_normal_transaction_success() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Create a normal transaction with non-dependent data
     let tx = Transaction {
@@ -40,7 +41,7 @@ async fn test_normal_transaction_success() {
 #[tokio::test]
 async fn test_normal_transaction_pending() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Create a normal transaction with dependent data
     let tx = Transaction {
@@ -77,7 +78,7 @@ async fn test_normal_transaction_pending() {
 #[tokio::test]
 async fn test_cat_success_proposal() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Create a CAT transaction with success data
     let tx = Transaction {
@@ -120,7 +121,7 @@ async fn test_cat_success_proposal() {
 #[tokio::test]
 async fn test_cat_failure_proposal() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
     
     // Create a CAT transaction with non-success data
     let tx = Transaction {
@@ -153,7 +154,7 @@ async fn test_cat_failure_proposal() {
         .await
         .expect("Failed to get proposed status");
     assert!(matches!(proposed_status, CATStatusLimited::Failure));
-}
+} 
 
 /// Test CAT transaction success-update path in HyperIG (subblock received from the Confirmation Layer):
 /// - CAT transaction with success data
@@ -163,7 +164,7 @@ async fn test_cat_failure_proposal() {
 #[tokio::test]
 async fn test_cat_success_update() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Create a CAT transaction with success data
     let tx = Transaction {
@@ -194,7 +195,7 @@ async fn test_cat_success_update() {
 #[tokio::test]
 async fn test_execute_transactions() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Test regular transaction
     let tx = Transaction {
@@ -224,7 +225,7 @@ async fn test_execute_transactions() {
 #[tokio::test]
 async fn test_get_transaction_status() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Test non-existent transaction
     let tx_id = TransactionId("non-existent".to_string());
@@ -248,7 +249,7 @@ async fn test_get_transaction_status() {
 #[tokio::test]
 async fn test_get_pending_transactions() {
     // use testnodes from common
-    let (_, _, mut hig_node) = testnodes::setup_test_nodes();
+    let (_, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Initially no pending transactions
     let pending = hig_node.get_pending_transactions().await.unwrap();
@@ -264,5 +265,6 @@ async fn test_get_pending_transactions() {
     assert_eq!(pending.len(), 1);
     assert_eq!(pending[0], TransactionId("pending-tx".to_string()));
 }
+
 
 
