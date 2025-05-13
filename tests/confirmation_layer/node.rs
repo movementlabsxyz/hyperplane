@@ -16,7 +16,7 @@ async fn test_basic() {
 
     // Test initial state
     let block_interval = cl_node.get_block_interval().await.expect("Failed to get block interval");
-    assert_eq!(block_interval, Duration::from_secs(1));
+    assert_eq!(block_interval, Duration::from_millis(100));
 
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
     assert_eq!(current_block, BlockId("0".to_string()));
@@ -92,7 +92,7 @@ async fn test_normal_transactions() {
     // Wait for a block to be produced
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    // Check that 5 blocks have been produced
+    // Check that 5 blocks have been produced (500ms / 100ms = 5 blocks)
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
     assert_eq!(current_block, BlockId("5".to_string()));
 

@@ -102,6 +102,9 @@ impl ConfirmationLayerNode {
                             tracing::error!("Failed to send subblock to HIG: {}", e);
                         }
                     }
+
+                    // Clear pending transactions for this chain
+                    chain_txs.clear();
                 }
             }
 
@@ -115,6 +118,9 @@ impl ConfirmationLayerNode {
 #[async_trait::async_trait]
 impl ConfirmationLayer for ConfirmationLayerNode {
     async fn register_chain(&mut self, chain_id: ChainId) -> Result<BlockId, ConfirmationLayerError> {
+        if self.chains.contains(&chain_id) {
+            return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
+        }
         self.chains.push(chain_id);
         Ok(self.current_block.clone())
     }
@@ -127,6 +133,9 @@ impl ConfirmationLayer for ConfirmationLayerNode {
     }
 
     async fn get_subblock(&self, chain_id: ChainId, block_id: BlockId) -> Result<SubBlock, ConfirmationLayerError> {
+        if !self.chains.contains(&chain_id) {
+            return Err(ConfirmationLayerError::ChainNotFound(chain_id));
+        }
         self.subblocks.get(&(chain_id.clone(), block_id.clone()))
             .cloned()
             .ok_or_else(|| ConfirmationLayerError::SubBlockNotFound(chain_id, block_id))
