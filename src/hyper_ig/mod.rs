@@ -1,4 +1,4 @@
-use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, CATStatusUpdate};
+use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, CATStatusLimited};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -13,6 +13,8 @@ pub enum HyperIGError {
     ExecutionFailed(String),
     #[error("Internal error: {0}")]
     Internal(String),
+    #[error("Communication error: {0}")]
+    Communication(String),
 }
 
 /// The Hyper IG is responsible for executing transactions,
@@ -29,7 +31,7 @@ pub trait HyperIG: Send + Sync {
     async fn get_pending_transactions(&self) -> Result<Vec<TransactionId>, anyhow::Error>;
 
     /// Submit a CAT status proposal to the Hyper Scheduler
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusUpdate) -> Result<(), HyperIGError>;
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperIGError>;
 
     /// Resolve the status of a CAT transaction based on hyper_scheduler and sequencer views
     async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError>;

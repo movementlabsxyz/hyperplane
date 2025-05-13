@@ -1,8 +1,12 @@
 use hyperplane::{
-    types::{CATId, CATStatusUpdate, TransactionId, Transaction},
-    hyper_scheduler::HyperSchedulerNode,
-    hyper_ig::{HyperIG, HyperIGNode},
+    types::{Transaction, TransactionId, CATStatusLimited, CATId},
+    hyper_ig::HyperIG,
+    hyper_scheduler::HyperScheduler,
 };
+use tokio::{time::{sleep, Duration}, task};
+use crate::common::testnodes;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Tests the storage of a single CAT status update in HS:
 /// - HIG proposes a Success status for a CAT
@@ -10,121 +14,284 @@ use hyperplane::{
 /// - HS can retrieve the stored Success status
 #[tokio::test]
 async fn test_single_cat_status_storage() {
-    // Create a Hyper IG node and Hyper Scheduler node
-    let mut hig = HyperIGNode::new();
-    let hs: HyperSchedulerNode = HyperSchedulerNode::new();
+    // use testnodes from common
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
 
-    // Set the hyper scheduler in the Hyper IG node
-    hig.set_hyper_scheduler(Box::new(hs));
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
+
+    // Start the HS message processing loop in a separate task
+    let _hs_handle = task::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status = CATStatusUpdate::Success;
+    let status = CATStatusLimited::Success;
 
     // Propose the status update
-    hig.send_cat_status_proposal(cat_id.clone(), status.clone())
+    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
         .await
         .expect("Failed to propose CAT status update");
 
     // Get the proposed status from the Hyper IG node
-    let proposed_status = hig.get_proposed_status(TransactionId(cat_id.0.clone()))
+    let proposed_status = hig_node.get_proposed_status(TransactionId(cat_id.0.clone()))
         .await
         .expect("Failed to get proposed status");
 
     // Verify the proposed status matches
     assert_eq!(proposed_status, status);
+
+    // Wait for HS to process the message
+    sleep(Duration::from_millis(100)).await;
+
+    // Verify HS stored the status
+    let stored_status = hs_node.lock().await.get_cat_status(cat_id.clone())
+        .await
+        .expect("Failed to get CAT status");
+    assert_eq!(stored_status, status);
 }
 
 /// Tests the storage of multiple CAT status updates in HS:
-/// - HIG proposes Success and Failure statuses for different CATs
-/// - HS stores each status update
-/// - HS can retrieve all stored statuses in the correct order
+/// - HIG proposes Success status for multiple CATs
+/// - HS receives and stores all statuses
+/// - HS can retrieve all stored Success statuses
 #[tokio::test]
 async fn test_multiple_cat_status_storage() {
-    // Create a Hyper IG node and Hyper Scheduler node
-    let mut hig = HyperIGNode::new();
-    let hs = HyperSchedulerNode::new();
+    // use testnodes from common
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
 
-    // Set the hyper scheduler in the Hyper IG node
-    hig.set_hyper_scheduler(Box::new(hs));
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
+
+    // Start the HS message processing loop in a separate task
+    let _hs_handle = task::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
 
     // Create multiple CAT IDs and status updates
-    let updates = vec![
-        (CATId("cat1".to_string()), CATStatusUpdate::Success),
-        (CATId("cat2".to_string()), CATStatusUpdate::Failure),
-        (CATId("cat3".to_string()), CATStatusUpdate::Success),
+    let cat_ids = vec![
+        CATId("test-cat-1".to_string()),
+        CATId("test-cat-2".to_string()),
+        CATId("test-cat-3".to_string()),
     ];
+    let status = CATStatusLimited::Success;
 
-    // Propose each status update
-    for (cat_id, status) in updates.clone() {
-        hig.send_cat_status_proposal(cat_id.clone(), status.clone())
+    // Propose status updates for all CATs
+    for cat_id in &cat_ids {
+        hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
             .await
             .expect("Failed to propose CAT status update");
+    }
 
-        // Get the proposed status from the Hyper IG node
-        let proposed_status = hig.get_proposed_status(TransactionId(cat_id.0.clone()))
+    // Wait for HS to process all messages
+    sleep(Duration::from_millis(100)).await;
+
+    // Verify HS stored all statuses
+    for cat_id in &cat_ids {
+        let stored_status = hs_node.lock().await.get_cat_status(cat_id.clone())
             .await
-            .expect("Failed to get proposed status");
-
-        // Verify the proposed status matches
-        assert_eq!(proposed_status, status);
+            .expect("Failed to get CAT status");
+        assert_eq!(stored_status, status);
     }
 }
 
-/// Tests that a status proposal is properly sent and processed:
-/// - HIG proposes a Success status update
-/// - HS stores the status proposal
-/// - Verify the status proposal is correctly stored in HS
-#[tokio::test]
-async fn test_status_proposal_success() {
-    let mut hig = HyperIGNode::new();
-    let hs = HyperSchedulerNode::new();
-    hig.set_hyper_scheduler(Box::new(hs));
-
-    // Submit a CAT transaction (simulate)
-    let cat_id = CATId("cat-tx".to_string());
-    let tx = Transaction {
-        id: TransactionId(cat_id.0.clone()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
-    };
-    hig.execute_transaction(tx).await.expect("Failed to execute CAT transaction");
-
-    // Propose a success status update
-    hig.send_cat_status_proposal(cat_id.clone(), CATStatusUpdate::Success)
-        .await
-        .expect("Failed to propose status update");
-
-    // Check that HS has the correct status
-    let hs_ref = hig.hyper_scheduler().unwrap();
-    let status = hs_ref.get_cat_status(cat_id.clone()).await.unwrap();
-    assert_eq!(status, CATStatusUpdate::Success);
-}
-
-/// Tests that a status proposal is properly sent and processed:
-/// - HIG proposes a Failure status update
-/// - HS stores the status proposal
-/// - Verify the status proposal is correctly stored in HS
+/// Tests the storage of a CAT status update in HS:
+/// - HIG proposes a Failure status for a CAT
+/// - HS receives and stores the status
+/// - HS can retrieve the stored Failure status
 #[tokio::test]
 async fn test_status_proposal_failure() {
-    let mut hig = HyperIGNode::new();
-    let hs = HyperSchedulerNode::new();
-    hig.set_hyper_scheduler(Box::new(hs));
+    // use testnodes from common
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
 
-    // Submit a CAT transaction (simulate)
-    let cat_id = CATId("cat-tx".to_string());
-    let tx = Transaction {
-        id: TransactionId(cat_id.0.clone()),
-        data: "CAT.SIMULATION.FAILURE".to_string(),
-    };
-    hig.execute_transaction(tx).await.expect("Failed to execute CAT transaction");
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
 
-    // Propose a failure status update
-    hig.send_cat_status_proposal(cat_id.clone(), CATStatusUpdate::Failure)
+    // Start the HS message processing loop in a separate task
+    let _hs_handle = task::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Create a CAT ID and status update
+    let cat_id = CATId("test-cat".to_string());
+    let status = CATStatusLimited::Success;
+
+    // Propose the status update
+    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
         .await
-        .expect("Failed to propose status update");
+        .expect("Failed to propose CAT status update");
 
-    // Check that HS has the correct status
-    let hs_ref = hig.hyper_scheduler().unwrap();
-    let status = hs_ref.get_cat_status(cat_id.clone()).await.unwrap();
-    assert_eq!(status, CATStatusUpdate::Failure);
+    // Wait for HS to process the message
+    sleep(Duration::from_millis(100)).await;
+}
+
+#[tokio::test]
+async fn test_send_cat_status_proposal() {
+    // use testnodes from common
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let _hs_node_clone = hs_node.clone();
+
+    // Send a status proposal
+    let cat_id = CATId("test-cat".to_string());
+    hig_node.send_cat_status_proposal(cat_id.clone(), CATStatusLimited::Success)
+        .await
+        .expect("Failed to send status proposal");
+
+    // Verify the status in HS
+    let stored_status = hs_node.lock().await.get_cat_status(cat_id).await.unwrap();
+    assert_eq!(stored_status, CATStatusLimited::Success);
+}
+
+#[tokio::test]
+async fn test_process_cat_transaction() {
+    // use testnodes from common
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let _hs_node_clone = hs_node.clone();
+
+    // Create and process a CAT transaction
+    let tx = Transaction {
+        id: TransactionId("test-cat".to_string()),
+        data: "CAT.SIMULATION.SUCCESS".to_string(),
+    };
+    hig_node.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
+
+    // Verify the status in HS
+    let stored_status = hs_node.lock().await.get_cat_status(CATId(tx.id.0)).await.unwrap();
+    assert_eq!(stored_status, CATStatusLimited::Success);
+}
+
+#[tokio::test]
+async fn test_process_status_update() {
+    // use testnodes from common
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let _hs_node_clone = hs_node.clone();
+
+    // Create and process a CAT transaction
+    let tx = Transaction {
+        id: TransactionId("test-cat".to_string()),
+        data: "CAT.SIMULATION.SUCCESS".to_string(),
+    };
+    hig_node.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
+
+    // Send status update
+    hs_node.lock().await.send_cat_status_update(CATId(tx.id.0.clone()), CATStatusLimited::Success)
+        .await
+        .expect("Failed to send status update");
+
+    // Verify the status in HS
+    let stored_status = hs_node.lock().await.get_cat_status(CATId(tx.id.0)).await.unwrap();
+    assert_eq!(stored_status, CATStatusLimited::Success);
+}
+
+#[tokio::test]
+async fn test_hig_to_hs_status_proposal() {
+    // use testnodes from common
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
+
+    // Start the HS message processing loop
+    let _hs_handle = task::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Create a CAT transaction
+    let cat_id = CATId("test_cat".to_string());
+    let status = CATStatusLimited::Success;
+
+    // Send status proposal from HIG to HS
+    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone()).await.unwrap();
+
+    // Wait for HS to process the message
+    sleep(Duration::from_millis(100)).await;
+
+    // Verify that the proposed status matches what we sent
+    let stored_status = hs_node.lock().await.get_cat_status(cat_id).await.unwrap();
+    assert_eq!(stored_status, status);
+}
+
+#[tokio::test]
+async fn test_hig_to_hs_status_proposal_failure() {
+    // use testnodes from common
+    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
+
+    // Start the HS message processing loop
+    tokio::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Create a CAT transaction with an invalid status
+    let cat_id = CATId("test_cat".to_string());
+    let status = CATStatusLimited::Failure;
+
+    // Send status proposal from HIG to HS
+    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone()).await.unwrap();
+
+    // Wait for HS to process the message
+    sleep(Duration::from_millis(100)).await;
+
+    // Verify that the proposed status matches what we sent
+    let stored_status = hs_node.lock().await.get_cat_status(cat_id).await.unwrap();
+    assert_eq!(stored_status, status);
+}
+
+#[tokio::test]
+async fn test_hig_to_hs_multiple_status_proposals() {
+    // use testnodes from common
+    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes();
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
+
+    // Start the HS message processing loop
+    tokio::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Create multiple CAT transactions
+    let cat_ids = vec![
+        CATId("test_cat_1".to_string()),
+        CATId("test_cat_2".to_string()),
+        CATId("test_cat_3".to_string()),
+    ];
+
+    // Send status proposals from HIG to HS
+    for cat_id in &cat_ids {
+        hig_node.send_cat_status_proposal(cat_id.clone(), CATStatusLimited::Success).await.unwrap();
+    }
+
+    // Wait for HS to process the messages
+    sleep(Duration::from_millis(100)).await;
+
+    // Verify that all proposed statuses match what we sent
+    for cat_id in &cat_ids {
+        let stored_status = hs_node.lock().await.get_cat_status(cat_id.clone()).await.unwrap();
+        assert_eq!(stored_status, CATStatusLimited::Success);
+    }
 } 

@@ -26,7 +26,6 @@
   - [x] `ChainId`
   - [x] `CATId`
   - [x] `BlockId`
-  - [x] `StatusUpdateTransaction`
   - [x] `CATStatus`
   - [x] `CATStatusProposal`
   - [x] `SubBlock`

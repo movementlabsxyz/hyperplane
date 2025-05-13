@@ -21,6 +21,18 @@ pub struct ChainRegistration {
     pub active: bool,
 }
 
+impl Default for ChainRegistration {
+    fn default() -> Self {
+        Self {
+            chain_id: ChainId("".to_string()),
+            name: String::new(),
+            rpc_url: String::new(),
+            registration_block: BlockId("0".to_string()),
+            active: false,
+        }
+    }
+}
+
 impl fmt::Display for ChainId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)

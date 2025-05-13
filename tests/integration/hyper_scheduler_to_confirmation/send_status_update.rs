@@ -21,7 +21,7 @@ async fn test_hs_to_cl_status_update() {
     // Create a status update message for chains 1 and 2
     let cat_id1 = CATId("cat1".to_string());
     let cat_id2 = CATId("cat2".to_string());
-    let status = CATStatusUpdate::Success;
+    let status = CATStatusLimited::Success;
 
     // HS sends the status update message for chain1
     hs.send_cat_status_update(cat_id1.clone(), status.clone())

@@ -1,7 +1,8 @@
 mod transaction;
-mod cat;
+pub mod cat;
 mod block;
 mod chain;
+pub mod communication;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,4 +14,5 @@ pub struct TransactionId(pub String);
 pub use transaction::*;
 pub use cat::*;
 pub use block::*;
-pub use chain::*; 
+pub use chain::*;
+pub use communication::*; 

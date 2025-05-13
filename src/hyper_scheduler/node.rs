@@ -1,35 +1,49 @@
-use crate::types::{CATId, TransactionId, CATStatusUpdate, CLTransaction, ChainId};
+use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId};
 use crate::confirmation_layer::ConfirmationLayer;
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
+use crate::types::communication::{Sender, Receiver, Message};
+use crate::types::communication::hig_to_hs::CATStatusUpdateMessage;
+use crate::types::communication::hs_to_cl::CLTransactionMessage;
 
 /// A node that implements the HyperScheduler trait
 pub struct HyperSchedulerNode {
     /// Map of CAT IDs to their current status update
-    cat_statuses: HashMap<CATId, CATStatusUpdate>,
+    cat_statuses: HashMap<CATId, CATStatusLimited>,
     /// The confirmation layer for submitting transactions
     confirmation_layer: Option<Box<dyn ConfirmationLayer>>,
     /// The chain IDs for submitting transactions
     chain_ids: HashSet<ChainId>,
-}
-
-impl Clone for HyperSchedulerNode {
-    fn clone(&self) -> Self {
-        Self {
-            cat_statuses: self.cat_statuses.clone(),
-            confirmation_layer: None,
-            chain_ids: self.chain_ids.clone(),
-        }
-    }
+    /// Receiver for messages from Hyper IG
+    receiver_from_hig: Option<Receiver<CATStatusUpdateMessage>>,
+    /// Sender for messages to CL
+    sender_to_cl: Option<Sender<CLTransactionMessage>>,
 }
 
 impl HyperSchedulerNode {
     /// Create a new HyperSchedulerNode
-    pub fn new() -> Self {
+    pub fn new(receiver_from_hig: Receiver<CATStatusUpdateMessage>, sender_to_cl: Sender<CLTransactionMessage>) -> Self {
         Self {
             cat_statuses: HashMap::new(),
             confirmation_layer: None,
             chain_ids: HashSet::new(),
+            receiver_from_hig: Some(receiver_from_hig),
+            sender_to_cl: Some(sender_to_cl),
+        }
+    }
+
+    /// Start the message processing loop
+    pub async fn start(&mut self) {
+        let mut receiver = self.receiver_from_hig.take().expect("Receiver already taken");
+        while let Some(message) = receiver.receive().await {
+            match message {
+                Message::Message(msg) => {
+                    tracing::info!("Received status proposal for {}: {:?}", msg.cat_status_update.cat_id, msg.cat_status_update);
+                    if let Err(e) = self.receive_cat_status_proposal(msg.cat_status_update.cat_id.clone(), msg.cat_status_update.status.clone()).await {
+                        tracing::error!("Failed to process status proposal for {}: {}", msg.cat_status_update.cat_id, e);
+                    }
+                }
+            }
         }
     }
 
@@ -56,7 +70,7 @@ impl HyperSchedulerNode {
 
 #[async_trait::async_trait]
 impl HyperScheduler for HyperSchedulerNode {
-    async fn get_cat_status(&self, id: CATId) -> Result<CATStatusUpdate, HyperSchedulerError> {
+    async fn get_cat_status(&self, id: CATId) -> Result<CATStatusLimited, HyperSchedulerError> {
         self.cat_statuses.get(&id)
             .cloned()
             .ok_or_else(|| HyperSchedulerError::CATNotFound(id))
@@ -66,17 +80,13 @@ impl HyperScheduler for HyperSchedulerNode {
         Ok(self.cat_statuses.keys().cloned().collect())
     }
 
-    async fn receive_cat_status_proposal(&mut self, tx_id: TransactionId, status: CATStatusUpdate) -> Result<(), HyperSchedulerError> {
-        // Convert TransactionId to CATId
-        let cat_id = CATId(tx_id.0);
-        
+    async fn receive_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
         // Store the status update
         self.cat_statuses.insert(cat_id, status);
-        
         Ok(())
     }
 
-    async fn send_cat_status_update(&mut self, cat_id: CATId, status: CATStatusUpdate) -> Result<(), HyperSchedulerError> {
+    async fn send_cat_status_update(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
         println!("[HS] send_cat_status_update called for CAT {} with status {:?}", cat_id.0, status);
         // Update the CAT status
         self.cat_statuses.insert(cat_id.clone(), status.clone());
@@ -89,8 +99,8 @@ impl HyperScheduler for HyperSchedulerNode {
             }
 
             let status_str = match status {
-                CATStatusUpdate::Success => "STATUS_UPDATE.SUCCESS.CAT_ID:".to_string() + &cat_id.0,
-                CATStatusUpdate::Failure => "STATUS_UPDATE.FAILURE.CAT_ID:".to_string() + &cat_id.0,
+                CATStatusLimited::Success => "STATUS_UPDATE.SUCCESS.CAT_ID:".to_string() + &cat_id.0,
+                CATStatusLimited::Failure => "STATUS_UPDATE.FAILURE.CAT_ID:".to_string() + &cat_id.0,
             };
 
             // Send the status update to all registered chains

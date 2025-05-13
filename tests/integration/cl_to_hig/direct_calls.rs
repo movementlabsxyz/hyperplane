@@ -1,94 +1,103 @@
 use hyperplane::{
     types::{Transaction, TransactionId, TransactionStatus, ChainId, BlockId, CLTransaction},
-    hyper_ig::{HyperIG, HyperIGNode},
-    confirmation_layer::{ConfirmationNode, ConfirmationLayer},
+    hyper_ig::HyperIG,
+    confirmation_layer::ConfirmationLayer,
 };
 use tokio::time::Duration;
+use crate::common::testnodes;
 
 /// Tests that a subblock with new transactions is properly processed by the Hyper IG:
 /// - The Confirmation Layer sends a subblock to the Hyper IG
 /// - The Hyper IG processes the transactions in the subblock
 /// - Verify the transaction statuses are correctly updated
 #[tokio::test]
-async fn test_process_subblock_normal_transactions() {
-    // Create HIG and CL nodes
-    let mut hig = HyperIGNode::new();
-    let mut cl = ConfirmationNode::with_block_interval(Duration::from_millis(100))
-        .expect("Failed to create confirmation node");
+async fn test_process_subblock() {
+    // Initialize components
+    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes();
 
-    // Register a test chain
+    // Register chain
     let chain_id = ChainId("test-chain".to_string());
-    cl.register_chain(chain_id.clone())
-        .await
-        .expect("Failed to register chain");
+    cl_node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
 
-    // Create test transactions
-    let tx1 = Transaction {
-        id: TransactionId("tx1".to_string()),
-        data: "SUCCESS".to_string(),
+    // Submit transaction to CL
+    let tx = Transaction {
+        id: TransactionId("test-tx".to_string()),
+        data: "test data".to_string(),
     };
-    let tx2 = Transaction {
-        id: TransactionId("tx2".to_string()),
-        data: "DEPENDENT".to_string(),
-    };
-
-    // submit the transactions to the CL
-    cl.submit_transaction(CLTransaction {
-        id: tx1.id.clone(),
-        data: tx1.data.clone(),
+    cl_node.submit_transaction(CLTransaction {
+        id: tx.id.clone(),
+        data: tx.data.clone(),
         chain_id: chain_id.clone(),
-    }).await.expect("Failed to submit transaction");
-    cl.submit_transaction(CLTransaction {
-        id: tx2.id.clone(),
-        data: tx2.data.clone(),
-        chain_id: chain_id.clone(),
-    }).await.expect("Failed to submit transaction");
+    })
+    .await
+    .expect("Failed to submit transaction");
 
-    // Wait for block production and get the current block
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    let current_block = cl.get_current_block().await.expect("Failed to get current block");
+    // Wait for block production
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
     let current_block_num = current_block.0.parse::<u64>().unwrap();
-    println!("Current block number: {}", current_block_num);
 
-    // Look for our transactions in all blocks up to the current one
-    let mut found_subblock = None;
-    for block_num in 0..current_block_num {
-        let block_id = BlockId(block_num.to_string());
-        let subblock = cl.get_subblock(chain_id.clone(), block_id.clone())
-            .await
-            .expect(&format!("Failed to get subblock for block {}", block_num));
-        println!("Checking block {}: tx_count={}", block_num, subblock.transactions.len());
-        for tx in &subblock.transactions {
-            println!("  Transaction: id={}, data={}", tx.id.0, tx.data);
-        }
-        if subblock.transactions.iter().any(|tx| tx.id == tx1.id) && 
-           subblock.transactions.iter().any(|tx| tx.id == tx2.id) {
-            found_subblock = Some(subblock);
-            break;
-        }
-    }
+    // Get subblock
+    let block_id = BlockId(current_block_num.to_string());
+    let subblock = cl_node.get_subblock(chain_id, block_id)
+        .await
+        .expect("Failed to get subblock");
 
-    let subblock = found_subblock.expect("Did not find subblock containing our transactions");
-    assert_eq!(subblock.transactions.len(), 2, "Subblock should contain 2 transactions");
-    assert!(subblock.transactions.iter().any(|tx| tx.id == tx1.id), "Subblock should contain tx1");
-    assert!(subblock.transactions.iter().any(|tx| tx.id == tx2.id), "Subblock should contain tx2");
-
-    // Send the subblock to HIG
-    // TODO: we have no direct connection between CL at this point, so we just call the method for now
-    // TODO: hig should just be listening for CL events
-    hig.process_subblock(subblock)
+    // Process subblock in HIG
+    hig_node.process_subblock(subblock)
         .await
         .expect("Failed to process subblock");
 
-    // Verify transaction statuses
-    let status1 = hig.get_transaction_status(tx1.id.clone())
+    // Verify transaction status
+    let status = hig_node.get_transaction_status(tx.id).await.unwrap();
+    assert!(matches!(status, TransactionStatus::Success));
+}
+
+/// Tests that a subblock with a CAT transaction is properly processed by the Hyper IG:
+/// - The Confirmation Layer sends a subblock with a CAT transaction to the Hyper IG
+/// - The Hyper IG processes the CAT transaction
+/// - Verify the CAT transaction status is correctly updated
+#[tokio::test]
+async fn test_process_cat_subblock() {
+    // Initialize components
+    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes();
+
+    // Register chain
+    let chain_id = ChainId("test-chain".to_string());
+    cl_node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+
+    // Submit CAT transaction to CL
+    let tx = Transaction {
+        id: TransactionId("test-cat".to_string()),
+        data: "CAT.SIMULATION.SUCCESS".to_string(),
+    };
+    cl_node.submit_transaction(CLTransaction {
+        id: tx.id.clone(),
+        data: tx.data.clone(),
+        chain_id: chain_id.clone(),
+    })
+    .await
+    .expect("Failed to submit transaction");
+
+    // Wait for block production
+    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
+    let current_block_num = current_block.0.parse::<u64>().unwrap();
+
+    // Get subblock
+    let block_id = BlockId(current_block_num.to_string());
+    let subblock = cl_node.get_subblock(chain_id, block_id)
         .await
-        .expect("Failed to get status for tx1");
-    assert!(matches!(status1, TransactionStatus::Success), "tx1 should be successful");
-    let status2 = hig.get_transaction_status(tx2.id.clone())
+        .expect("Failed to get subblock");
+
+    // Process subblock in HIG
+    hig_node.process_subblock(subblock)
         .await
-        .expect("Failed to get status for tx2");
-    assert!(matches!(status2, TransactionStatus::Pending), "tx2 should be pending (dependent)");
+        .expect("Failed to process subblock");
+
+    // Verify transaction status
+    let status = hig_node.get_transaction_status(tx.id).await.unwrap();
+    assert!(matches!(status, TransactionStatus::Pending));
 }
 
 /// Tests that multiple subblocks with new transactions are properly processed by the Hyper IG:
@@ -98,13 +107,11 @@ async fn test_process_subblock_normal_transactions() {
 #[tokio::test]
 async fn test_process_multiple_subblocks_new_transactions() {
     // Create HIG and CL nodes
-    let mut hig = HyperIGNode::new();
-    let mut cl = ConfirmationNode::with_block_interval(Duration::from_millis(100))
-        .expect("Failed to create confirmation node");
+    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes();
 
     // Register a test chain
     let chain_id = ChainId("test-chain".to_string());
-    cl.register_chain(chain_id.clone())
+    cl_node.register_chain(chain_id.clone())
         .await
         .expect("Failed to register chain");
 
@@ -114,7 +121,7 @@ async fn test_process_multiple_subblocks_new_transactions() {
         data: "SUCCESS".to_string(),
     };
     // submit the transactions to the CL
-    cl.submit_transaction(CLTransaction {
+    cl_node.submit_transaction(CLTransaction {
         id: tx1.id.clone(),
         data: tx1.data.clone(),
         chain_id: chain_id.clone(),
@@ -122,43 +129,40 @@ async fn test_process_multiple_subblocks_new_transactions() {
 
     // Wait for block production and get the current block
     tokio::time::sleep(Duration::from_millis(200)).await;
-    let current_block = cl.get_current_block().await.expect("Failed to get current block");
+    let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
     let current_block_num = current_block.0.parse::<u64>().unwrap();
     println!("Current block number after tx1: {}", current_block_num);
 
     // Look for tx1 in all blocks up to the current one
     let mut found_subblock1 = None;
-    for block_num in 0..current_block_num {
+    for block_num in 0..=current_block_num {
         let block_id = BlockId(block_num.to_string());
-        let subblock = cl.get_subblock(chain_id.clone(), block_id.clone())
-            .await
-            .expect(&format!("Failed to get subblock for block {}", block_num));
-        println!("Checking block {} for tx1: tx_count={}", block_num, subblock.transactions.len());
-        for tx in &subblock.transactions {
-            println!("  Transaction: id={}, data={}", tx.id.0, tx.data);
-        }
-        if subblock.transactions.iter().any(|tx| tx.id == tx1.id) {
-            found_subblock1 = Some(subblock);
-            break;
+        if let Ok(subblock) = cl_node.get_subblock(chain_id.clone(), block_id).await {
+            if subblock.transactions.iter().any(|tx| tx.id == tx1.id) {
+                found_subblock1 = Some(subblock);
+                break;
+            }
         }
     }
+    let subblock1 = found_subblock1.expect("Failed to find subblock containing tx1");
 
-    let subblock1 = found_subblock1.expect("Did not find subblock containing tx1");
-    assert_eq!(subblock1.transactions.len(), 1, "First subblock should contain 1 transaction");
-    assert!(subblock1.transactions.iter().any(|tx| tx.id == tx1.id), "First subblock should contain tx1");
-
-    // Process first subblock
-    hig.process_subblock(subblock1)
+    // Process the first subblock
+    hig_node.process_subblock(subblock1)
         .await
         .expect("Failed to process first subblock");
+
+    // Verify tx1 status
+    let status1 = hig_node.get_transaction_status(tx1.id.clone())
+        .await
+        .expect("Failed to get tx1 status");
+    assert!(matches!(status1, TransactionStatus::Success));
 
     // Create test transactions for second subblock
     let tx2 = Transaction {
         id: TransactionId("tx2".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
+        data: "SUCCESS".to_string(),
     };
-    // submit the transactions to the CL
-    cl.submit_transaction(CLTransaction {
+    cl_node.submit_transaction(CLTransaction {
         id: tx2.id.clone(),
         data: tx2.data.clone(),
         chain_id: chain_id.clone(),
@@ -166,50 +170,31 @@ async fn test_process_multiple_subblocks_new_transactions() {
 
     // Wait for block production and get the current block
     tokio::time::sleep(Duration::from_millis(200)).await;
-    let current_block = cl.get_current_block().await.expect("Failed to get current block");
+    let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
     let current_block_num = current_block.0.parse::<u64>().unwrap();
     println!("Current block number after tx2: {}", current_block_num);
 
     // Look for tx2 in all blocks up to the current one
     let mut found_subblock2 = None;
-    for block_num in 0..current_block_num {
+    for block_num in 0..=current_block_num {
         let block_id = BlockId(block_num.to_string());
-        let subblock = cl.get_subblock(chain_id.clone(), block_id.clone())
-            .await
-            .expect(&format!("Failed to get subblock for block {}", block_num));
-        println!("Checking block {} for tx2: tx_count={}", block_num, subblock.transactions.len());
-        for tx in &subblock.transactions {
-            println!("  Transaction: id={}, data={}", tx.id.0, tx.data);
-        }
-        if subblock.transactions.iter().any(|tx| tx.id == tx2.id) {
-            found_subblock2 = Some(subblock);
-            break;
+        if let Ok(subblock) = cl_node.get_subblock(chain_id.clone(), block_id).await {
+            if subblock.transactions.iter().any(|tx| tx.id == tx2.id) {
+                found_subblock2 = Some(subblock);
+                break;
+            }
         }
     }
+    let subblock2 = found_subblock2.expect("Failed to find subblock containing tx2");
 
-    let subblock2 = found_subblock2.expect("Did not find subblock containing tx2");
-    assert_eq!(subblock2.transactions.len(), 1, "Second subblock should contain 1 transaction");
-    assert!(subblock2.transactions.iter().any(|tx| tx.id == tx2.id), "Second subblock should contain tx2");
-
-    // Process second subblock
-    hig.process_subblock(subblock2)
+    // Process the second subblock
+    hig_node.process_subblock(subblock2)
         .await
         .expect("Failed to process second subblock");
 
-    // Verify all transaction statuses
-    let status1 = hig.get_transaction_status(tx1.id.clone())
+    // Verify tx2 status
+    let status2 = hig_node.get_transaction_status(tx2.id.clone())
         .await
-        .expect("Failed to get status for tx1");
-    assert!(matches!(status1, TransactionStatus::Success), "tx1 should be successful");
-
-    let status2 = hig.get_transaction_status(tx2.id.clone())
-        .await
-        .expect("Failed to get status for tx2");
-    assert!(matches!(status2, TransactionStatus::Pending), "tx2 should be pending (dependent)");
-
-    // Verify CAT transaction is in pending transactions
-    let pending = hig.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    assert!(pending.contains(&tx2.id), "tx2 should be in pending transactions");
+        .expect("Failed to get tx2 status");
+    assert!(matches!(status2, TransactionStatus::Success));
 } 

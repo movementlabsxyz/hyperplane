@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use super::{ChainId, TransactionId, CATStatusUpdate};
+use super::{ChainId, TransactionId};
 
 /// Status of a transaction
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -39,17 +39,6 @@ pub struct Transaction {
 pub struct TransactionStatusUpdate {
     pub transaction_id: TransactionId,
     pub status: TransactionStatus,
-}
-
-/// A transaction that updates the status of a CAT
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StatusUpdateTransaction {
-    /// The ID of the CAT being updated
-    pub cat_id: TransactionId,
-    /// The new status of the CAT
-    pub status: CATStatusUpdate,
-    /// The chain this status update is for
-    pub chain_id: ChainId,
 }
 
 impl fmt::Display for TransactionId {

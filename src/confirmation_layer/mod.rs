@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use std::time::Duration;
 use thiserror::Error;
-use crate::types::{BlockId, ChainId, ChainRegistration, SubBlock, CLTransaction};
+use crate::types::{BlockId, ChainId, SubBlock, CLTransaction};
 
 pub mod node;
-pub use node::ConfirmationNode;
+pub use node::ConfirmationLayerNode;
 
 #[derive(Debug, Error)]
 pub enum ConfirmationLayerError {
@@ -16,6 +16,10 @@ pub enum ConfirmationLayerError {
     InvalidBlockInterval(Duration),
     #[error("Internal error: {0}")]
     Internal(String),
+    #[error("Communication error: {0}")]
+    Communication(String),
+    #[error("Subblock not found: {0} {1}")]
+    SubBlockNotFound(ChainId, BlockId),
 }
 
 #[async_trait]
@@ -30,7 +34,7 @@ pub trait ConfirmationLayer: Send + Sync {
     async fn get_subblock(&self, chain_id: ChainId, block_id: BlockId) -> Result<SubBlock, ConfirmationLayerError>;
 
     /// Get all registered chains
-    async fn get_registered_chains(&self) -> Result<Vec<ChainRegistration>, ConfirmationLayerError>;
+    async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError>;
 
     /// Set the time between blocks
     async fn set_block_interval(&mut self, duration: Duration) -> Result<(), ConfirmationLayerError>;
