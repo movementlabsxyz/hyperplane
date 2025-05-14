@@ -279,7 +279,7 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
                     .collect(),
             };
             if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
-                println!("Error sending subblock: {}", e);
+                println!("[Processor] Error sending subblock: {}", e);
                 break;
             }
         }
@@ -307,7 +307,7 @@ async fn run_adder_v11(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
             chain_id: chain_id.clone(),
         };
         if let Err(e) = sender.send(tx).await {
-            println!("Error sending transaction: {}", e);
+            println!("[adder] Error sending transaction: {}", e);
             break;
         }
         sleep(Duration::from_millis(300)).await;
@@ -661,7 +661,7 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
                     .collect(),
             };
             if let Err(e) = state.subblock_sender.send(subblock).await {
-                println!("Error sending subblock: {}", e);
+                println!("[Processor] Error sending subblock: {}", e);
                 break;
             }
         }

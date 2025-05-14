@@ -144,25 +144,23 @@ impl ConfirmationLayerNode {
             }
             
             // Send subblocks for each chain with only this block's transactions
-            {
-                let state = node.lock().await;
-                for chain_id in &registered_chains {
-                    let subblock = SubBlock {
-                        chain_id: chain_id.clone(),
-                        block_id: current_block,
-                        transactions: processed_this_block
-                            .iter()
-                            .filter(|(cid, _)| cid == chain_id)
-                            .map(|(_, tx)| Transaction {
-                                id: tx.id.clone(),
-                                data: tx.data.clone(),
-                            })
-                            .collect(),
-                    };
-                    if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
-                        println!("Error sending subblock: {}", e);
-                        break;
-                    }
+            let state = node.lock().await;
+            for chain_id in &registered_chains {
+                let subblock = SubBlock {
+                    chain_id: chain_id.clone(),
+                    block_id: current_block,
+                    transactions: processed_this_block
+                        .iter()
+                        .filter(|(cid, _)| cid == chain_id)
+                        .map(|(_, tx)| Transaction {
+                            id: tx.id.clone(),
+                            data: tx.data.clone(),
+                        })
+                        .collect(),
+                };
+                if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
+                    println!("[Processor] Error sending subblock: {}", e);
+                    continue;
                 }
             }
         }

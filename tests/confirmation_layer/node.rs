@@ -4,6 +4,7 @@ use hyperplane::{
 };
 use std::time::Duration;
 use crate::common::testnodes;
+
 /// Tests basic confirmation node functionality:
 /// - Initial state (block interval, current block)
 /// - Chain registration
@@ -11,53 +12,122 @@ use crate::common::testnodes;
 /// - Duplicate registration handling
 #[tokio::test]
 async fn test_basic_confirmation_layer() {
-    println!("\nStarting test_basic");
-    let (_, mut cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
-    println!("Test nodes setup complete");
-
-    // Give block production time to start
-    println!("Waiting for block production to start");
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    println!("Block production should be running now");
-
+    println!("\n=== Starting test_basic_confirmation_layer ===");
+    
+    // Get the test nodes using our helper function
+    let (_, cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    // Just keep mut hig_node in scope for the whole test. Do not drop or move hig_node out of scope!
+    
     // Test initial state
-    println!("Testing initial state");
-    println!("Attempting to get current block...");
-    let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
-    println!("Got current block: {}", current_block);
-    assert!(current_block > 0, "Block height should be greater than 0");
+    println!("[Test] Testing initial state...");
+    {
+        let cl_node_with_lock = cl_node.lock().await;
+        let current_block = cl_node_with_lock.get_current_block().await.unwrap();
+        println!("[Test] Initial block number: {}", current_block);
+        assert_eq!(current_block, 0, "Initial block should be 0");
+    }
 
-    // Register a chain
-    println!("Registering test chain");
-    let chain_id = ChainId("test-chain".to_string());
-    let _registration_block = cl_node.register_chain(chain_id.clone())
-        .await
-        .expect("Failed to register chain");
-    println!("Chain registration complete");
+    // Register chains first
+    println!("[Test] Registering chains...");
+    {
+        let mut cl_node_with_lock = cl_node.lock().await;
+        let chain_id = ChainId("test-chain".to_string());
+        cl_node_with_lock.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+        
+        // Try to register chain again (should fail)
+        match cl_node_with_lock.register_chain(chain_id.clone()).await {
+            Ok(_) => panic!("Should not be able to register chain twice"),
+            Err(e) => println!("[Test] Expected error when registering chain twice: {}", e),
+        }
 
-    // Verify chain registration
-    println!("Verifying chain registration");
-    let chains = cl_node.get_registered_chains().await.expect("Failed to get registered chains");
-    println!("Got registered chains: {:?}", chains);
-    assert_eq!(chains.len(), 1);
-    assert_eq!(chains[0], chain_id);
+        // Try to get subblock for unregistered chain
+        match cl_node_with_lock.get_subblock(ChainId("unregistered-chain".to_string()), 0).await {
+            Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
+            Err(e) => println!("[Test] Expected error when getting subblock for unregistered chain: {}", e),
+        }
+    }
+
+    // Verify chain registration and get subblock for registered chain
+    println!("[Test] Verifying chain registration and subblock retrieval...");
+    {
+        let cl_node_with_lock = cl_node.lock().await;
+        let chain_id = ChainId("test-chain".to_string());
+        
+        // Verify registered chains
+        let registered_chains = cl_node_with_lock.get_registered_chains().await.unwrap();
+        assert_eq!(registered_chains.len(), 1, "Should have exactly 1 registered chain");
+        assert!(registered_chains.contains(&chain_id), "test-chain should be registered");
+
+        // Get subblock for registered chain
+        match cl_node_with_lock.get_subblock(chain_id.clone(), 0).await {
+            Ok(subblock) => {
+                println!("[Test] Successfully got subblock: {:?}", subblock);
+                assert_eq!(subblock.chain_id, chain_id, "Subblock should be for test-chain");
+                assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
+                assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
+            },
+            Err(e) => panic!("Failed to get subblock: {}", e),
+        }
+    }
+
+
+    // wait for 500 milliseconds
+    tokio::time::sleep(Duration::from_millis(500)).await;
+
+    // Submit a transaction
+    println!("[Test] Submitting transaction...");
+    {
+        let mut cl_node_with_lock = cl_node.lock().await;
+        let chain_id = ChainId("test-chain".to_string());
+        
+        // Submit a transaction
+        let tx = CLTransaction {
+            id: TransactionId("test-tx".to_string()),
+            data: "test message".to_string(),
+            chain_id: chain_id.clone(),
+        };
+        cl_node_with_lock.submit_transaction(tx).await.expect("Failed to submit transaction");
+        
+        // Try to submit a transaction for unregistered chain (should fail)
+        let tx2 = CLTransaction {
+            id: TransactionId("test-tx-2".to_string()),
+            data: "test message 2".to_string(),
+            chain_id: ChainId("unregistered-chain".to_string()),
+        };
+        match cl_node_with_lock.submit_transaction(tx2).await {
+            Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
+            Err(e) => println!("[Test] Expected error when submitting transaction for unregistered chain: {}", e),
+        }
+    }
 
     // Wait for block production
-    println!("Waiting for block production");
-    tokio::time::sleep(Duration::from_millis(200)).await;
-    println!("Block production wait complete");
+    println!("[Test] Waiting for block production...");
+    tokio::time::sleep(Duration::from_millis(500)).await;
 
-    // Test subblock retrieval
-    println!("Testing subblock retrieval");
-    println!("Attempting to get subblock for chain: {:?}, block: 0", chain_id);
-    let subblock = cl_node.get_subblock(chain_id.clone(), 0)
-        .await
-        .expect("Failed to get subblock");
-    println!("Got subblock: {:?}", subblock);
-    assert_eq!(subblock.block_id, 0);
-    assert_eq!(subblock.chain_id, chain_id);
-    assert!(subblock.transactions.is_empty());
-    println!("Test_basic completed successfully");
+    // Check final state
+    println!("[Test] Checking final state...");
+    {
+        let cl_node_with_lock = cl_node.lock().await;
+        let current_block = cl_node_with_lock.get_current_block().await.unwrap();
+        println!("[Test] Final block number: {}", current_block);
+        
+        // With 100ms interval, we should have produced at least 10 blocks in 1000ms
+        assert!(current_block >= 10, "Should have produced at least 10 blocks");
+        
+        // Check blocks 3 to 7 for the presence of the transaction (it may be difficult to pin the exact block)
+        let chain_id = ChainId("test-chain".to_string());
+        let mut found = false;
+        for block_id in 3..=7 {
+            let subblock = cl_node_with_lock.get_subblock(chain_id.clone(), block_id).await.unwrap();
+            if subblock.transactions.iter().any(|tx| tx.data == "test message") {
+                found = true;
+                break;
+            }
+        }
+        assert!(found, "Transaction should be present in one of the blocks 3 to 7");
+    }
+
+    println!("=== Test completed successfully ===\n");
 }
 
 /// Tests block interval configuration:
