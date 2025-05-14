@@ -57,6 +57,17 @@ impl HyperIGNode {
         self.transaction_statuses.write().await.insert(transaction.id.clone(), TransactionStatus::Success);
         Ok(TransactionStatus::Success)
     }
+
+    /// Process incoming subblocks from the Confirmation Layer
+    pub async fn process_incoming_subblocks(&mut self) -> Result<(), HyperIGError> {
+        if let Some(receiver) = self.receiver_cl_to_hig.take() {
+            let mut receiver = receiver;
+            while let Some(subblock) = receiver.recv().await {
+                self.process_subblock(subblock).await?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[async_trait::async_trait]
