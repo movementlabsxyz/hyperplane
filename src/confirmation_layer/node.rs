@@ -85,50 +85,86 @@ impl ConfirmationLayerNode {
     }
 
     /// Start the block production loop
-    pub async fn start_block_production(&mut self) {
-        let mut interval = tokio::time::interval(self.block_interval);
-            loop {
-                interval.tick().await;
-            self.current_block += 1;
-            self.blocks.push(self.current_block);
-                
-            // Process pending transactions
-            let mut processed_this_block = Vec::new();
-            let mut remaining = Vec::new();
-            for tx in self.pending_transactions.drain(..) {
-                if self.registered_chains.contains(&tx.chain_id) {
-                    processed_this_block.push((tx.chain_id.clone(), tx.clone()));
-                } else {
-                    remaining.push(tx);
-                }
-            }
-            self.pending_transactions = remaining;
-
-            // Store transactions for this block
-            self.block_transactions.insert(self.current_block, processed_this_block.clone());
-
-            // Create and send subblocks for each chain
-            for chain_id in &self.registered_chains {
-                                let subblock = SubBlock {
-                                    chain_id: chain_id.clone(),
-                    block_id: self.current_block,
-                    transactions: processed_this_block
-                        .iter()
-                        .filter(|(cid, _)| cid == chain_id)
-                        .map(|(_, tx)| Transaction {
-                            id: tx.id.clone(),
-                            data: tx.data.clone(),
-                        })
-                        .collect(),
-                                };
-                if let Err(e) = self.sender_cl_to_hig.send(subblock).await {
-                    tracing::error!("Error sending subblock: {}", e);
-                    break;
+    pub async fn start_block_production(node: Arc<Mutex<Self>>) {
+        let mut interval = tokio::time::interval(node.lock().await.block_interval);
+        loop {
+            interval.tick().await;
+            
+            // Process any new transactions from the channel
+            {
+                let mut state = node.lock().await;
+                while let Ok(transaction) = state.receiver_hs_to_cl.try_recv() {
+                    println!("[Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
+                    if state.registered_chains.contains(&transaction.chain_id) {
+                        state.pending_transactions.push(transaction);
+                    }
                 }
             }
             
-            // Update processed transactions
-            self.processed_transactions.extend(processed_this_block);
+            // Process block and transactions
+            let (current_block, processed_this_block, registered_chains) = {
+                let mut state = node.lock().await;
+                state.current_block += 1;
+                let current_block = state.current_block;
+                
+                // Process pending transactions for this block
+                let mut processed_this_block = Vec::new();
+                let mut remaining = Vec::new();
+                let registered_chains = state.registered_chains.clone();
+                for tx in state.pending_transactions.drain(..) {
+                    if registered_chains.contains(&tx.chain_id) {
+                        processed_this_block.push((tx.chain_id.clone(), tx.clone()));
+                    } else {
+                        remaining.push(tx);
+                    }
+                }
+                state.pending_transactions = remaining;
+                
+                // Create a block
+                state.blocks.push(current_block);
+                
+                // Store transactions for this block
+                state.block_transactions.insert(current_block, processed_this_block.clone());
+                
+                // Add processed transactions
+                state.processed_transactions.extend(processed_this_block.clone());
+                
+                (current_block, processed_this_block, registered_chains)
+            };
+            
+            // Print block status
+            if !processed_this_block.is_empty() {
+                print!("[Processor] produced block {} with {} transactions", current_block, processed_this_block.len());
+                for (_, tx) in &processed_this_block {
+                    print!("  - id={}, data={}", tx.id.0, tx.data);
+                }
+                println!();
+            } else {
+                println!("[Processor] produced empty block {}", current_block);
+            }
+            
+            // Send subblocks for each chain with only this block's transactions
+            {
+                let mut state = node.lock().await;
+                for chain_id in &registered_chains {
+                    let subblock = SubBlock {
+                        chain_id: chain_id.clone(),
+                        block_id: current_block,
+                        transactions: processed_this_block
+                            .iter()
+                            .filter(|(cid, _)| cid == chain_id)
+                            .map(|(_, tx)| Transaction {
+                                id: tx.id.clone(),
+                                data: tx.data.clone(),
+                            })
+                            .collect(),
+                    };
+                    if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
+                        println!("Error sending subblock: {}", e);
+                        break;
+                    }
+                }
+            }
         }
     }
 }
@@ -152,8 +188,7 @@ impl ConfirmationLayerNodeWrapper {
 
     /// Start block production
     pub async fn start_block_production(&self) {
-        let mut node = self.inner.lock().await;
-        node.start_block_production().await;
+        ConfirmationLayerNode::start_block_production(self.inner.clone()).await;
     }
 }
 

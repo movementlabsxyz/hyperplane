@@ -194,84 +194,10 @@ async fn setup_test_nodes(interval: Duration) -> (HyperSchedulerNode, Arc<Mutex<
     
     // Spawn the processor task
     let _processor_handle = tokio::spawn(async move {
-        run_transaction_processor_v13(cl_node_for_processor).await;
+        ConfirmationLayerNode::start_block_production(cl_node_for_processor).await;
     });
 
     (hs_node, cl_node, hig_node)
-}
-
-/// Helper function to run the processor task
-async fn run_transaction_processor_v13(cl_node: Arc<Mutex<ConfirmationLayerNode>>) {
-    let mut interval = interval(cl_node.lock().await.block_interval);
-    loop {
-        interval.tick().await;
-        
-        let mut state = cl_node.lock().await;
-        
-        // Process any new transactions from the channel
-        while let Ok(transaction) = state.receiver_hs_to_cl.try_recv() {
-            println!("[Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
-            if state.registered_chains.contains(&transaction.chain_id) {
-                state.pending_transactions.push(transaction);
-            }
-        }
-        
-        state.current_block += 1;
-        
-        // Process pending transactions for this block
-        let mut processed_this_block = Vec::new();
-        let mut remaining = Vec::new();
-        let registered_chains = state.registered_chains.clone();
-        for tx in state.pending_transactions.drain(..) {
-            if registered_chains.contains(&tx.chain_id) {
-                processed_this_block.push((tx.chain_id.clone(), tx.clone()));
-            } else {
-                remaining.push(tx);
-            }
-        }
-        state.pending_transactions = remaining;
-        
-        // Create a block
-        let block_id = state.current_block;
-        state.blocks.push(block_id);
-        
-        // Store transactions for this block
-        state.block_transactions.insert(block_id, processed_this_block.clone());
-        
-        // Add processed transactions
-        state.processed_transactions.extend(processed_this_block.clone());
-        
-        // Print block status
-        if !processed_this_block.is_empty() {
-            print!("[Processor] produced block {} with {} transactions", state.current_block, processed_this_block.len());
-            for (_, tx) in &processed_this_block {
-                print!("  - id={}, data={}", tx.id.0, tx.data);
-            }
-            println!();
-        } else {
-            println!("[Processor] produced empty block {}", state.current_block);
-        }
-        
-        // Send subblocks for each chain with only this block's transactions
-        for chain_id in &state.registered_chains {
-            let subblock = SubBlock {
-                chain_id: chain_id.clone(),
-                block_id,
-                transactions: processed_this_block
-                    .iter()
-                    .filter(|(cid, _)| cid == chain_id)
-                    .map(|(_, tx)| Transaction {
-                        id: tx.id.clone(),
-                        data: tx.data.clone(),
-                    })
-                    .collect(),
-            };
-            if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
-                println!("Error sending subblock: {}", e);
-                break;
-            }
-        }
-    }
 }
 
 /// Helper function to run the adder task
