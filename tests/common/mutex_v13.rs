@@ -1,17 +1,10 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tokio::time::{Duration, sleep, interval};
+use tokio::time::{Duration, sleep};
 use tokio::sync::mpsc;
 use hyperplane::{
-    types::{Transaction, TransactionId, ChainId, CLTransaction, SubBlock, CATStatusUpdate},
-    confirmation_layer::{ConfirmationLayerError, ConfirmationLayer, ConfirmationLayerNode},
-    hyper_scheduler::HyperSchedulerNode,
-    hyper_ig::HyperIGNode,
+    types::{TransactionId, ChainId, CLTransaction},
+    confirmation_layer::ConfirmationLayer,
 };
-use std::collections::HashSet;
-use std::collections::HashMap;
-use async_trait;
-
+use crate::common::testnodes;
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
 // V13: Integrates closer to actual node setup
@@ -23,7 +16,7 @@ async fn test_mutex_concurrent_access_v13() {
     println!("\n=== Starting test_mutex_concurrent_access_v13 ===");
     
     // Get the test nodes using our new helper function
-    let (hs_node, cl_node, _hig_node) = setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     
     // Test initial state
     println!("[Test] Testing initial state...");
@@ -115,12 +108,12 @@ async fn test_mutex_concurrent_access_v13() {
     // Spawn tasks to add more transactions for different chains
     let sender_for_chain1 = hs_node.get_sender_to_cl();
     let _adder_handle1 = tokio::spawn(async move {
-        run_spammer_v13(sender_for_chain1, ChainId("chain1".to_string())).await;
+        run_spammer(sender_for_chain1, ChainId("chain1".to_string())).await;
     });
 
     let sender_for_chain2 = hs_node.get_sender_to_cl();
     let _adder_handle2 = tokio::spawn(async move {
-        run_spammer_v13(sender_for_chain2, ChainId("chain2".to_string())).await;
+        run_spammer(sender_for_chain2, ChainId("chain2".to_string())).await;
     });
 
     // Wait for a few seconds to let the processor run
@@ -173,35 +166,8 @@ async fn test_mutex_concurrent_access_v13() {
     println!("=== Test completed successfully ===\n");
 }
 
-/// Helper function to create test nodes with basic setup
-async fn setup_test_nodes(interval: Duration) -> (HyperSchedulerNode, Arc<Mutex<ConfirmationLayerNode>>, HyperIGNode) {
-    // Create channels for communication
-    let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
-    let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
-    let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
-    
-    // Create nodes with their channels
-    let hs_node = HyperSchedulerNode::new(receiver_hig_to_hs, sender_hs_to_cl);
-    let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
-        receiver_hs_to_cl,
-        sender_cl_to_hig,
-        interval,
-    ).expect("Failed to create ConfirmationLayerNode")));
-    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs);
-    
-    // Clone the state for the processor task
-    let cl_node_for_processor = cl_node.clone();
-    
-    // Spawn the processor task
-    let _processor_handle = tokio::spawn(async move {
-        ConfirmationLayerNode::start_block_production(cl_node_for_processor).await;
-    });
-
-    (hs_node, cl_node, hig_node)
-}
-
 /// Helper function to run the adder task
-async fn run_spammer_v13(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
+async fn run_spammer(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
     for i in 1..=10 {
         let tx = CLTransaction {
             id: TransactionId(format!("tx{}.{}", i, chain_id.0)),

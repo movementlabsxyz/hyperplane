@@ -7,6 +7,7 @@ use hyperplane::{
     },
     hyper_scheduler::HyperScheduler,
     confirmation_layer::ConfirmationLayer,
+    confirmation_layer::node::{NodeStarter},
 };
 use std::time::Duration;
 use crate::common::testnodes;

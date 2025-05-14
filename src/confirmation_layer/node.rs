@@ -145,7 +145,7 @@ impl ConfirmationLayerNode {
             
             // Send subblocks for each chain with only this block's transactions
             {
-                let mut state = node.lock().await;
+                let state = node.lock().await;
                 for chain_id in &registered_chains {
                     let subblock = SubBlock {
                         chain_id: chain_id.clone(),
@@ -189,6 +189,27 @@ impl ConfirmationLayerNodeWrapper {
     /// Start block production
     pub async fn start_block_production(&self) {
         ConfirmationLayerNode::start_block_production(self.inner.clone()).await;
+    }
+}
+
+/// Trait for starting node operations
+#[async_trait::async_trait]
+pub trait NodeStarter {
+    /// Start the message processing loop
+    async fn start(&mut self);
+    /// Start block production
+    async fn start_block_production(&self);
+}
+
+#[async_trait::async_trait]
+impl NodeStarter for Arc<Mutex<ConfirmationLayerNode>> {
+    async fn start(&mut self) {
+        let mut node = self.lock().await;
+        node.start().await;
+    }
+
+    async fn start_block_production(&self) {
+        ConfirmationLayerNode::start_block_production(self.clone()).await;
     }
 }
 
@@ -256,39 +277,39 @@ impl ConfirmationLayer for ConfirmationLayerNode {
 }
 
 #[async_trait::async_trait]
-impl ConfirmationLayer for ConfirmationLayerNodeWrapper {
+impl ConfirmationLayer for Arc<Mutex<ConfirmationLayerNode>> {
     async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError> {
-        let mut node = self.inner.lock().await;
+        let mut node = self.lock().await;
         node.register_chain(chain_id).await
     }
 
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
-        let mut node = self.inner.lock().await;
+        let mut node = self.lock().await;
         node.submit_transaction(transaction).await
     }
 
     async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
-        let node = self.inner.lock().await;
+        let node = self.lock().await;
         node.get_subblock(chain_id, block_id).await
     }
 
     async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError> {
-        let node = self.inner.lock().await;
+        let node = self.lock().await;
         node.get_current_block().await
     }
 
     async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError> {
-        let node = self.inner.lock().await;
+        let node = self.lock().await;
         node.get_registered_chains().await
     }
 
     async fn set_block_interval(&mut self, interval: Duration) -> Result<(), ConfirmationLayerError> {
-        let mut node = self.inner.lock().await;
+        let mut node = self.lock().await;
         node.set_block_interval(interval).await
     }
 
     async fn get_block_interval(&self) -> Result<Duration, ConfirmationLayerError> {
-        let node = self.inner.lock().await;
+        let node = self.lock().await;
         node.get_block_interval().await
     }
 } 
