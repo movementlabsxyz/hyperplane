@@ -4,7 +4,6 @@ use super::{HyperIG, HyperIGError};
 use tokio::sync::mpsc;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing;
 
 /// Node implementation of the Hyper Information Gateway
 pub struct HyperIGNode {
@@ -34,9 +33,10 @@ impl HyperIGNode {
 
     /// Process a subblock
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
-        tracing::info!("Processing subblock: block_id={}, chain_id={}, tx_count={}", subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
+        println!("[HIG] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
+            subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
         for tx in &subblock.transactions {
-            tracing::info!("Executing transaction: id={}, data={}", tx.id.0, tx.data);
+            println!("[HIG] Executing transaction: id={}, data={}", tx.id.0, tx.data);
         }
         for tx in subblock.transactions {
             self.execute_transaction(tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
@@ -48,6 +48,18 @@ impl HyperIGNode {
     async fn handle_cat_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         // CAT transactions are always pending
         self.transaction_statuses.write().await.insert(transaction.id.clone(), TransactionStatus::Pending);
+        // Add to pending transactions set
+        self.pending_transactions.insert(transaction.id.clone());
+        
+        // Store proposed status based on transaction data
+        let proposed_status = if transaction.data.contains("SUCCESS") {
+            CATStatusLimited::Success
+        } else {
+            // Default to Failure for all other cases
+            CATStatusLimited::Failure
+        };
+        self.cat_proposed_statuses.insert(transaction.id.clone(), proposed_status);
+        
         Ok(TransactionStatus::Pending)
     }
 
@@ -63,10 +75,20 @@ impl HyperIGNode {
         if let Some(receiver) = self.receiver_cl_to_hig.take() {
             let mut receiver = receiver;
             while let Some(subblock) = receiver.recv().await {
+                println!("[HIG] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
+                    subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
                 self.process_subblock(subblock).await?;
             }
         }
         Ok(())
+    }
+
+    /// Start the node's message processing loop
+    pub async fn start(&mut self) {
+        println!("[HIG] Starting HyperIG node");
+        if let Err(e) = self.process_incoming_subblocks().await {
+            println!("[HIG] Error in message processing loop: {}", e);
+        }
     }
 }
 
@@ -81,9 +103,14 @@ impl HyperIG for HyperIGNode {
             self.handle_cat_transaction(transaction.clone()).await?
         } else if transaction.data.starts_with("STATUS_UPDATE") {
             self.handle_status_update(transaction.clone()).await?
+        } else if transaction.data.starts_with("DEPENDENT_ON_CAT") {
+            // Add to pending transactions set
+            self.pending_transactions.insert(transaction.id.clone());
+            // Transactions depending on CATs stay pending until the CAT is resolved
+            TransactionStatus::Pending
         } else {
             // Regular transaction
-            tracing::info!("Executing regular transaction: {}", transaction.id);
+            println!("[HIG] Executing regular transaction: {}", transaction.id);
             TransactionStatus::Success
         };
 

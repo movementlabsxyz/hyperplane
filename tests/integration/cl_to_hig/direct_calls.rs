@@ -13,7 +13,7 @@ use crate::common::testnodes;
 #[tokio::test]
 async fn test_process_subblock() {
     // Initialize components
-    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (_, mut cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain
     let chain_id = ChainId("test-chain".to_string());
@@ -42,12 +42,12 @@ async fn test_process_subblock() {
         .expect("Failed to get subblock");
 
     // Process subblock in HIG
-    hig_node.process_subblock(subblock)
+    hig_node.lock().await.process_subblock(subblock)
         .await
         .expect("Failed to process subblock");
 
     // Verify transaction status
-    let status = hig_node.get_transaction_status(tx.id).await.unwrap();
+    let status = hig_node.lock().await.get_transaction_status(tx.id).await.unwrap();
     assert!(matches!(status, TransactionStatus::Success));
 }
 
@@ -58,7 +58,7 @@ async fn test_process_subblock() {
 #[tokio::test]
 async fn test_process_cat_subblock() {
     // Initialize components
-    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (_, mut cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain
     let chain_id = ChainId("test-chain".to_string());
@@ -87,12 +87,12 @@ async fn test_process_cat_subblock() {
         .expect("Failed to get subblock");
 
     // Process subblock in HIG
-    hig_node.process_subblock(subblock)
+    hig_node.lock().await.process_subblock(subblock)
         .await
         .expect("Failed to process subblock");
 
     // Verify transaction status
-    let status = hig_node.get_transaction_status(tx.id).await.unwrap();
+    let status = hig_node.lock().await.get_transaction_status(tx.id).await.unwrap();
     assert!(matches!(status, TransactionStatus::Pending));
 }
 
@@ -103,7 +103,7 @@ async fn test_process_cat_subblock() {
 #[tokio::test]
 async fn test_process_multiple_subblocks_new_transactions() {
     // Create HIG and CL nodes
-    let (_, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (_, mut cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register a test chain
     let chain_id = ChainId("test-chain".to_string());
@@ -141,12 +141,12 @@ async fn test_process_multiple_subblocks_new_transactions() {
     let subblock1 = found_subblock1.expect("Failed to find subblock containing tx1");
 
     // Process the first subblock
-    hig_node.process_subblock(subblock1)
+    hig_node.lock().await.process_subblock(subblock1)
         .await
         .expect("Failed to process first subblock");
 
     // Verify tx1 status
-    let status1 = hig_node.get_transaction_status(tx1.id.clone())
+    let status1 = hig_node.lock().await.get_transaction_status(tx1.id.clone())
         .await
         .expect("Failed to get tx1 status");
     assert!(matches!(status1, TransactionStatus::Success));
@@ -180,12 +180,12 @@ async fn test_process_multiple_subblocks_new_transactions() {
     let subblock2 = found_subblock2.expect("Failed to find subblock containing tx2");
 
     // Process the second subblock
-    hig_node.process_subblock(subblock2)
+    hig_node.lock().await.process_subblock(subblock2)
         .await
         .expect("Failed to process second subblock");
 
     // Verify tx2 status
-    let status2 = hig_node.get_transaction_status(tx2.id.clone())
+    let status2 = hig_node.lock().await.get_transaction_status(tx2.id.clone())
         .await
         .expect("Failed to get tx2 status");
     assert!(matches!(status2, TransactionStatus::Success));

@@ -39,9 +39,9 @@ impl HyperSchedulerNode {
     pub async fn start(&mut self) {
         let mut receiver = self.receiver_from_hig.take().expect("Receiver already taken");
         while let Some(status_update) = receiver.recv().await {
-            tracing::info!("Received status proposal for {}: {:?}", status_update.cat_id, status_update);
+            println!("[HS] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
             if let Err(e) = self.receive_cat_status_proposal(status_update.cat_id.clone(), status_update.status.clone()).await {
-                tracing::error!("Failed to process status proposal for {}: {}", status_update.cat_id, e);
+                println!("[HS] Failed to process status proposal for {}: {}", status_update.cat_id, e);
             }
         }
     }

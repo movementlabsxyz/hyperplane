@@ -15,7 +15,7 @@ use tokio::sync::Mutex;
 #[tokio::test]
 async fn test_single_cat_status_storage() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -32,12 +32,12 @@ async fn test_single_cat_status_storage() {
     let status = CATStatusLimited::Success;
 
     // Propose the status update
-    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), status.clone())
         .await
         .expect("Failed to propose CAT status update");
 
     // Get the proposed status from the Hyper IG node
-    let proposed_status = hig_node.get_proposed_status(TransactionId(cat_id.0.clone()))
+    let proposed_status = hig_node.lock().await.get_proposed_status(TransactionId(cat_id.0.clone()))
         .await
         .expect("Failed to get proposed status");
 
@@ -61,7 +61,7 @@ async fn test_single_cat_status_storage() {
 #[tokio::test]
 async fn test_multiple_cat_status_storage() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -83,7 +83,7 @@ async fn test_multiple_cat_status_storage() {
 
     // Propose status updates for all CATs
     for cat_id in &cat_ids {
-        hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
+        hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), status.clone())
             .await
             .expect("Failed to propose CAT status update");
     }
@@ -107,7 +107,7 @@ async fn test_multiple_cat_status_storage() {
 #[tokio::test]
 async fn test_status_proposal_failure() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -124,7 +124,7 @@ async fn test_status_proposal_failure() {
     let status = CATStatusLimited::Success;
 
     // Propose the status update
-    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone())
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), status.clone())
         .await
         .expect("Failed to propose CAT status update");
 
@@ -135,7 +135,7 @@ async fn test_status_proposal_failure() {
 #[tokio::test]
 async fn test_send_cat_status_proposal() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -143,7 +143,7 @@ async fn test_send_cat_status_proposal() {
 
     // Send a status proposal
     let cat_id = CATId("test-cat".to_string());
-    hig_node.send_cat_status_proposal(cat_id.clone(), CATStatusLimited::Success)
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), CATStatusLimited::Success)
         .await
         .expect("Failed to send status proposal");
 
@@ -155,7 +155,7 @@ async fn test_send_cat_status_proposal() {
 #[tokio::test]
 async fn test_process_cat_transaction() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -166,7 +166,7 @@ async fn test_process_cat_transaction() {
         id: TransactionId("test-cat".to_string()),
         data: "CAT.SIMULATION.SUCCESS".to_string(),
     };
-    hig_node.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
+    hig_node.lock().await.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
 
     // Verify the status in HS
     let stored_status = hs_node.lock().await.get_cat_status(CATId(tx.id.0)).await.unwrap();
@@ -176,7 +176,7 @@ async fn test_process_cat_transaction() {
 #[tokio::test]
 async fn test_process_status_update() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -187,7 +187,7 @@ async fn test_process_status_update() {
         id: TransactionId("test-cat".to_string()),
         data: "CAT.SIMULATION.SUCCESS".to_string(),
     };
-    hig_node.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
+    hig_node.lock().await.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
 
     // Send status update
     hs_node.lock().await.send_cat_status_update(CATId(tx.id.0.clone()), CATStatusLimited::Success)
@@ -202,7 +202,7 @@ async fn test_process_status_update() {
 #[tokio::test]
 async fn test_hig_to_hs_status_proposal() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -219,7 +219,7 @@ async fn test_hig_to_hs_status_proposal() {
     let status = CATStatusLimited::Success;
 
     // Send status proposal from HIG to HS
-    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone()).await.unwrap();
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), status.clone()).await.unwrap();
 
     // Wait for HS to process the message
     sleep(Duration::from_millis(100)).await;
@@ -232,7 +232,7 @@ async fn test_hig_to_hs_status_proposal() {
 #[tokio::test]
 async fn test_hig_to_hs_status_proposal_failure() {
     // use testnodes from common
-    let (hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -249,7 +249,7 @@ async fn test_hig_to_hs_status_proposal_failure() {
     let status = CATStatusLimited::Failure;
 
     // Send status proposal from HIG to HS
-    hig_node.send_cat_status_proposal(cat_id.clone(), status.clone()).await.unwrap();
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), status.clone()).await.unwrap();
 
     // Wait for HS to process the message
     sleep(Duration::from_millis(100)).await;
@@ -262,7 +262,7 @@ async fn test_hig_to_hs_status_proposal_failure() {
 #[tokio::test]
 async fn test_hig_to_hs_multiple_status_proposals() {
     // use testnodes from common
-    let ( hs_node, _, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
     let hs_node = Arc::new(Mutex::new(hs_node));
@@ -283,7 +283,7 @@ async fn test_hig_to_hs_multiple_status_proposals() {
 
     // Send status proposals from HIG to HS
     for cat_id in &cat_ids {
-        hig_node.send_cat_status_proposal(cat_id.clone(), CATStatusLimited::Success).await.unwrap();
+        hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), CATStatusLimited::Success).await.unwrap();
     }
 
     // Wait for HS to process the messages

@@ -1,11 +1,13 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, ChainId, CLTransaction, CATId},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, ChainId, CLTransaction, CATId, SubBlock},
     hyper_ig::HyperIG,
     hyper_scheduler::HyperScheduler,
     confirmation_layer::ConfirmationLayer,
 };
 use crate::common::testnodes;
-use std::time::Duration;
+use tokio::{time::{sleep, Duration}, task};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 /// Tests the complete flow of a CAT transaction through all components:
 /// 1. CAT created in CL with success simulation
 /// 2. HIG processes it and forwards success proposal to HS
@@ -18,7 +20,7 @@ async fn test_cat_complete_flow() {
     
     // - - - - - - - - - Setup - - - - - - - - -
     println!("\n[test.Setup] Initializing components...");
-    let (mut hs_node, mut cl_node, mut hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (mut hs_node, mut cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
@@ -80,25 +82,25 @@ async fn test_cat_complete_flow() {
     println!("\n[test.HIG] Processing subblock...");
     // Receive the subblock from CL at HIG
     // TODO: we have no direct connection between CL at this point, so we just call the method for now
-    hig_node.process_subblock(subblock)
+    hig_node.lock().await.process_subblock(subblock)
         .await
         .expect("Failed to process subblock");
 
     // Verify HIG has pending status and success proposal
     println!("[test.HIG] Verifying transaction status...");
-    let status = hig_node.get_transaction_status(cat_tx.id.clone())
+    let status = hig_node.lock().await.get_transaction_status(cat_tx.id.clone())
         .await
         .expect("Failed to get transaction status");
     assert!(matches!(status, TransactionStatus::Pending));
 
-    let proposed_status = hig_node.get_proposed_status(cat_tx.id.clone())
+    let proposed_status = hig_node.lock().await.get_proposed_status(cat_tx.id.clone())
         .await
         .expect("Failed to get proposed status");
     assert!(matches!(proposed_status, CATStatusLimited::Success));
 
     // Immediately send the CAT status proposal from HIG to HS
     println!("[test.HIG] Sending CAT status proposal to HS...");
-    hig_node.send_cat_status_proposal(CATId(cat_tx.id.0.clone()), CATStatusLimited::Success)
+    hig_node.lock().await.send_cat_status_proposal(CATId(cat_tx.id.0.clone()), CATStatusLimited::Success)
         .await
         .expect("Failed to propose status update");
 
@@ -145,16 +147,116 @@ async fn test_cat_complete_flow() {
 
     // - - - - - - - - - HIG processes subblock - - - - - - - - -
     println!("\n[test.HIG] Processing status update subblock...");
-    hig_node.process_subblock(subblock)
+    hig_node.lock().await.process_subblock(subblock)
         .await
         .expect("Failed to process subblock");
     
     // Verify HIG has success status
     println!("[test.HIG] Verifying final transaction status...");
-    let status = hig_node.get_transaction_status(cat_tx.id.clone())
+    let status = hig_node.lock().await.get_transaction_status(cat_tx.id.clone())
         .await
         .expect("Failed to get transaction status");
     assert!(matches!(status, TransactionStatus::Success));
     
     println!("\n=== Test completed successfully ===\n");
+}
+
+#[tokio::test]
+async fn test_cat_transaction_flow() {
+    // use testnodes from common
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
+
+    // Start the HS message processing loop in a separate task
+    let _hs_handle = task::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Create a CAT transaction
+    let cat_tx = Transaction {
+        id: TransactionId("test-cat".to_string()),
+        data: "CAT.SIMULATION.SUCCESS".to_string(),
+    };
+
+    // Create a subblock with the CAT transaction
+    let subblock = SubBlock {
+        block_id: 0,
+        chain_id: ChainId("test-chain".to_string()),
+        transactions: vec![cat_tx.clone()],
+    };
+
+    // Process the subblock
+    hig_node.lock().await.process_subblock(subblock)
+        .await
+        .expect("Failed to process subblock");
+
+    // Verify the transaction status
+    let status = hig_node.lock().await.get_transaction_status(cat_tx.id.clone())
+        .await
+        .unwrap();
+    assert!(matches!(status, TransactionStatus::Pending));
+
+    // Verify the proposed status
+    let proposed_status = hig_node.lock().await.get_proposed_status(cat_tx.id.clone())
+        .await
+        .unwrap();
+    assert!(matches!(proposed_status, CATStatusLimited::Success));
+
+    // Send the status proposal to HS
+    hig_node.lock().await.send_cat_status_proposal(CATId(cat_tx.id.0.clone()), CATStatusLimited::Success)
+        .await
+        .expect("Failed to send status proposal");
+
+    // Wait for HS to process the message
+    sleep(Duration::from_millis(100)).await;
+
+    // Verify HS stored the status
+    let stored_status = hs_node.lock().await.get_cat_status(CATId(cat_tx.id.0.clone()))
+        .await
+        .expect("Failed to get CAT status");
+    assert_eq!(stored_status, CATStatusLimited::Success);
+}
+
+#[tokio::test]
+async fn test_status_update_flow() {
+    // use testnodes from common
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+
+    // Wrap hs_node in Arc<Mutex>
+    let hs_node = Arc::new(Mutex::new(hs_node));
+    let hs_node_clone = hs_node.clone();
+
+    // Start the HS message processing loop in a separate task
+    let _hs_handle = task::spawn(async move {
+        let mut node = hs_node_clone.lock().await;
+        node.start().await;
+    });
+
+    // Create a CAT transaction
+    let cat_tx = Transaction {
+        id: TransactionId("test-cat".to_string()),
+        data: "STATUS_UPDATE.SUCCESS".to_string(),
+    };
+
+    // Create a subblock with the CAT transaction
+    let subblock = SubBlock {
+        block_id: 0,
+        chain_id: ChainId("test-chain".to_string()),
+        transactions: vec![cat_tx.clone()],
+    };
+
+    // Process the subblock
+    hig_node.lock().await.process_subblock(subblock)
+        .await
+        .expect("Failed to process subblock");
+
+    // Verify the transaction status
+    let status = hig_node.lock().await.get_transaction_status(cat_tx.id.clone())
+        .await
+        .unwrap();
+    assert!(matches!(status, TransactionStatus::Success));
 }

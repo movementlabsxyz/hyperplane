@@ -2,49 +2,39 @@
 
 # Running confirmation layer tests
 
-# echo -e "\nRunning mutex v12 test..."
-# cargo test test_concurrent_setup_v12 -- --test-threads=1 --nocapture 
+# enlist all CL tests in a vector
+CL_TESTS=(
+    confirmation_layer::concurrent_setup::concurrent_setup_v12::test_concurrent_setup_v12
+    confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
+    confirmation_layer::node::test_basic_confirmation_layer
+    confirmation_layer::node::test_block_interval
+    confirmation_layer::node::test_normal_transactions
+    confirmation_layer::node::test_register_chain
+    confirmation_layer::node::test_get_current_block
+    confirmation_layer::node::test_get_subblock
+    confirmation_layer::node::test_submit_transaction
+    confirmation_layer::node::test_get_subblock
+)
 
-echo -e "\nRunning mutex v13 test..."
-cargo test test_concurrent_setup_v13 -- --test-threads=1 --nocapture
+for test in "${CL_TESTS[@]}"; do
+    echo -e "\nRunning $test..."
+    cargo test --test main $test -- --test-threads=1 #--nocapture
+done
 
-echo "Running basic confirmation layer test..."
-cargo test test_basic_confirmation_layer -- --test-threads=1 --nocapture
+# Running hyper ig tests
 
-echo "Running block interval test..."
-cargo test test_block_interval -- --test-threads=1 --nocapture
+HIG_TESTS=(
+    hyper_ig::basic::test_normal_transaction_success
+    hyper_ig::basic::test_normal_transaction_pending
+    hyper_ig::basic::test_cat_success_proposal
+    hyper_ig::basic::test_cat_failure_proposal
+    hyper_ig::basic::test_cat_success_update
+    hyper_ig::basic::test_execute_transactions
+    hyper_ig::basic::test_get_transaction_status
+    hyper_ig::basic::test_get_pending_transactions
+)
 
-echo "Running normal transactions test..."
-cargo test test_normal_transactions -- --test-threads=1 --nocapture
-
-echo "Running chain registration test..."
-cargo test test_register_chain -- --test-threads=1 --nocapture
-
-echo "Running get current block test..."
-cargo test test_get_current_block -- --test-threads=1 --nocapture
-
-echo "Running get subblock test..."
-cargo test test_get_subblock -- --test-threads=1 --nocapture
-
-echo "Running submit transaction test..."
-cargo test test_submit_transaction -- --test-threads=1 --nocapture
-
-echo "Running get subblock test..."
-cargo test test_get_subblock -- --test-threads=1 --nocapture
-
-echo "Running submit transaction test..."
-cargo test test_submit_transaction -- --test-threads=1 --nocapture
-
-echo "Running get subblock test..."
-cargo test test_get_subblock -- --test-threads=1 --nocapture
-
-echo "Running submit transaction test..."
-cargo test test_submit_transaction -- --test-threads=1 --nocapture
-
-
-# Running consensus layer tests
-
-# echo "Running basic consensus layer test..."
-# cargo test test_basic_consensus_layer -- --test-threads=1 --nocapture
-
-
+for test in "${HIG_TESTS[@]}"; do
+    echo -e "\nRunning $test..."
+    cargo test --test main $test -- --test-threads=1 #--nocapture
+done
