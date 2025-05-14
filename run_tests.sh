@@ -34,10 +34,10 @@ HIG_TESTS=(
     hyper_ig::basic::test_get_pending_transactions
 )
 
-# for test in "${HIG_TESTS[@]}"; do
-#     echo -e "\nRunning $test..."
-#     cargo test --test main $test -- --test-threads=1 #--nocapture
-# done
+for test in "${HIG_TESTS[@]}"; do
+    echo -e "\nRunning $test..."
+    cargo test --test main $test -- --test-threads=1 #--nocapture
+done
 
 # Running hyper scheduler tests
 
@@ -58,3 +58,16 @@ HS_TESTS=(
 #     echo -e "\nRunning $test..."
 #     cargo test --test main $test -- --test-threads=1 --nocapture
 # done
+
+# Running CL to HIG integration tests
+
+CL_TO_HIG_TESTS=(
+    integration::cl_to_hig::channels::test_process_subblock
+    integration::cl_to_hig::channels::test_process_cat_subblock
+    integration::cl_to_hig::channels::test_process_multiple_subblocks_new_transactions
+)
+
+for test in "${CL_TO_HIG_TESTS[@]}"; do
+    echo -e "\nRunning $test..."
+    cargo test --test main $test -- --test-threads=1 --nocapture
+done
