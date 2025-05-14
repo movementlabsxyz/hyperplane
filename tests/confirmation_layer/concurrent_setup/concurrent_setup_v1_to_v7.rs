@@ -30,8 +30,8 @@ impl TestNodeState {
 /// - Single value being updated
 /// - Simple sleep-based yielding
 #[tokio::test]
-async fn test_mutex_concurrent_access_v1() {
-    println!("\n=== Starting test_mutex_concurrent_access ===");
+async fn test_concurrent_setup_v1() {
+    println!("\n=== Starting test_concurrent_setup ===");
     
     // Create a shared counter wrapped in Arc<Mutex>
     let counter = Arc::new(Mutex::new(0));
@@ -94,8 +94,8 @@ async fn run_processer_v1(counter: Arc<Mutex<i32>>) {
 /// - Uses a struct with multiple fields instead of just a counter
 /// - Still keeps the simple incrementer pattern
 #[tokio::test]
-async fn test_mutex_concurrent_access_v2() {
-    println!("\n=== Starting test_mutex_concurrent_access_v2 ===");
+async fn test_concurrent_setup_v2() {
+    println!("\n=== Starting test_concurrent_setup_v2 ===");
     
     // Create a shared state wrapped in Arc<Mutex>
     let state = Arc::new(Mutex::new(TestNodeState::new()));
@@ -202,8 +202,8 @@ async fn run_adder_v2(state: Arc<Mutex<TestNodeState>>) {
 /// - Processes messages in the incrementer
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_mutex_concurrent_access_v3() {
-    println!("\n=== Starting test_mutex_concurrent_access_v3 ===");
+async fn test_concurrent_setup_v3() {
+    println!("\n=== Starting test_concurrent_setup_v3 ===");
     
     // Create a channel for messages
     let (sender, receiver) = mpsc::channel(100);
@@ -339,8 +339,8 @@ async fn run_adder_v3(sender: mpsc::Sender<String>) {
 /// - Processes messages into blocks
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_mutex_concurrent_access_v4() {
-    println!("\n=== Starting test_mutex_concurrent_access_v4 ===");
+async fn test_concurrent_setup_v4() {
+    println!("\n=== Starting test_concurrent_setup_v4 ===");
     
     // Create a channel for messages
     let (sender, receiver) = mpsc::channel(100);
@@ -520,8 +520,8 @@ async fn run_adder_v4(sender: mpsc::Sender<String>) {
 /// - Processes messages for different chains
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_mutex_concurrent_access_v5() {
-    println!("\n=== Starting test_mutex_concurrent_access_v5 ===");
+async fn test_concurrent_setup_v5() {
+    println!("\n=== Starting test_concurrent_setup_v5 ===");
     
     // Create a channel for messages
     let (sender, receiver) = mpsc::channel(100);
@@ -700,8 +700,8 @@ async fn run_adder_v5(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
 /// - Sends subblocks to a receiver
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_mutex_concurrent_access_v6() {
-    println!("\n=== Starting test_mutex_concurrent_access_v6 ===");
+async fn test_concurrent_setup_v6() {
+    println!("\n=== Starting test_concurrent_setup_v6 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -935,8 +935,8 @@ async fn run_adder_v6(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
 /// - Validates chain existence
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_mutex_concurrent_access_v7() {
-    println!("\n=== Starting test_mutex_concurrent_access_v7 ===");
+async fn test_concurrent_setup_v7() {
+    println!("\n=== Starting test_concurrent_setup_v7 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);

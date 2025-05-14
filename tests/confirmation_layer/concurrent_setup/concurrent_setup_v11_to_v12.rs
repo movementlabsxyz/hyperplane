@@ -14,8 +14,8 @@ use std::collections::HashSet;
 /// V11: copies v10 but uses correct types
 /// - changes to real types
 #[tokio::test]
-async fn test_mutex_concurrent_access_v11() {
-    println!("\n=== Starting test_mutex_concurrent_access_v11 ===");
+async fn test_concurrent_setup_v11() {
+    println!("\n=== Starting test_concurrent_setup_v11 ===");
     
     // Create channels for messages and subblocks
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
@@ -320,8 +320,8 @@ async fn run_adder_v11(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
 
 /// V12: Integrates closer to actual node setup
 #[tokio::test]
-async fn test_mutex_concurrent_access_v12() {
-    println!("\n=== Starting test_mutex_concurrent_access_v12 ===");
+async fn test_concurrent_setup_v12() {
+    println!("\n=== Starting test_concurrent_setup_v12 ===");
     
     // Get the test nodes using our new helper function
     let (hs_node, cl_node, _hig_node) = setup_test_nodes(Duration::from_millis(100)).await;

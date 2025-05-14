@@ -12,8 +12,8 @@ use crate::common::testnodes;
 
 /// V13: Integrates closer to actual node setup
 #[tokio::test]
-async fn test_mutex_concurrent_access_v13() {
-    println!("\n=== Starting test_mutex_concurrent_access_v13 ===");
+async fn test_concurrent_setup_v13() {
+    println!("\n=== Starting test_concurrent_setup_v13 ===");
     
     // Get the test nodes using our new helper function
     let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
