@@ -6,7 +6,7 @@ use hyperplane::{
 use tokio::{time::{sleep, Duration}, task};
 use crate::common::testnodes;
 
-/// Tests the storage of a single CAT status update in HS:
+/// Tests sending a single CAT status update from HIG to HS:
 /// - HIG proposes a Success status for a CAT
 /// - HS receives and stores the status
 /// - HS can retrieve the stored Success status
@@ -15,8 +15,7 @@ async fn test_single_cat_status_storage() {
     println!("\n[TEST] === Starting test_single_cat_status_storage ===");
     println!("[TEST] Setting up test nodes with 100ms block interval...");
     
-    // Initialize components with 100ms block interval
-    let (hs_node, _cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _cl_node, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST] Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
