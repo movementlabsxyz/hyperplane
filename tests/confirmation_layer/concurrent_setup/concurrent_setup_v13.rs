@@ -124,16 +124,16 @@ async fn test_concurrent_setup_v13() {
     let cl_node_with_lock_3 = cl_node.lock().await;
     let current_block = cl_node_with_lock_3.get_current_block().await.unwrap();
     println!("Main task: current block is {}", current_block);
-    println!("Main task: processed {} transactions", cl_node_with_lock_3.processed_transactions.len());
-    println!("Main task: {} transactions still pending", cl_node_with_lock_3.pending_transactions.len());
-    println!("Main task: produced {} blocks", cl_node_with_lock_3.blocks.len());
+    println!("Main task: processed {} transactions", cl_node_with_lock_3.state.lock().await.processed_transactions.len());
+    println!("Main task: {} transactions still pending", cl_node_with_lock_3.state.lock().await.pending_transactions.len());
+    println!("Main task: produced {} blocks", cl_node_with_lock_3.state.lock().await.blocks.len());
     let registered_chains = cl_node_with_lock_3.get_registered_chains().await.unwrap();
     println!("Main task: registered chains: {:?}", registered_chains);
     
     // Verify the state has been updated
     assert!(current_block > 0, "Block should have been incremented");
-    assert!(!cl_node_with_lock_3.processed_transactions.is_empty(), "Should have processed some transactions");
-    assert!(!cl_node_with_lock_3.blocks.is_empty(), "Should have produced some blocks");
+    assert!(!cl_node_with_lock_3.state.lock().await.processed_transactions.is_empty(), "Should have processed some transactions");
+    assert!(!cl_node_with_lock_3.state.lock().await.blocks.is_empty(), "Should have produced some blocks");
     assert_eq!(registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
@@ -151,8 +151,8 @@ async fn test_concurrent_setup_v13() {
     // Make sure the processor task is still running by checking the state again
     let state_guard = cl_node.lock().await;
     let current_block = state_guard.get_current_block().await.unwrap();
-    let processed_count = state_guard.processed_transactions.len();
-    let block_count = state_guard.blocks.len();
+    let processed_count = state_guard.state.lock().await.processed_transactions.len();
+    let block_count = state_guard.state.lock().await.blocks.len();
     println!("Main task: final check - block is {}, processed {} transactions in {} blocks", 
         current_block, processed_count, block_count);
     

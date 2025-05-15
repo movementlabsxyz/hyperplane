@@ -6,8 +6,8 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::collections::HashMap;
 
-/// A simple node implementation of the ConfirmationLayer
-pub struct ConfirmationLayerNode {
+/// The internal state of the ConfirmationLayerNode
+pub struct ConfirmationLayerState {
     /// Currently registered chains
     pub registered_chains: Vec<ChainId>,
     /// Current block number
@@ -22,29 +22,33 @@ pub struct ConfirmationLayerNode {
     pub blocks: Vec<u64>,
     /// Block to transactions mapping
     pub block_transactions: HashMap<u64, Vec<(ChainId, CLTransaction)>>,
+}
+
+/// A simple node implementation of the ConfirmationLayer
+pub struct ConfirmationLayerNode {
+    /// The internal state of the node
+    pub state: Arc<Mutex<ConfirmationLayerState>>,
     /// Receiver for messages from Hyper Scheduler
-    pub receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
+    receiver_hs_to_cl: Option<mpsc::Receiver<CLTransaction>>,
     /// Sender for messages to Hyper IG
-    pub sender_cl_to_hig: mpsc::Sender<SubBlock>,
-    /// Sender for transactions from Hyper Scheduler
-    pub sender_hs_to_cl: mpsc::Sender<CLTransaction>,
+    sender_cl_to_hig: Option<mpsc::Sender<SubBlock>>,
 }
 
 impl ConfirmationLayerNode {
     /// Create a new ConfirmationLayerNode with default settings
     pub fn new(receiver_hs_to_cl: mpsc::Receiver<CLTransaction>, sender_cl_to_hig: mpsc::Sender<SubBlock>) -> Self {
-        let (sender_hs_to_cl, _) = mpsc::channel(100);
         Self {
-            registered_chains: Vec::new(),
-            current_block: 0,
-            block_interval: Duration::from_millis(100),
-            pending_transactions: Vec::new(),
-            processed_transactions: Vec::new(),
-            blocks: Vec::new(),
-            block_transactions: HashMap::new(),
-            receiver_hs_to_cl,
-            sender_cl_to_hig,
-            sender_hs_to_cl,
+            state: Arc::new(Mutex::new(ConfirmationLayerState {
+                registered_chains: Vec::new(),
+                current_block: 0,
+                block_interval: Duration::from_millis(100),
+                pending_transactions: Vec::new(),
+                processed_transactions: Vec::new(),
+                blocks: Vec::new(),
+                block_transactions: HashMap::new(),
+            })),
+            receiver_hs_to_cl: Some(receiver_hs_to_cl),
+            sender_cl_to_hig: Some(sender_cl_to_hig),
         }
     }
 
@@ -54,113 +58,108 @@ impl ConfirmationLayerNode {
         sender_cl_to_hig: mpsc::Sender<SubBlock>,
         interval: Duration
     ) -> Result<Self, ConfirmationLayerError> {
-        let (sender_hs_to_cl, _) = mpsc::channel(100);
         if interval.is_zero() {
             return Err(ConfirmationLayerError::InvalidBlockInterval(interval));
         }
         Ok(Self {
-            registered_chains: Vec::new(),
-            current_block: 0,
-            block_interval: interval,
-            pending_transactions: Vec::new(),
-            processed_transactions: Vec::new(),
-            blocks: Vec::new(),
-            block_transactions: HashMap::new(),
-            receiver_hs_to_cl,
-            sender_cl_to_hig,
-            sender_hs_to_cl,
+            state: Arc::new(Mutex::new(ConfirmationLayerState {
+                registered_chains: Vec::new(),
+                current_block: 0,
+                block_interval: interval,
+                pending_transactions: Vec::new(),
+                processed_transactions: Vec::new(),
+                blocks: Vec::new(),
+                block_transactions: HashMap::new(),
+            })),
+            receiver_hs_to_cl: Some(receiver_hs_to_cl),
+            sender_cl_to_hig: Some(sender_cl_to_hig),
         })
     }
 
     /// Start the message processing loop
     pub async fn start(&mut self) {
-        while let Some(transaction) = self.receiver_hs_to_cl.recv().await {
+        while let Some(transaction) = self.receiver_hs_to_cl.as_mut().unwrap().recv().await {
             tracing::info!("Received transaction from HS: {:?}", transaction);
-            if !self.registered_chains.contains(&transaction.chain_id) {
+            if !self.state.lock().await.registered_chains.contains(&transaction.chain_id) {
                 tracing::error!("Chain {} not found", transaction.chain_id.0);
                 continue;
             }
-            self.pending_transactions.push(transaction);
+            self.state.lock().await.pending_transactions.push(transaction);
         }
     }
 
     /// Start the block production loop
     pub async fn start_block_production(node: Arc<Mutex<Self>>) {
-        let mut interval = tokio::time::interval(node.lock().await.block_interval);
+        let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
         loop {
             interval.tick().await;
-            
-            // Process any new transactions from the channel
+            println!("[Block Producer] Height: {}", node.lock().await.state.lock().await.current_block);
+
+            // Process any pending transactions
             {
                 let mut state = node.lock().await;
-                while let Ok(transaction) = state.receiver_hs_to_cl.try_recv() {
-                    println!("[Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
-                    if state.registered_chains.contains(&transaction.chain_id) {
-                        state.pending_transactions.push(transaction);
+                while let Ok(transaction) = state.receiver_hs_to_cl.as_mut().unwrap().try_recv() {
+                    println!("[Block Producer] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
+                    let mut inner_state = state.state.lock().await;
+                    if inner_state.registered_chains.contains(&transaction.chain_id) {
+                        inner_state.pending_transactions.push(transaction);
                     }
                 }
             }
-            
-            // Process block and transactions
+
+            // Process the current block
             let (current_block, processed_this_block, registered_chains) = {
-                let mut state = node.lock().await;
-                state.current_block += 1;
-                let current_block = state.current_block;
+                let state = node.lock().await;
+                let mut inner_state = state.state.lock().await;
+                inner_state.current_block += 1;
+                let current_block = inner_state.current_block;
                 
                 // Process pending transactions for this block
                 let mut processed_this_block = Vec::new();
                 let mut remaining = Vec::new();
-                let registered_chains = state.registered_chains.clone();
-                for tx in state.pending_transactions.drain(..) {
+                let registered_chains = inner_state.registered_chains.clone();
+                for tx in inner_state.pending_transactions.drain(..) {
                     if registered_chains.contains(&tx.chain_id) {
                         processed_this_block.push((tx.chain_id.clone(), tx.clone()));
                     } else {
                         remaining.push(tx);
                     }
                 }
-                state.pending_transactions = remaining;
+                inner_state.pending_transactions = remaining;
                 
                 // Create a block
-                state.blocks.push(current_block);
+                inner_state.blocks.push(current_block);
                 
                 // Store transactions for this block
-                state.block_transactions.insert(current_block, processed_this_block.clone());
+                inner_state.block_transactions.insert(current_block, processed_this_block.clone());
                 
                 // Add processed transactions
-                state.processed_transactions.extend(processed_this_block.clone());
+                inner_state.processed_transactions.extend(processed_this_block.clone());
                 
                 (current_block, processed_this_block, registered_chains)
             };
-            
-            // Print block status
-            if !processed_this_block.is_empty() {
-                print!("[Processor] produced block {} with {} transactions", current_block, processed_this_block.len());
-                for (_, tx) in &processed_this_block {
-                    print!("  - id={}, data={}", tx.id.0, tx.data);
-                }
-                println!();
-            } else {
-                println!("[Processor] produced empty block {}", current_block);
-            }
-            
-            // Send subblocks for each chain with only this block's transactions
-            let state = node.lock().await;
-            for chain_id in &registered_chains {
-                let subblock = SubBlock {
-                    chain_id: chain_id.clone(),
-                    block_id: current_block,
-                    transactions: processed_this_block
-                        .iter()
-                        .filter(|(cid, _)| cid == chain_id)
-                        .map(|(_, tx)| Transaction {
-                            id: tx.id.clone(),
-                            data: tx.data.clone(),
-                        })
-                        .collect(),
-                };
-                if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
-                    println!("[Processor] Error sending subblock: {}", e);
-                    continue;
+
+            // Send subblocks to each chain
+            {
+                #[allow(unused_mut)]
+                let mut state = node.lock().await;
+                for chain_id in &registered_chains {
+                    let subblock = SubBlock {
+                        chain_id: chain_id.clone(),
+                        block_id: current_block,
+                        transactions: processed_this_block
+                            .iter()
+                            .filter(|(cid, _)| cid == chain_id)
+                            .map(|(_, tx)| Transaction {
+                                id: tx.id.clone(),
+                                data: tx.data.clone(),
+                            })
+                            .collect(),
+                    };
+                    if let Err(e) = state.sender_cl_to_hig.as_mut().unwrap().send(subblock).await {
+                        println!("[Processor] Error sending subblock: {}", e);
+                        continue;
+                    }
                 }
             }
         }
@@ -214,28 +213,31 @@ impl NodeStarter for Arc<Mutex<ConfirmationLayerNode>> {
 #[async_trait::async_trait]
 impl ConfirmationLayer for ConfirmationLayerNode {
     async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError> {
-        if self.registered_chains.contains(&chain_id) {
+        let mut state = self.state.lock().await;
+        if state.registered_chains.contains(&chain_id) {
             return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
-        self.registered_chains.push(chain_id);
-        Ok(self.current_block)
+        state.registered_chains.push(chain_id);
+        Ok(state.current_block)
     }
 
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
-        if !self.registered_chains.contains(&transaction.chain_id) {
+        let mut state = self.state.lock().await;
+        if !state.registered_chains.contains(&transaction.chain_id) {
             return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
         }
-        self.pending_transactions.push(transaction);
+        state.pending_transactions.push(transaction);
         Ok(())
     }
 
     async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
-        if !self.registered_chains.contains(&chain_id) {
+        let state = self.state.lock().await;
+        if !state.registered_chains.contains(&chain_id) {
             return Err(ConfirmationLayerError::ChainNotFound(chain_id));
         }
 
         // Get transactions for this block, or return empty list if no transactions
-        let transactions = self.block_transactions
+        let transactions = state.block_transactions
             .get(&block_id)
             .map(|txs| txs.iter()
                 .filter(|(cid, _)| cid == &chain_id)
@@ -254,23 +256,27 @@ impl ConfirmationLayer for ConfirmationLayerNode {
     }
 
     async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError> {
-        Ok(self.current_block)
+        let state = self.state.lock().await;
+        Ok(state.current_block)
     }
 
     async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError> {
-        Ok(self.registered_chains.clone())
+        let state = self.state.lock().await;
+        Ok(state.registered_chains.clone())
     }
 
     async fn set_block_interval(&mut self, interval: Duration) -> Result<(), ConfirmationLayerError> {
         if interval.is_zero() {
             return Err(ConfirmationLayerError::InvalidBlockInterval(interval));
         }
-        self.block_interval = interval;
+        let mut state = self.state.lock().await;
+        state.block_interval = interval;
         Ok(())
     }
 
     async fn get_block_interval(&self) -> Result<Duration, ConfirmationLayerError> {
-        Ok(self.block_interval)
+        let state = self.state.lock().await;
+        Ok(state.block_interval)
     }
 }
 

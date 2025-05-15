@@ -50,7 +50,7 @@ TESTS=(
 
 for test in "${TESTS[@]}"; do
     echo -e "\nRunning $test..."
-    cargo test --test main $test -- --test-threads=1 #--nocapture
+    cargo test --test main $test -- --test-threads=1 --nocapture
 done
 
 
