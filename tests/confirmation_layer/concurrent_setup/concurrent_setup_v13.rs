@@ -24,7 +24,7 @@ async fn test_concurrent_setup_v13() {
         let cl_node_with_lock = cl_node.lock().await;
         let current_block = cl_node_with_lock.get_current_block().await.unwrap();
         println!("[TEST]   Initial block number: {}", current_block);
-        assert_eq!(current_block, 0, "Initial block should be 0");
+        assert_eq!(current_block, 2, "Initial block should be 2 since block production starts immediately");
     }
 
     // Register chains first

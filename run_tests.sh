@@ -13,14 +13,26 @@ TESTS=(
     # - - - CL tests - - -
     confirmation_layer::concurrent_setup::concurrent_setup_v11_to_v12::test_concurrent_setup_v12
     confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
-    confirmation_layer::basic::test_basic_confirmation_layer
-    confirmation_layer::basic::test_block_interval
+    confirmation_layer::basic::test_cl_basic_confirmation_layer
+    confirmation_layer::basic::test_cl_block_interval
     confirmation_layer::basic::test_normal_transactions
-    confirmation_layer::basic::test_register_chain
-    confirmation_layer::basic::test_get_current_block
-    confirmation_layer::basic::test_get_subblock
-    confirmation_layer::basic::test_submit_transaction
-    confirmation_layer::basic::test_get_subblock
+    confirmation_layer::basic::test_cl_register_chain
+    confirmation_layer::basic::test_cl_get_current_block
+    confirmation_layer::basic::test_cl_get_subblock
+    confirmation_layer::basic::test_cl_submit_transaction
+    confirmation_layer::basic::test_cl_set_block_interval
+    confirmation_layer::basic::test_cl_invalid_block_interval
+    confirmation_layer::basic::test_cl_chain_not_found
+    confirmation_layer::basic::test_cl_chain_already_registered
+    confirmation_layer::basic::test_cl_chain_registration
+    confirmation_layer::basic::test_cl_block_interval_validation
+    confirmation_layer::basic::test_cl_subblock_not_found
+    confirmation_layer::basic::test_cl_get_registered_chains
+    confirmation_layer::basic::test_cl_get_block_interval
+    confirmation_layer::basic::test_cl_submit_transaction_chain_not_registered
+    confirmation_layer::basic::test_cl_get_subblock_chain_not_registered
+    confirmation_layer::basic::test_cl_register_chain_already_registered
+    confirmation_layer::basic::test_cl_set_block_interval_zero
     
     # - - - HIG tests - - -
     hyper_ig::basic::test_normal_transaction_success
@@ -64,7 +76,30 @@ TESTS=(
 )
 
 TESTS2=(
-    integration::cl_to_hig::channels::test_process_subblock
+    # confirmation_layer::concurrent_setup::concurrent_setup_v11_to_v12::test_concurrent_setup_v12
+    # confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
+    # confirmation_layer::basic::test_cl_basic_confirmation_layer
+    # confirmation_layer::basic::test_cl_block_interval
+    # confirmation_layer::basic::test_cl_normal_transactions
+    # confirmation_layer::basic::test_cl_register_chain
+    # confirmation_layer::basic::test_cl_get_current_block
+    # confirmation_layer::basic::test_cl_get_subblock
+    # confirmation_layer::basic::test_cl_submit_transaction
+    # confirmation_layer::basic::test_cl_set_block_interval
+    # confirmation_layer::basic::test_cl_invalid_block_interval
+    # confirmation_layer::basic::test_cl_chain_not_found
+    # confirmation_layer::basic::test_cl_chain_already_registered
+    confirmation_layer::basic::test_cl_chain_registration
+    # confirmation_layer::basic::test_cl_block_interval_validation
+    # confirmation_layer::basic::test_cl_subblock_not_found
+    # confirmation_layer::basic::test_cl_get_registered_chains
+    # confirmation_layer::basic::test_cl_get_block_interval
+    # confirmation_layer::basic::test_cl_submit_transaction_chain_not_registered
+    # confirmation_layer::basic::test_cl_get_subblock_chain_not_registered
+    # confirmation_layer::basic::test_cl_register_chain_already_registered
+    # confirmation_layer::basic::test_cl_set_block_interval_zero
+
+    # integration::cl_to_hig::channels::test_process_subblock
 )
 
 # Run the appropriate test set based on the input
@@ -76,7 +111,7 @@ if [ "$1" = "1" ]; then
 elif [ "$1" = "2" ]; then
     for test in "${TESTS2[@]}"; do
         echo -e "\nRunning $test..."
-        cargo test --test main $test -- --test-threads=1 --nocapture
+        cargo test --test main $test -- --test-threads=1 --nocapture #| grep "FAILED"
     done
 else
     echo "Invalid test set. Use 1 or 2."
