@@ -16,13 +16,16 @@ async fn test_process_subblock() {
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_, mut cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, cl_node, hig_node, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
     let chain_id = ChainId("test-chain".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
-    cl_node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+    {
+        let mut node = cl_node.lock().await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+    }
     println!("[TEST]   Chain registered successfully");
 
     // Submit transaction to CL
@@ -31,28 +34,50 @@ async fn test_process_subblock() {
         data: "test data".to_string(),
     };
     println!("[TEST]   Submitting transaction with ID: {}", tx.id.0);
-    cl_node.submit_transaction(CLTransaction {
-        id: tx.id.clone(),
-        data: tx.data.clone(),
-        chain_id: chain_id.clone(),
-    })
-    .await
-    .expect("Failed to submit transaction");
+    // create a local scope (note the test may fail without this)
+    {
+        let mut node = cl_node.lock().await;
+        node.submit_transaction(CLTransaction {
+            id: tx.id.clone(),
+            data: tx.data.clone(),
+            chain_id: chain_id.clone(),
+        }).await.expect("Failed to submit transaction");
+    }
+    // cl_node.submit_transaction(CLTransaction {
+    //     id: tx.id.clone(),
+    //     data: tx.data.clone(),
+    //     chain_id: chain_id.clone(),
+    // })
+    // .await
+    // .expect("Failed to submit transaction");
     println!("[TEST]   Transaction submitted successfully");
 
     // Wait for block production and processing (150ms to ensure block is produced and processed)
     println!("[TEST]   Waiting for block production and processing (150ms)...");
     tokio::time::sleep(Duration::from_millis(150)).await;
-    let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
-    println!("[TEST]   Current block height: {}", current_block);
-    assert!(current_block >= 1, "No block was produced");
+
+    // create a local scope (note the test may fail without this)
+    {
+        let node = cl_node.lock().await;
+        let current_block = node.get_current_block().await.expect("Failed to get current block");
+        println!("[TEST]   Current block height: {}", current_block);
+        assert!(current_block >= 1, "No block was produced");
+    }
+
+    // Wait for the transaction to be processed (we see it in block 3 in the logs)
+    println!("[TEST]   Waiting for transaction to be processed...");
+    tokio::time::sleep(Duration::from_millis(50)).await;
 
     // Verify transaction status
     println!("[TEST]   Verifying transaction status...");
-    let status = hig_node.lock().await.get_transaction_status(tx.id).await.unwrap();
-    println!("[TEST]   Retrieved transaction status: {:?}", status);
-    assert!(matches!(status, TransactionStatus::Success));
-    println!("[TEST]   Transaction status verification successful");
+    // create a local scope (note the test may fail without this)
+    {
+        let node = hig_node.lock().await;
+        let status = node.get_transaction_status(tx.id).await.unwrap();
+        println!("[TEST]   Retrieved transaction status: {:?}", status);
+        assert!(matches!(status, TransactionStatus::Success));
+        println!("[TEST]   Transaction status verification successful");
+    }
     
     println!("[TEST]   === Test completed successfully ===\n");
 }

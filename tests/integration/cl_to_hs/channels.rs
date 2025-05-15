@@ -36,6 +36,7 @@ async fn test_cat_status_proposal_success() {
 
     // Submit the transaction to CL
     println!("[TEST]   Submitting transaction to CL...");
+    // create a local scope (note the test fails without this)
     {
         let mut node = cl_node.lock().await;
         node.submit_transaction(CLTransaction {
@@ -53,6 +54,7 @@ async fn test_cat_status_proposal_success() {
 
     // Verify the CAT status was updated in HS
     println!("[TEST]   Verifying CAT status in HS...");
+    // create a local scope (note the test fails without this)
     {
         let node = hs_node.lock().await;
         let status = node.get_cat_status(cat_id).await.expect("Failed to get CAT status");
