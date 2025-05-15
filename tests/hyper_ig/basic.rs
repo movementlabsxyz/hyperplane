@@ -92,7 +92,7 @@ async fn test_cat_success_proposal() {
     println!("[Test] Wrapping HS node in Arc<Mutex>...");
     let hs_node = Arc::new(Mutex::new(hs_node));
     println!("[Test] HS node wrapped successfully");
-
+    
     // Create a CAT transaction
     println!("[Test] Creating CAT transaction...");
     let tx = Transaction {
@@ -166,7 +166,7 @@ async fn test_cat_failure_proposal() {
     println!("[Test] Wrapping HS node in Arc<Mutex>...");
     let hs_node = Arc::new(Mutex::new(hs_node));
     println!("[Test] HS node wrapped successfully");
-
+    
     // Create a CAT transaction
     println!("[Test] Creating CAT transaction...");
     let tx = Transaction {
@@ -216,7 +216,7 @@ async fn test_cat_failure_proposal() {
     println!("[Test] Status proposal sent to HS");
     
     println!("=== Test completed successfully ===\n");
-}
+} 
 
 /// Test CAT transaction success-update path in HyperIG (subblock received from the Confirmation Layer):
 /// - CAT transaction with success data

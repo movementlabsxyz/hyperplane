@@ -22,7 +22,6 @@
   - [x] `TransactionStatus`
   - [x] `CAT`
   - [x] `SubBlockTransaction`
-  - [x] `TransactionWrapper`
   - [x] `ChainId`
   - [x] `CATId`
   - [x] `BlockId`

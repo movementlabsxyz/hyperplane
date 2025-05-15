@@ -168,27 +168,27 @@ impl ConfirmationLayerNode {
 }
 
 /// A wrapper for Arc<Mutex<ConfirmationLayerNode>> that implements ConfirmationLayer
-#[derive(Clone)]
-pub struct ConfirmationLayerNodeWrapper {
-    pub inner: Arc<Mutex<ConfirmationLayerNode>>,
-}
+// #[derive(Clone)]
+// pub struct ConfirmationLayerNodeWrapper {
+//     pub inner: Arc<Mutex<ConfirmationLayerNode>>,
+// }
 
-impl ConfirmationLayerNodeWrapper {
-    pub fn new(inner: ConfirmationLayerNode) -> Self {
-        Self { inner: Arc::new(Mutex::new(inner)) }
-    }
+// impl ConfirmationLayerNodeWrapper {
+//     pub fn new(inner: ConfirmationLayerNode) -> Self {
+//         Self { inner: Arc::new(Mutex::new(inner)) }
+//     }
 
-    /// Start the message processing loop
-    pub async fn start(&mut self) {
-        let mut node = self.inner.lock().await;
-        node.start().await;
-    }
+//     /// Start the message processing loop
+//     pub async fn start(&mut self) {
+//         let mut node = self.inner.lock().await;
+//         node.start().await;
+//     }
 
-    /// Start block production
-    pub async fn start_block_production(&self) {
-        ConfirmationLayerNode::start_block_production(self.inner.clone()).await;
-    }
-}
+//     /// Start block production
+//     pub async fn start_block_production(&self) {
+//         ConfirmationLayerNode::start_block_production(self.inner.clone()).await;
+//     }
+// }
 
 /// Trait for starting node operations
 #[async_trait::async_trait]

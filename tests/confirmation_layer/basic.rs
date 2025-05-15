@@ -1,8 +1,8 @@
+use tokio::time::{Duration, sleep};
 use hyperplane::{
+    types::{TransactionId, ChainId, CLTransaction},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError},
-    types::{ChainId, TransactionId, CLTransaction},
 };
-use std::time::Duration;
 use crate::common::testnodes;
 
 /// Tests basic confirmation node functionality:
@@ -71,7 +71,7 @@ async fn test_basic_confirmation_layer() {
     }
 
     // wait for 500 milliseconds
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    sleep(Duration::from_millis(500)).await;
 
     // Submit a transaction
     println!("[Test] Submitting transaction...");
@@ -101,7 +101,7 @@ async fn test_basic_confirmation_layer() {
 
     // Wait for block production
     println!("[Test] Waiting for block production...");
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    sleep(Duration::from_millis(500)).await;
 
     // Check final state
     println!("[Test] Checking final state...");
@@ -169,7 +169,7 @@ async fn test_normal_transactions() {
         .expect("Failed to submit transaction");
 
     // Wait for a block to be produced
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    sleep(Duration::from_millis(500)).await;
 
     // Check that 5 blocks have been produced (500ms / 100ms = 5 blocks)
     let current_block = cl_node.get_current_block().await.expect("Failed to get current block");
@@ -269,7 +269,7 @@ async fn test_submit_transaction() {
     assert!(result.is_ok());
 
     // Wait for block production (500ms should be enough for 5 blocks)
-    tokio::time::sleep(Duration::from_millis(500)).await;
+    sleep(Duration::from_millis(500)).await;
 
     // Check blocks 1 to 2 for the presence of the transaction
     let mut found = false;

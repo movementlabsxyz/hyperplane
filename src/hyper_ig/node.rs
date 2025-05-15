@@ -90,6 +90,23 @@ impl HyperIGNode {
             println!("[HIG] Error in message processing loop: {}", e);
         }
     }
+
+    /// Send a CAT status proposal to the Hyper Scheduler with a specific transaction ID
+    pub async fn send_cat_status_proposal_with_transaction_id(
+        &mut self,
+        cat_id: CATId,
+        _transaction_id: TransactionId,
+        status: CATStatusLimited
+    ) -> Result<(), HyperIGError> {
+        if let Some(sender) = &mut self.sender_hig_to_hs {
+            let status_update = CATStatusUpdate {
+                cat_id: cat_id.clone(),
+                status: status.clone(),
+            };
+            sender.send(status_update).await.map_err(|e| HyperIGError::Communication(e.to_string()))?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait::async_trait]

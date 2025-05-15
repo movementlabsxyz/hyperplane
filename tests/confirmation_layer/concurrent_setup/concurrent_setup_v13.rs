@@ -106,12 +106,12 @@ async fn test_concurrent_setup_v13() {
     sleep(Duration::from_secs(1)).await;
 
     // Spawn tasks to add more transactions for different chains
-    let sender_for_chain1 = hs_node.get_sender_to_cl();
+    let sender_for_chain1 = hs_node.lock().await.get_sender_to_cl().await;
     let _adder_handle1 = tokio::spawn(async move {
         run_spammer(sender_for_chain1, ChainId("chain1".to_string())).await;
     });
 
-    let sender_for_chain2 = hs_node.get_sender_to_cl();
+    let sender_for_chain2 = hs_node.lock().await.get_sender_to_cl().await;
     let _adder_handle2 = tokio::spawn(async move {
         run_spammer(sender_for_chain2, ChainId("chain2".to_string())).await;
     });

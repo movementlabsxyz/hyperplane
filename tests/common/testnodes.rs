@@ -10,14 +10,14 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// Helper function to create test nodes with basic setup
-pub async fn setup_test_nodes(block_interval: Duration) -> (HyperSchedulerNode, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>) {
+pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>) {
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
     let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
     
     // Create nodes with their channels
-    let hs_node = HyperSchedulerNode::new(receiver_hig_to_hs, sender_hs_to_cl);
+    let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(receiver_hig_to_hs, sender_hs_to_cl)));
     let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
         sender_cl_to_hig,
