@@ -84,67 +84,67 @@ async fn test_cat_success_proposal() {
     println!("\n=== Starting test_cat_success_proposal ===");
     
     // use testnodes from common
-    println!("[Test] Setting up test nodes...");
+    println!("[TEST]   Setting up test nodes...");
     let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
-    println!("[Test] Test nodes setup complete");
+    println!("[TEST]   Test nodes setup complete");
 
     // Wrap hs_node in Arc<Mutex>
-    println!("[Test] Wrapping HS node in Arc<Mutex>...");
+    println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
     let hs_node = Arc::new(Mutex::new(hs_node));
-    println!("[Test] HS node wrapped successfully");
+    println!("[TEST]   HS node wrapped successfully");
     
     // Create a CAT transaction
-    println!("[Test] Creating CAT transaction...");
+    println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
         id: TransactionId("cat-tx".to_string()),
         data: "CAT.SIMULATION.SUCCESS".to_string(),
     };
-    println!("[Test] CAT transaction created with id: {}", tx.id.0);
+    println!("[TEST]   CAT transaction created with id: {}", tx.id.0);
     
     // Execute the transaction
-    println!("[Test] Executing CAT transaction...");
+    println!("[TEST]   Executing CAT transaction...");
     let status = hig_node.lock().await.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
-    println!("[Test] Transaction status: {:?}", status);
+    println!("[TEST]   Transaction status: {:?}", status);
     
     // Verify it's pending
     assert!(matches!(status, TransactionStatus::Pending));
-    println!("[Test] Verified transaction is pending");
+    println!("[TEST]   Verified transaction is pending");
     
     // Verify we can retrieve the same status
-    println!("[Test] Verifying transaction status...");
+    println!("[TEST]   Verifying transaction status...");
     let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
         .await
         .expect("Failed to get transaction status");
-    println!("[Test] Retrieved status: {:?}", retrieved_status);
+    println!("[TEST]   Retrieved status: {:?}", retrieved_status);
     assert!(matches!(retrieved_status, TransactionStatus::Pending));
-    println!("[Test] Verified retrieved status is pending");
+    println!("[TEST]   Verified retrieved status is pending");
     
     // Verify it's in the pending transactions list
-    println!("[Test] Verifying pending transactions list...");
+    println!("[TEST]   Verifying pending transactions list...");
     let pending = hig_node.lock().await.get_pending_transactions()
         .await
         .expect("Failed to get pending transactions");
-    println!("[Test] Pending transactions: {:?}", pending);
+    println!("[TEST]   Pending transactions: {:?}", pending);
     assert!(pending.contains(&tx.id));
-    println!("[Test] Verified transaction is in pending list");
+    println!("[TEST]   Verified transaction is in pending list");
     
     // Verify the proposed status
-    println!("[Test] Verifying proposed status...");
+    println!("[TEST]   Verifying proposed status...");
     let proposed_status = hig_node.lock().await.get_proposed_status(tx.id.clone())
         .await
         .expect("Failed to get proposed status");
-    println!("[Test] Proposed status: {:?}", proposed_status);
+    println!("[TEST]   Proposed status: {:?}", proposed_status);
     assert!(matches!(proposed_status, CATStatusLimited::Success));
-    println!("[Test] Verified proposed status is Success");
+    println!("[TEST]   Verified proposed status is Success");
     
     // Send the status proposal to HS
-    println!("[Test] Sending status proposal to HS...");
+    println!("[TEST]   Sending status proposal to HS...");
     hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), CATStatusLimited::Success)
         .await
         .expect("Failed to send status proposal");
-    println!("[Test] Status proposal sent to HS");
+    println!("[TEST]   Status proposal sent to HS");
     
     println!("=== Test completed successfully ===\n");
 }
@@ -159,61 +159,61 @@ async fn test_cat_failure_proposal() {
     println!("\n=== Starting test_cat_failure_proposal ===");
     
     // use testnodes from common
-    println!("[Test] Setting up test nodes...");
+    println!("[TEST]   Setting up test nodes...");
     let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Wrap hs_node in Arc<Mutex>
-    println!("[Test] Wrapping HS node in Arc<Mutex>...");
+    println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
     let hs_node = Arc::new(Mutex::new(hs_node));
-    println!("[Test] HS node wrapped successfully");
+    println!("[TEST]   HS node wrapped successfully");
     
     // Create a CAT transaction
-    println!("[Test] Creating CAT transaction...");
+    println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
         id: TransactionId("cat-tx".to_string()),
         data: "CAT.SIMULATION.FAILURE".to_string(),
     };
     
     // Execute the transaction
-    println!("[Test] Executing CAT transaction...");
+    println!("[TEST]   Executing CAT transaction...");
     let status = hig_node.lock().await.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
-    println!("[Test] Transaction status: {:?}", status);
+    println!("[TEST]   Transaction status: {:?}", status);
     
     // Verify it's pending
     assert!(matches!(status, TransactionStatus::Pending));
     
     // Verify we can retrieve the same status
-    println!("[Test] Verifying transaction status...");
+    println!("[TEST]   Verifying transaction status...");
     let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
         .await
         .expect("Failed to get transaction status");
-    println!("[Test] Retrieved status: {:?}", retrieved_status);
+    println!("[TEST]   Retrieved status: {:?}", retrieved_status);
     assert!(matches!(retrieved_status, TransactionStatus::Pending));
     
     // Verify it's in the pending transactions list
-    println!("[Test] Verifying pending transactions list...");
+    println!("[TEST]   Verifying pending transactions list...");
     let pending = hig_node.lock().await.get_pending_transactions()
         .await
         .expect("Failed to get pending transactions");
-    println!("[Test] Pending transactions: {:?}", pending);
+    println!("[TEST]   Pending transactions: {:?}", pending);
     assert!(pending.contains(&tx.id));
     
     // Verify the proposed status
-    println!("[Test] Verifying proposed status...");
+    println!("[TEST]   Verifying proposed status...");
     let proposed_status = hig_node.lock().await.get_proposed_status(tx.id.clone())
         .await
         .expect("Failed to get proposed status");
-    println!("[Test] Proposed status: {:?}", proposed_status);
+    println!("[TEST]   Proposed status: {:?}", proposed_status);
     assert!(matches!(proposed_status, CATStatusLimited::Failure));
     
     // Send the status proposal to HS
-    println!("[Test] Sending status proposal to HS...");
+    println!("[TEST]   Sending status proposal to HS...");
     hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), CATStatusLimited::Failure)
         .await
         .expect("Failed to send status proposal");
-    println!("[Test] Status proposal sent to HS");
+    println!("[TEST]   Status proposal sent to HS");
     
     println!("=== Test completed successfully ===\n");
 } 

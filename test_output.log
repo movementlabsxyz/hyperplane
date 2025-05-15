@@ -16,9 +16,9 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 running 1 test
 test integration::e2e::direct_calls::test_cat_complete_flow ... Creating subblock for chain test-chain with 1 transactions
-[HIG] Processing subblock: block_id=0, chain_id=test-chain, tx_count=1
-[HIG] Executing transaction: id=cat-tx, data=CAT.SIMULATION.SUCCESS
-[HIG] Processing subblock: block_id=1, chain_id=test-chain, tx_count=0
+[HIG]   Processing subblock: block_id=0, chain_id=test-chain, tx_count=1
+[HIG]   Executing transaction: id=cat-tx, data=CAT.SIMULATION.SUCCESS
+[HIG]   Processing subblock: block_id=1, chain_id=test-chain, tx_count=0
 FAILED
 
 failures:

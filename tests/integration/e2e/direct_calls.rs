@@ -23,11 +23,11 @@ async fn test_cat_complete_flow() {
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
-    println!("[test.Setup] Registering chain in CL...");
+    println!("[TEST.Setup] Registering chain in CL...");
     cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
 
     // Register chain in HS
-    println!("[test.Setup] Registering chain in HS...");
+    println!("[TEST.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
 
     // - - - - - - - - - CL processes CAT transaction - - - - - - - - -
@@ -46,24 +46,24 @@ async fn test_cat_complete_flow() {
         .expect("Failed to submit transaction");
 
     // Wait for block production and get the current block
-    println!("[test.CL] Waiting for block production...");
+    println!("[TEST.CL] Waiting for block production...");
     tokio::time::sleep(tokio::time::Duration::from_millis(400)).await;
     let current_block = hs_node.lock().await.get_current_block().await.expect("Failed to get current block");
-    println!("[test.CL] Current block number after CAT tx: {}", current_block);
+    println!("[TEST.CL] Current block number after CAT tx: {}", current_block);
 
     // Look for CAT transaction in all blocks up to the current one
-    println!("[test.CL] Searching for CAT transaction in blocks...");
+    println!("[TEST.CL] Searching for CAT transaction in blocks...");
     let mut found_subblock = None;
     for block_num in 0..current_block {
         let subblock = hs_node.lock().await.get_subblock(chain_id.clone(), block_num)
             .await
             .expect(&format!("Failed to get subblock for block {}", block_num));
-        println!("[test.CL] Checking block {} for CAT tx: tx_count={}", block_num, subblock.len());
+        println!("[TEST.CL] Checking block {} for CAT tx: tx_count={}", block_num, subblock.len());
         for tx in &subblock {
-            println!("[test.CL]   Transaction: id={}, data={}", tx.id.0, tx.data);
+            println!("[TEST.CL]   Transaction: id={}, data={}", tx.id.0, tx.data);
         }
         if subblock.iter().any(|tx| tx.id == cat_tx.id) {
-            println!("[test.CL] Found CAT transaction in block {}", block_num);
+            println!("[TEST.CL] Found CAT transaction in block {}", block_num);
             found_subblock = Some(subblock);
             break;
         }
@@ -89,7 +89,7 @@ async fn test_cat_complete_flow() {
         .expect("Failed to process subblock");
 
     // Verify HIG has pending status and success proposal
-    println!("[test.HIG] Verifying transaction status...");
+    println!("[TEST.HIG] Verifying transaction status...");
     let status = hig_node.lock().await.get_transaction_status(cat_tx.id.clone())
         .await
         .expect("Failed to get transaction status");
@@ -101,7 +101,7 @@ async fn test_cat_complete_flow() {
     assert!(matches!(proposed_status, CATStatusLimited::Success));
 
     // Immediately send the CAT status proposal from HIG to HS
-    println!("[test.HIG] Sending CAT status proposal to HS...");
+    println!("[TEST.HIG] Sending CAT status proposal to HS...");
     hig_node.lock().await.send_cat_status_proposal(CATId(cat_tx.id.0.clone()), CATStatusLimited::Success)
         .await
         .expect("Failed to propose status update");
@@ -113,7 +113,7 @@ async fn test_cat_complete_flow() {
     assert_eq!(hs_status, CATStatusLimited::Success);
 
     // HS sends the status update to CL
-    println!("[test.HS] Sending status update to CL...");
+    println!("[TEST.HS] Sending status update to CL...");
     hs_node.lock().await.send_cat_status_update(CATId(cat_tx.id.0.clone()), CATStatusLimited::Success)
         .await
         .expect("Failed to send status update");
@@ -123,21 +123,21 @@ async fn test_cat_complete_flow() {
     println!("\n[test.CL] Waiting for block production after status update...");
     tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
     let current_block = hs_node.lock().await.get_current_block().await.expect("Failed to get current block");
-    println!("[test.CL] Current block number after status update: {}", current_block);
+    println!("[TEST.CL] Current block number after status update: {}", current_block);
 
     // Look for status update transaction in all blocks up to the current one
-    println!("[test.CL] Searching for status update transaction in blocks...");
+    println!("[TEST.CL] Searching for status update transaction in blocks...");
     let mut found_subblock = None;
     for block_num in 0..current_block {
         let subblock = hs_node.lock().await.get_subblock(chain_id.clone(), block_num)
             .await
             .expect(&format!("Failed to get subblock for block {}", block_num));
-        println!("[test.CL] Checking block {} for status update: tx_count={}", block_num, subblock.len());
+        println!("[TEST.CL] Checking block {} for status update: tx_count={}", block_num, subblock.len());
         for tx in &subblock {
-            println!("[test.CL]   Transaction: id={}, data={}", tx.id.0, tx.data);
+            println!("[TEST.CL]   Transaction: id={}, data={}", tx.id.0, tx.data);
         }
         if subblock.iter().any(|tx| tx.id == TransactionId(cat_tx.id.0.clone() + ".UPDATE")) {
-            println!("[test.CL] Found status update transaction in block {}", block_num);
+            println!("[TEST.CL] Found status update transaction in block {}", block_num);
             found_subblock = Some(subblock);
             break;
         }
@@ -161,7 +161,7 @@ async fn test_cat_complete_flow() {
         .expect("Failed to process subblock");
     
     // Verify HIG has success status
-    println!("[test.HIG] Verifying final transaction status...");
+    println!("[TEST.HIG] Verifying final transaction status...");
     let status = hig_node.lock().await.get_transaction_status(cat_tx.id.clone())
         .await
         .expect("Failed to get transaction status");
@@ -265,11 +265,11 @@ async fn test_e2e_cat_status_update() {
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
-    println!("[test.Setup] Registering chain in CL...");
+    println!("[TEST.Setup] Registering chain in CL...");
     cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
 
     // Register chain in HS
-    println!("[test.Setup] Registering chain in HS...");
+    println!("[TEST.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
 
     // Submit a transaction
@@ -291,11 +291,11 @@ async fn test_e2e_cat_status_update_with_status() {
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
-    println!("[test.Setup] Registering chain in CL...");
+    println!("[TEST.Setup] Registering chain in CL...");
     cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
 
     // Register chain in HS
-    println!("[test.Setup] Registering chain in HS...");
+    println!("[TEST.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
 
     // Submit a transaction
@@ -342,11 +342,11 @@ async fn test_e2e_cat_status_update_with_multiple_statuses() {
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
-    println!("[test.Setup] Registering chain in CL...");
+    println!("[TEST.Setup] Registering chain in CL...");
     cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
 
     // Register chain in HS
-    println!("[test.Setup] Registering chain in HS...");
+    println!("[TEST.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
 
     // Submit a transaction

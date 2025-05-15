@@ -19,16 +19,16 @@ async fn test_concurrent_setup_v13() {
     let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     
     // Test initial state
-    println!("[Test] Testing initial state...");
+    println!("[TEST]   Testing initial state...");
     {
         let cl_node_with_lock = cl_node.lock().await;
         let current_block = cl_node_with_lock.get_current_block().await.unwrap();
-        println!("[Test] Initial block number: {}", current_block);
+        println!("[TEST]   Initial block number: {}", current_block);
         assert_eq!(current_block, 0, "Initial block should be 0");
     }
 
     // Register chains first
-    println!("[Test] Registering chains...");
+    println!("[TEST]   Registering chains...");
     {
         let mut cl_node_with_lock = cl_node.lock().await;
         cl_node_with_lock.register_chain(ChainId("chain1".to_string())).await.expect("Failed to register chain1");
@@ -37,18 +37,18 @@ async fn test_concurrent_setup_v13() {
         // Try to register chain1 again (should fail)
         match cl_node_with_lock.register_chain(ChainId("chain1".to_string())).await {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[Test] Expected error when registering chain1 twice: {}", e),
+            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
         }
 
         // Try to get subblock for unregistered chain
         match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), 0).await {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[Test] Expected error when getting subblock for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
         }
     }
 
     // Verify chain registration and get subblock for registered chain
-    println!("[Test] Verifying chain registration and subblock retrieval...");
+    println!("[TEST]   Verifying chain registration and subblock retrieval...");
     {
         let cl_node_with_lock = cl_node.lock().await;
         // Verify registered chains
@@ -60,7 +60,7 @@ async fn test_concurrent_setup_v13() {
         // Get subblock for registered chain
         match cl_node_with_lock.get_subblock(ChainId("chain1".to_string()), 0).await {
             Ok(subblock) => {
-                println!("[Test] Successfully got subblock for chain1: {:?}", subblock);
+                println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock);
                 assert_eq!(subblock.chain_id, ChainId("chain1".to_string()), "Subblock should be for chain1");
                 assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
                 assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
@@ -70,7 +70,7 @@ async fn test_concurrent_setup_v13() {
     }
 
     // Submit transactions for different chains
-    println!("[Test] Submitting transactions...");
+    println!("[TEST]   Submitting transactions...");
     {
         let mut cl_node_with_lock_2 = cl_node.lock().await;
         
@@ -98,7 +98,7 @@ async fn test_concurrent_setup_v13() {
         };
         match cl_node_with_lock_2.submit_transaction(tx3).await {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
-            Err(e) => println!("[Test] Expected error when submitting transaction for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: {}", e),
         }
     }
 
@@ -138,7 +138,7 @@ async fn test_concurrent_setup_v13() {
     
     // Test getting subblock for registered chain
     match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0).await {
-        Ok(subblock) => println!("[Test] Successfully got subblock for chain1: {:?}", subblock),
+        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
         Err(e) => panic!("Failed to get subblock for chain1: {}", e),
     }
     

@@ -61,28 +61,28 @@ impl HyperSchedulerNode {
 
     /// Process messages without holding the node lock
     pub async fn process_messages(hs_node: Arc<Mutex<HyperSchedulerNode>>) {
-        println!("[HS] [Message loop task] Attempting to acquire hs_node lock...");
+        println!("  [HS]   [Message loop task] Attempting to acquire hs_node lock...");
         let mut node = hs_node.lock().await;
-        println!("[HS] [Message loop task] Acquired hs_node lock");
+        println!("  [HS]   [Message loop task] Acquired hs_node lock");
         let mut receiver = node.receiver_from_hig.take().expect("Receiver already taken");
         let state = node.state.clone();
         drop(node); // Release the lock before starting the loop
-        println!("[HS] [Message loop task] Released hs_node lock");
+        println!("  [HS]   [Message loop task] Released hs_node lock");
         
         // Process messages
         while let Some(status_update) = receiver.recv().await {
-            println!("[HS] [Message loop task] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
-            println!("[HS] [Message loop task] Attempting to acquire state lock for status update...");
+            println!("  [HS]   [Message loop task] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
+            println!("  [HS]   [Message loop task] Attempting to acquire state lock for status update...");
             {
                 let mut state = state.lock().await;
-                println!("[HS] [Message loop task] Acquired state lock for status update");
+                println!("  [HS]   [Message loop task] Acquired state lock for status update");
                 state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
-                println!("[HS] [Message loop task] Updated state, releasing lock");
+                println!("  [HS]   [Message loop task] Updated state, releasing lock");
             }
-            println!("[HS] [Message loop task] Released state lock after status update");
-            println!("[HS] [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
+            println!("  [HS]   [Message loop task] Released state lock after status update");
+            println!("  [HS]   [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
         }
-        println!("[HS] [Message loop task] Message processing loop exiting");
+        println!("  [HS]   [Message loop task] Message processing loop exiting");
     }
 
     /// Start the message processing loop (deprecated, use process_messages instead)
@@ -139,20 +139,20 @@ impl HyperSchedulerNode {
 #[async_trait]
 impl HyperScheduler for HyperSchedulerNode {
     async fn get_cat_status(&self, id: CATId) -> Result<CATStatusLimited, HyperSchedulerError> {
-        println!("[HS] get_cat_status called for {}", id.0);
-        println!("[HS] Attempting to acquire state lock for get_cat_status...");
+        println!("  [HS]   get_cat_status called for {}", id.0);
+        println!("  [HS]   Attempting to acquire state lock for get_cat_status...");
         let result = {
             let state = self.state.lock().await;
-            println!("[HS] Acquired state lock for get_cat_status");
+            println!("  [HS]   Acquired state lock for get_cat_status");
             let result = state.cat_statuses.get(&id).cloned();
-            println!("[HS] Retrieved status, releasing lock");
+            println!("  [HS]   Retrieved status, releasing lock");
             result
         };
-        println!("[HS] Released state lock after get_cat_status");
+        println!("  [HS]   Released state lock after get_cat_status");
         if let Some(ref status) = result {
-            println!("[HS] get_cat_status found status for {}: {:?}", id.0, status);
+            println!("  [HS]   get_cat_status found status for {}: {:?}", id.0, status);
         } else {
-            println!("[HS] get_cat_status did not find status for {}", id.0);
+            println!("  [HS]   get_cat_status did not find status for {}", id.0);
         }
         result.ok_or_else(|| HyperSchedulerError::CATNotFound(id))
     }
@@ -162,30 +162,30 @@ impl HyperScheduler for HyperSchedulerNode {
     }
 
     async fn receive_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
-        println!("[HS] receive_cat_status_proposal called for {} with status {:?}", cat_id.0, status);
+        println!("  [HS]   receive_cat_status_proposal called for {} with status {:?}", cat_id.0, status);
         let mut state = self.state.lock().await;
         
         // Check if CAT already exists
         if state.cat_statuses.contains_key(&cat_id) {
-            println!("[HS] CAT {} already exists, rejecting duplicate proposal", cat_id.0);
+            println!("  [HS]   CAT {} already exists, rejecting duplicate proposal", cat_id.0);
             return Err(HyperSchedulerError::DuplicateProposal(cat_id));
         }
         
         // Store the status update
         state.cat_statuses.insert(cat_id.clone(), status.clone());
-        println!("[HS] Status for {} set to {:?}", cat_id.0, status);
+        println!("  [HS]   Status for {} set to {:?}", cat_id.0, status);
         Ok(())
     }
 
     async fn send_cat_status_update(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
-        println!("[HS] send_cat_status_update called for CAT {} with status {:?}", cat_id.0, status);
+        println!("  [HS]   send_cat_status_update called for CAT {} with status {:?}", cat_id.0, status);
         // Update the CAT status
         self.state.lock().await.cat_statuses.insert(cat_id.clone(), status.clone());
 
         // Get chain IDs
         let chain_ids = self.state.lock().await.chain_ids.clone();
         if chain_ids.is_empty() {
-            println!("[HS] No chain IDs set, cannot send status update");
+            println!("  [HS]   No chain IDs set, cannot send status update");
             return Err(HyperSchedulerError::Internal("No chain IDs set".to_string()));
         }
 
@@ -202,13 +202,13 @@ impl HyperScheduler for HyperSchedulerNode {
                     data: status_str.clone(),
                     chain_id: chain_id.clone(),
                 };
-                println!("[HS] Submitting status update transaction to CL: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
+                println!("  [HS]   Submitting status update transaction to CL: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
                 sender.send(tx)
                     .await
                     .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
             }
         } else {
-            println!("[HS] No sender to CL set, cannot send status update");
+            println!("  [HS]   No sender to CL set, cannot send status update");
             return Err(HyperSchedulerError::Internal("No sender to CL set".to_string()));
         }
 

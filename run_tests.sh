@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Check if an argument is provided
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <test_set>"
+    echo "  test_set: 1 for first set of tests, 2 for second set"
+    exit 1
+fi
+
 # Running confirmation layer tests
 
 TESTS=(
@@ -56,19 +63,22 @@ TESTS=(
     integration::hs_to_cl::channels::test_send_cat_status_update
 )
 
-for test in "${TESTS[@]}"; do
-    echo -e "\nRunning $test..."
-    cargo test --test main $test -- --test-threads=1 #--nocapture | grep "FAILED"
-done
-
-
 TESTS2=(
     integration::cl_to_hig::channels::test_process_subblock
-
-
 )
 
-# for test in "${TESTS2[@]}"; do
-#     echo -e "\nRunning $test..."
-#     cargo test --test main $test -- --test-threads=1 --nocapture
-# done
+# Run the appropriate test set based on the input
+if [ "$1" = "1" ]; then
+    for test in "${TESTS[@]}"; do
+        echo -e "\nRunning $test..."
+        cargo test --test main $test -- --test-threads=1 --nocapture | grep "FAILED"
+    done
+elif [ "$1" = "2" ]; then
+    for test in "${TESTS2[@]}"; do
+        echo -e "\nRunning $test..."
+        cargo test --test main $test -- --test-threads=1 --nocapture
+    done
+else
+    echo "Invalid test set. Use 1 or 2."
+    exit 1
+fi

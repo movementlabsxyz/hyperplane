@@ -152,14 +152,14 @@ async fn test_concurrent_setup_v2() {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v2(state: Arc<Mutex<TestNodeState>>) {
-    println!("[Processor] task started");
+    println!("  [Processor] task started");
     loop {
         // Acquire the lock and process messages
         let mut state = state.lock().await;
         
         // Always increment block, even if no messages
         state.current_block += 1;
-        print!("[Processor] block is now {}", state.current_block);
+        print!("  [Processor] block is now {}", state.current_block);
         
         // Process any pending messages
         if !state.pending_messages.is_empty() {
@@ -181,15 +181,15 @@ async fn run_processor_v2(state: Arc<Mutex<TestNodeState>>) {
 
 /// A function that gradually adds messages to the state
 async fn run_adder_v2(state: Arc<Mutex<TestNodeState>>) {
-    println!("[Adder] task started");
+    println!("  [Adder] task started");
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let mut state = state.lock().await;
         state.pending_messages.push(format!("message{}", i));
-        println!("[Adder] added message{}", i);
+        println!("  [Adder] added message{}", i);
     }
-    println!("[Adder] task completed");
+    println!("  [Adder] task completed");
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -281,20 +281,20 @@ impl TestNodeStateV3 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v3(state: Arc<Mutex<TestNodeStateV3>>) {
-    println!("[Processor] task started");
+    println!("  [Processor] task started");
     loop {
         // Acquire the lock and process messages
         let mut state = state.lock().await;
         
         // Check for new messages from channel
         while let Ok(message) = state.message_receiver.try_recv() {
-            println!("[Processor] received message from channel: {}", message);
+            println!("  [Processor] received message from channel: {}", message);
             state.pending_messages.push(message);
         }
         
         // Always increment block, even if no messages
         state.current_block += 1;
-        print!("[Processor] block is now {}", state.current_block);
+        print!("  [Processor] block is now {}", state.current_block);
         
         // Process any pending messages
         if !state.pending_messages.is_empty() {
@@ -315,18 +315,18 @@ async fn run_processor_v3(state: Arc<Mutex<TestNodeStateV3>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v3(sender: mpsc::Sender<String>) {
-    println!("[Adder] task started");
+    println!("  [Adder] task started");
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send(message.clone()).await {
-            println!("[Adder] failed to send message: {}", e);
+            println!("  [Adder] failed to send message: {}", e);
             break;
         }
-        println!("[Adder] sent message{}", i);
+        println!("  [Adder] sent message{}", i);
     }
-    println!("[Adder] task completed");
+    println!("  [Adder] task completed");
 }
 
 
@@ -438,7 +438,7 @@ impl TestNodeStateV4 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
-    println!("[Processor] task started");
+    println!("  [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -458,7 +458,7 @@ async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
         
         // Check for new messages from channel
         while let Ok(message) = state.message_receiver.try_recv() {
-            println!("[Processor] received message from channel: {}", message);
+            println!("  [Processor] received message from channel: {}", message);
             state.pending_messages.push(message);
         }
         
@@ -482,12 +482,12 @@ async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("[Processor] produced block {} with {} messages", block_id, block.messages.len());
+            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
                 println!("  - \"{}\"", msg);
             }
         } else {
-            println!("[Processor] produced empty block {}", block_id);
+            println!("  [Processor] produced empty block {}", block_id);
         }
         
         // Release the lock by dropping state
@@ -497,18 +497,18 @@ async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v4(sender: mpsc::Sender<String>) {
-    println!("[Adder] task started");
+    println!("  [Adder] task started");
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send(message.clone()).await {
-            println!("[Adder] failed to send message: {}", e);
+            println!("  [Adder] failed to send message: {}", e);
             break;
         }
-        println!("[Adder] sent message{}", i);
+        println!("  [Adder] sent message{}", i);
     }
-    println!("[Adder] task completed");
+    println!("  [Adder] task completed");
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -616,7 +616,7 @@ impl TestNodeStateV5 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
-    println!("[Processor] task started");
+    println!("  [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -636,7 +636,7 @@ async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
         
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
-            println!("[Processor] received message from chain {}: {}", chain_id, message);
+            println!("  [Processor] received message from chain {}: {}", chain_id, message);
             state.pending_messages.push((chain_id, message));
         }
         
@@ -650,7 +650,7 @@ async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
         // Move pending messages to the block
         while !state.pending_messages.is_empty() {
             let (chain_id, message) = state.pending_messages.remove(0);
-            let formatted_message = format!("[{}] {}", chain_id, message);
+            let formatted_message = format!("  [{}] {}", chain_id, message);
             block.messages.push(formatted_message.clone());
             state.processed_messages.push((chain_id.clone(), message.clone()));
         }
@@ -661,13 +661,13 @@ async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("[Processor] produced block {} with {} messages", block_id, block.messages.len());
+            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
                 print!("  - \"{}\"", msg);
             }
             println!();
         } else {
-            println!("[Processor] produced empty block {}", block_id);
+            println!("  [Processor] produced empty block {}", block_id);
         }
         
         // Release the lock by dropping state
@@ -677,18 +677,18 @@ async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v5(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
-    println!("[Adder-{}] task started", chain_id);
+    println!("  [Adder-{}] task started", chain_id);
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
-            println!("[Adder-{}] failed to send message: {}", chain_id, e);
+            println!("  [Adder-{}] failed to send message: {}", chain_id, e);
             break;
         }
-        println!("[Adder-{}] sent message{}", chain_id, i);
+        println!("  [Adder-{}] sent message{}", chain_id, i);
     }
-    println!("[Adder-{}] task completed", chain_id);
+    println!("  [Adder-{}] task completed", chain_id);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -737,7 +737,7 @@ async fn test_concurrent_setup_v6() {
     let _receiver_handle = tokio::spawn(async move {
         let mut received_blocks = 0;
         while let Some(subblock) = subblock_receiver.recv().await {
-            print!("[Receiver] received subblock for chain {} with {} messages", 
+            print!("  [Receiver] received subblock for chain {} with {} messages", 
                 subblock.chain_id, subblock.messages.len());
             for msg in &subblock.messages {
                 print!("  - \"{}\"", msg);
@@ -745,7 +745,7 @@ async fn test_concurrent_setup_v6() {
             println!();
             received_blocks += 1;
         }
-        println!("[Receiver] received {} subblocks total", received_blocks);
+        println!("  [Receiver] received {} subblocks total", received_blocks);
     });
     
     // Wait for a few seconds to let the processor run
@@ -828,7 +828,7 @@ impl TestNodeStateV6 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
-    println!("[Processor] task started");
+    println!("  [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -848,7 +848,7 @@ async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
         
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
-            println!("[Processor] received message from chain {}: {}", chain_id, message);
+            println!("  [Processor] received message from chain {}: {}", chain_id, message);
             state.pending_messages.push((chain_id, message));
         }
         
@@ -865,7 +865,7 @@ async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
         // Move pending messages to the block and group by chain
         while !state.pending_messages.is_empty() {
             let (chain_id, message) = state.pending_messages.remove(0);
-            let formatted_message = format!("[{}] {}", chain_id, message);
+            let formatted_message = format!("  [{}] {}", chain_id, message);
             block.messages.push(formatted_message.clone());
             state.processed_messages.push((chain_id.clone(), message.clone()));
             
@@ -888,20 +888,20 @@ async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("[Processor] failed to send subblock for chain {}: {}", chain_id, e);
+                    println!("  [Processor] failed to send subblock for chain {}: {}", chain_id, e);
                 }
             }
         }
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("[Processor] produced block {} with {} messages", block_id, block.messages.len());
+            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
                 print!("  - \"{}\"", msg);
             }
             println!();
         } else {
-            println!("[Processor] produced empty block {}", block_id);
+            println!("  [Processor] produced empty block {}", block_id);
         }
         
         // Release the lock by dropping state
@@ -911,18 +911,18 @@ async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v6(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
-    println!("[Adder-{}] task started", chain_id);
+    println!("  [Adder-{}] task started", chain_id);
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
-            println!("[Adder-{}] failed to send message: {}", chain_id, e);
+            println!("  [Adder-{}] failed to send message: {}", chain_id, e);
             break;
         }
-        println!("[Adder-{}] sent message{}", chain_id, i);
+        println!("  [Adder-{}] sent message{}", chain_id, i);
     }
-    println!("[Adder-{}] task completed", chain_id);
+    println!("  [Adder-{}] task completed", chain_id);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -958,7 +958,7 @@ async fn test_concurrent_setup_v7() {
     });
 
     // Register chains first
-    println!("[Test] Registering chains...");
+    println!("[TEST]   Registering chains...");
     {
         let mut state = state.lock().await;
         state.register_chain("chain1").expect("Failed to register chain1");
@@ -967,7 +967,7 @@ async fn test_concurrent_setup_v7() {
         // Try to register chain1 again (should fail)
         match state.register_chain("chain1") {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[Test] Expected error when registering chain1 twice: {}", e),
+            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
         }
     }
 
@@ -992,7 +992,7 @@ async fn test_concurrent_setup_v7() {
     let _receiver_handle = tokio::spawn(async move {
         let mut received_blocks = 0;
         while let Some(subblock) = subblock_receiver.recv().await {
-            print!("[Receiver] received subblock for chain {} with {} messages", 
+            print!("  [Receiver] received subblock for chain {} with {} messages", 
                 subblock.chain_id, subblock.messages.len());
             for msg in &subblock.messages {
                 print!("  - \"{}\"", msg);
@@ -1000,7 +1000,7 @@ async fn test_concurrent_setup_v7() {
             println!();
             received_blocks += 1;
         }
-        println!("[Receiver] received {} subblocks total", received_blocks);
+        println!("  [Receiver] received {} subblocks total", received_blocks);
     });
     
     // Wait for a few seconds to let the processor run
@@ -1090,7 +1090,7 @@ impl TestNodeStateV7 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
-    println!("[Processor] task started");
+    println!("  [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -1111,10 +1111,10 @@ async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
             if state.is_chain_registered(&chain_id) {
-                println!("[Processor] received message from chain {}: {}", chain_id, message);
+                println!("  [Processor] received message from chain {}: {}", chain_id, message);
                 state.pending_messages.push((chain_id, message));
             } else {
-                println!("[Processor] ignoring message from unregistered chain {}: {}", chain_id, message);
+                println!("  [Processor] ignoring message from unregistered chain {}: {}", chain_id, message);
             }
         }
         
@@ -1131,7 +1131,7 @@ async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
         // Move pending messages to the block and group by chain
         while !state.pending_messages.is_empty() {
             let (chain_id, message) = state.pending_messages.remove(0);
-            let formatted_message = format!("[{}] {}", chain_id, message);
+            let formatted_message = format!("  [{}] {}", chain_id, message);
             block.messages.push(formatted_message.clone());
             state.processed_messages.push((chain_id.clone(), message.clone()));
             
@@ -1154,20 +1154,20 @@ async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("[Processor] failed to send subblock for chain {}: {}", chain_id, e);
+                    println!("  [Processor] failed to send subblock for chain {}: {}", chain_id, e);
                 }
             }
         }
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("[Processor] produced block {} with {} messages", block_id, block.messages.len());
+            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
                 print!("  - \"{}\"", msg);
             }
             println!();
         } else {
-            println!("[Processor] produced empty block {}", block_id);
+            println!("  [Processor] produced empty block {}", block_id);
         }
         
         // Release the lock by dropping state
@@ -1177,16 +1177,16 @@ async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v7(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
-    println!("[Adder-{}] task started", chain_id);
+    println!("  [Adder-{}] task started", chain_id);
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
-            println!("[Adder-{}] failed to send message: {}", chain_id, e);
+            println!("  [Adder-{}] failed to send message: {}", chain_id, e);
             break;
         }
-        println!("[Adder-{}] sent message{}", chain_id, i);
+        println!("  [Adder-{}] sent message{}", chain_id, i);
     }
-    println!("[Adder-{}] task completed", chain_id);
+    println!("  [Adder-{}] task completed", chain_id);
 }

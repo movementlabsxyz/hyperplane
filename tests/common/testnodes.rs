@@ -55,18 +55,24 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
                 }
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
+            println!("[TEST]   Waiting for block production to be ready.. attempt: {}", attempts);
             attempts += 1;
         }
     }
 
+    // Wait a couple of blocks to ensure the block production is ready
+    tokio::time::sleep(block_interval * 2).await;
+    println!("  [NODES SETUP]   Block production is ready, current block: {}", cl_node.lock().await.get_current_block().await.unwrap());
+
     (hs_node, cl_node, hig_node)
 }
 
-/// Helper function to create test nodes with basic setup and default block production
+/// Helper function to create test nodes with block production
 pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>) {
     setup_test_nodes_with_block_production_choice(block_interval, true).await
 }
 
+/// Helper function to create test nodes with no block production
 pub async fn setup_test_nodes_no_block_production() -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>) {
     setup_test_nodes_with_block_production_choice(Duration::from_millis(100), false).await
 }

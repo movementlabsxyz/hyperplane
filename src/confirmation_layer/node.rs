@@ -93,13 +93,13 @@ impl ConfirmationLayerNode {
         let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
         loop {
             interval.tick().await;
-            println!("[Block Producer] Height: {}", node.lock().await.state.lock().await.current_block);
+            println!("  [BLOCK]   Height: {}", node.lock().await.state.lock().await.current_block);
 
             // Process any pending transactions
             {
                 let mut state = node.lock().await;
                 while let Ok(transaction) = state.receiver_hs_to_cl.as_mut().unwrap().try_recv() {
-                    println!("[Block Producer] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
+                    println!("  [BLOCK]   received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
                     let mut inner_state = state.state.lock().await;
                     if inner_state.registered_chains.contains(&transaction.chain_id) {
                         inner_state.pending_transactions.push(transaction);
@@ -157,7 +157,7 @@ impl ConfirmationLayerNode {
                             .collect(),
                     };
                     if let Err(e) = state.sender_cl_to_hig.as_mut().unwrap().send(subblock).await {
-                        println!("[Block Producer] Error sending subblock: {}", e);
+                        println!("  [BLOCK]   Error sending subblock: {}", e);
                         continue;
                     }
                 }
