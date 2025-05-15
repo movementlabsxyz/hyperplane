@@ -15,8 +15,6 @@ struct HyperSchedulerState {
     confirmation_layer: Option<Box<dyn ConfirmationLayer>>,
     /// The chain IDs for submitting transactions
     chain_ids: HashSet<ChainId>,
-    /// Sender for messages to CL
-    sender_to_cl: Option<mpsc::Sender<CLTransaction>>,
 }
 
 /// A node that implements the HyperScheduler trait
@@ -25,6 +23,8 @@ pub struct HyperSchedulerNode {
     state: Arc<Mutex<HyperSchedulerState>>,
     /// Receiver for messages from Hyper IG
     receiver_from_hig: Option<mpsc::Receiver<CATStatusUpdate>>,
+    /// Sender for messages to CL
+    sender_to_cl: Option<mpsc::Sender<CLTransaction>>,
 }
 
 impl HyperSchedulerNode {
@@ -35,15 +35,15 @@ impl HyperSchedulerNode {
                 cat_statuses: HashMap::new(),
                 confirmation_layer: None,
                 chain_ids: HashSet::new(),
-                sender_to_cl: Some(sender_to_cl),
             })),
             receiver_from_hig: Some(receiver_from_hig),
+            sender_to_cl: Some(sender_to_cl),
         }
     }
 
     /// Get a clone of the sender to the confirmation layer
     pub async fn get_sender_to_cl(&self) -> mpsc::Sender<CLTransaction> {
-        self.state.lock().await.sender_to_cl.as_ref().expect("Sender to CL not set").clone()
+        self.sender_to_cl.as_ref().expect("Sender to CL not set").clone()
     }
 
     /// Start the message processing loop
