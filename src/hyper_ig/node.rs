@@ -150,7 +150,7 @@ impl HyperIGNode {
         self.state.lock().await.pending_transactions.insert(transaction.id.clone());
         
         // Store proposed status based on transaction data
-        let proposed_status = if transaction.data.contains("SUCCESS") {
+        let proposed_status = if transaction.data.contains("Success") {
             CATStatusLimited::Success
         } else {
             // Default to Failure for all other cases

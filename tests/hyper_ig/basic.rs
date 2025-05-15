@@ -104,32 +104,27 @@ async fn test_normal_transaction_pending() {
     println!("=== Test completed successfully ===\n");
 }
 
-/// Tests CAT transaction success proposal path in HyperIG:
-/// - CAT transaction execution
-/// - Success proposal verification
-/// - Success proposal sending to Hyper Scheduler
-#[tokio::test]
-#[allow(unused_variables)]
-async fn test_cat_success_proposal() {
-    println!("\n=== Starting test_cat_success_proposal ===");
+/// Helper function to test CAT status proposal
+async fn helper_test_cat_status_proposal(expected_status: CATStatusLimited) {
+    println!("\n=== Starting test_cat_status_proposal ({:?}) ===", expected_status);
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
     let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
-    println!("[TEST]   Test nodes setup complete");
 
     // Wrap hs_node in Arc<Mutex>
     println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
-    let hs_node = Arc::new(Mutex::new(hs_node));
+    let _hs_node = Arc::new(Mutex::new(hs_node));
     println!("[TEST]   HS node wrapped successfully");
     
     // Create a CAT transaction
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
         id: TransactionId("test-tx".to_string()),
-        data: "CAT.SIMULATION.SUCCESS:test-cat-tx".to_string(),
+        data: format!("CAT.SIMULATION.{:?}:test-cat-tx", expected_status),
     };
     println!("[TEST]   CAT transaction created with id: {}", tx.id.0);
+    println!("[TEST]   CAT transaction data: {}", tx.data);
     
     // Execute the transaction
     println!("[TEST]   Executing CAT transaction...");
@@ -166,12 +161,12 @@ async fn test_cat_success_proposal() {
         .await
         .expect("Failed to get proposed status");
     println!("[TEST]   Proposed status: {:?}", proposed_status);
-    assert!(matches!(proposed_status, CATStatusLimited::Success));
-    println!("[TEST]   Verified proposed status is Success");
+    assert_eq!(proposed_status, expected_status);
+    println!("[TEST]   Verified proposed status is {:?}", expected_status);
     
     // Send the status proposal to HS
     println!("[TEST]   Sending status proposal to HS...");
-    hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), CATStatusLimited::Success)
+    hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), expected_status)
         .await
         .expect("Failed to send status proposal");
     println!("[TEST]   Status proposal sent to HS");
@@ -179,73 +174,18 @@ async fn test_cat_success_proposal() {
     println!("=== Test completed successfully ===\n");
 }
 
-/// Tests CAT transaction failure proposal path in HyperIG:
-/// - CAT transaction execution
-/// - Failure proposal verification
-/// - Failure proposal sending to Hyper Scheduler
+/// Tests CAT transaction success proposal path in HyperIG
+#[tokio::test]
+#[allow(unused_variables)]
+async fn test_cat_success_proposal() {
+    helper_test_cat_status_proposal(CATStatusLimited::Success).await;
+}
+
+/// Tests CAT transaction failure proposal path in HyperIG
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_failure_proposal() {
-    println!("\n=== Starting test_cat_failure_proposal ===");
-    
-    // use testnodes from common
-    println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
-
-    // Wrap hs_node in Arc<Mutex>
-    println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
-    let hs_node = Arc::new(Mutex::new(hs_node));
-    println!("[TEST]   HS node wrapped successfully");
-    
-    // Create a CAT transaction
-    println!("[TEST]   Creating CAT transaction...");
-    let tx = Transaction {
-        id: TransactionId("test-tx".to_string()),
-        data: "CAT.SIMULATION.FAILURE:test-cat-tx".to_string(),
-    };
-    
-    // Execute the transaction
-    println!("[TEST]   Executing CAT transaction...");
-    let status = hig_node.lock().await.execute_transaction(tx.clone())
-        .await
-        .expect("Failed to execute transaction");
-    println!("[TEST]   Transaction status: {:?}", status);
-    
-    // Verify it's pending
-    assert!(matches!(status, TransactionStatus::Pending));
-    
-    // Verify we can retrieve the same status
-    println!("[TEST]   Verifying transaction status...");
-    let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    println!("[TEST]   Retrieved status: {:?}", retrieved_status);
-    assert!(matches!(retrieved_status, TransactionStatus::Pending));
-    
-    // Verify it's in the pending transactions list
-    println!("[TEST]   Verifying pending transactions list...");
-    let pending = hig_node.lock().await.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    println!("[TEST]   Pending transactions: {:?}", pending);
-    assert!(pending.contains(&tx.id));
-    
-    // Verify the proposed status
-    println!("[TEST]   Verifying proposed status...");
-    let proposed_status = hig_node.lock().await.get_proposed_status(tx.id.clone())
-        .await
-        .expect("Failed to get proposed status");
-    println!("[TEST]   Proposed status: {:?}", proposed_status);
-    assert!(matches!(proposed_status, CATStatusLimited::Failure));
-    
-    // Send the status proposal to HS
-    println!("[TEST]   Sending status proposal to HS...");
-    hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), CATStatusLimited::Failure)
-        .await
-        .expect("Failed to send status proposal");
-    println!("[TEST]   Status proposal sent to HS");
-    
-    println!("=== Test completed successfully ===\n");
+    helper_test_cat_status_proposal(CATStatusLimited::Failure).await;
 }
 
 /// Test CAT transaction success-update path in HyperIG (subblock received from the Confirmation Layer):
@@ -266,7 +206,7 @@ async fn test_cat_success_update() {
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
         id: TransactionId("test-cat-tx".to_string()),
-        data: "STATUS_UPDATE.SUCCESS".to_string(),
+        data: "STATUS_UPDATE.Success".to_string(),
     };
     println!("[TEST]   Transaction created with id: {}", tx.id.0);
     

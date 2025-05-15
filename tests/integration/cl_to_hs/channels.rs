@@ -31,7 +31,7 @@ async fn test_cat_status_proposal_success() {
     let cat_id = CATId("test-cat-tx".to_string());
     let tx = Transaction {
         id: TransactionId("cat-tx.chain-1".to_string()),
-        data: "CAT.SIMULATION_SUCCESS.CAT_ID:test-cat-tx".to_string(),
+        data: "CAT.SIMULATION_Success.CAT_ID:test-cat-tx".to_string(),
     };
 
     // Submit the transaction to CL
@@ -290,7 +290,7 @@ async fn test_process_cat_transaction() {
     // Create and process a CAT transaction
     let tx = Transaction {
         id: TransactionId("test-cat".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
+        data: "CAT.SIMULATION.Success".to_string(),
     };
     println!("[TEST]   Created CAT transaction with ID: {}", tx.id.0);
     
@@ -338,7 +338,7 @@ async fn test_process_status_update() {
     // Create and process a CAT transaction
     let tx = Transaction {
         id: TransactionId("test-cat".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
+        data: "CAT.SIMULATION.Success".to_string(),
     };
     println!("[TEST]   Created CAT transaction with ID: {}", tx.id.0);
     

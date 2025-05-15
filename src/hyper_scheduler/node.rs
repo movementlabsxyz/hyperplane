@@ -191,8 +191,8 @@ impl HyperScheduler for HyperSchedulerNode {
         }
 
         let status_str = match status {
-            CATStatusLimited::Success => "STATUS_UPDATE.SUCCESS.CAT_ID:".to_string() + &cat_id.0,
-            CATStatusLimited::Failure => "STATUS_UPDATE.FAILURE.CAT_ID:".to_string() + &cat_id.0,
+            CATStatusLimited::Success => "STATUS_UPDATE.Success.CAT_ID:".to_string() + &cat_id.0,
+            CATStatusLimited::Failure => "STATUS_UPDATE.Failure.CAT_ID:".to_string() + &cat_id.0,
         };
 
         // Send the status update to all registered chains

@@ -73,7 +73,7 @@ async fn test_process_cat_subblock() {
     // Submit CAT transaction to CL
     let tx = Transaction {
         id: TransactionId("test-cat".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
+        data: "CAT.SIMULATION.Success".to_string(),
     };
     cl_node.submit_transaction(CLTransaction {
         id: tx.id.clone(),
@@ -121,7 +121,7 @@ async fn test_process_multiple_subblocks_new_transactions() {
     // Create test transactions for first subblock
     let tx1 = Transaction {
         id: TransactionId("tx1".to_string()),
-        data: "SUCCESS".to_string(),
+        data: "Success".to_string(),
     };
     // submit the transactions to the CL
     cl_node.submit_transaction(CLTransaction {
@@ -155,7 +155,7 @@ async fn test_process_multiple_subblocks_new_transactions() {
     // Create test transactions for second subblock
     let tx2 = Transaction {
         id: TransactionId("tx2".to_string()),
-        data: "SUCCESS".to_string(),
+        data: "Success".to_string(),
     };
     cl_node.submit_transaction(CLTransaction {
         id: tx2.id.clone(),

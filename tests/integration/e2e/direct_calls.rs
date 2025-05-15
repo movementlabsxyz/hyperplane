@@ -35,7 +35,7 @@ async fn test_cat_complete_flow() {
     // Create and submit CAT transaction to CL
     let cat_tx = Transaction {
         id: TransactionId("cat-tx".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
+        data: "CAT.SIMULATION.Success".to_string(),
     };
     hs_node.lock().await.submit_transaction(CLTransaction {
         id: cat_tx.id.clone(),
@@ -178,7 +178,7 @@ async fn test_cat_transaction_flow() {
     // Create a CAT transaction
     let cat_tx = Transaction {
         id: TransactionId("test-cat".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
+        data: "CAT.SIMULATION.Success".to_string(),
     };
 
     // Create a subblock with the CAT transaction
@@ -228,7 +228,7 @@ async fn test_status_update_flow() {
     // Create a CAT transaction
     let cat_tx = Transaction {
         id: TransactionId("test-cat".to_string()),
-        data: "STATUS_UPDATE.SUCCESS".to_string(),
+        data: "STATUS_UPDATE.Success".to_string(),
     };
 
     // Create a subblock with the CAT transaction

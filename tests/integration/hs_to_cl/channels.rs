@@ -68,7 +68,7 @@ async fn test_cat_status_update_one_target_chain() {
     };
     println!("[TEST]   Retrieved subblock with {} transactions", subblock.transactions.len());
     assert_eq!(subblock.transactions.len(), 1);
-    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE.SUCCESS.CAT_ID:test-cat");
+    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE.Success.CAT_ID:test-cat");
     println!("[TEST]   Transaction verification successful");
     
     println!("[TEST]   === Test completed successfully ===\n");
@@ -275,7 +275,7 @@ async fn test_cat_status_update() {
     };
     println!("[TEST]   Retrieved subblock with {} transactions", subblock.transactions.len());
     assert_eq!(subblock.transactions.len(), 1);
-    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE.SUCCESS.CAT_ID:test-tx");
+    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE.Success.CAT_ID:test-tx");
     println!("[TEST]   Transaction verification successful");
     
     println!("[TEST]   === Test completed successfully ===\n");
@@ -355,8 +355,8 @@ async fn test_multiple_cat_status_updates() {
         subblock1.transactions.len(), subblock2.transactions.len());
 
     assert_eq!(subblock1.transactions.len(), 2);
-    assert_eq!(subblock1.transactions[0].data, "STATUS_UPDATE.SUCCESS.CAT_ID:test-tx-1");
-    assert_eq!(subblock1.transactions[1].data, "STATUS_UPDATE.SUCCESS.CAT_ID:test-tx-2");
+    assert_eq!(subblock1.transactions[0].data, "STATUS_UPDATE.Success.CAT_ID:test-tx-1");
+    assert_eq!(subblock1.transactions[1].data, "STATUS_UPDATE.Success.CAT_ID:test-tx-2");
     assert_eq!(subblock2.transactions.len(), 0);
     println!("[TEST]   Transaction verification successful");
     
