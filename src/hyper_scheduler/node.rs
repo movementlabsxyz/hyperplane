@@ -27,6 +27,16 @@ pub struct HyperSchedulerNode {
     pub sender_to_cl: Option<mpsc::Sender<CLTransaction>>,
 }
 
+impl Clone for HyperSchedulerNode {
+    fn clone(&self) -> Self {
+        Self {
+            state: self.state.clone(),
+            receiver_from_hig: None, // Can't clone receiver
+            sender_to_cl: self.sender_to_cl.clone(),
+        }
+    }
+}
+
 impl HyperSchedulerNode {
     /// Create a new HyperSchedulerNode
     pub fn new(receiver_from_hig: mpsc::Receiver<CATStatusUpdate>, sender_to_cl: mpsc::Sender<CLTransaction>) -> Self {
@@ -54,29 +64,35 @@ impl HyperSchedulerNode {
     }
 
     /// Process messages without holding the node lock
-    pub async fn process_messages(&mut self) {
-        println!("[HS] Message processing loop started");
-        let mut receiver = self.receiver_from_hig.take().expect("Receiver already taken");
-        let state = self.state.clone();
+    pub async fn process_messages(hs_node: Arc<Mutex<HyperSchedulerNode>>) {
+        println!("[HS] [Message loop task] Attempting to acquire hs_node lock...");
+        let mut node = hs_node.lock().await;
+        println!("[HS] [Message loop task] Acquired hs_node lock");
+        let mut receiver = node.receiver_from_hig.take().expect("Receiver already taken");
+        let state = node.state.clone();
+        drop(node); // Release the lock before starting the loop
+        println!("[HS] [Message loop task] Released hs_node lock");
         
+        // Process messages
         while let Some(status_update) = receiver.recv().await {
-            println!("[HS] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
-            println!("[HS] Attempting to acquire state lock for status update...");
+            println!("[HS] [Message loop task] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
+            println!("[HS] [Message loop task] Attempting to acquire state lock for status update...");
             {
                 let mut state = state.lock().await;
-                println!("[HS] Acquired state lock for status update");
+                println!("[HS] [Message loop task] Acquired state lock for status update");
                 state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
-                println!("[HS] Updated state, releasing lock");
+                println!("[HS] [Message loop task] Updated state, releasing lock");
             }
-            println!("[HS] Released state lock after status update");
-            println!("[HS] Successfully processed status proposal for {}", status_update.cat_id);
+            println!("[HS] [Message loop task] Released state lock after status update");
+            println!("[HS] [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
         }
-        println!("[HS] Message processing loop exiting");
+        println!("[HS] [Message loop task] Message processing loop exiting");
     }
 
     /// Start the message processing loop (deprecated, use process_messages instead)
     pub async fn start(&mut self) {
-        self.process_messages().await;
+        let hs_node = Arc::new(Mutex::new(self.clone()));
+        Self::process_messages(hs_node).await;
     }
 
     /// Set the confirmation layer to use for submitting transactions

@@ -3,35 +3,8 @@ use hyperplane::{
     hyper_ig::HyperIG,
     hyper_scheduler::{HyperScheduler, HyperSchedulerNode},
 };
-use tokio::{time::{sleep, Duration}, task, sync::Mutex};
+use tokio::{time::{sleep, Duration}, task};
 use crate::common::testnodes;
-use std::sync::Arc;
-
-/// Process messages in a separate task
-async fn process_messages(hs_node: Arc<Mutex<HyperSchedulerNode>>) {
-    println!("[TEST] [Message loop task] Attempting to acquire hs_node lock...");
-    let mut node = hs_node.lock().await;
-    println!("[TEST] [Message loop task] Acquired hs_node lock");
-    let mut receiver = node.receiver_from_hig.take().expect("Receiver already taken");
-    let state = node.state.clone();
-    drop(node); // Release the lock before starting the loop
-    println!("[TEST] [Message loop task] Released hs_node lock");
-    
-    // Process messages
-    while let Some(status_update) = receiver.recv().await {
-        println!("[TEST] [Message loop task] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
-        println!("[TEST] [Message loop task] Attempting to acquire state lock for status update...");
-        {
-            let mut state = state.lock().await;
-            println!("[TEST] [Message loop task] Acquired state lock for status update");
-            state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
-            println!("[TEST] [Message loop task] Updated state, releasing lock");
-        }
-        println!("[TEST] [Message loop task] Released state lock after status update");
-        println!("[TEST] [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
-    }
-    println!("[TEST] [Message loop task] Message processing loop exiting");
-}
 
 /// Tests sending a single CAT status update from HIG to HS:
 /// - HIG proposes a Success status for a CAT
@@ -43,14 +16,6 @@ async fn test_single_cat_status_storage() {
     
     let (hs_node, _cl_node, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST] Test nodes initialized successfully");
-
-    // Clone hs_node for the message processing loop
-    let hs_node_clone = hs_node.clone();
-
-    // Start the HS message processing loop in a separate task
-    println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
-    println!("[TEST] HS message processing loop started");
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
@@ -99,7 +64,7 @@ async fn test_multiple_cat_status_storage() {
 
     // Start the HS message processing loop in a separate task
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create multiple CAT IDs and status updates
@@ -158,7 +123,7 @@ async fn test_cat_status_storage_with_transaction_id() {
 
     // Start the HS message processing loop in a separate task
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create a CAT ID, transaction ID, and status update
@@ -209,7 +174,7 @@ async fn test_status_proposal_failure() {
 
     // Start the HS message processing loop in a separate task
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create a CAT ID and status update
@@ -258,7 +223,7 @@ async fn test_send_cat_status_proposal() {
 
     // Start the HS message processing loop in a separate task
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Send a status proposal
@@ -301,7 +266,7 @@ async fn test_process_cat_transaction() {
 
     // Start the HS message processing loop in a separate task
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create and process a CAT transaction
@@ -347,7 +312,7 @@ async fn test_process_status_update() {
 
     // Start the HS message processing loop in a separate task
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create and process a CAT transaction
@@ -405,7 +370,7 @@ async fn test_hig_to_hs_status_proposal() {
 
     // Start the HS message processing loop
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create a CAT transaction
@@ -450,7 +415,7 @@ async fn test_hig_to_hs_status_proposal_failure() {
 
     // Start the HS message processing loop
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create a CAT transaction with an invalid status
@@ -495,7 +460,7 @@ async fn test_hig_to_hs_multiple_status_proposals() {
 
     // Start the HS message processing loop
     println!("[TEST] Starting HS message processing loop...");
-    let hs_handle = task::spawn(process_messages(hs_node_clone));
+    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
     println!("[TEST] HS message processing loop started");
 
     // Create multiple CAT transactions

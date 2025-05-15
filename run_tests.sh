@@ -4,7 +4,7 @@
 
 TESTS=(
     # - - - CL tests - - -
-    confirmation_layer::concurrent_setup::concurrent_setup_v12::test_concurrent_setup_v12
+    confirmation_layer::concurrent_setup::concurrent_setup_v11_to_v12::test_concurrent_setup_v12
     confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
     confirmation_layer::basic::test_basic_confirmation_layer
     confirmation_layer::basic::test_block_interval
@@ -48,10 +48,10 @@ TESTS=(
     # integration::hig_to_hs::channels::test_cat_status_storage_with_transaction_id
 )
 
-# for test in "${TESTS[@]}"; do
-#     echo -e "\nRunning $test..."
-#     cargo test --test main $test -- --test-threads=1 #--nocapture
-# done
+for test in "${TESTS[@]}"; do
+    echo -e "\nRunning $test..."
+    cargo test --test main $test -- --test-threads=1 #--nocapture
+done
 
 
 TESTS2=(
