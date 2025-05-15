@@ -26,10 +26,6 @@ async fn test_cat_complete_flow() {
     println!("[test.Setup] Registering chain in CL...");
     cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
 
-    // Connect components
-    println!("[test.Setup] Connecting components...");
-    hs_node.lock().await.set_confirmation_layer(Box::new(cl_node.clone())).await;
-
     // Register chain in HS
     println!("[test.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
@@ -267,11 +263,13 @@ async fn test_e2e_cat_status_update() {
     // use testnodes from common
     let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
-    // Set up the confirmation layer
-    hs_node.lock().await.set_confirmation_layer(Box::new(cl_node.clone())).await;
-
-    // Set chain ID
+    // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
+    println!("[test.Setup] Registering chain in CL...");
+    cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+
+    // Register chain in HS
+    println!("[test.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
 
     // Submit a transaction
@@ -291,11 +289,13 @@ async fn test_e2e_cat_status_update_with_status() {
     // use testnodes from common
     let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
-    // Set up the confirmation layer
-    hs_node.lock().await.set_confirmation_layer(Box::new(cl_node.clone())).await;
-
-    // Set chain ID
+    // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
+    println!("[test.Setup] Registering chain in CL...");
+    cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+
+    // Register chain in HS
+    println!("[test.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
 
     // Submit a transaction
@@ -340,11 +340,13 @@ async fn test_e2e_cat_status_update_with_multiple_statuses() {
     // use testnodes from common
     let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
-    // Set up the confirmation layer
-    hs_node.lock().await.set_confirmation_layer(Box::new(cl_node.clone())).await;
-
-    // Set chain ID
+    // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
+    println!("[test.Setup] Registering chain in CL...");
+    cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+
+    // Register chain in HS
+    println!("[test.Setup] Registering chain in HS...");
     hs_node.lock().await.set_chain_id(chain_id.clone()).await;
 
     // Submit a transaction

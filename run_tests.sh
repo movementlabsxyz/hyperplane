@@ -31,9 +31,9 @@ TESTS=(
     hyper_scheduler::basic::test_duplicate_rejection
 
     # - - - CL to HIG tests - - -
-    integration::cl_to_hig::channels::test_process_subblock
-    integration::cl_to_hig::channels::test_process_cat_subblock
-    integration::cl_to_hig::channels::test_process_multiple_subblocks_new_transactions
+    # # integration::cl_to_hig::channels::test_process_subblock
+    # integration::cl_to_hig::channels::test_process_cat_subblock
+    # integration::cl_to_hig::channels::test_process_multiple_subblocks_new_transactions
 
     ## - - - HIG to HS tests - - -
     integration::hig_to_hs::channels::test_single_cat_status_storage
@@ -46,19 +46,29 @@ TESTS=(
     integration::hig_to_hs::channels::test_hig_to_hs_status_proposal_failure
     integration::hig_to_hs::channels::test_hig_to_hs_multiple_status_proposals
     integration::hig_to_hs::channels::test_cat_status_storage_with_transaction_id
+
+    # - - - HS to CL tests - - -
+    integration::hs_to_cl::channels::test_cat_status_update_one_target_chain
+    integration::hs_to_cl::channels::test_multiple_cat_status_updates_one_target_chain
+    integration::hs_to_cl::channels::test_status_update
+    integration::hs_to_cl::channels::test_cat_status_update
+    integration::hs_to_cl::channels::test_multiple_cat_status_updates
+    integration::hs_to_cl::channels::test_send_cat_status_update
 )
 
-# for test in "${TESTS[@]}"; do
-#     echo -e "\nRunning $test..."
-#     cargo test --test main $test -- --test-threads=1 #--nocapture
-# done
+for test in "${TESTS[@]}"; do
+    echo -e "\nRunning $test..."
+    cargo test --test main $test -- --test-threads=1 #--nocapture | grep "FAILED"
+done
 
 
 TESTS2=(
+    integration::cl_to_hig::channels::test_process_subblock
+
 
 )
 
-for test in "${TESTS2[@]}"; do
-    echo -e "\nRunning $test..."
-    cargo test --test main $test -- --test-threads=1 #--nocapture
-done
+# for test in "${TESTS2[@]}"; do
+#     echo -e "\nRunning $test..."
+#     cargo test --test main $test -- --test-threads=1 --nocapture
+# done

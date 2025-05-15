@@ -1,5 +1,4 @@
 use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate};
-use crate::confirmation_layer::ConfirmationLayer;
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
@@ -11,8 +10,6 @@ use tokio::sync::Mutex;
 pub struct HyperSchedulerState {
     /// Map of CAT IDs to their current status update
     pub cat_statuses: HashMap<CATId, CATStatusLimited>,
-    /// The confirmation layer for submitting transactions
-    pub confirmation_layer: Option<Box<dyn ConfirmationLayer>>,
     /// The chain IDs for submitting transactions
     pub chain_ids: HashSet<ChainId>,
 }
@@ -43,7 +40,6 @@ impl HyperSchedulerNode {
         Self {
             state: Arc::new(Mutex::new(HyperSchedulerState {
                 cat_statuses: HashMap::new(),
-                confirmation_layer: None,
                 chain_ids: HashSet::new(),
             })),
             receiver_from_hig: Some(receiver_from_hig),
@@ -95,11 +91,6 @@ impl HyperSchedulerNode {
         Self::process_messages(hs_node).await;
     }
 
-    /// Set the confirmation layer to use for submitting transactions
-    pub async fn set_confirmation_layer(&mut self, cl: Box<dyn ConfirmationLayer>) {
-        self.state.lock().await.confirmation_layer = Some(cl);
-    }
-
     /// Set the chain ID to use for submitting transactions
     pub async fn set_chain_id(&mut self, chain_id: ChainId) {
         self.state.lock().await.chain_ids.insert(chain_id);
@@ -107,41 +98,40 @@ impl HyperSchedulerNode {
 
     /// Submit a transaction to the confirmation layer
     pub async fn submit_transaction(&mut self, tx: CLTransaction) -> Result<(), String> {
-        let mut state = self.state.lock().await;
-        if let Some(cl) = &mut state.confirmation_layer {
-            cl.submit_transaction(tx).await.map_err(|e| e.to_string())
+        if let Some(sender) = &self.sender_to_cl {
+            sender.send(tx).await.map_err(|e| e.to_string())
         } else {
-            Err("No confirmation layer set".to_string())
+            Err("No sender to CL set".to_string())
         }
     }
 
     /// Get the current block from the confirmation layer
     pub async fn get_current_block(&mut self) -> Result<u64, String> {
-        let mut state = self.state.lock().await;
-        if let Some(cl) = &mut state.confirmation_layer {
-            cl.get_current_block().await.map_err(|e| e.to_string())
+        if let Some(sender) = &self.sender_to_cl {
+            let tx = CLTransaction {
+                id: TransactionId("GET_CURRENT_BLOCK".to_string()),
+                data: "GET_CURRENT_BLOCK".to_string(),
+                chain_id: ChainId("SYSTEM".to_string()),
+            };
+            sender.send(tx).await.map_err(|e| e.to_string())?;
+            Ok(0) // For now, just return 0 since we don't have a response channel
         } else {
-            Err("No confirmation layer set".to_string())
+            Err("No sender to CL set".to_string())
         }
     }
 
     /// Get a subblock from the confirmation layer
     pub async fn get_subblock(&mut self, chain_id: ChainId, block_num: u64) -> Result<Vec<CLTransaction>, String> {
-        let mut state = self.state.lock().await;
-        if let Some(cl) = &mut state.confirmation_layer {
-            cl.get_subblock(chain_id.clone(), block_num).await
-                .map(|subblock| {
-                    subblock.transactions.into_iter()
-                        .map(|tx| CLTransaction {
-                            id: tx.id,
-                            data: tx.data,
-                            chain_id: chain_id.clone(),
-                        })
-                        .collect()
-                })
-                .map_err(|e| e.to_string())
+        if let Some(sender) = &self.sender_to_cl {
+            let tx = CLTransaction {
+                id: TransactionId(format!("GET_SUBBLOCK_{}", block_num)),
+                data: format!("GET_SUBBLOCK_{}", block_num),
+                chain_id: chain_id.clone(),
+            };
+            sender.send(tx).await.map_err(|e| e.to_string())?;
+            Ok(vec![]) // For now, just return empty vec since we don't have a response channel
         } else {
-            Err("No confirmation layer set".to_string())
+            Err("No sender to CL set".to_string())
         }
     }
 }
@@ -192,32 +182,34 @@ impl HyperScheduler for HyperSchedulerNode {
         // Update the CAT status
         self.state.lock().await.cat_statuses.insert(cat_id.clone(), status.clone());
 
-        // Submit a CLtransaction to the confirmation layer if available
-        if let Some(cl) = &mut self.state.lock().await.confirmation_layer {
-            if self.state.lock().await.chain_ids.is_empty() {
-                println!("[HS] No chain IDs set, cannot send status update");
-                return Err(HyperSchedulerError::Internal("No chain IDs set".to_string()));
-            }
+        // Get chain IDs
+        let chain_ids = self.state.lock().await.chain_ids.clone();
+        if chain_ids.is_empty() {
+            println!("[HS] No chain IDs set, cannot send status update");
+            return Err(HyperSchedulerError::Internal("No chain IDs set".to_string()));
+        }
 
-            let status_str = match status {
-                CATStatusLimited::Success => "STATUS_UPDATE.SUCCESS.CAT_ID:".to_string() + &cat_id.0,
-                CATStatusLimited::Failure => "STATUS_UPDATE.FAILURE.CAT_ID:".to_string() + &cat_id.0,
-            };
+        let status_str = match status {
+            CATStatusLimited::Success => "STATUS_UPDATE.SUCCESS.CAT_ID:".to_string() + &cat_id.0,
+            CATStatusLimited::Failure => "STATUS_UPDATE.FAILURE.CAT_ID:".to_string() + &cat_id.0,
+        };
 
-            // Send the status update to all registered chains
-            for chain_id in &self.state.lock().await.chain_ids {
+        // Send the status update to all registered chains
+        if let Some(sender) = &self.sender_to_cl {
+            for chain_id in chain_ids {
                 let tx = CLTransaction {
                     id: TransactionId(cat_id.0.clone()+".UPDATE"),
                     data: status_str.clone(),
                     chain_id: chain_id.clone(),
                 };
                 println!("[HS] Submitting status update transaction to CL: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
-                cl.submit_transaction(tx)
+                sender.send(tx)
                     .await
                     .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
             }
         } else {
-            println!("[HS] No confirmation layer set, cannot send status update");
+            println!("[HS] No sender to CL set, cannot send status update");
+            return Err(HyperSchedulerError::Internal("No sender to CL set".to_string()));
         }
 
         Ok(())

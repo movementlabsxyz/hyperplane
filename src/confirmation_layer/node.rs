@@ -157,7 +157,7 @@ impl ConfirmationLayerNode {
                             .collect(),
                     };
                     if let Err(e) = state.sender_cl_to_hig.as_mut().unwrap().send(subblock).await {
-                        println!("[Processor] Error sending subblock: {}", e);
+                        println!("[Block Producer] Error sending subblock: {}", e);
                         continue;
                     }
                 }

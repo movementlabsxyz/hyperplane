@@ -1,7 +1,8 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, CATStatusLimited, CATId},
+    types::{Transaction, TransactionId, CATStatusLimited, CATId, ChainId},
     hyper_ig::HyperIG,
     hyper_scheduler::{HyperScheduler, HyperSchedulerNode},
+    confirmation_layer::ConfirmationLayer,
 };
 use tokio::{time::{sleep, Duration}, task};
 use crate::common::testnodes;
@@ -304,16 +305,18 @@ async fn test_process_status_update() {
     println!("[TEST] Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST] Test nodes initialized successfully");
 
-    // Clone hs_node for the message processing loop
-    let hs_node_clone = hs_node.clone();
+    // Register chain in CL and HS
+    let chain_id = ChainId("test-chain".to_string());
+    println!("[TEST] Registering chain: {}", chain_id.0);
+    cl_node.lock().await.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+    println!("[TEST] Chain registered successfully");
 
-    // Start the HS message processing loop in a separate task
-    println!("[TEST] Starting HS message processing loop...");
-    let _hs_handle = task::spawn(HyperSchedulerNode::process_messages(hs_node_clone));
-    println!("[TEST] HS message processing loop started");
+    println!("[TEST] Setting chain ID in HS...");
+    hs_node.lock().await.set_chain_id(chain_id.clone()).await;
+    println!("[TEST] Chain ID set in HS");
 
     // Create and process a CAT transaction
     let tx = Transaction {
