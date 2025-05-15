@@ -16,7 +16,7 @@ async fn test_concurrent_setup_v13() {
     println!("\n=== Starting test_concurrent_setup_v13 ===");
     
     // Get the test nodes using our new helper function
-    let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     
     // Test initial state
     println!("[TEST]   Testing initial state...");

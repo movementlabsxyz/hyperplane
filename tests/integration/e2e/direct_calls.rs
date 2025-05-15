@@ -19,7 +19,7 @@ async fn test_cat_complete_flow() {
     
     // - - - - - - - - - Setup - - - - - - - - -
     println!("\n[test.Setup] Initializing components...");
-    let (hs_node, cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
@@ -173,7 +173,7 @@ async fn test_cat_complete_flow() {
 #[tokio::test]
 async fn test_cat_transaction_flow() {
     // use testnodes from common
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Create a CAT transaction
     let cat_tx = Transaction {
@@ -223,7 +223,7 @@ async fn test_cat_transaction_flow() {
 #[tokio::test]
 async fn test_status_update_flow() {
     // use testnodes from common
-    let (_hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (_hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Create a CAT transaction
     let cat_tx = Transaction {
@@ -261,7 +261,7 @@ async fn test_status_update_flow() {
 #[tokio::test]
 async fn test_e2e_cat_status_update() {
     // use testnodes from common
-    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, cl_node, _,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
@@ -287,7 +287,7 @@ async fn test_e2e_cat_status_update() {
 #[tokio::test]
 async fn test_e2e_cat_status_update_with_status() {
     // use testnodes from common
-    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, cl_node, _,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());
@@ -338,7 +338,7 @@ async fn test_e2e_cat_status_update_with_status() {
 #[tokio::test]
 async fn test_e2e_cat_status_update_with_multiple_statuses() {
     // use testnodes from common
-    let (hs_node, cl_node, _) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, cl_node, _,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
 
     // Register chain in CL
     let chain_id = ChainId("test-chain".to_string());

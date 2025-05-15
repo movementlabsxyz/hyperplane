@@ -10,7 +10,9 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// Helper function to create test nodes with basic setup
-pub async fn setup_test_nodes_with_block_production_choice(block_interval: Duration, start_block_production: bool) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>) {
+/// Returns a tuple of the nodes and the current block number at the end of the setup
+pub async fn setup_test_nodes_with_block_production_choice(block_interval: Duration, start_block_production: bool) 
+-> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
     let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
@@ -63,17 +65,20 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
     // Wait a couple of blocks to ensure the block production is ready
     tokio::time::sleep(block_interval * 2).await;
     println!("  [NODES SETUP]   Nodes setup complete, current block: {}", cl_node.lock().await.get_current_block().await.unwrap());
+    let current_block = cl_node.lock().await.get_current_block().await.unwrap();
 
-    (hs_node, cl_node, hig_node)
+    (hs_node, cl_node, hig_node, current_block)
 }
 
 /// Helper function to create test nodes with block production
-pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>) {
+/// Returns a tuple of the nodes and the current block number at the end of the setup
+pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     setup_test_nodes_with_block_production_choice(block_interval, true).await
 }
 
 /// Helper function to create test nodes with no block production
-pub async fn setup_test_nodes_no_block_production() -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>) {
+/// Returns a tuple of the nodes and the current block number at the end of the setup
+pub async fn setup_test_nodes_no_block_production() -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     setup_test_nodes_with_block_production_choice(Duration::from_millis(100), false).await
 }
 

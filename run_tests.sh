@@ -77,6 +77,7 @@ TESTS=(
 
 TESTS2=(
 
+
     # integration::cl_to_hig::channels::test_process_subblock
 )
 
@@ -89,7 +90,7 @@ if [ "$1" = "1" ]; then
 elif [ "$1" = "2" ]; then
     for test in "${TESTS2[@]}"; do
         echo -e "\nRunning $test..."
-        cargo test --test main $test -- --test-threads=1 --nocapture | grep "FAILED"
+        cargo test --test main $test -- --test-threads=1 --nocapture #| grep "FAILED"
     done
 else
     echo "Invalid test set. Use 1 or 2."

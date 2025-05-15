@@ -15,7 +15,7 @@ use crate::common::testnodes;
 async fn test_single_cat_status_storage() {
     println!("\n[TEST]   === Starting test_single_cat_status_storage ===");
     
-    let (hs_node, _cl_node, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (hs_node, _cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Create a CAT ID and status update
@@ -57,7 +57,7 @@ async fn test_multiple_cat_status_storage() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -116,7 +116,7 @@ async fn test_cat_status_storage_with_transaction_id() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -167,7 +167,7 @@ async fn test_status_proposal_failure() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -216,7 +216,7 @@ async fn test_send_cat_status_proposal() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -259,7 +259,7 @@ async fn test_process_cat_transaction() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -305,7 +305,7 @@ async fn test_process_status_update() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain in CL and HS
@@ -365,7 +365,7 @@ async fn test_hig_to_hs_status_proposal() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -410,7 +410,7 @@ async fn test_hig_to_hs_status_proposal_failure() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -455,7 +455,7 @@ async fn test_hig_to_hs_multiple_status_proposals() {
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
     
     // Initialize components with 100ms block interval
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Clone hs_node for the message processing loop
@@ -502,7 +502,7 @@ async fn test_hig_to_hs_multiple_status_proposals() {
 #[tokio::test]
 async fn test_cat_transaction_flow() {
     // use testnodes from common
-    let (_hs_node, _cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, _cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
 
     // ... existing code ...
 }
@@ -510,7 +510,7 @@ async fn test_cat_transaction_flow() {
 #[tokio::test]
 async fn test_cat_status_update_flow() {
     // use testnodes from common
-    let (_hs_node, _cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, _cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
 
     // ... existing code ...
 }

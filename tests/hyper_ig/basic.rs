@@ -17,7 +17,7 @@ async fn test_normal_transaction_success() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
     
     // Create a normal transaction with non-dependent data
@@ -61,7 +61,7 @@ async fn test_normal_transaction_pending() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
     
     // Create a regular transaction that depends on a CAT transaction
@@ -115,7 +115,7 @@ async fn test_cat_success_proposal() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Wrap hs_node in Arc<Mutex>
@@ -190,7 +190,7 @@ async fn test_cat_failure_proposal() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
 
     // Wrap hs_node in Arc<Mutex>
     println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
@@ -259,7 +259,7 @@ async fn test_cat_success_update() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Create a CAT transaction with success data
@@ -305,7 +305,7 @@ async fn test_execute_transactions() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Create multiple transactions
@@ -354,7 +354,7 @@ async fn test_get_transaction_status() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Try to get status of non-existent transaction
@@ -396,7 +396,7 @@ async fn test_get_pending_transactions() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Get pending transactions when none exist

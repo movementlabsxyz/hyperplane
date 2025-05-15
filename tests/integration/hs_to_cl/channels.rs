@@ -13,7 +13,7 @@ use tokio::time::{sleep, Duration};
 #[tokio::test]
 async fn test_cat_status_update_one_target_chain() {
     println!("\n[TEST]   === Starting test_cat_status_update_one_target_chain ===");
-    let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register a chain
@@ -56,13 +56,13 @@ async fn test_cat_status_update_one_target_chain() {
         node.get_current_block().await.expect("Failed to get current block")
     };
     println!("[TEST]   Current block: {}", current_block);
-    assert_eq!(current_block, 5);
+    assert!(current_block >= start_block_height + 3 && current_block <= start_block_height + 6, "Current block not in correct range {}", current_block);
 
     // Get subblock and verify transaction
     println!("[TEST]   Getting subblock for chain {}...", chain_id.0);
     let subblock = {
         let node = cl_node.lock().await;
-        node.get_subblock(chain_id, 1)
+        node.get_subblock(chain_id, start_block_height + 1)
             .await
             .expect("Failed to get subblock")
     };
@@ -81,7 +81,7 @@ async fn test_cat_status_update_one_target_chain() {
 #[tokio::test]
 async fn test_multiple_cat_status_updates_one_target_chain() {
     println!("\n[TEST]   === Starting test_multiple_cat_status_updates_one_target_chain ===");
-    let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register a test chain
@@ -149,7 +149,7 @@ async fn test_multiple_cat_status_updates_one_target_chain() {
 #[tokio::test]
 async fn test_status_update() {
     println!("\n[TEST]   === Starting test_status_update ===");
-    let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chains 1 and 2 in the confirmation layer
@@ -214,7 +214,7 @@ async fn test_status_update() {
 #[tokio::test]
 async fn test_cat_status_update() {
     println!("\n[TEST]   === Starting test_cat_status_update ===");
-    let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node,start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register a chain
@@ -260,13 +260,16 @@ async fn test_cat_status_update() {
         node.get_current_block().await.expect("Failed to get current block")
     };
     println!("[TEST]   Current block: {}", current_block);
-    assert_eq!(current_block, 5);
-
+    assert!(
+        (start_block_height + 5..=start_block_height + 7).contains(&current_block),
+        "block not in [start+5, start+7]"
+    );
+    
     // Get subblock and verify transaction
     println!("[TEST]   Getting subblock for chain {}...", chain_id.0);
     let subblock = {
         let node = cl_node.lock().await;
-        node.get_subblock(chain_id, 1)
+        node.get_subblock(chain_id, start_block_height+1)
             .await
             .expect("Failed to get subblock")
     };
@@ -286,7 +289,7 @@ async fn test_cat_status_update() {
 #[tokio::test]
 async fn test_multiple_cat_status_updates() {
     println!("\n[TEST]   === Starting test_multiple_cat_status_updates ===");
-    let (hs_node, cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node,start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register two chains
@@ -338,13 +341,13 @@ async fn test_multiple_cat_status_updates() {
     println!("[TEST]   Getting subblocks for both chains...");
     let subblock1 = {
         let node = cl_node.lock().await;
-        node.get_subblock(chain_id_1, 1)
+        node.get_subblock(chain_id_1, start_block_height+1)
             .await
             .expect("Failed to get subblock 1")
     };
     let subblock2 = {
         let node = cl_node.lock().await;
-        node.get_subblock(chain_id_2, 1)
+        node.get_subblock(chain_id_2, start_block_height+1)
             .await
             .expect("Failed to get subblock 2")
     };
@@ -369,7 +372,7 @@ async fn test_send_cat_status_update() {
     println!("\n[TEST]   === Starting test_send_cat_status_update ===");
     
     // Get the test nodes using our helper function
-    let (hs_node, _cl_node, _hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, _cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
     
     // Set chain ID

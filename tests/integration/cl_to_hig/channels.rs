@@ -16,7 +16,7 @@ async fn test_process_subblock() {
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_, mut cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_, mut cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
@@ -64,7 +64,7 @@ async fn test_process_subblock() {
 #[tokio::test]
 async fn test_process_cat_subblock() {
     // Initialize components with 100ms block interval
-    let (_hs_node, mut cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, mut cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
 
     // Register chain
     let chain_id = ChainId("test-chain".to_string());
@@ -110,7 +110,7 @@ async fn test_process_cat_subblock() {
 #[tokio::test]
 async fn test_process_multiple_subblocks_new_transactions() {
     // Create HIG and CL nodes with 100ms block interval
-    let (_, mut cl_node, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_, mut cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
 
     // Register a test chain
     let chain_id = ChainId("test-chain".to_string());
