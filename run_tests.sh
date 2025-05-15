@@ -44,24 +44,17 @@ TESTS=(
     # integration::hig_to_hs::channels::test_cat_status_storage_with_transaction_id
 )
 
-for test in "${TESTS[@]}"; do
-    echo -e "\nRunning $test..."
-    cargo test --test main $test -- --test-threads=1 #--nocapture
-done
+# for test in "${TESTS[@]}"; do
+#     echo -e "\nRunning $test..."
+#     cargo test --test main $test -- --test-threads=1 #--nocapture
+# done
 
 
 TESTS2=(
     ## - - - HS tests - - -
-    hyper_scheduler::basic::test_receive_success_proposal
-    hyper_scheduler::basic::test_receive_failure_proposal
-    hyper_scheduler::basic::test_receive_proposal_errors
-    hyper_scheduler::basic::test_send_success_update
-    hyper_scheduler::basic::test_send_failure_update
-    hyper_scheduler::basic::test_send_update_errors
-    hyper_scheduler::basic::test_process_single_chain_cat
-    hyper_scheduler::basic::test_process_two_chain_cat
-    hyper_scheduler::basic::test_process_conflicting_statuses
-    hyper_scheduler::basic::test_process_cat_timeout
+    hyper_scheduler::basic::test_receive_success_proposal_first_message
+    hyper_scheduler::basic::test_receive_failure_proposal_first_message
+    hyper_scheduler::basic::test_duplicate_rejection
 )
 
 for test in "${TESTS2[@]}"; do

@@ -13,6 +13,8 @@ pub enum HyperSchedulerError {
     TransactionNotFound(TransactionId),
     #[error("Internal error: {0}")]
     Internal(String),
+    #[error("Duplicate proposal: {0}")]
+    DuplicateProposal(CATId),
 }
 
 #[async_trait]

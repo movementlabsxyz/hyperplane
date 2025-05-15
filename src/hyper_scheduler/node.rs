@@ -132,8 +132,16 @@ impl HyperScheduler for HyperSchedulerNode {
 
     async fn receive_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
         println!("[HS] receive_cat_status_proposal called for {} with status {:?}", cat_id.0, status);
+        let mut state = self.state.lock().await;
+        
+        // Check if CAT already exists
+        if state.cat_statuses.contains_key(&cat_id) {
+            println!("[HS] CAT {} already exists, rejecting duplicate proposal", cat_id.0);
+            return Err(HyperSchedulerError::DuplicateProposal(cat_id));
+        }
+        
         // Store the status update
-        self.state.lock().await.cat_statuses.insert(cat_id.clone(), status.clone());
+        state.cat_statuses.insert(cat_id.clone(), status.clone());
         println!("[HS] Status for {} set to {:?}", cat_id.0, status);
         Ok(())
     }
