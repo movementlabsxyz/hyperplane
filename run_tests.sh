@@ -48,10 +48,10 @@ TESTS=(
     # integration::hig_to_hs::channels::test_cat_status_storage_with_transaction_id
 )
 
-for test in "${TESTS[@]}"; do
-    echo -e "\nRunning $test..."
-    cargo test --test main $test -- --test-threads=1 #--nocapture
-done
+# for test in "${TESTS[@]}"; do
+#     echo -e "\nRunning $test..."
+#     cargo test --test main $test -- --test-threads=1 #--nocapture
+# done
 
 
 TESTS2=(

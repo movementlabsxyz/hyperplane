@@ -8,23 +8,23 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// The internal state of the HyperSchedulerNode
-struct HyperSchedulerState {
+pub struct HyperSchedulerState {
     /// Map of CAT IDs to their current status update
-    cat_statuses: HashMap<CATId, CATStatusLimited>,
+    pub cat_statuses: HashMap<CATId, CATStatusLimited>,
     /// The confirmation layer for submitting transactions
-    confirmation_layer: Option<Box<dyn ConfirmationLayer>>,
+    pub confirmation_layer: Option<Box<dyn ConfirmationLayer>>,
     /// The chain IDs for submitting transactions
-    chain_ids: HashSet<ChainId>,
+    pub chain_ids: HashSet<ChainId>,
 }
 
 /// A node that implements the HyperScheduler trait
 pub struct HyperSchedulerNode {
     /// The internal state of the node
-    state: Arc<Mutex<HyperSchedulerState>>,
+    pub state: Arc<Mutex<HyperSchedulerState>>,
     /// Receiver for messages from Hyper IG
-    receiver_from_hig: Option<mpsc::Receiver<CATStatusUpdate>>,
+    pub receiver_from_hig: Option<mpsc::Receiver<CATStatusUpdate>>,
     /// Sender for messages to CL
-    sender_to_cl: Option<mpsc::Sender<CLTransaction>>,
+    pub sender_to_cl: Option<mpsc::Sender<CLTransaction>>,
 }
 
 impl HyperSchedulerNode {
@@ -46,19 +46,37 @@ impl HyperSchedulerNode {
         self.sender_to_cl.as_ref().expect("Sender to CL not set").clone()
     }
 
-    /// Start the message processing loop
-    pub async fn start(&mut self) {
+    /// Take the receiver and state out of the node for message processing
+    pub fn take_receiver_and_state(&mut self) -> (mpsc::Receiver<CATStatusUpdate>, Arc<Mutex<HyperSchedulerState>>) {
+        let receiver = self.receiver_from_hig.take().expect("Receiver already taken");
+        let state = self.state.clone();
+        (receiver, state)
+    }
+
+    /// Process messages without holding the node lock
+    pub async fn process_messages(&mut self) {
         println!("[HS] Message processing loop started");
         let mut receiver = self.receiver_from_hig.take().expect("Receiver already taken");
         let state = self.state.clone();
         
         while let Some(status_update) = receiver.recv().await {
             println!("[HS] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
-            let mut state = state.lock().await;
-            state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
+            println!("[HS] Attempting to acquire state lock for status update...");
+            {
+                let mut state = state.lock().await;
+                println!("[HS] Acquired state lock for status update");
+                state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
+                println!("[HS] Updated state, releasing lock");
+            }
+            println!("[HS] Released state lock after status update");
             println!("[HS] Successfully processed status proposal for {}", status_update.cat_id);
         }
         println!("[HS] Message processing loop exiting");
+    }
+
+    /// Start the message processing loop (deprecated, use process_messages instead)
+    pub async fn start(&mut self) {
+        self.process_messages().await;
     }
 
     /// Set the confirmation layer to use for submitting transactions
@@ -116,8 +134,15 @@ impl HyperSchedulerNode {
 impl HyperScheduler for HyperSchedulerNode {
     async fn get_cat_status(&self, id: CATId) -> Result<CATStatusLimited, HyperSchedulerError> {
         println!("[HS] get_cat_status called for {}", id.0);
-        let result = self.state.lock().await.cat_statuses.get(&id)
-            .cloned();
+        println!("[HS] Attempting to acquire state lock for get_cat_status...");
+        let result = {
+            let state = self.state.lock().await;
+            println!("[HS] Acquired state lock for get_cat_status");
+            let result = state.cat_statuses.get(&id).cloned();
+            println!("[HS] Retrieved status, releasing lock");
+            result
+        };
+        println!("[HS] Released state lock after get_cat_status");
         if let Some(ref status) = result {
             println!("[HS] get_cat_status found status for {}: {:?}", id.0, status);
         } else {
