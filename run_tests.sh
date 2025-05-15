@@ -37,29 +37,28 @@ TESTS=(
 
     ## - - - HIG to HS tests - - -
     integration::hig_to_hs::channels::test_single_cat_status_storage
-    # integration::hig_to_hs::channels::test_multiple_cat_status_storage
-    # integration::hig_to_hs::channels::test_status_proposal_failure
-    # integration::hig_to_hs::channels::test_send_cat_status_proposal
-    # integration::hig_to_hs::channels::test_process_cat_transaction
-    # integration::hig_to_hs::channels::test_process_status_update
-    # integration::hig_to_hs::channels::test_hig_to_hs_status_proposal
-    # integration::hig_to_hs::channels::test_hig_to_hs_status_proposal_failure
-    # integration::hig_to_hs::channels::test_hig_to_hs_multiple_status_proposals
-    # integration::hig_to_hs::channels::test_cat_status_storage_with_transaction_id
+    integration::hig_to_hs::channels::test_multiple_cat_status_storage
+    integration::hig_to_hs::channels::test_status_proposal_failure
+    integration::hig_to_hs::channels::test_send_cat_status_proposal
+    integration::hig_to_hs::channels::test_process_cat_transaction
+    integration::hig_to_hs::channels::test_process_status_update
+    integration::hig_to_hs::channels::test_hig_to_hs_status_proposal
+    integration::hig_to_hs::channels::test_hig_to_hs_status_proposal_failure
+    integration::hig_to_hs::channels::test_hig_to_hs_multiple_status_proposals
+    integration::hig_to_hs::channels::test_cat_status_storage_with_transaction_id
 )
 
-for test in "${TESTS[@]}"; do
-    echo -e "\nRunning $test..."
-    cargo test --test main $test -- --test-threads=1 #--nocapture
-done
+# for test in "${TESTS[@]}"; do
+#     echo -e "\nRunning $test..."
+#     cargo test --test main $test -- --test-threads=1 #--nocapture
+# done
 
 
 TESTS2=(
-    integration::hig_to_hs::channels::test_single_cat_status_storage
 
 )
 
 for test in "${TESTS2[@]}"; do
     echo -e "\nRunning $test..."
-    cargo test --test main $test -- --test-threads=1 --nocapture
+    cargo test --test main $test -- --test-threads=1 #--nocapture
 done
