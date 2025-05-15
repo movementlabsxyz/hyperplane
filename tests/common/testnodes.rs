@@ -62,7 +62,7 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
 
     // Wait a couple of blocks to ensure the block production is ready
     tokio::time::sleep(block_interval * 2).await;
-    println!("  [NODES SETUP]   Block production is ready, current block: {}", cl_node.lock().await.get_current_block().await.unwrap());
+    println!("  [NODES SETUP]   Nodes setup complete, current block: {}", cl_node.lock().await.get_current_block().await.unwrap());
 
     (hs_node, cl_node, hig_node)
 }

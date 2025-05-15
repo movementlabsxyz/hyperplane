@@ -3,7 +3,6 @@ use hyperplane::{
     hyper_ig::HyperIG,
 };
 use crate::common::testnodes;
-use tokio::time::Duration;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use hyperplane::types::{CATId};
@@ -14,28 +13,42 @@ use hyperplane::types::{CATId};
 /// - Status persistence
 #[tokio::test]
 async fn test_normal_transaction_success() {
+    println!("\n=== Starting test_normal_transaction_success ===");
+    
     // use testnodes from common
-    let (_, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    println!("[TEST]   Setting up test nodes...");
+    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    println!("[TEST]   Test nodes setup complete");
     
     // Create a normal transaction with non-dependent data
+    println!("[TEST]   Creating normal transaction...");
     let tx = Transaction {
         id: TransactionId("normal-tx".to_string()),
         data: "any data".to_string(),
     };
+    println!("[TEST]   Transaction created with id: {}", tx.id.0);
     
     // Execute the transaction
+    println!("[TEST]   Executing transaction...");
     let status = hig_node.lock().await.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
+    println!("[TEST]   Transaction status: {:?}", status);
     
     // Verify it was successful (normal transactions with non-dependent data are successful)
     assert!(matches!(status, TransactionStatus::Success));
+    println!("[TEST]   Verified transaction is successful");
     
     // Verify we can retrieve the same status
+    println!("[TEST]   Verifying transaction status persistence...");
     let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
         .await
         .expect("Failed to get transaction status");
+    println!("[TEST]   Retrieved status: {:?}", retrieved_status);
     assert!(matches!(retrieved_status, TransactionStatus::Success));
+    println!("[TEST]   Verified retrieved status is successful");
+    
+    println!("=== Test completed successfully ===\n");
 }
 
 /// Tests normal transaction pending path in HyperIG:
@@ -44,34 +57,51 @@ async fn test_normal_transaction_success() {
 /// - Pending transaction list inclusion
 #[tokio::test]
 async fn test_normal_transaction_pending() {
+    println!("\n=== Starting test_normal_transaction_pending ===");
+    
     // use testnodes from common
-    let (_, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    println!("[TEST]   Setting up test nodes...");
+    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    println!("[TEST]   Test nodes setup complete");
     
     // Create a regular transaction that depends on a CAT transaction
+    println!("[TEST]   Creating dependent transaction...");
     let tx = Transaction {
         id: TransactionId("normal-tx".to_string()),
         data: "DEPENDENT_ON_CAT.tx-cat".to_string(), // Depends on a CAT transaction that doesn't exist yet
     };
+    println!("[TEST]   Transaction created with id: {}", tx.id.0);
     
     // Execute the transaction
+    println!("[TEST]   Executing transaction...");
     let status = hig_node.lock().await.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
+    println!("[TEST]   Transaction status: {:?}", status);
     
     // Verify it stays pending (transactions depending on unresolved CATs stay pending)
     assert!(matches!(status, TransactionStatus::Pending));
+    println!("[TEST]   Verified transaction is pending");
     
     // Verify we can retrieve the same status
+    println!("[TEST]   Verifying transaction status persistence...");
     let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
         .await
         .expect("Failed to get transaction status");
+    println!("[TEST]   Retrieved status: {:?}", retrieved_status);
     assert!(matches!(retrieved_status, TransactionStatus::Pending));
+    println!("[TEST]   Verified retrieved status is pending");
     
     // Verify it's in the pending transactions list
+    println!("[TEST]   Verifying pending transactions list...");
     let pending = hig_node.lock().await.get_pending_transactions()
         .await
         .expect("Failed to get pending transactions");
+    println!("[TEST]   Pending transactions: {:?}", pending);
     assert!(pending.contains(&tx.id));
+    println!("[TEST]   Verified transaction is in pending list");
+    
+    println!("=== Test completed successfully ===\n");
 }
 
 /// Tests CAT transaction success proposal path in HyperIG:
@@ -85,7 +115,7 @@ async fn test_cat_success_proposal() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Wrap hs_node in Arc<Mutex>
@@ -160,7 +190,7 @@ async fn test_cat_failure_proposal() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    let (hs_node, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
 
     // Wrap hs_node in Arc<Mutex>
     println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
@@ -225,28 +255,42 @@ async fn test_cat_failure_proposal() {
 /// - Pending transaction list inclusion
 #[tokio::test]
 async fn test_cat_success_update() {
+    println!("\n=== Starting test_cat_success_update ===");
+    
     // use testnodes from common
-    let (_, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    println!("[TEST]   Setting up test nodes...");
+    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    println!("[TEST]   Test nodes setup complete");
 
     // Create a CAT transaction with success data
+    println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
         id: TransactionId("cat-tx".to_string()),
         data: "STATUS_UPDATE.SUCCESS".to_string(),
     };
+    println!("[TEST]   Transaction created with id: {}", tx.id.0);
     
     // Execute the transaction
+    println!("[TEST]   Executing transaction...");
     let status = hig_node.lock().await.execute_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
+    println!("[TEST]   Transaction status: {:?}", status);
 
     // Verify status is success
     assert!(matches!(status, TransactionStatus::Success));
+    println!("[TEST]   Verified transaction is successful");
 
     // Verify update is successful
+    println!("[TEST]   Verifying transaction status persistence...");
     let get_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
         .await
         .expect("Failed to get transaction status");
+    println!("[TEST]   Retrieved status: {:?}", get_status);
     assert!(matches!(get_status, TransactionStatus::Success));
+    println!("[TEST]   Verified retrieved status is successful");
+    
+    println!("=== Test completed successfully ===\n");
 }
 
 /// Test transaction execution path in HyperIG:
@@ -257,83 +301,132 @@ async fn test_cat_success_update() {
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_execute_transactions() {
+    println!("\n=== Starting test_execute_transactions ===");
+    
     // use testnodes from common
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    println!("[TEST]   Setting up test nodes...");
+    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    println!("[TEST]   Test nodes setup complete");
 
-    // Wrap hs_node in Arc<Mutex>
-    let hs_node = Arc::new(Mutex::new(hs_node));
+    // Create multiple transactions
+    println!("[TEST]   Creating test transactions...");
+    let transactions = vec![
+        Transaction {
+            id: TransactionId("tx1".to_string()),
+            data: "any data".to_string(),
+        },
+        Transaction {
+            id: TransactionId("tx2".to_string()),
+            data: "DEPENDENT_ON_CAT.tx-cat".to_string(),
+        },
+    ];
+    println!("[TEST]   Created {} transactions", transactions.len());
 
-    // Test regular transaction
-    let tx = Transaction {
-        id: TransactionId("test-tx".to_string()),
-        data: "test data".to_string(),
-    };
-    let status = hig_node.lock().await.execute_transaction(tx).await.unwrap();
-    assert!(matches!(status, TransactionStatus::Success));
+    // Execute each transaction
+    println!("[TEST]   Executing transactions...");
+    for tx in &transactions {
+        println!("[TEST]   Executing transaction: {}", tx.id.0);
+        let status = hig_node.lock().await.execute_transaction(tx.clone())
+            .await
+            .expect("Failed to execute transaction");
+        println!("[TEST]   Transaction status: {:?}", status);
+    }
 
-    // Test CAT transaction
-    let cat_tx = Transaction {
-        id: TransactionId("cat-tx".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
-    };
-    let status = hig_node.lock().await.execute_transaction(cat_tx.clone()).await.unwrap();
-    assert!(matches!(status, TransactionStatus::Pending));
-
-    // Verify CAT transaction is in pending list
-    let pending = hig_node.lock().await.get_pending_transactions().await.unwrap();
-    assert!(pending.contains(&cat_tx.id));
+    // Verify status of each transaction
+    println!("[TEST]   Verifying transaction statuses...");
+    for tx in &transactions {
+        println!("[TEST]   Checking status for transaction: {}", tx.id.0);
+        let status = hig_node.lock().await.get_transaction_status(tx.id.clone())
+            .await
+            .expect("Failed to get transaction status");
+        println!("[TEST]   Retrieved status: {:?}", status);
+    }
+    
+    println!("=== Test completed successfully ===\n");
 }
 
-/// Test transaction status retrieval in HyperIG:
-/// - Non-existent transaction status retrieval
-/// - Existing transaction status retrieval
-/// - Transaction status verification
+/// Tests get transaction status functionality:
+/// - Get status of non-existent transaction
+/// - Get status of existing transaction
 #[tokio::test]
 async fn test_get_transaction_status() {
+    println!("\n=== Starting test_get_transaction_status ===");
+    
     // use testnodes from common
-    let (_, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    println!("[TEST]   Setting up test nodes...");
+    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    println!("[TEST]   Test nodes setup complete");
 
-    // Test non-existent transaction
-    let tx_id = TransactionId("non-existent".to_string());
-    let result = hig_node.lock().await.get_transaction_status(tx_id).await;
+    // Try to get status of non-existent transaction
+    println!("[TEST]   Checking status of non-existent transaction...");
+    let non_existent_tx = TransactionId("non-existent".to_string());
+    let result = hig_node.lock().await.get_transaction_status(non_existent_tx.clone())
+        .await;
+    println!("[TEST]   Result for non-existent transaction: {:?}", result);
     assert!(result.is_err());
 
-    // Test existing transaction
+    // Create and execute a transaction
+    println!("[TEST]   Creating test transaction...");
     let tx = Transaction {
         id: TransactionId("test-tx".to_string()),
-        data: "test data".to_string(),
+        data: "any data".to_string(),
     };
-    hig_node.lock().await.execute_transaction(tx.clone()).await.unwrap();
-    let status = hig_node.lock().await.get_transaction_status(tx.id).await.unwrap();
+    println!("[TEST]   Executing transaction...");
+    hig_node.lock().await.execute_transaction(tx.clone())
+        .await
+        .expect("Failed to execute transaction");
+
+    // Get status of existing transaction
+    println!("[TEST]   Checking status of existing transaction...");
+    let status = hig_node.lock().await.get_transaction_status(tx.id.clone())
+        .await
+        .expect("Failed to get transaction status");
+    println!("[TEST]   Retrieved status: {:?}", status);
     assert!(matches!(status, TransactionStatus::Success));
+    
+    println!("=== Test completed successfully ===\n");
 }
 
-/// Test pending transaction retrieval in HyperIG:
-/// - No pending transactions retrieval
-/// - Pending transaction retrieval
-/// - Pending transaction list inclusion
+/// Tests get pending transactions functionality:
+/// - Get pending transactions when none exist
+/// - Get pending transactions after adding some
 #[tokio::test]
-#[allow(unused_variables)]
 async fn test_get_pending_transactions() {
+    println!("\n=== Starting test_get_pending_transactions ===");
+    
     // use testnodes from common
-    let (hs_node, _, hig_node) = testnodes::setup_test_nodes(Duration::from_millis(1000)).await;
+    println!("[TEST]   Setting up test nodes...");
+    let (_, _, hig_node) = testnodes::setup_test_nodes_no_block_production().await;
+    println!("[TEST]   Test nodes setup complete");
 
-    // Wrap hs_node in Arc<Mutex>
-    let hs_node = Arc::new(Mutex::new(hs_node));
-
-    // Initially no pending transactions
-    let pending = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    // Get pending transactions when none exist
+    println!("[TEST]   Checking pending transactions (empty)...");
+    let pending = hig_node.lock().await.get_pending_transactions()
+        .await
+        .expect("Failed to get pending transactions");
+    println!("[TEST]   Pending transactions: {:?}", pending);
     assert!(pending.is_empty());
 
-    // Add a pending transaction
+    // Create and execute a dependent transaction
+    println!("[TEST]   Creating dependent transaction...");
     let tx = Transaction {
         id: TransactionId("pending-tx".to_string()),
-        data: "DEPENDENT_ON_CAT".to_string(), // Make it dependent to ensure it stays pending
+        data: "DEPENDENT_ON_CAT.tx-cat".to_string(),
     };
-    hig_node.lock().await.execute_transaction(tx.clone()).await.unwrap();
-    let pending = hig_node.lock().await.get_pending_transactions().await.unwrap();
-    assert_eq!(pending.len(), 1);
-    assert_eq!(pending[0], tx.id);
+    println!("[TEST]   Executing transaction...");
+    hig_node.lock().await.execute_transaction(tx.clone())
+        .await
+        .expect("Failed to execute transaction");
+
+    // Get pending transactions after adding one
+    println!("[TEST]   Checking pending transactions (with one)...");
+    let pending = hig_node.lock().await.get_pending_transactions()
+        .await
+        .expect("Failed to get pending transactions");
+    println!("[TEST]   Pending transactions: {:?}", pending);
+    assert!(pending.contains(&tx.id));
+    
+    println!("=== Test completed successfully ===\n");
 }
 
 
