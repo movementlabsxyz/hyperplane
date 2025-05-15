@@ -126,8 +126,8 @@ async fn test_cat_success_proposal() {
     // Create a CAT transaction
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
-        id: TransactionId("cat-tx".to_string()),
-        data: "CAT.SIMULATION.SUCCESS".to_string(),
+        id: TransactionId("test-tx".to_string()),
+        data: "CAT.SIMULATION.SUCCESS:test-cat-tx".to_string(),
     };
     println!("[TEST]   CAT transaction created with id: {}", tx.id.0);
     
@@ -200,8 +200,8 @@ async fn test_cat_failure_proposal() {
     // Create a CAT transaction
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
-        id: TransactionId("cat-tx".to_string()),
-        data: "CAT.SIMULATION.FAILURE".to_string(),
+        id: TransactionId("test-tx".to_string()),
+        data: "CAT.SIMULATION.FAILURE:test-cat-tx".to_string(),
     };
     
     // Execute the transaction
@@ -246,7 +246,7 @@ async fn test_cat_failure_proposal() {
     println!("[TEST]   Status proposal sent to HS");
     
     println!("=== Test completed successfully ===\n");
-} 
+}
 
 /// Test CAT transaction success-update path in HyperIG (subblock received from the Confirmation Layer):
 /// - CAT transaction with success data
@@ -265,7 +265,7 @@ async fn test_cat_success_update() {
     // Create a CAT transaction with success data
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
-        id: TransactionId("cat-tx".to_string()),
+        id: TransactionId("test-cat-tx".to_string()),
         data: "STATUS_UPDATE.SUCCESS".to_string(),
     };
     println!("[TEST]   Transaction created with id: {}", tx.id.0);

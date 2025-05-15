@@ -50,21 +50,21 @@ TESTS=(
     hyper_scheduler::basic::test_duplicate_rejection
 
     # - - - CL to HIG tests - - -
-    # # integration::cl_to_hig::channels::test_process_subblock
+    # integration::cl_to_hig::channels::test_process_subblock
     # integration::cl_to_hig::channels::test_process_cat_subblock
     # integration::cl_to_hig::channels::test_process_multiple_subblocks_new_transactions
 
-    ## - - - HIG to HS tests - - -
-    # integration::hig_to_hs::channels::test_single_cat_status_storage
-    # integration::hig_to_hs::channels::test_multiple_cat_status_storage
-    # integration::hig_to_hs::channels::test_status_proposal_failure
-    # integration::hig_to_hs::channels::test_send_cat_status_proposal
-    # integration::hig_to_hs::channels::test_process_cat_transaction
-    # integration::hig_to_hs::channels::test_process_status_update
-    # integration::hig_to_hs::channels::test_hig_to_hs_status_proposal
-    # integration::hig_to_hs::channels::test_hig_to_hs_status_proposal_failure
-    # integration::hig_to_hs::channels::test_hig_to_hs_multiple_status_proposals
-    # integration::hig_to_hs::channels::test_cat_status_storage_with_transaction_id
+    ## - - - cl to HS tests - - -
+    integration::cl_to_hs::channels::test_cat_status_proposal_success
+    # integration::cl_to_hs::channels::test_multiple_cat_status_storage
+    # integration::cl_to_hs::channels::test_status_proposal_failure
+    # integration::cl_to_hs::channels::test_send_cat_status_proposal
+    # integration::cl_to_hs::channels::test_process_cat_transaction
+    # integration::cl_to_hs::channels::test_process_status_update
+    # integration::cl_to_hs::channels::test_cl_to_hs_status_proposal
+    # integration::cl_to_hs::channels::test_cl_to_hs_status_proposal_failure
+    # integration::cl_to_hs::channels::test_cl_to_hs_multiple_status_proposals
+    # integration::cl_to_hs::channels::test_cat_status_storage_with_transaction_id
 
     # - - - HS to CL tests - - -
     integration::hs_to_cl::channels::test_cat_status_update_one_target_chain
@@ -76,7 +76,8 @@ TESTS=(
 )
 
 TESTS2=(
-
+    hyper_ig::basic::test_cat_success_proposal
+    hyper_ig::basic::test_cat_failure_proposal
 
     # integration::cl_to_hig::channels::test_process_subblock
 )

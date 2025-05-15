@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, CATStatusLimited, CATId, ChainId},
+    types::{ChainId, CATId, CATStatusLimited, TransactionId, CLTransaction, Transaction},
     hyper_ig::HyperIG,
     hyper_scheduler::{HyperScheduler, HyperSchedulerNode},
     confirmation_layer::ConfirmationLayer,
@@ -7,43 +7,60 @@ use hyperplane::{
 use tokio::{time::{sleep, Duration}, task};
 use crate::common::testnodes;
 
-/// Tests sending a single CAT status update from HIG to HS:
-/// - HIG proposes a Success status for a CAT
+/// Tests sending a CAT status proposal from CL to HS:
+/// - CL proposes a block with a Success status for a CAT
+/// - HIG receives the block and proposes a status update for the CAT
 /// - HS receives and stores the status
 /// - HS can retrieve the stored Success status
 #[tokio::test]
-async fn test_single_cat_status_storage() {
-    println!("\n[TEST]   === Starting test_single_cat_status_storage ===");
-    
-    let (hs_node, _cl_node, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+async fn test_cat_status_proposal_success() {
+    println!("\n[TEST]   === Starting test_cat_status_proposal_success ===");
+    let (hs_node, cl_node, _hig_node, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
-    // Create a CAT ID and status update
-    let cat_id = CATId("test-cat".to_string());
-    let status = CATStatusLimited::Success;
-    println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
+    // Register chain in CL
+    let chain_id = ChainId("test-chain".to_string());
+    println!("[TEST]   Registering chain: {}", chain_id.0);
+    {
+        let mut node = cl_node.lock().await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+    }
+    println!("[TEST]   Chain registered successfully");
 
-    // Propose the status update
-    println!("[TEST]   Sending CAT status proposal from HIG to HS...");
-    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), status.clone())
-        .await
-        .expect("Failed to propose CAT status update");
-    println!("[TEST]   CAT status proposal sent successfully");
+    // Create a CAT transaction with simulation success
+    let cat_id = CATId("test-cat-tx".to_string());
+    let tx = Transaction {
+        id: TransactionId("cat-tx.chain-1".to_string()),
+        data: "CAT.SIMULATION_SUCCESS.CAT_ID:test-cat-tx".to_string(),
+    };
 
-    // Wait for HS to process the message (150ms to ensure processing)
-    println!("[TEST]   Waiting for HS to process the message (150ms)...");
-    sleep(Duration::from_millis(150)).await;
+    // Submit the transaction to CL
+    println!("[TEST]   Submitting transaction to CL...");
+    {
+        let mut node = cl_node.lock().await;
+        node.submit_transaction(CLTransaction {
+            id: tx.id.clone(),
+            data: tx.data.clone(),
+            chain_id: chain_id.clone(),
+        }).await.expect("Failed to submit transaction");
+    }
+    println!("[TEST]   Transaction submitted successfully");
 
-    // Verify HS stored the status
-    println!("[TEST]   Attempting to acquire hs_node lock for get_cat_status...");
-    let stored_status = hs_node.lock().await.get_cat_status(cat_id.clone())
-        .await
-        .expect("Failed to get CAT status");
-    println!("[TEST]   Released hs_node lock after get_cat_status");
-    println!("[TEST]   Retrieved stored status: {:?}", stored_status);
-    assert_eq!(stored_status, status);
+    // Wait for message processing
+    println!("[TEST]   Waiting for message processing (200ms)...");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    println!("[TEST]   Wait complete");
+
+    // Verify the CAT status was updated in HS
+    println!("[TEST]   Verifying CAT status in HS...");
+    {
+        let node = hs_node.lock().await;
+        let status = node.get_cat_status(cat_id).await.expect("Failed to get CAT status");
+        println!("[TEST]   Retrieved status: {:?}", status);
+        assert_eq!(status, CATStatusLimited::Success);
+    }
     println!("[TEST]   Status verification successful");
-    
+
     println!("[TEST]   === Test completed successfully ===\n");
 }
 
@@ -497,20 +514,4 @@ async fn test_hig_to_hs_multiple_status_proposals() {
     println!("[TEST]   All status verifications successful");
     
     println!("[TEST]   === Test completed successfully ===\n");
-}
-
-#[tokio::test]
-async fn test_cat_transaction_flow() {
-    // use testnodes from common
-    let (_hs_node, _cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
-
-    // ... existing code ...
-}
-
-#[tokio::test]
-async fn test_cat_status_update_flow() {
-    // use testnodes from common
-    let (_hs_node, _cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
-
-    // ... existing code ...
 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use super::TransactionId;
+use super::{TransactionId, ChainId};
 
 /// Unique identifier for a Crosschain Atomic Transaction (CAT)
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -32,6 +32,8 @@ pub enum CATStatusLimited {
 pub struct CATStatusUpdate {
     /// The ID of the CAT
     pub cat_id: CATId,
+    /// The ID of the chain that the status is from
+    pub chain_id: ChainId,
     /// The new status
     pub status: CATStatusLimited,
 }

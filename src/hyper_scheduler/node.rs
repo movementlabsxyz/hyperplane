@@ -71,7 +71,8 @@ impl HyperSchedulerNode {
         
         // Process messages
         while let Some(status_update) = receiver.recv().await {
-            println!("  [HS]   [Message loop task] Received status proposal for {}: {:?}", status_update.cat_id, status_update);
+            println!("  [HS]   [Message loop task] Received status proposal for '{}': {:?}", status_update.cat_id, status_update);
+            // TODO need to handle chain id as well 
             println!("  [HS]   [Message loop task] Attempting to acquire state lock for status update...");
             {
                 let mut state = state.lock().await;
@@ -152,7 +153,7 @@ impl HyperScheduler for HyperSchedulerNode {
         if let Some(ref status) = result {
             println!("  [HS]   get_cat_status found status for {}: {:?}", id.0, status);
         } else {
-            println!("  [HS]   get_cat_status did not find status for {}", id.0);
+            println!("  [HS]   get_cat_status did not find status for '{}'", id.0);
         }
         result.ok_or_else(|| HyperSchedulerError::CATNotFound(id))
     }

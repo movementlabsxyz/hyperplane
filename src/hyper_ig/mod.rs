@@ -1,4 +1,4 @@
-use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, CATStatusLimited};
+use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, CATStatusLimited, SubBlock};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -38,4 +38,7 @@ pub trait HyperIG: Send + Sync {
     
     /// Get the current resolution status of a transaction
     async fn get_resolution_status(&self, id: TransactionId) -> Result<TransactionStatus, HyperIGError>;
+
+    /// Process a subblock of transactions
+    async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError>;
 } 
