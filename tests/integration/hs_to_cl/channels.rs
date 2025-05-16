@@ -1,10 +1,10 @@
 use hyperplane::{
-    types::{ChainId, CATId, CATStatusLimited},
+    types::{ChainId, CATId, StatusLimited},
     hyper_scheduler::HyperScheduler,
     confirmation_layer::ConfirmationLayer,
 };
 use crate::common::testnodes;
-use tokio::time::{sleep, Duration};
+use tokio::time::Duration;
 
 /// Tests that a single-chain CAT status update is properly included in a block:
 /// - HS submits a single-chain CAT status update to CL
@@ -37,7 +37,7 @@ async fn test_single_chain_cat_status_update() {
     println!("[TEST]   Sending CAT status update for '{}'...", cat_id.0);
     {
         let mut node = hs_node.lock().await;
-        node.send_cat_status_update(cat_id.clone(), CATStatusLimited::Success)
+        node.send_cat_status_update(cat_id.clone(), StatusLimited::Success)
             .await
             .expect("Failed to send status update");
     }
@@ -103,9 +103,9 @@ async fn test_several_single_chain_cat_status_updates() {
 
     // Create and send multiple CAT status updates
     let updates = vec![
-        (CATId("cat-1".to_string()), CATStatusLimited::Success),
-        (CATId("cat-2".to_string()), CATStatusLimited::Failure),
-        (CATId("cat-3".to_string()), CATStatusLimited::Success),
+        (CATId("cat-1".to_string()), StatusLimited::Success),
+        (CATId("cat-2".to_string()), StatusLimited::Failure),
+        (CATId("cat-3".to_string()), StatusLimited::Success),
     ];
     println!("[TEST]   Created {} CAT status updates", updates.len());
 

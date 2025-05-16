@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, CATStatusLimited, ChainId, CLTransaction, TransactionStatus},
+    types::{Transaction, TransactionId, StatusLimited, ChainId, CLTransaction, TransactionStatus},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
@@ -15,7 +15,7 @@ use tokio::time::{Duration, timeout};
 /// - HS: Process the status update and send a status update to the CL
 /// - CL: Include the status update in a block
 /// - HIG: Process the status update and update the transaction status (success or failure)
-async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
+async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     println!("\n[TEST]   === Starting CAT test with expected status: {:?} ===", expected_status);
     
     // Initialize components with 100ms block interval
@@ -38,18 +38,18 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
     println!("[TEST]   Chain registered successfully");
 
     // Submit CAT transaction to CL
-    let tx = Transaction {
-        id: TransactionId("test-cat".to_string()),
-        data: format!("CAT.SIMULATION.{:?}:test-cat", expected_status),
-    };
+    let tx = Transaction::new(
+        TransactionId("test-cat".to_string()),
+        format!("CAT.SIMULATION.{:?}.CAT_ID:test-cat", expected_status)
+    ).expect("Failed to create transaction");
     println!("[TEST]   Submitting CAT transaction with ID: {}", tx.id.0);
     {
         let mut node = cl_node.lock().await;
-        node.submit_transaction(CLTransaction {
-            id: tx.id.clone(),
-            data: tx.data.clone(),
-            chain_id: chain_id.clone(),
-        }).await.expect("Failed to submit transaction");
+        node.submit_transaction(CLTransaction::new(
+            tx.id.clone(),
+            chain_id.clone(),
+            tx.data.clone()
+        ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
     }
     println!("[TEST]   CAT transaction submitted successfully");
 
@@ -83,8 +83,8 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
     
     // The status should match the expected status from the CAT transaction
     let expected_tx_status = match expected_status {
-        CATStatusLimited::Success => TransactionStatus::Success,
-        CATStatusLimited::Failure => TransactionStatus::Failure,
+        StatusLimited::Success => TransactionStatus::Success,
+        StatusLimited::Failure => TransactionStatus::Failure,
     };
     assert_eq!(status, expected_tx_status, "Transaction status should match the expected status from CAT transaction");
     
@@ -94,7 +94,7 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
 /// Tests single chain CAT success
 #[tokio::test]
 async fn test_single_chain_cat_success() {
-    timeout(Duration::from_secs(2), run_single_chain_cat_test(CATStatusLimited::Success))
+    timeout(Duration::from_secs(2), run_single_chain_cat_test(StatusLimited::Success))
         .await
         .expect("Test timed out after 2 seconds");
 }
@@ -102,7 +102,7 @@ async fn test_single_chain_cat_success() {
 /// Tests single chain CAT failure
 #[tokio::test]
 async fn test_single_chain_cat_failure() {
-    timeout(Duration::from_secs(2), run_single_chain_cat_test(CATStatusLimited::Failure))
+    timeout(Duration::from_secs(2), run_single_chain_cat_test(StatusLimited::Failure))
         .await
         .expect("Test timed out after 2 seconds");
 }

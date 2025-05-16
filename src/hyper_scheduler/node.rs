@@ -1,4 +1,4 @@
-use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate};
+use crate::types::{CATId, TransactionId, StatusLimited, CLTransaction, ChainId, CATStatusUpdate};
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 /// The internal state of the HyperSchedulerNode
 pub struct HyperSchedulerState {
     /// Map of CAT IDs to their current status update
-    pub cat_statuses: HashMap<CATId, CATStatusLimited>,
+    pub cat_statuses: HashMap<CATId, StatusLimited>,
     /// The chain IDs for submitting transactions
     pub chain_ids: HashSet<ChainId>,
 }
@@ -148,7 +148,7 @@ impl HyperSchedulerNode {
 
 #[async_trait]
 impl HyperScheduler for HyperSchedulerNode {
-    async fn get_cat_status(&self, id: CATId) -> Result<CATStatusLimited, HyperSchedulerError> {
+    async fn get_cat_status(&self, id: CATId) -> Result<StatusLimited, HyperSchedulerError> {
         println!("  [HS]   get_cat_status called for {}", id.0);
         // println!("  [HS]   Attempting to acquire state lock for get_cat_status...");
         let result = {
@@ -171,7 +171,7 @@ impl HyperScheduler for HyperSchedulerNode {
         Ok(self.state.lock().await.cat_statuses.keys().cloned().collect())
     }
 
-    async fn receive_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
+    async fn receive_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperSchedulerError> {
         println!("  [HS]   receive_cat_status_proposal called for {} with status {:?}", cat_id.0, status);
         let mut state = self.state.lock().await;
         
@@ -187,7 +187,7 @@ impl HyperScheduler for HyperSchedulerNode {
         Ok(())
     }
 
-    async fn send_cat_status_update(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
+    async fn send_cat_status_update(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperSchedulerError> {
         println!("  [HS]   send_cat_status_update called for CAT {} with status {:?}", cat_id.0, status);
         // Update the CAT status
         self.state.lock().await.cat_statuses.insert(cat_id.clone(), status.clone());
@@ -200,8 +200,8 @@ impl HyperScheduler for HyperSchedulerNode {
         }
 
         let status_str = match status {
-            CATStatusLimited::Success => "STATUS_UPDATE.Success.CAT_ID:".to_string() + &cat_id.0,
-            CATStatusLimited::Failure => "STATUS_UPDATE.Failure.CAT_ID:".to_string() + &cat_id.0,
+            StatusLimited::Success => "STATUS_UPDATE.Success.CAT_ID:".to_string() + &cat_id.0,
+            StatusLimited::Failure => "STATUS_UPDATE.Failure.CAT_ID:".to_string() + &cat_id.0,
         };
 
         // Send the status update to all registered chains

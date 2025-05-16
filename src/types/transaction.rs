@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use super::{ChainId, TransactionId};
-
+use crate::types::communication::cl_to_hig::TransactionData;
 /// Status of a transaction
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TransactionStatus {
@@ -25,6 +25,15 @@ pub struct CLTransaction {
     pub data: String,
 }
 
+impl CLTransaction {
+    /// Creates a new CLTransaction, ensuring that the `data` string matches expected format
+    pub fn new(id: TransactionId, chain_id: ChainId, data: String) -> Result<Self, String> {
+        // Use TransactionData's validation logic
+        TransactionData::validate(&data)?;
+        Ok(CLTransaction { id, chain_id, data })
+    }
+}
+
 /// A simple transaction type for testing destined to be included in a subblock and the respective chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transaction {
@@ -32,6 +41,15 @@ pub struct Transaction {
     pub id: TransactionId,
     /// The actual transaction data (just a string for now)
     pub data: String,
+}
+
+impl Transaction {
+    /// Creates a new Transaction, ensuring that the `data` string matches expected format
+    pub fn new(id: TransactionId, data: String) -> Result<Self, String> {
+        // Use TransactionData's validation logic
+        TransactionData::validate(&data)?;
+        Ok(Transaction { id, data })
+    }
 }
 
 /// A status update for a transaction from the Hyper IG to the Hyper Scheduler

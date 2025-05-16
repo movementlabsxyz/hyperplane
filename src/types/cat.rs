@@ -17,13 +17,12 @@ pub enum CATStatus {
     Failure,
 }
 
-/// The proposed status of a CAT from the Hyper IG to the Hyper Scheduler
-/// We use this as we would like to have a reduced set of options (we do not want to have a pending status)
+/// The possible final status of a CAT or transaction
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CATStatusLimited {
-    /// CAT is successful
+pub enum StatusLimited {
+    /// CAT or transaction is successful
     Success,
-    /// CAT failed
+    /// CAT or transaction failed
     Failure,
 }
 
@@ -35,7 +34,7 @@ pub struct CATStatusUpdate {
     /// The ID of the chain that the status is from
     pub chain_id: ChainId,
     /// The new status
-    pub status: CATStatusLimited,
+    pub status: StatusLimited,
 }
 
 /// A Crosschain Atomic Transaction (CAT)

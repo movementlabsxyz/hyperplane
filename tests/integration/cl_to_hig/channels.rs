@@ -33,19 +33,19 @@ async fn run_test_process_subblock(
     println!("[TEST]   Chain registered successfully");
 
     // Submit regulartransaction to CL
-    let tx = Transaction {
-        id: TransactionId("test-tx".to_string()),
-        data: transaction_data.to_string(),
-    };
+    let tx = Transaction::new(
+        TransactionId("test-tx".to_string()),
+        transaction_data.to_string()
+    ).expect("Failed to create transaction");
     println!("[TEST]   Submitting transaction with ID: {}", tx.id.0);
     // create a local scope (note the test currently fails without this)
     {
         let mut node = cl_node.lock().await;
-        node.submit_transaction(CLTransaction {
-            id: tx.id.clone(),
-            data: tx.data.clone(),
-            chain_id: chain_id.clone(),
-        }).await.expect("Failed to submit transaction");
+        node.submit_transaction(CLTransaction::new(
+            tx.id.clone(),
+            chain_id.clone(),
+            tx.data.clone()
+        ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
     }
     println!("[TEST]   Transaction submitted successfully");
 
@@ -79,18 +79,18 @@ async fn run_test_process_subblock(
 /// Tests that a subblock with a regular transaction (success) is properly processed by the HIG
 #[tokio::test]
 async fn test_process_subblock_with_regular_transaction_success() {
-    run_test_process_subblock("REGULAR_TRANSACTION.Success", TransactionStatus::Success).await;
+    run_test_process_subblock("REGULAR.SIMULATION.Success", TransactionStatus::Success).await;
 }
 
 /// Tests that a subblock with a regular transaction (failure) is properly processed by the HIG
 #[tokio::test]
 async fn test_process_subblock_with_regular_transaction_failure() {
-    run_test_process_subblock("REGULAR_TRANSACTION.Failure", TransactionStatus::Failure).await;
+    run_test_process_subblock("REGULAR.SIMULATION.Failure", TransactionStatus::Failure).await;
 }
 
 /// Tests that a subblock with a CAT transaction is properly processed by the HIG
 #[tokio::test]
 async fn test_process_subblock_with_cat_transaction() {
-    run_test_process_subblock("CAT.SIMULATION.Success", TransactionStatus::Pending).await;
+    run_test_process_subblock("CAT.SIMULATION.Success.CAT_ID:test-cat", TransactionStatus::Pending).await;
 }
 

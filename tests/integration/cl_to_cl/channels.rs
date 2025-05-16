@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, ChainId, CLTransaction, CATStatusLimited},
+    types::{Transaction, TransactionId, ChainId, CLTransaction, StatusLimited},
     confirmation_layer::ConfirmationLayer,
 };
 use tokio::time::Duration;
@@ -10,7 +10,7 @@ use crate::common::testnodes;
 /// - HIG: Process the CAT transaction (pending) and send a status update to the HS
 /// - HS: Process the status update and send a status update to the CL
 /// - CL: Verify the status update
-async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
+async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     println!("\n[TEST]   === Starting CAT test with expected status: {:?} ===", expected_status);
     
     // Initialize components with 100ms block interval
@@ -33,18 +33,18 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
     println!("[TEST]   Chain registered successfully");
 
     // Submit CAT transaction to CL
-    let tx = Transaction {
-        id: TransactionId("test-cat".to_string()),
-        data: format!("CAT.SIMULATION.{:?}:test-cat", expected_status),
-    };
+    let tx = Transaction::new(
+        TransactionId("test-cat".to_string()),
+        format!("CAT.SIMULATION.{:?}.CAT_ID:test-cat", expected_status)
+    ).expect("Failed to create transaction");
     println!("[TEST]   Submitting CAT transaction with ID: {}", tx.id.0);
     {
         let mut node = cl_node.lock().await;
-        node.submit_transaction(CLTransaction {
-            id: tx.id.clone(),
-            data: tx.data.clone(),
-            chain_id: chain_id.clone(),
-        }).await.expect("Failed to submit transaction");
+        node.submit_transaction(CLTransaction::new(
+            tx.id.clone(),
+            chain_id.clone(),
+            tx.data.clone()
+        ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
     }
     println!("[TEST]   CAT transaction submitted successfully");
 
@@ -90,11 +90,11 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
 /// Tests single chain CAT success
 #[tokio::test]
 async fn test_single_chain_cat_success() {
-    run_single_chain_cat_test(CATStatusLimited::Success).await;
+    run_single_chain_cat_test(StatusLimited::Success).await;
 }
 
 /// Tests single chain CAT failure
 #[tokio::test]
 async fn test_single_chain_cat_failure() {
-    run_single_chain_cat_test(CATStatusLimited::Failure).await;
+    run_single_chain_cat_test(StatusLimited::Failure).await;
 }

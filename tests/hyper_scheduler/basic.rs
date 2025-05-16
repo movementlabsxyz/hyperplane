@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{CATId, CATStatusLimited},
+    types::{CATId, StatusLimited},
     hyper_scheduler::node::HyperSchedulerNode,
     HyperScheduler,
 };
@@ -24,7 +24,7 @@ async fn test_receive_success_proposal_first_message() {
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status = CATStatusLimited::Success;
+    let status = StatusLimited::Success;
     println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
 
     // Receive the status proposal directly
@@ -56,7 +56,7 @@ async fn test_receive_failure_proposal_first_message() {
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status = CATStatusLimited::Failure;
+    let status = StatusLimited::Failure;
     println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
 
     // Receive the status proposal directly
@@ -97,7 +97,7 @@ async fn test_duplicate_rejection() {
 
     // Test proposal behavior
     let cat_id = CATId("test-cat".to_string());
-    let status = CATStatusLimited::Success;
+    let status = StatusLimited::Success;
     
     // First proposal should create a record
     hs_node.receive_cat_status_proposal(cat_id.clone(), status.clone())

@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CAT, CATId, SubBlock, CATStatusUpdate};
+use crate::types::{Transaction, TransactionId, TransactionStatus, StatusLimited, CAT, CATId, SubBlock, CATStatusUpdate};
 use super::{HyperIG, HyperIGError};
 use tokio::sync::mpsc;
 use std::sync::Arc;
@@ -14,7 +14,7 @@ struct HyperIGState {
     /// Set of pending transaction IDs
     pending_transactions: HashSet<TransactionId>,
     /// Proposed status for CAT transactions
-    cat_proposed_statuses: HashMap<TransactionId, CATStatusLimited>,
+    cat_proposed_statuses: HashMap<TransactionId, StatusLimited>,
 }
 
 /// Node implementation of the Hyper Information Gateway
@@ -120,7 +120,7 @@ impl HyperIGNode {
         &mut self,
         cat_id: CATId,
         _tx_id: TransactionId,
-        status: CATStatusLimited
+        status: StatusLimited
     ) -> Result<(), HyperIGError> {
         if let Some(sender) = &mut self.sender_hig_to_hs {
             let status_update = CATStatusUpdate {
@@ -135,7 +135,7 @@ impl HyperIGNode {
     }
 
     /// Get the proposed status for a CAT transaction
-    pub async fn get_proposed_status(&self, tx_id: TransactionId) -> Result<CATStatusLimited, anyhow::Error> {
+    pub async fn get_proposed_status(&self, tx_id: TransactionId) -> Result<StatusLimited, anyhow::Error> {
         Ok(self.state.lock().await.cat_proposed_statuses.get(&tx_id)
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("No proposed status found for transaction"))?)
@@ -151,10 +151,10 @@ impl HyperIGNode {
         
         // Store proposed status based on transaction data
         let proposed_status = if tx.data.contains("Success") {
-            CATStatusLimited::Success
+            StatusLimited::Success
         } else {
             // Default to Failure for all other cases
-            CATStatusLimited::Failure
+            StatusLimited::Failure
         };
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
         
@@ -203,20 +203,20 @@ impl HyperIGNode {
     /// Handle a regular transaction
     async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         println!("  [HIG]   Executing regular transaction: {}", tx.id);
-        // check the data if its "REGULAR_TRANSACTION.Success" or "REGULAR_TRANSACTION.Failure"
-        if tx.data.starts_with("REGULAR_TRANSACTION.Success") {
+        // check the data if its "REGULAR.SIMULATION.<Status>"
+        if tx.data.starts_with("REGULAR.SIMULATION.Success") {
             // Store Success status for regular transactions
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Success);
             println!("  [HIG]   Set final status to Success for transaction: {}", tx.id.0);
             Ok(TransactionStatus::Success)
-        } else if tx.data.starts_with("REGULAR_TRANSACTION.Failure") {
+        } else if tx.data.starts_with("REGULAR.SIMULATION.Failure") {
             // Store Failure status for regular transactions
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
             println!("  [HIG]   Set final status to Failure for transaction: {}", tx.id.0);
             Ok(TransactionStatus::Failure)
         } else {
             // TODO we only handle correct data txs for now to have strict control over the transactions. We may get rid of this later.
-            return Err(anyhow::anyhow!("Invalid regular transaction data: {}", tx.data));
+            return Err(anyhow::anyhow!("Invalid regular transaction data: '{}'", tx.data));
         }
     }
 
@@ -247,7 +247,7 @@ impl HyperIG for HyperIGNode {
             
             let status = if tx.data.starts_with("CAT") {
                 self.handle_cat_transaction(tx.clone()).await?
-            } else if tx.data.starts_with("DEPENDENT_ON_CAT") {
+            } else if tx.data.starts_with("DEPENDENT") {
                 self.handle_dependent_regular_transaction(tx.clone()).await?
             } else {
                 self.handle_regular_transaction(tx.clone()).await?
@@ -269,9 +269,9 @@ impl HyperIG for HyperIGNode {
             }
             let cat_id = CATId(parts[1].to_string());
             let status = if parts[0].contains("Success") {
-                CATStatusLimited::Success
+                StatusLimited::Success
             } else if parts[0].contains("Failure") {
-                CATStatusLimited::Failure
+                StatusLimited::Failure
             } else {
                 return Err(anyhow::anyhow!("Invalid CAT status in data: {}", parts[0]));
             };
@@ -300,7 +300,7 @@ impl HyperIG for HyperIGNode {
         Ok(self.state.lock().await.pending_transactions.iter().cloned().collect())
     }
 
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperIGError> {
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperIGError> {
         if let Some(sender) = &mut self.sender_hig_to_hs {
             let status_update = CATStatusUpdate {
                 cat_id: cat_id.clone(),
@@ -359,7 +359,7 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
         node.get_pending_transactions().await
     }
 
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited) -> Result<(), HyperIGError> {
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperIGError> {
         let mut node = self.lock().await;
         node.send_cat_status_proposal(cat_id, status).await
     }

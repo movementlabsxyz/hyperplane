@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited},
+    types::{Transaction, TransactionId, TransactionStatus, StatusLimited},
     hyper_ig::HyperIG,
 };
 use crate::common::testnodes;
@@ -20,10 +20,10 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
 
     let tx_id = "test-tx";
     println!("\n[TEST]   Processing transaction: {}", tx_id);
-    let tx = Transaction {
-        id: TransactionId(tx_id.to_string()),
-        data: format!("REGULAR_TRANSACTION.{:?}", expected_status),
-    };
+    let tx = Transaction::new(
+        TransactionId(tx_id.to_string()),
+        format!("REGULAR.SIMULATION.{:?}", expected_status)
+    ).expect("Failed to create transaction");
     
     // Process transaction and verify initial status
     let status = hig_node.lock().await.process_transaction(tx.clone())
@@ -54,7 +54,7 @@ async fn test_regular_transaction_failure() {
     run_test_regular_transaction_status(TransactionStatus::Failure).await;
 }
 
-/// Tests normal transaction pending path in HyperIG:
+/// Tests regular transaction pending path in HyperIG:
 /// - Regular transaction that depends on a CAT transaction
 /// - Pending status verification (stays pending until CAT is resolved)
 /// - Pending transaction list inclusion
@@ -69,10 +69,10 @@ async fn test_normal_transaction_pending() {
     
     // Create a regular transaction that depends on a CAT transaction
     println!("[TEST]   Creating dependent transaction...");
-    let tx = Transaction {
-        id: TransactionId("normal-tx".to_string()),
-        data: "DEPENDENT_ON_CAT.tx-cat".to_string(), // Depends on a CAT transaction that doesn't exist yet
-    };
+    let tx = Transaction::new(
+        TransactionId("REGULAR.SIMULATION.Success".to_string()),
+        "DEPENDENT.SIMULATION.Success".to_string()
+    ).expect("Failed to create transaction");
     println!("[TEST]   Transaction created with tx-id='{}'", tx.id);
     
     // Execute the transaction
@@ -108,7 +108,7 @@ async fn test_normal_transaction_pending() {
 }
 
 /// Helper function to test CAT status proposal
-async fn run_test_single_chain_cat(expected_status: CATStatusLimited) {
+async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     println!("\n=== Starting test_single_chain_cat ({:?}) ===", expected_status);
     
     // use testnodes from common
@@ -122,10 +122,10 @@ async fn run_test_single_chain_cat(expected_status: CATStatusLimited) {
     
     // Create a CAT transaction
     println!("[TEST]   Creating CAT transaction...");
-    let tx = Transaction {
-        id: TransactionId("test-tx".to_string()),
-        data: format!("CAT.SIMULATION.{:?}:test-cat-tx", expected_status),
-    };
+    let tx = Transaction::new(
+        TransactionId("test-tx".to_string()),
+        format!("CAT.SIMULATION.{:?}.CAT_ID:test-cat-tx", expected_status)
+    ).expect("Failed to create transaction");
     println!("[TEST]   CAT transaction created with tx-id='{}' : data='{}'", tx.id, tx.data);
     
     // Execute the transaction
@@ -180,14 +180,14 @@ async fn run_test_single_chain_cat(expected_status: CATStatusLimited) {
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_success_proposal() {
-    run_test_single_chain_cat(CATStatusLimited::Success).await;
+    run_test_single_chain_cat(StatusLimited::Success).await;
 }
 
 /// Tests CAT transaction failure proposal path in HyperIG
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_failure_proposal() {
-    run_test_single_chain_cat(CATStatusLimited::Failure).await;
+    run_test_single_chain_cat(StatusLimited::Failure).await;
 }
 
 /// Tests get pending transactions functionality:
@@ -212,10 +212,10 @@ async fn test_get_pending_transactions() {
 
     // Create and execute a dependent transaction
     println!("[TEST]   Creating dependent transaction...");
-    let tx = Transaction {
-        id: TransactionId("pending-tx".to_string()),
-        data: "DEPENDENT_ON_CAT.tx-cat".to_string(),
-    };
+    let tx = Transaction::new(
+        TransactionId("pending-tx".to_string()),
+        "DEPENDENT.SIMULATION.Success".to_string()
+    ).expect("Failed to create transaction");
     println!("[TEST]   Executing transaction...");
     hig_node.lock().await.process_transaction(tx.clone())
         .await
