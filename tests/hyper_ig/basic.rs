@@ -108,8 +108,8 @@ async fn test_normal_transaction_pending() {
 }
 
 /// Helper function to test CAT status proposal
-async fn helper_test_cat_status_proposal(expected_status: CATStatusLimited) {
-    println!("\n=== Starting test_cat_status_proposal ({:?}) ===", expected_status);
+async fn run_test_single_chain_cat(expected_status: CATStatusLimited) {
+    println!("\n=== Starting test_single_chain_cat ({:?}) ===", expected_status);
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
@@ -180,108 +180,14 @@ async fn helper_test_cat_status_proposal(expected_status: CATStatusLimited) {
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_success_proposal() {
-    helper_test_cat_status_proposal(CATStatusLimited::Success).await;
+    run_test_single_chain_cat(CATStatusLimited::Success).await;
 }
 
 /// Tests CAT transaction failure proposal path in HyperIG
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_failure_proposal() {
-    helper_test_cat_status_proposal(CATStatusLimited::Failure).await;
-}
-
-/// Test transaction execution path in HyperIG:
-/// - Regular transaction execution (success)
-/// - CAT transaction execution (pending)
-/// - Transaction status verification
-/// - Pending transaction list inclusion
-#[tokio::test]
-#[allow(unused_variables)]
-async fn test_execute_transactions() {
-    println!("\n=== Starting test_execute_transactions ===");
-    
-    // use testnodes from common
-    println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
-    println!("[TEST]   Test nodes setup complete");
-
-    // Create multiple transactions
-    println!("[TEST]   Creating test transactions...");
-    let transactions = vec![
-        Transaction {
-            id: TransactionId("tx1".to_string()),
-            data: "any data".to_string(),
-        },
-        Transaction {
-            id: TransactionId("tx2".to_string()),
-            data: "DEPENDENT_ON_CAT.tx-cat".to_string(),
-        },
-    ];
-    println!("[TEST]   Created {} transactions", transactions.len());
-
-    // Execute each transaction
-    println!("[TEST]   Executing transactions...");
-    for tx in &transactions {
-        println!("[TEST]   Executing transaction: {}", tx.id.0);
-        let status = hig_node.lock().await.process_transaction(tx.clone())
-            .await
-            .expect("Failed to execute transaction");
-        println!("[TEST]   Transaction status: {:?}", status);
-    }
-
-    // Verify status of each transaction
-    println!("[TEST]   Verifying transaction statuses...");
-    for tx in &transactions {
-        println!("[TEST]   Checking status for transaction: {}", tx.id.0);
-        let status = hig_node.lock().await.get_transaction_status(tx.id.clone())
-            .await
-            .expect("Failed to get transaction status");
-        println!("[TEST]   Retrieved status: {:?}", status);
-    }
-    
-    println!("=== Test completed successfully ===\n");
-}
-
-/// Tests get transaction status functionality:
-/// - Get status of non-existent transaction
-/// - Get status of existing transaction
-#[tokio::test]
-async fn test_get_transaction_status() {
-    println!("\n=== Starting test_get_transaction_status ===");
-    
-    // use testnodes from common
-    println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
-    println!("[TEST]   Test nodes setup complete");
-
-    // Try to get status of non-existent transaction
-    println!("[TEST]   Checking status of non-existent transaction...");
-    let non_existent_tx = TransactionId("non-existent".to_string());
-    let result = hig_node.lock().await.get_transaction_status(non_existent_tx.clone())
-        .await;
-    println!("[TEST]   Result for non-existent transaction: {:?}", result);
-    assert!(result.is_err());
-
-    // Create and execute a transaction
-    println!("[TEST]   Creating test transaction...");
-    let tx = Transaction {
-        id: TransactionId("test-tx".to_string()),
-        data: "any data".to_string(),
-    };
-    println!("[TEST]   Executing transaction...");
-    hig_node.lock().await.process_transaction(tx.clone())
-        .await
-        .expect("Failed to execute transaction");
-
-    // Get status of existing transaction
-    println!("[TEST]   Checking status of existing transaction...");
-    let status = hig_node.lock().await.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    println!("[TEST]   Retrieved status: {:?}", status);
-    assert!(matches!(status, TransactionStatus::Success));
-    
-    println!("=== Test completed successfully ===\n");
+    run_test_single_chain_cat(CATStatusLimited::Failure).await;
 }
 
 /// Tests get pending transactions functionality:

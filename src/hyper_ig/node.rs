@@ -41,7 +41,7 @@ impl HyperIGNode {
         }
     }
 
-    /// Process messages without holding the node lock
+    /// Process messages
     pub async fn process_messages(hig_node: Arc<Mutex<HyperIGNode>>) {
         println!("  [HIG]   [Message loop task] Starting message processing loop");
         loop {
