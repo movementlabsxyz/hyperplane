@@ -22,7 +22,7 @@ pub enum HyperIGError {
 #[async_trait]
 pub trait HyperIG: Send + Sync {
     /// Execute a transaction and return its status
-    async fn execute_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error>;
+    async fn process_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error>;
 
     /// Get the current status of a transaction
     async fn get_transaction_status(&self, transaction_id: TransactionId) -> Result<TransactionStatus, anyhow::Error>;

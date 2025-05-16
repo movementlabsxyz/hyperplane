@@ -297,7 +297,7 @@ async fn test_process_cat_transaction() {
     println!("[TEST]   Created CAT transaction with ID: {}", tx.id.0);
     
     println!("[TEST]   Executing CAT transaction...");
-    hig_node.lock().await.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
+    hig_node.lock().await.process_transaction(tx.clone()).await.expect("Failed to execute transaction");
     println!("[TEST]   CAT transaction executed successfully");
 
     // Wait for HS to process the message (150ms to ensure processing)
@@ -345,7 +345,7 @@ async fn test_process_status_update() {
     println!("[TEST]   Created CAT transaction with ID: {}", tx.id.0);
     
     println!("[TEST]   Executing CAT transaction...");
-    hig_node.lock().await.execute_transaction(tx.clone()).await.expect("Failed to execute transaction");
+    hig_node.lock().await.process_transaction(tx.clone()).await.expect("Failed to execute transaction");
     println!("[TEST]   CAT transaction executed successfully");
 
     // Wait for HS to process the message (150ms to ensure processing)

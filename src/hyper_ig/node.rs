@@ -88,10 +88,10 @@ impl HyperIGNode {
         println!("  [HIG]   Processing subblock: block_id={}, chain_id={}, tx_count={}", 
             subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
         for tx in &subblock.transactions {
-            println!("  [HIG]   Executing transaction: id={}, data={}", tx.id.0, tx.data);
+            println!("  [HIG]   ...tx-id={} : data={}", tx.id.0, tx.data);
         }
         for tx in subblock.transactions {
-            HyperIG::execute_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
+            HyperIG::process_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
         }
         Ok(())
     }
@@ -163,12 +163,44 @@ impl HyperIGNode {
 
     /// Handle a status update transaction
     async fn handle_status_update(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        println!("  [HIG]   Handling status update transaction: {}", transaction.id.0);
-        // Status update transactions are always successful
-        self.state.lock().await.transaction_statuses.insert(transaction.id.clone(), TransactionStatus::Success);
+        println!("  [HIG]   Handling status update tx-id='{}' : data='{}'", transaction.id.0, transaction.data);
+        
+        // Extract the CAT ID and status from the transaction data
+        // Format: STATUS_UPDATE.<Status>.CAT_ID:<cat_id>
+        let parts: Vec<&str> = transaction.data.split(".").collect();
+        if parts.len() != 3 {
+            return Err(anyhow::anyhow!("Invalid status update format: {}", transaction.data));
+        }
+        
+        let status_part = parts[1];
+        let cat_id_part = parts[2];
+        if !cat_id_part.starts_with("CAT_ID:") {
+            return Err(anyhow::anyhow!("Invalid CAT ID format in status update: {}", cat_id_part));
+        }
+        
+        let cat_id = cat_id_part.replace("CAT_ID:", "");
+        let original_tx_id = TransactionId(cat_id.clone());
+        
+        // Update the status of the original CAT transaction
+        let status = if status_part == "Success" {
+            TransactionStatus::Success
+        } else if status_part == "Failure" {
+            TransactionStatus::Failure
+        } else {
+            return Err(anyhow::anyhow!("Invalid status in update: {}", status_part));
+        };
+        println!("  [HIG]   ... (Before) status of original tx-id='{}': {:?}", original_tx_id.0, self.state.lock().await.transaction_statuses.get(&original_tx_id));
+        self.state.lock().await.transaction_statuses.insert(original_tx_id.clone(), status.clone());
+        println!("  [HIG]   Updated status to {:?} for original CAT tx-id='{}'", status, original_tx_id.0);
+        println!("  [HIG]   ... (After)  status of original tx-id='{}': {:?}", original_tx_id.0, self.state.lock().await.transaction_statuses.get(&original_tx_id));
+        
+        // Remove from pending transactions if present
+        self.state.lock().await.pending_transactions.remove(&original_tx_id);
+        
         Ok(TransactionStatus::Success)
     }
 
+    /// Handle a regular transaction
     async fn handle_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         println!("  [HIG]   Executing regular transaction: {}", transaction.id);
         // Store Success status for regular transactions
@@ -177,6 +209,7 @@ impl HyperIGNode {
         Ok(TransactionStatus::Success)
     }
 
+    /// Handle a dependent regular transaction
     async fn handle_dependent_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         println!("  [HIG]   Processing dependent transaction: {}", transaction.id);
         // Add to pending transactions set
@@ -188,26 +221,33 @@ impl HyperIGNode {
 
 #[async_trait]
 impl HyperIG for HyperIGNode {
-    async fn execute_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        println!("  [HIG]   Executing transaction: {}", transaction.id.0);
-        // Store initial status
-        self.state.lock().await.transaction_statuses.insert(transaction.id.clone(), TransactionStatus::Pending);
-        println!("  [HIG]   Set initial status to Pending for transaction: {}", transaction.id.0);
+    async fn process_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+        println!("  [HIG]   Processing transaction: {}", transaction.id.0);
 
-        // Execute the transaction
-        let status = if transaction.data.starts_with("CAT") {
-            self.handle_cat_transaction(transaction.clone()).await?
-        } else if transaction.data.starts_with("STATUS_UPDATE") {
+        // handle the case where it is a status update separately
+        // because it doesn't need to be inserted into the transaction statuses
+        let status = if transaction.data.starts_with("STATUS_UPDATE") {
             self.handle_status_update(transaction.clone()).await?
-        } else if transaction.data.starts_with("DEPENDENT_ON_CAT") {
-            self.handle_dependent_regular_transaction(transaction.clone()).await?
         } else {
-            self.handle_regular_transaction(transaction.clone()).await?
+            // now handle the case where it is any of the other transaction types
+            // Store initial status
+            self.state.lock().await.transaction_statuses.insert(transaction.id.clone(), TransactionStatus::Pending);
+            println!("  [HIG]   Set initial status to Pending for tx-id: '{}' : data: '{}'", transaction.id, transaction.data);
+            
+            let status = if transaction.data.starts_with("CAT") {
+                self.handle_cat_transaction(transaction.clone()).await?
+            } else if transaction.data.starts_with("DEPENDENT_ON_CAT") {
+                self.handle_dependent_regular_transaction(transaction.clone()).await?
+            } else {
+                self.handle_regular_transaction(transaction.clone()).await?
+            };
+            
+            // Update status
+            self.state.lock().await.transaction_statuses.insert(transaction.id.clone(), status.clone());
+            println!("  [HIG]   Updated status to {:?} for tx-id='{}'", status, transaction.id.0);
+            
+            status
         };
-
-        // Update status
-        self.state.lock().await.transaction_statuses.insert(transaction.id.clone(), status.clone());
-        println!("  [HIG]   Updated status to {:?} for transaction: {}", status, transaction.id.0);
 
         // Send status proposal to Hyper Scheduler if it's a CAT transaction
         if transaction.data.starts_with("CAT") {
@@ -276,14 +316,16 @@ impl HyperIG for HyperIGNode {
         Ok(statuses)
     }
 
+    // this is a duplicate of the other process subblock function
+    // TODO remove one of them
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
         println!("  [HIG]   Processing subblock: block_id={}, chain_id={}, tx_count={}", 
             subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
         for tx in &subblock.transactions {
-            println!("  [HIG]   Executing transaction: id={}, data={}", tx.id.0, tx.data);
+            println!("  [HIG]   .......tx-id={} : data={}", tx.id.0, tx.data);
         }
         for tx in subblock.transactions {
-            HyperIG::execute_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
+            HyperIG::process_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
         }
         Ok(())
     }
@@ -291,9 +333,9 @@ impl HyperIG for HyperIGNode {
 
 #[async_trait]
 impl HyperIG for Arc<Mutex<HyperIGNode>> {
-    async fn execute_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+    async fn process_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         let mut node = self.lock().await;
-        node.execute_transaction(transaction).await
+        node.process_transaction(transaction).await
     }
 
     async fn get_transaction_status(&self, transaction_id: TransactionId) -> Result<TransactionStatus, anyhow::Error> {

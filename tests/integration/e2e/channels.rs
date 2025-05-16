@@ -1,21 +1,26 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, ChainId, CLTransaction, CATStatusLimited},
+    types::{Transaction, TransactionId, CATStatusLimited, ChainId, CLTransaction, TransactionStatus},
     confirmation_layer::ConfirmationLayer,
+    hyper_ig::HyperIG,
 };
-use tokio::time::Duration;
 use crate::common::testnodes;
+use tokio::time::Duration;
 
-/// Helper function to run a single chain CAT test
+
+// take inspiration from cl_to_cl/channels.rs
+
+// Helper function to run a single chain CAT test
 /// - CL: Send a CAT transaction to the CL and produce a block
 /// - HIG: Process the CAT transaction (pending) and send a status update to the HS
 /// - HS: Process the status update and send a status update to the CL
-/// - CL: Verify the status update
+/// - CL: Include the status update in a block
+/// - HIG: Process the status update and update the transaction status (success or failure)
 async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
     println!("\n[TEST]   === Starting CAT test with expected status: {:?} ===", expected_status);
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_hs_node, cl_node, _hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, cl_node, hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
@@ -49,7 +54,9 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
     println!("[TEST]   CAT transaction submitted successfully");
 
     // Wait for block production in CL (cat-tx), processing in HIG and HS, and then block production in CL (status-update-tx)
-    println!("[TEST]   Waiting for block production in CL and processing in HIG and HS (500ms)...");
+    println!("----------------------------------------------------------------");
+    println!("[TEST]   Waiting for 1) block production in CL for CAT and 2) block production in CL for status-update-tx...");
+    println!("----------------------------------------------------------------");
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     // Verify block was produced
@@ -60,29 +67,19 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
         assert!(current_block >= start_block_height + 1, "No block was produced");
     }
 
-    // Check the subblocks for a status update
-    println!("[TEST]   Verifying transaction status in CL...");
-
-    // Get the subblock from CL
-    // make a loop over the subblocks and check if the status update is included
-    let mut found_tx = false;
-    for i in 0..20 {
-        let subblock = {
-            let node = cl_node.lock().await;
-            node.get_subblock(chain_id.clone(), start_block_height+1+i).await.expect("Failed to get subblock")
-        };
-        let tx_count = subblock.transactions.len();
-        // Find our transaction in the subblock
-        for tx in subblock.transactions {
-            if tx.data.contains(&format!("STATUS_UPDATE.{:?}.CAT_ID:test-cat", expected_status)) {
-                found_tx = true;
-                println!("[TEST]   Found status update in subblock: block_id={}, chain_id={}, tx_count={} with tx id:{} and data: {}", 
-                    subblock.block_id, subblock.chain_id.0, tx_count, tx.id, tx.data);    
-                break;
-            }
-        }
-    }
-    assert!(found_tx, "Transaction not found in subblock");
+    // Verify that HIG has updated the status of the original CAT transaction
+    println!("[TEST]   Verifying transaction status in HIG for original tx-id='{}'...", tx.id.0);
+    let status = hig_node.lock().await.get_transaction_status(tx.id.clone())
+        .await
+        .expect("Failed to get transaction status");
+    println!("[TEST]   Transaction status in HIG: {:?}", status);
+    
+    // The status should match the expected status from the CAT transaction
+    let expected_tx_status = match expected_status {
+        CATStatusLimited::Success => TransactionStatus::Success,
+        CATStatusLimited::Failure => TransactionStatus::Failure,
+    };
+    assert_eq!(status, expected_tx_status, "Transaction status should match the expected status from CAT transaction");
     
     println!("[TEST]   === Test completed successfully ===\n");
 }
@@ -98,3 +95,4 @@ async fn test_single_chain_cat_success() {
 async fn test_single_chain_cat_failure() {
     run_single_chain_cat_test(CATStatusLimited::Failure).await;
 }
+

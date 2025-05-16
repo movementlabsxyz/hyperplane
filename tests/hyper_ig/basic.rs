@@ -30,7 +30,7 @@ async fn test_normal_transaction_success() {
     
     // Execute the transaction
     println!("[TEST]   Executing transaction...");
-    let status = hig_node.lock().await.execute_transaction(tx.clone())
+    let status = hig_node.lock().await.process_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     println!("[TEST]   Transaction status: {:?}", status);
@@ -74,7 +74,7 @@ async fn test_normal_transaction_pending() {
     
     // Execute the transaction
     println!("[TEST]   Executing transaction...");
-    let status = hig_node.lock().await.execute_transaction(tx.clone())
+    let status = hig_node.lock().await.process_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     println!("[TEST]   Transaction status: {:?}", status);
@@ -128,7 +128,7 @@ async fn helper_test_cat_status_proposal(expected_status: CATStatusLimited) {
     
     // Execute the transaction
     println!("[TEST]   Executing CAT transaction...");
-    let status = hig_node.lock().await.execute_transaction(tx.clone())
+    let status = hig_node.lock().await.process_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     println!("[TEST]   Transaction status: {:?}", status);
@@ -212,7 +212,7 @@ async fn test_cat_success_update() {
     
     // Execute the transaction
     println!("[TEST]   Executing transaction...");
-    let status = hig_node.lock().await.execute_transaction(tx.clone())
+    let status = hig_node.lock().await.process_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
     println!("[TEST]   Transaction status: {:?}", status);
@@ -266,7 +266,7 @@ async fn test_execute_transactions() {
     println!("[TEST]   Executing transactions...");
     for tx in &transactions {
         println!("[TEST]   Executing transaction: {}", tx.id.0);
-        let status = hig_node.lock().await.execute_transaction(tx.clone())
+        let status = hig_node.lock().await.process_transaction(tx.clone())
             .await
             .expect("Failed to execute transaction");
         println!("[TEST]   Transaction status: {:?}", status);
@@ -312,7 +312,7 @@ async fn test_get_transaction_status() {
         data: "any data".to_string(),
     };
     println!("[TEST]   Executing transaction...");
-    hig_node.lock().await.execute_transaction(tx.clone())
+    hig_node.lock().await.process_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
 
@@ -354,7 +354,7 @@ async fn test_get_pending_transactions() {
         data: "DEPENDENT_ON_CAT.tx-cat".to_string(),
     };
     println!("[TEST]   Executing transaction...");
-    hig_node.lock().await.execute_transaction(tx.clone())
+    hig_node.lock().await.process_transaction(tx.clone())
         .await
         .expect("Failed to execute transaction");
 
