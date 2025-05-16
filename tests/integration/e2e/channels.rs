@@ -4,7 +4,7 @@ use hyperplane::{
     hyper_ig::HyperIG,
 };
 use crate::common::testnodes;
-use tokio::time::Duration;
+use tokio::time::{Duration, timeout};
 
 
 // take inspiration from cl_to_cl/channels.rs
@@ -87,12 +87,18 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
 /// Tests single chain CAT success
 #[tokio::test]
 async fn test_single_chain_cat_success() {
-    run_single_chain_cat_test(CATStatusLimited::Success).await;
+    // Set a 10 second timeout for the test
+    timeout(Duration::from_secs(2), run_single_chain_cat_test(CATStatusLimited::Success))
+        .await
+        .expect("Test timed out after 2 seconds");
 }
 
 /// Tests single chain CAT failure
 #[tokio::test]
 async fn test_single_chain_cat_failure() {
-    run_single_chain_cat_test(CATStatusLimited::Failure).await;
+    // Set a 10 second timeout for the test
+    timeout(Duration::from_secs(2), run_single_chain_cat_test(CATStatusLimited::Failure))
+        .await
+        .expect("Test timed out after 2 seconds");
 }
 
