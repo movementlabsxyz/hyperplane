@@ -78,7 +78,7 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
         node.get_transaction_status(tx.id.clone())
             .await
             .expect("Failed to get transaction status")
-    };
+        };
     println!("[TEST]   Transaction status in HIG: {:?}", status);
     
     // The status should match the expected status from the CAT transaction

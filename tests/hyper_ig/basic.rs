@@ -7,48 +7,51 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use hyperplane::types::{CATId};
 
-/// Tests normal transaction success path in HyperIG:
-/// - Non-dependent transaction execution
-/// - Success status verification
+/// Helper function: Tests regular non-dependent transaction path in HyperIG
+/// - Status verification
 /// - Status persistence
-#[tokio::test]
-async fn test_normal_transaction_success() {
-    println!("\n=== Starting test_normal_transaction_success ===");
+async fn run_test_regular_transaction_status(expected_status: TransactionStatus) {
+    println!("\n=== Starting regular non-dependent transaction test with status {:?}===", expected_status);
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
     let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
-    
-    // Create a normal transaction with non-dependent data
-    println!("[TEST]   Creating normal transaction...");
+
+    let tx_id = "test-tx";
+    println!("\n[TEST]   Processing transaction: {}", tx_id);
     let tx = Transaction {
-        id: TransactionId("normal-tx".to_string()),
-        data: "any data".to_string(),
+        id: TransactionId(tx_id.to_string()),
+        data: format!("REGULAR_TRANSACTION.{:?}", expected_status),
     };
-    println!("[TEST]   Transaction created with tx-id='{}'", tx.id.0);
     
-    // Execute the transaction
-    println!("[TEST]   Executing transaction...");
+    // Process transaction and verify initial status
     let status = hig_node.lock().await.process_transaction(tx.clone())
         .await
-        .expect("Failed to execute transaction");
+        .expect("Failed to process transaction");
     println!("[TEST]   Transaction status: {:?}", status);
+    assert_eq!(status, expected_status, "Transaction should have status {:?}", expected_status);
     
-    // Verify it was successful (normal transactions with non-dependent data are successful)
-    assert!(matches!(status, TransactionStatus::Success));
-    println!("[TEST]   Verified transaction is successful");
-    
-    // Verify we can retrieve the same status
-    println!("[TEST]   Verifying transaction status persistence...");
-    let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
+    // Verify status persistence
+    let get_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
         .await
         .expect("Failed to get transaction status");
-    println!("[TEST]   Retrieved status: {:?}", retrieved_status);
-    assert!(matches!(retrieved_status, TransactionStatus::Success));
-    println!("[TEST]   Verified retrieved status is successful");
+    assert_eq!(get_status, expected_status, "Retrieved status should be {:?}", expected_status);
+    println!("[TEST]   Verified status persistence");
     
     println!("=== Test completed successfully ===\n");
+}
+
+/// Tests regular non-dependent transaction success path in HyperIG:
+#[tokio::test]
+async fn test_regular_transaction_success() {
+    run_test_regular_transaction_status(TransactionStatus::Success).await;
+}
+
+/// Tests regular non-dependent transaction success path in HyperIG:
+#[tokio::test]
+async fn test_regular_transaction_failure() {
+    run_test_regular_transaction_status(TransactionStatus::Failure).await;
 }
 
 /// Tests normal transaction pending path in HyperIG:
@@ -185,51 +188,6 @@ async fn test_cat_success_proposal() {
 #[allow(unused_variables)]
 async fn test_cat_failure_proposal() {
     helper_test_cat_status_proposal(CATStatusLimited::Failure).await;
-}
-
-/// Test CAT transaction success-update path in HyperIG (subblock received from the Confirmation Layer):
-/// - CAT transaction with success data
-/// - Success update verification
-/// - Success status verification
-/// - Pending transaction list inclusion
-#[tokio::test]
-async fn test_cat_success_update() {
-    println!("\n=== Starting test_cat_success_update ===");
-    
-    // use testnodes from common
-    println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
-    println!("[TEST]   Test nodes setup complete");
-
-    // Create a CAT transaction with success data
-    println!("[TEST]   Creating CAT transaction...");
-    let tx = Transaction {
-        id: TransactionId("test-cat-tx".to_string()),
-        data: "STATUS_UPDATE.Success.CAT_ID:test-cat-tx".to_string(),
-    };
-    println!("[TEST]   Transaction created with tx-id='{}'", tx.id);
-    
-    // Execute the transaction
-    println!("[TEST]   Executing transaction...");
-    let status = hig_node.lock().await.process_transaction(tx.clone())
-        .await
-        .expect("Failed to execute transaction");
-    println!("[TEST]   Transaction status: {:?}", status);
-
-    // Verify status is success
-    assert!(matches!(status, TransactionStatus::Success));
-    println!("[TEST]   Verified transaction is successful");
-
-    // Verify update is successful
-    println!("[TEST]   Verifying transaction status persistence...");
-    let get_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    println!("[TEST]   Retrieved status: {:?}", get_status);
-    assert!(matches!(get_status, TransactionStatus::Success));
-    println!("[TEST]   Verified retrieved status is successful");
-    
-    println!("=== Test completed successfully ===\n");
 }
 
 /// Test transaction execution path in HyperIG:

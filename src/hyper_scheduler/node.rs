@@ -73,14 +73,14 @@ impl HyperSchedulerNode {
         while let Some(status_update) = receiver.recv().await {
             println!("  [HS]   [Message loop task] Received status proposal for '{}': {:?}", status_update.cat_id, status_update);
             // TODO need to handle chain id as well 
-            println!("  [HS]   [Message loop task] Attempting to acquire state lock for status update...");
+            // println!("  [HS]   [Message loop task] Attempting to acquire state lock for status update...");
             {
                 let mut state = state.lock().await;
-                println!("  [HS]   [Message loop task] Acquired state lock for status update");
+                // println!("  [HS]   [Message loop task] Acquired state lock for status update");
                 state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
-                println!("  [HS]   [Message loop task] Updated state, releasing lock");
+                // println!("  [HS]   [Message loop task] Updated state, releasing lock");
             }
-            println!("  [HS]   [Message loop task] Released state lock after status update");
+            // println!("  [HS]   [Message loop task] Released state lock after status update");
             println!("  [HS]   [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
             // TODO: we need to send the status update to the CL
             // for now we just send it always (=single chain cats)
@@ -150,15 +150,15 @@ impl HyperSchedulerNode {
 impl HyperScheduler for HyperSchedulerNode {
     async fn get_cat_status(&self, id: CATId) -> Result<CATStatusLimited, HyperSchedulerError> {
         println!("  [HS]   get_cat_status called for {}", id.0);
-        println!("  [HS]   Attempting to acquire state lock for get_cat_status...");
+        // println!("  [HS]   Attempting to acquire state lock for get_cat_status...");
         let result = {
             let state = self.state.lock().await;
-            println!("  [HS]   Acquired state lock for get_cat_status");
+            // println!("  [HS]   Acquired state lock for get_cat_status");
             let result = state.cat_statuses.get(&id).cloned();
-            println!("  [HS]   Retrieved status, releasing lock");
+            // println!("  [HS]   Retrieved status, releasing lock");
             result
         };
-        println!("  [HS]   Released state lock after get_cat_status");
+        // println!("  [HS]   Released state lock after get_cat_status");
         if let Some(ref status) = result {
             println!("  [HS]   get_cat_status found status for {}: {:?}", id.0, status);
         } else {
