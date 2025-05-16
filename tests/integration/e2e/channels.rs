@@ -67,11 +67,18 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
         assert!(current_block >= start_block_height + 1, "No block was produced");
     }
 
+    // Wait for HIG to process the status update
+    println!("[TEST]   Waiting for HIG to process status update...");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
     // Verify that HIG has updated the status of the original CAT transaction
     println!("[TEST]   Verifying transaction status in HIG for original tx-id='{}'...", tx.id.0);
-    let status = hig_node.lock().await.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
+    let status = {
+        let node = hig_node.lock().await;
+        node.get_transaction_status(tx.id.clone())
+            .await
+            .expect("Failed to get transaction status")
+    };
     println!("[TEST]   Transaction status in HIG: {:?}", status);
     
     // The status should match the expected status from the CAT transaction
@@ -87,7 +94,6 @@ async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
 /// Tests single chain CAT success
 #[tokio::test]
 async fn test_single_chain_cat_success() {
-    // Set a 10 second timeout for the test
     timeout(Duration::from_secs(2), run_single_chain_cat_test(CATStatusLimited::Success))
         .await
         .expect("Test timed out after 2 seconds");
@@ -96,7 +102,6 @@ async fn test_single_chain_cat_success() {
 /// Tests single chain CAT failure
 #[tokio::test]
 async fn test_single_chain_cat_failure() {
-    // Set a 10 second timeout for the test
     timeout(Duration::from_secs(2), run_single_chain_cat_test(CATStatusLimited::Failure))
         .await
         .expect("Test timed out after 2 seconds");

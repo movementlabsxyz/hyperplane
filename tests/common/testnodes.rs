@@ -36,8 +36,7 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
     // Start the HIG incoming block processing loop
     let hig_node_for_message_loop = hig_node.clone();
     let _hig_message_loop_handle = tokio::spawn(async move {
-        let mut node = hig_node_for_message_loop.lock().await;
-        node.start().await;
+        HyperIGNode::process_messages(hig_node_for_message_loop).await;
     });
 
     // Start block production if requested (default to true)
