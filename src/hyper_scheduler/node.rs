@@ -82,6 +82,17 @@ impl HyperSchedulerNode {
             }
             println!("  [HS]   [Message loop task] Released state lock after status update");
             println!("  [HS]   [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
+            // TODO: we need to send the status update to the CL
+            // for now we just send it always (=single chain cats)
+            let tx = CLTransaction {
+                id: TransactionId("status-update-tx".to_string()),
+                data: format!("STATUS_UPDATE.Success.CAT_ID:{}.CAT_ID:{}", status_update.cat_id.0, status_update.cat_id.0),
+                chain_id: ChainId("SYSTEM".to_string()),
+            };
+            let mut node = hs_node.lock().await;
+            if let Err(e) = node.send_cat_status_update(status_update.cat_id.clone(), status_update.status.clone()).await {
+                println!("  [HS]   Failed to send status update: {:?}", e);
+            }
         }
         println!("  [HS]   [Message loop task] Message processing loop exiting");
     }
@@ -99,6 +110,7 @@ impl HyperSchedulerNode {
 
     /// Submit a transaction to the confirmation layer
     pub async fn submit_transaction(&mut self, tx: CLTransaction) -> Result<(), String> {
+        println!("  [HS]   submit_transaction called for transaction: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
         if let Some(sender) = &self.sender_to_cl {
             sender.send(tx).await.map_err(|e| e.to_string())
         } else {
@@ -107,6 +119,7 @@ impl HyperSchedulerNode {
     }
 
     /// Get the current block from the confirmation layer
+    // TODO: i think we dont need this
     pub async fn get_current_block(&mut self) -> Result<u64, String> {
         if let Some(sender) = &self.sender_to_cl {
             let tx = CLTransaction {
@@ -122,6 +135,7 @@ impl HyperSchedulerNode {
     }
 
     /// Get a subblock from the confirmation layer
+    // TODO: i think we dont need this
     pub async fn get_subblock(&mut self, chain_id: ChainId, block_num: u64) -> Result<Vec<CLTransaction>, String> {
         if let Some(sender) = &self.sender_to_cl {
             let tx = CLTransaction {

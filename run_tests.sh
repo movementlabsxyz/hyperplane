@@ -73,17 +73,17 @@ TESTS=(
     integration::hs_to_cl::channels::test_cat_status_update
     integration::hs_to_cl::channels::test_multiple_cat_status_updates
     integration::hs_to_cl::channels::test_send_cat_status_update
+
+    # - - - CL to CL tests - - -
+    
 )
+
+
 
 TESTS2=(
     # integration::cl_to_hs::channels::test_cat_status_proposal_success
 
-    integration::cl_to_hig::channels::test_process_subblock
-    # integration::cl_to_hig::channels::test_process_cat_subblock
-    # integration::cl_to_hig::channels::test_process_multiple_subblocks_new_transactions
-
-
-
+    integration::cl_to_cl::channels::test_cat_transaction_flow
 )
 
 # Run the appropriate test set based on the input
