@@ -222,7 +222,7 @@ impl HyperIGNode {
 #[async_trait]
 impl HyperIG for HyperIGNode {
     async fn process_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        println!("  [HIG]   Processing transaction: {}", transaction.id.0);
+        println!("  [HIG]   Processing transaction: '{}' : data='{}'", transaction.id.0, transaction.data);
 
         // handle the case where it is a status update separately
         // because it doesn't need to be inserted into the transaction statuses
@@ -264,8 +264,8 @@ impl HyperIG for HyperIGNode {
             } else {
                 return Err(anyhow::anyhow!("Invalid CAT status in data: {}", parts[0]));
             };
-            println!("  [HIG]   Extracted CAT ID: {} with status: {:?}", cat_id.0, status);
-            println!("  [HIG]   Sending status proposal for CAT transaction: '{}'", cat_id.0);
+            println!("  [HIG]   Extracted cat-id='{}' with status: {:?}", cat_id.0, status);
+            println!("  [HIG]   Sending status proposal for cat-id='{}'", cat_id.0);
             self.send_cat_status_proposal(cat_id, status).await?;
             println!("  [HIG]   Status proposal sent for CAT transaction.");
         }
@@ -274,14 +274,14 @@ impl HyperIG for HyperIGNode {
     }
 
     async fn get_transaction_status(&self, tx_id: TransactionId) -> Result<TransactionStatus, anyhow::Error> {
-        println!("  [HIG]   Getting status for transaction: {}", tx_id.0);
+        println!("  [HIG]   Getting status for tx-id='{}'", tx_id);
         let statuses = self.state.lock().await.transaction_statuses.get(&tx_id)
             .cloned()
             .ok_or_else(|| {
-                println!("  [HIG]   Transaction not found: {}", tx_id.0);
+                println!("  [HIG]   Transaction not found tx-id='{}'", tx_id);
                 anyhow::anyhow!("Transaction not found: {}", tx_id)
             })?;
-        println!("  [HIG]   Found status for transaction {}: {:?}", tx_id.0, statuses);
+        println!("  [HIG]   Found status for tx-id='{}': {:?}", tx_id, statuses);
         Ok(statuses)
     }
 

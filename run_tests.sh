@@ -86,8 +86,7 @@ TESTS=(
 
 
 TESTS2=(
-    integration::e2e::channels::test_single_chain_cat_success
-    integration::e2e::channels::test_single_chain_cat_failure
+
 )
 
 # Run the appropriate test set based on the input

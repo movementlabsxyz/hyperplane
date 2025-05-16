@@ -26,7 +26,7 @@ async fn test_normal_transaction_success() {
         id: TransactionId("normal-tx".to_string()),
         data: "any data".to_string(),
     };
-    println!("[TEST]   Transaction created with id: {}", tx.id.0);
+    println!("[TEST]   Transaction created with tx-id='{}'", tx.id.0);
     
     // Execute the transaction
     println!("[TEST]   Executing transaction...");
@@ -70,7 +70,7 @@ async fn test_normal_transaction_pending() {
         id: TransactionId("normal-tx".to_string()),
         data: "DEPENDENT_ON_CAT.tx-cat".to_string(), // Depends on a CAT transaction that doesn't exist yet
     };
-    println!("[TEST]   Transaction created with id: {}", tx.id.0);
+    println!("[TEST]   Transaction created with tx-id='{}'", tx.id);
     
     // Execute the transaction
     println!("[TEST]   Executing transaction...");
@@ -123,8 +123,7 @@ async fn helper_test_cat_status_proposal(expected_status: CATStatusLimited) {
         id: TransactionId("test-tx".to_string()),
         data: format!("CAT.SIMULATION.{:?}:test-cat-tx", expected_status),
     };
-    println!("[TEST]   CAT transaction created with id: {}", tx.id.0);
-    println!("[TEST]   CAT transaction data: {}", tx.data);
+    println!("[TEST]   CAT transaction created with tx-id='{}' : data='{}'", tx.id, tx.data);
     
     // Execute the transaction
     println!("[TEST]   Executing CAT transaction...");
@@ -206,9 +205,9 @@ async fn test_cat_success_update() {
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction {
         id: TransactionId("test-cat-tx".to_string()),
-        data: "STATUS_UPDATE.Success".to_string(),
+        data: "STATUS_UPDATE.Success.CAT_ID:test-cat-tx".to_string(),
     };
-    println!("[TEST]   Transaction created with id: {}", tx.id.0);
+    println!("[TEST]   Transaction created with tx-id='{}'", tx.id);
     
     // Execute the transaction
     println!("[TEST]   Executing transaction...");
