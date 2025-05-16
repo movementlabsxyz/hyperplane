@@ -52,17 +52,13 @@ TESTS=(
     integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_failure
     integration::cl_to_hig::channels::test_process_subblock_with_cat_transaction
 
+    # - - - HS to CL tests - - -
+    integration::hs_to_cl::channels::test_single_chain_cat_status_update
+    integration::hs_to_cl::channels::test_several_single_chain_cat_status_updates
+
     ## - - - CL to HS tests - - -
     integration::cl_to_hs::channels::test_single_chain_cat_success
     integration::cl_to_hs::channels::test_single_chain_cat_failure
-
-    # - - - HS to CL tests - - -
-    integration::hs_to_cl::channels::test_cat_status_update_one_target_chain
-    integration::hs_to_cl::channels::test_multiple_cat_status_updates_one_target_chain
-    integration::hs_to_cl::channels::test_status_update
-    integration::hs_to_cl::channels::test_cat_status_update
-    integration::hs_to_cl::channels::test_multiple_cat_status_updates
-    integration::hs_to_cl::channels::test_send_cat_status_update
 
     # - - - CL to CL tests - - -
     integration::cl_to_cl::channels::test_single_chain_cat_success
@@ -76,6 +72,7 @@ TESTS=(
 
 
 TESTS2=(
+
 )
 
 # Run the appropriate test set based on the input

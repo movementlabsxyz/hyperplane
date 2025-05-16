@@ -45,9 +45,9 @@ impl HyperIGNode {
     pub async fn process_messages(hig_node: Arc<Mutex<HyperIGNode>>) {
         println!("  [HIG]   [Message loop task] Starting message processing loop");
         loop {
-            println!("  [HIG]   [Message loop task] Attempting to acquire hig_node lock...");
+            // println!("  [HIG]   [Message loop task] Attempting to acquire hig_node lock...");
             let mut node = hig_node.lock().await;
-            println!("  [HIG]   [Message loop task] Acquired hig_node lock");
+            // println!("  [HIG]   [Message loop task] Acquired hig_node lock");
 
             // Get the receiver from the node
             let receiver = if let Some(receiver) = &mut node.receiver_cl_to_hig {

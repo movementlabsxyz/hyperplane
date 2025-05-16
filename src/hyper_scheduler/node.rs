@@ -61,13 +61,13 @@ impl HyperSchedulerNode {
 
     /// Process messages without holding the node lock
     pub async fn process_messages(hs_node: Arc<Mutex<HyperSchedulerNode>>) {
-        println!("  [HS]   [Message loop task] Attempting to acquire hs_node lock...");
+        // println!("  [HS]   [Message loop task] Attempting to acquire hs_node lock...");
         let mut node = hs_node.lock().await;
-        println!("  [HS]   [Message loop task] Acquired hs_node lock");
+        // println!("  [HS]   [Message loop task] Acquired hs_node lock");
         let mut receiver = node.receiver_from_hig.take().expect("Receiver already taken");
         let state = node.state.clone();
         drop(node); // Release the lock before starting the loop
-        println!("  [HS]   [Message loop task] Released hs_node lock");
+        // println!("  [HS]   [Message loop task] Released hs_node lock");
         
         // Process messages
         while let Some(status_update) = receiver.recv().await {
