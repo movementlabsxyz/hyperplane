@@ -84,11 +84,6 @@ impl HyperSchedulerNode {
             println!("  [HS]   [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
             // TODO: we need to send the status update to the CL
             // for now we just send it always (=single chain cats)
-            let tx = CLTransaction {
-                id: TransactionId("status-update-tx".to_string()),
-                data: format!("STATUS_UPDATE.Success.CAT_ID:{}.CAT_ID:{}", status_update.cat_id.0, status_update.cat_id.0),
-                chain_id: ChainId("SYSTEM".to_string()),
-            };
             let mut node = hs_node.lock().await;
             if let Err(e) = node.send_cat_status_update(status_update.cat_id.clone(), status_update.status.clone()).await {
                 println!("  [HS]   Failed to send status update: {:?}", e);

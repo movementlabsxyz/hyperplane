@@ -211,15 +211,22 @@ impl HyperIG for HyperIGNode {
 
         // Send status proposal to Hyper Scheduler if it's a CAT transaction
         if transaction.data.starts_with("CAT") {
-            // extract the cat id from the data
-            let cat_id = transaction.data
-                .split(":")
-                .nth(1)
-                .ok_or_else(|| anyhow::anyhow!("\n[HIG] [ERROR]   Invalid CAT tx data format: missing CAT ID after ':'\n[HIG] [ERROR]   Transaction data: '{}'", transaction.data))?;
-            let cat_id = CATId(cat_id.to_string());
-            println!("  [HIG]   Extracted CAT ID: {}", cat_id.0);
+            // extract the cat id and status from the data
+            let parts: Vec<&str> = transaction.data.split(":").collect();
+            if parts.len() != 2 {
+                return Err(anyhow::anyhow!("Invalid CAT tx data format: expected 'CAT.SIMULATION.<Status>:<ID>', got '{}'", transaction.data));
+            }
+            let cat_id = CATId(parts[1].to_string());
+            let status = if parts[0].contains("Success") {
+                CATStatusLimited::Success
+            } else if parts[0].contains("Failure") {
+                CATStatusLimited::Failure
+            } else {
+                return Err(anyhow::anyhow!("Invalid CAT status in data: {}", parts[0]));
+            };
+            println!("  [HIG]   Extracted CAT ID: {} with status: {:?}", cat_id.0, status);
             println!("  [HIG]   Sending status proposal for CAT transaction: '{}'", cat_id.0);
-            self.send_cat_status_proposal(cat_id, CATStatusLimited::Success).await?;
+            self.send_cat_status_proposal(cat_id, status).await?;
             println!("  [HIG]   Status proposal sent for CAT transaction.");
         }
 

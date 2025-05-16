@@ -1,18 +1,13 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, ChainId, CLTransaction},
+    types::{Transaction, TransactionId, ChainId, CLTransaction, CATStatusLimited},
     confirmation_layer::ConfirmationLayer,
 };
 use tokio::time::Duration;
 use crate::common::testnodes;
 
-/// Tests the full flow of a CAT transaction:
-/// 1. CL sends CAT transaction to HIG
-/// 2. HIG processes it and sends status proposal to HS
-/// 3. HS processes the proposal and sends status update back to CL
-/// 4. Verify the final status in CL
-#[tokio::test]
-async fn test_cat_transaction_flow() {
-    println!("\n[TEST]   === Starting test_cat_transaction_flow ===");
+/// Helper function to run a single chain CAT test
+async fn run_single_chain_cat_test(expected_status: CATStatusLimited) {
+    println!("\n[TEST]   === Starting CAT test with expected status: {:?} ===", expected_status);
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
@@ -36,7 +31,7 @@ async fn test_cat_transaction_flow() {
     // Submit CAT transaction to CL
     let tx = Transaction {
         id: TransactionId("test-cat".to_string()),
-        data: "CAT.SIMULATION.Success:test-cat".to_string(),
+        data: format!("CAT.SIMULATION.{:?}:test-cat", expected_status),
     };
     println!("[TEST]   Submitting CAT transaction with ID: {}", tx.id.0);
     {
@@ -75,7 +70,7 @@ async fn test_cat_transaction_flow() {
         let tx_count = subblock.transactions.len();
         // Find our transaction in the subblock
         for tx in subblock.transactions {
-            if tx.data.contains("STATUS_UPDATE.Success.CAT_ID:test-cat") {
+            if tx.data.contains(&format!("STATUS_UPDATE.{:?}.CAT_ID:test-cat", expected_status)) {
                 found_tx = true;
                 println!("[TEST]   Found status update in subblock: block_id={}, chain_id={}, tx_count={} with tx id:{} and data: {}", 
                     subblock.block_id, subblock.chain_id.0, tx_count, tx.id, tx.data);    
@@ -86,4 +81,16 @@ async fn test_cat_transaction_flow() {
     assert!(found_tx, "Transaction not found in subblock");
     
     println!("[TEST]   === Test completed successfully ===\n");
+}
+
+/// Tests single chain CAT success
+#[tokio::test]
+async fn test_cat_success() {
+    run_single_chain_cat_test(CATStatusLimited::Success).await;
+}
+
+/// Tests single chain CAT failure
+#[tokio::test]
+async fn test_cat_failure() {
+    run_single_chain_cat_test(CATStatusLimited::Failure).await;
 }

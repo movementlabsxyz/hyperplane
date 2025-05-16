@@ -75,7 +75,8 @@ TESTS=(
     integration::hs_to_cl::channels::test_send_cat_status_update
 
     # - - - CL to CL tests - - -
-    
+    integration::cl_to_cl::channels::test_cat_success
+    integration::cl_to_cl::channels::test_cat_failure
 )
 
 
@@ -83,7 +84,8 @@ TESTS=(
 TESTS2=(
     # integration::cl_to_hs::channels::test_cat_status_proposal_success
 
-    integration::cl_to_cl::channels::test_cat_transaction_flow
+    integration::cl_to_cl::channels::test_cat_success
+    integration::cl_to_cl::channels::test_cat_failure
 )
 
 # Run the appropriate test set based on the input
