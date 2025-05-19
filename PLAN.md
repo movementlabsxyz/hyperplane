@@ -4,124 +4,83 @@
 - [x] Initial `Cargo.toml` setup with basic dependencies
 - [x] Directory structure creation
 - [x] Main `lib.rs` with module declarations
+- [x] Basic component structure (HIG, HS, CL)
 
-## Integration Testing
-(note: integration tests check two or more components working together)
-- [x] Basic integration test setup
-- [x] Hyper Scheduler + confirmation node integration tests
-- [ ] Hyper IG + Hyper Scheduler integration tests
-- [ ] Confirmation node + Hyper IG integration tests
-- [ ] End-to-end protocol tests
+## Core Components
 
-## Core Modules
-
-### Types Module (`src/types/mod.rs`)
+### Types Module (`src/types/`)
 - [x] Basic type definitions
-  - [x] `TransactionId`
-  - [x] `Transaction`
-  - [x] `TransactionStatus`
-  - [x] `CAT`
-  - [x] `SubBlockTransaction`
-  - [x] `ChainId`
-  - [x] `CATId`
-  - [x] `BlockId`
-  - [x] `CATStatus`
-  - [x] `CATStatusProposal`
-  - [x] `SubBlock`
+  - [x] `TransactionId`, `Transaction`, `TransactionStatus`
+  - [x] `CAT`, `CATId`, `CATStatus`
+  - [x] `ChainId`, `BlockId`
+  - [x] `SubBlock`, `SubBlockTransaction`
   - [x] `ChainRegistration`
-  - [x] `TransactionStatusUpdate`
-  - [x] `CATStatusUpdate`
+  - [x] `TransactionStatusUpdate`, `CATStatusUpdate`
 - [ ] Additional required types:
   - [ ] `NodeId`, `PeerId`
   - [ ] Network message types
-  - [ ] `ExecutionProposal`, `CrosschainAtomicTransactionStatus`, `CrosschainAtomicTransactionId`
-  - [ ] State model types (e.g. `LedgerState`, `ChangeSet`)
+  - [ ] State model types
 
-### Hyper-Scheduler Module (`src/hyper_scheduler/mod.rs`)
-- [x] Basic trait definition
-- [ ] Crosschain Atomic Transaction resolution coordination logic
-- [ ] Proposal integration
-- [ ] Tests
-- [ ] Documentation
+### Hyper Information Gateway (`src/hyper_ig/`)
+- [x] Basic implementation
+- [x] Transaction execution
+- [x] Status management
+- [x] Basic tests
+- [ ] Full transaction simulation
+- [ ] Complete proposal generation
+- [ ] Comprehensive test coverage
 
-### Hyper-IG Module (`src/hyper_ig/mod.rs`)
-- [x] Basic trait definition
-- [ ] Transaction simulation
-- [ ] Proposal generation
-- [ ] Execution logic after transactions received success status
-- [ ] Tests
-- [ ] Documentation
+### Hyper Scheduler (`src/hyper_scheduler/`)
+- [x] Basic implementation
+- [x] Transaction scheduling
+- [x] Basic tests
+- [ ] Complete CAT resolution
+- [ ] Advanced scheduling algorithms
+- [ ] Comprehensive test coverage
 
-### Resolver Module (`src/resolver/mod.rs`)
-- [x] Basic trait definition
-- [ ] Resolution of accepted/postponed sets
-- [ ] Integration with Hyper-Scheduler and Sequencer
-- [ ] Tests
-- [ ] Documentation
+### Confirmation Layer (`src/confirmation_layer/`)
+- [x] Basic implementation
+- [x] Block production per chain
+- [x] Chain registration
+- [x] Basic tests
+- [ ] BFT confirmation mechanism
+- [ ] Advanced finality guarantees
+- [ ] Comprehensive test coverage
 
-### Confirmation Layer Module (`src/confirmation/mod.rs`)
-- [x] Basic trait definition
-- [x] Simple node implementation
-- [ ] Centralized confirmation implementation
-- [ ] BFT confirmation implementation (`src/confirmation/bft.rs`)
-- [ ] Tests
-- [ ] Documentation
-
-### State Module (`src/state/mod.rs`)
-- [ ] Basic trait definition
-- [ ] In-memory state engine
-- [ ] File-backed ledger storage (optional)
-- [ ] Tests
-- [ ] Documentation
-
-### Network Module (`src/network/mod.rs`)
-- [ ] Basic trait definition
-- [ ] Mock transport
-- [ ] `libp2p` backend
+### Network Module (`src/network/`)
+- [x] Basic channel-based communication
+- [x] Mock implementations for testing
+- [ ] libp2p backend (where necessary)
 - [ ] gRPC implementation (optional)
-- [ ] Tests
-- [ ] Documentation
+- [ ] Comprehensive test coverage
 
-## Binary Targets
-
-### Node Binary (`src/bin/node.rs`)
-- [ ] Node initialization
-- [ ] CLI + Config
-- [ ] Component orchestration (state + net + resolver + confirmation)
-- [ ] Tests
-
-### Hyper-Scheduler Binary (`src/bin/hyper_scheduler.rs`)
-- [ ] Standalone Hyper-Scheduler setup
-- [ ] CLI interface
-- [ ] Config loading
-- [ ] Tests
-
-### Simulator Binary (`src/bin/simulator.rs`)
-- [ ] Multi-node orchestration
-- [ ] Configurable scenario setup
-- [ ] Execution + coordination flow simulation
-- [ ] Dependency graph output (e.g. dot export)
-- [ ] Tests
+## Testing
+- [x] Basic tests per component
+- [x] Basic integration tests
+- [ ] End-to-end protocol tests
+- [ ] Performance tests
+- [ ] Fuzzing tests
+- [ ] CI/CD setup
 
 ## Documentation
-- [ ] Per-module docs
-- [ ] Public API documentation
-- [ ] Example usage (scenarios, CLI)
+- [x] Basic README
+- [x] Development guidelines
+- [ ] API documentation
 - [ ] Architecture diagrams
 - [ ] Setup guide
 - [ ] Contribution guide
 
-## Testing
-- [ ] Unit tests for all core components
-- [ ] Integration tests for Crosschain Atomic Transaction protocol execution
-- [ ] End-to-end test: tx submission → resolution
-- [ ] Fuzzing or `proptest` for state edge cases
-- [ ] CI/CD (basic GitHub Actions)
-
 ## Future Enhancements
-- [ ] BFT confirmation engine
-- [ ] Metrics + observability
-- [ ] Real transport: `libp2p`, gRPC
+- [ ] Mock VM implementation
+- [ ] Full VM implementation
+- [ ] Metrics and observability
 - [ ] Performance profiling
 - [ ] Production deployment setup
-- [ ] Timeout config tuning & adversarial scenarios
+- [ ] Advanced network features (libp2p where necessary)
+
+## Binary Targets
+- [ ] Node binary
+- [ ] Hyper Scheduler binary
+- [ ] Simulator binary
+- [ ] CLI interfaces
+- [ ] Configuration management
