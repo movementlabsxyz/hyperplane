@@ -73,6 +73,8 @@ TESTS=(
 
 TESTS2=(
 
+confirmation_layer::basic::test_cl_submit_transaction
+confirmation_layer::basic::test_cl_basic_confirmation_layer
 )
 
 # Run the appropriate test set based on the input

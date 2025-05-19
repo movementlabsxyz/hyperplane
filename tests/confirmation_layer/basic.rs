@@ -80,19 +80,19 @@ async fn test_cl_basic_confirmation_layer() {
         let chain_id = ChainId("test-chain".to_string());
         
         // Submit a transaction
-        let tx = CLTransaction {
-            id: TransactionId("test-tx".to_string()),
-            data: "test message".to_string(),
-            chain_id: chain_id.clone(),
-        };
+        let tx = CLTransaction::new(
+            TransactionId("test-tx".to_string()),
+            chain_id.clone(),
+            "REGULAR.SIMULATION.Success".to_string()
+        ).expect("Failed to create transaction");
         cl_node_with_lock.submit_transaction(tx).await.expect("Failed to submit transaction");
         
         // Try to submit a transaction for unregistered chain (should fail)
-        let tx2 = CLTransaction {
-            id: TransactionId("test-tx-2".to_string()),
-            data: "test message 2".to_string(),
-            chain_id: ChainId("unregistered-chain".to_string()),
-        };
+        let tx2 = CLTransaction::new(
+            TransactionId("test-tx-2".to_string()),
+            chain_id.clone(),
+            "REGULAR.SIMULATION.Success".to_string()
+        ).expect("Failed to create transaction");
         match cl_node_with_lock.submit_transaction(tx2).await {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
             Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: {}", e),
@@ -156,15 +156,15 @@ async fn test_cl_normal_transactions() {
         .await
         .expect("Failed to register chain");
 
-    // Create a normal transaction
-    let tx = CLTransaction {
-        id: TransactionId("normal-tx".to_string()),
-        chain_id: chain_id.clone(),
-        data: "test data".to_string(),
-    };
+    // Create a regular transaction
+    let tx = CLTransaction::new(
+        TransactionId("regular-tx".to_string()),
+        chain_id.clone(),
+        "REGULAR.SIMULATION.Success".to_string()
+    ).expect("Failed to create transaction");
 
     // Submit the transaction
-    cl_node.submit_transaction(tx.clone())
+    cl_node.submit_transaction(tx)
         .await
         .expect("Failed to submit transaction");
 
@@ -260,11 +260,11 @@ async fn test_cl_submit_transaction() {
     cl_node.register_chain(chain_id.clone()).await.unwrap();
 
     // Submit a transaction
-    let transaction = CLTransaction {
-        id: TransactionId("test-tx".to_string()),
-        chain_id: chain_id.clone(),
-        data: "test_data".to_string(),
-    };
+    let transaction = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        chain_id.clone(),
+        "REGULAR.SIMULATION.Success".to_string()
+    ).expect("Failed to create transaction");
     let result = cl_node.submit_transaction(transaction).await;
     assert!(result.is_ok());
 
@@ -276,7 +276,7 @@ async fn test_cl_submit_transaction() {
     for block_id in 1..=4 {
         let subblock = cl_node.get_subblock(chain_id.clone(), block_id).await.unwrap();
         println!("Subblock transactions for block {}: {:?}", block_id, subblock.transactions);
-        if subblock.transactions.iter().any(|tx| tx.data == "test_data") {
+        if subblock.transactions.iter().any(|tx| tx.data == "REGULAR.SIMULATION.Success") {
             found = true;
             break;
         }
@@ -473,11 +473,11 @@ async fn test_cl_submit_transaction_chain_not_registered() {
 
     // Attempt to submit a transaction for a chain not registered
     let chain_id = ChainId("non_existent".to_string());
-    let tx = CLTransaction {
-        id: TransactionId("test-tx".to_string()),
-        chain_id: chain_id.clone(),
-        data: "test data".to_string(),
-    };
+    let tx = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        chain_id.clone(),
+        "REGULAR.SIMULATION.Success".to_string()
+    ).expect("Failed to create transaction");
     let result = cl_node.submit_transaction(tx).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))), "Should not be able to submit transaction for unregistered chain");
 }
