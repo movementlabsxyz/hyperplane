@@ -23,17 +23,13 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
     let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(receiver_hs_to_cl,sender_cl_to_hig,block_interval).expect("Failed to create confirmation node")));
     let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs)));
 
-    // Start the nodes (processing loops)
+    // Start the HyperScheduler and HyperIG nodes
     HyperSchedulerNode::start(hs_node.clone()).await;
     HyperIGNode::start(hig_node.clone()).await;
 
-    // Start block production if requested (default to true)
+    // Start the Confirmation Layer node (block production, default to true)
     if start_block_production {
-        // Clone the state for block production
-        let cl_node_for_block_production = cl_node.clone();
-        let _block_production_handle = tokio::spawn(async move {
-            ConfirmationLayerNode::start_block_production(cl_node_for_block_production).await;
-        });
+        ConfirmationLayerNode::start(cl_node.clone()).await;
 
         // Wait for block production to be ready
         let mut attempts = 0;

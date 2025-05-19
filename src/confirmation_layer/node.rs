@@ -76,20 +76,8 @@ impl ConfirmationLayerNode {
         })
     }
 
-    /// Start the message processing loop
-    pub async fn start(&mut self) {
-        while let Some(transaction) = self.receiver_hs_to_cl.as_mut().unwrap().recv().await {
-            tracing::info!("Received transaction from HS: {:?}", transaction);
-            if !self.state.lock().await.registered_chains.contains(&transaction.chain_id) {
-                tracing::error!("Chain {} not found", transaction.chain_id.0);
-                continue;
-            }
-            self.state.lock().await.pending_transactions.push(transaction);
-        }
-    }
-
-    /// Start the block production loop
-    pub async fn start_block_production(node: Arc<Mutex<Self>>) {
+    /// Process messages and create blocks
+    pub async fn process_messages_and_create_blocks(node: Arc<Mutex<Self>>) {
         let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
         loop {
             interval.tick().await;
@@ -164,49 +152,11 @@ impl ConfirmationLayerNode {
             }
         }
     }
-}
 
-/// A wrapper for Arc<Mutex<ConfirmationLayerNode>> that implements ConfirmationLayer
-// #[derive(Clone)]
-// pub struct ConfirmationLayerNodeWrapper {
-//     pub inner: Arc<Mutex<ConfirmationLayerNode>>,
-// }
-
-// impl ConfirmationLayerNodeWrapper {
-//     pub fn new(inner: ConfirmationLayerNode) -> Self {
-//         Self { inner: Arc::new(Mutex::new(inner)) }
-//     }
-
-//     /// Start the message processing loop
-//     pub async fn start(&mut self) {
-//         let mut node = self.inner.lock().await;
-//         node.start().await;
-//     }
-
-//     /// Start block production
-//     pub async fn start_block_production(&self) {
-//         ConfirmationLayerNode::start_block_production(self.inner.clone()).await;
-//     }
-// }
-
-/// Trait for starting node operations
-#[async_trait::async_trait]
-pub trait NodeStarter {
-    /// Start the message processing loop
-    async fn start(&mut self);
-    /// Start block production
-    async fn start_block_production(&self);
-}
-
-#[async_trait::async_trait]
-impl NodeStarter for Arc<Mutex<ConfirmationLayerNode>> {
-    async fn start(&mut self) {
-        let mut node = self.lock().await;
-        node.start().await;
-    }
-
-    async fn start_block_production(&self) {
-        ConfirmationLayerNode::start_block_production(self.clone()).await;
+    /// Start the message processing and block production loop
+    pub async fn start(node: Arc<Mutex<Self>>) {
+        println!("  [CL]   Starting block production");
+        tokio::spawn(async move { Self::process_messages_and_create_blocks(node).await });
     }
 }
 
