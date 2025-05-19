@@ -35,7 +35,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     // Submit CAT transaction to CL
     let tx = Transaction::new(
         TransactionId("test-cat".to_string()),
-        format!("CAT.SIMULATION.{:?}.CAT_ID:test-cat", expected_status)
+        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat.CHAINS:(chain-1)", expected_status)
     ).expect("Failed to create transaction");
     println!("[TEST]   Submitting CAT transaction with ID: {}", tx.id.0);
     {
@@ -74,7 +74,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
         let tx_count = subblock.transactions.len();
         // Find our transaction in the subblock
         for tx in subblock.transactions {
-            if tx.data.contains(&format!("STATUS_UPDATE.{:?}.CAT_ID:test-cat", expected_status)) {
+            if tx.data.contains(&format!("STATUS_UPDATE:{:?}.CAT_ID:test-cat.CHAINS:(chain-1)", expected_status)) {
                 found_tx = true;
                 println!("[TEST]   Found status update in subblock: block_id={}, chain_id={}, tx_count={} with tx id:{} and data: {}", 
                     subblock.block_id, subblock.chain_id.0, tx_count, tx.id, tx.data);    
@@ -82,7 +82,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
             }
         }
     }
-    assert!(found_tx, "Transaction not found in subblock");
+    assert!(found_tx, "Transaction tx.id='{}', data='{}' not found in subblock", tx.id, tx.data);
     
     println!("[TEST]   === Test completed successfully ===\n");
 }

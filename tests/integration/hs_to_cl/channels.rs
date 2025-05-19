@@ -67,7 +67,7 @@ async fn test_single_chain_cat_status_update() {
     };
     println!("[TEST]   Retrieved subblock with {} transactions", subblock.transactions.len());
     assert_eq!(subblock.transactions.len(), 1);
-    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE.Success.CAT_ID:test-cat");
+    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE:Success.CAT_ID:test-cat");
     println!("[TEST]   Transaction verification successful");
     
     println!("[TEST]   === Test completed successfully ===\n");

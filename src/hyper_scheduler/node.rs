@@ -9,10 +9,14 @@ use tokio;
 
 /// The internal state of the HyperSchedulerNode
 pub struct HyperSchedulerState {
-    /// Map of CAT IDs to their current status update
-    pub cat_statuses: HashMap<CATId, StatusLimited>,
-    /// The chain IDs for submitting transactions
+    /// The chain IDs of valid chains
     pub chain_ids: HashSet<ChainId>,
+    /// Map of CAT IDs to their constituent chains
+    pub constituent_chains: HashMap<CATId, Vec<ChainId>>,
+    /// Map of CAT IDs to their status (this is the result of the cat_chainwise_statuses)
+    pub cat_statuses: HashMap<CATId, StatusLimited>,
+    /// Map of CAT IDs to their status per constituent chain
+    pub cat_chainwise_statuses: HashMap<CATId, HashMap<ChainId, StatusLimited>>,
 }
 
 /// A node that implements the HyperScheduler trait
@@ -42,6 +46,8 @@ impl HyperSchedulerNode {
             state: Arc::new(Mutex::new(HyperSchedulerState {
                 cat_statuses: HashMap::new(),
                 chain_ids: HashSet::new(),
+                constituent_chains: HashMap::new(),
+                cat_chainwise_statuses: HashMap::new(),
             })),
             receiver_from_hig: Some(receiver_from_hig),
             sender_to_cl: Some(sender_to_cl),
@@ -72,7 +78,8 @@ impl HyperSchedulerNode {
         
         // Process messages
         while let Some(status_update) = receiver.recv().await {
-            println!("  [HS]   [Message loop task] Received status proposal for '{}': {:?}", status_update.cat_id, status_update);
+            println!("  [HS]   [Message loop task] Received status proposal for cat-id='{}': data={:?} : chains={:?}", status_update.cat_id, status_update.status, status_update.constituent_chains);
+
             // TODO need to handle chain id as well 
             // println!("  [HS]   [Message loop task] Attempting to acquire state lock for status update...");
             {
@@ -80,6 +87,10 @@ impl HyperSchedulerNode {
                 // println!("  [HS]   [Message loop task] Acquired state lock for status update");
                 state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
                 // println!("  [HS]   [Message loop task] Updated state, releasing lock");
+
+                // TODO: this is just dummy for now
+                // state.check_and_update_cat_status(&status_update.cat_id).await.unwrap();
+
             }
             // println!("  [HS]   [Message loop task] Released state lock after status update");
             println!("  [HS]   [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
@@ -104,7 +115,7 @@ impl HyperSchedulerNode {
     }
 
     /// Submit a transaction to the confirmation layer
-    pub async fn submit_transaction(&mut self, tx: CLTransaction) -> Result<(), String> {
+    pub async fn submit_transaction_to_cl(&mut self, tx: CLTransaction) -> Result<(), String> {
         println!("  [HS]   submit_transaction called for transaction: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
         if let Some(sender) = &self.sender_to_cl {
             sender.send(tx).await.map_err(|e| e.to_string())
@@ -143,6 +154,47 @@ impl HyperSchedulerNode {
         } else {
             Err("No sender to CL set".to_string())
         }
+    }
+
+    /// Check if all member chains have submitted their status and update final status if needed
+    async fn _check_and_update_cat_status(&mut self, cat_id: &CATId) -> Result<(), HyperSchedulerError> {
+        let mut state = self.state.lock().await;
+        
+        // Get member chains for this CAT
+        let member_chains = match state.constituent_chains.get(cat_id) {
+            Some(chains) => chains.clone(),
+            None => return Err(HyperSchedulerError::CATNotFound(cat_id.clone())),
+        };
+
+        // Get status map for this CAT
+        let status_map = match state.cat_chainwise_statuses.get(cat_id) {
+            Some(map) => map.clone(),
+            None => return Err(HyperSchedulerError::CATNotFound(cat_id.clone())),
+        };
+
+        // Check if we have status from all member chains
+        let all_chains_have_status = member_chains.iter()
+            .all(|chain_id| status_map.contains_key(chain_id));
+
+        if all_chains_have_status {
+            // Check if all statuses are Success
+            let all_success = member_chains.iter()
+                .all(|chain_id| status_map.get(chain_id) == Some(&StatusLimited::Success));
+
+            // Update final status
+            let final_status = if all_success {
+                StatusLimited::Success
+            } else {
+                StatusLimited::Failure
+            };
+
+            state.cat_statuses.insert(cat_id.clone(), final_status.clone());
+            println!("  [HS]   Updated final status for CAT {} to {:?} based on all member chain statuses", cat_id.0, final_status);
+        } else {
+            println!("  [HS]   Not all member chains have submitted status for CAT {}", cat_id.0);
+        }
+
+        Ok(())
     }
 }
 
@@ -200,8 +252,8 @@ impl HyperScheduler for HyperSchedulerNode {
         }
 
         let status_str = match status {
-            StatusLimited::Success => "STATUS_UPDATE.Success.CAT_ID:".to_string() + &cat_id.0,
-            StatusLimited::Failure => "STATUS_UPDATE.Failure.CAT_ID:".to_string() + &cat_id.0,
+            StatusLimited::Success => "STATUS_UPDATE:Success.CAT_ID:".to_string() + &cat_id.0,
+            StatusLimited::Failure => "STATUS_UPDATE:Failure.CAT_ID:".to_string() + &cat_id.0,
         };
 
         // Send the status update to all registered chains

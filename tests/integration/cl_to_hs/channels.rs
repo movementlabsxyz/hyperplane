@@ -29,7 +29,7 @@ async fn run_test_single_chain_cat_success(expected_status: StatusLimited) {
     let cat_id = CATId("test-cat-tx".to_string());
     let tx = Transaction::new(
         TransactionId("cat-tx.chain-1".to_string()),
-        format!("CAT.SIMULATION.{:?}.CAT_ID:{}", expected_status, cat_id.0)
+        format!("CAT.SIMULATION:{:?}.CAT_ID:{}.CHAINS:(chain-1)", expected_status, cat_id.0)
     ).expect("Failed to create transaction");
 
     // Submit the transaction to CL
@@ -57,7 +57,7 @@ async fn run_test_single_chain_cat_success(expected_status: StatusLimited) {
         let node = hs_node.lock().await;
         let status = node.get_cat_status(cat_id).await.expect("Failed to get CAT status");
         println!("[TEST]   Retrieved status: {:?}", status);
-        assert_eq!(status, expected_status);
+        assert_eq!(status, expected_status, "CAT status should be {:?}", expected_status);
     }
     println!("[TEST]   Status verification successful");
 

@@ -7,6 +7,8 @@ use tokio::sync::Mutex;
 use async_trait::async_trait;
 use std::time::Duration;
 use crate::types::ChainId;
+use regex::Regex;
+use crate::types::communication::cl_to_hig::{CAT_PATTERN, CAT_ID_SUFFIX, CHAINS_SUFFIX};
 /// The internal state of the HyperIGNode
 struct HyperIGState {
     /// Map of transaction IDs to their current status
@@ -113,25 +115,6 @@ impl HyperIGNode {
         Ok(())
     }
 
-    /// Send a CAT status proposal to the Hyper Scheduler with a specific transaction ID
-    pub async fn send_cat_status_proposal_with_transaction_id(
-        &mut self,
-        cat_id: CATId,
-        _tx_id: TransactionId,
-        status: StatusLimited
-    ) -> Result<(), HyperIGError> {
-        if let Some(sender) = &mut self.sender_hig_to_hs {
-            let status_update = CATStatusUpdate {
-                cat_id: cat_id.clone(),
-                // TODO dummy chain id for now
-                chain_id: ChainId("dummy-chain".to_string()),
-                status: status.clone(),
-            };
-            sender.send(status_update).await.map_err(|e| HyperIGError::Communication(e.to_string()))?;
-        }
-        Ok(())
-    }
-
     /// Get the proposed status for a CAT transaction
     pub async fn get_proposed_status(&self, tx_id: TransactionId) -> Result<StatusLimited, anyhow::Error> {
         Ok(self.state.lock().await.cat_proposed_statuses.get(&tx_id)
@@ -164,7 +147,7 @@ impl HyperIGNode {
         println!("  [HIG]   Handling status update tx-id='{}' : data='{}'", tx.id.0, tx.data);
         
         // Extract the CAT ID and status from the transaction data
-        // Format: STATUS_UPDATE.<Status>.CAT_ID:<cat_id>
+        // Format: STATUS_UPDATE:<Status>.CAT_ID:<cat_id>
         let parts: Vec<&str> = tx.data.split(".").collect();
         if parts.len() != 3 {
             return Err(anyhow::anyhow!("Invalid status update format: {}", tx.data));
@@ -201,13 +184,13 @@ impl HyperIGNode {
     /// Handle a regular transaction
     async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         println!("  [HIG]   Executing regular transaction: {}", tx.id);
-        // check the data if its "REGULAR.SIMULATION.<Status>"
-        if tx.data.starts_with("REGULAR.SIMULATION.Success") {
+        // check the data if its "REGULAR.SIMULATION:<Status>"
+        if tx.data.starts_with("REGULAR.SIMULATION:Success") {
             // Store Success status for regular transactions
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Success);
             println!("  [HIG]   Set final status to Success for transaction: {}", tx.id.0);
             Ok(TransactionStatus::Success)
-        } else if tx.data.starts_with("REGULAR.SIMULATION.Failure") {
+        } else if tx.data.starts_with("REGULAR.SIMULATION:Failure") {
             // Store Failure status for regular transactions
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
             println!("  [HIG]   Set final status to Failure for transaction: {}", tx.id.0);
@@ -225,6 +208,41 @@ impl HyperIGNode {
         self.state.lock().await.pending_transactions.insert(transaction.id.clone());
         // Transactions depending on CATs stay pending until the CAT is resolved
         Ok(TransactionStatus::Pending)
+    }
+
+    /// Parse a CAT transaction
+    fn parse_cat_transaction(data: &str) -> Result<(CATId, StatusLimited, Vec<ChainId>), anyhow::Error> {
+        println!("  [HIG]   Parsing CAT transaction: {}", data);
+        if let Some(_captures) = CAT_PATTERN.captures(data) {
+            let status = if data.contains(".Success.") {
+                StatusLimited::Success
+            } else {
+                StatusLimited::Failure
+            };
+            
+            // Extract CAT ID using CAT_ID_SUFFIX pattern
+            println!("  [HIG]   Extracting CAT ID from data: {}", data);
+            let cat_id_match = Regex::new(&format!(r"{}", *CAT_ID_SUFFIX))?
+                .captures(data)
+                .ok_or_else(|| anyhow::anyhow!("Failed to extract CAT ID"))?;
+            println!("  [HIG]   Extracted CAT ID match: {:?}", cat_id_match);
+            let cat_id = CATId(cat_id_match[1].to_string());
+            println!("  [HIG]   Extracted CAT ID: {}", cat_id.0);
+            // Extract chains using CHAINS_SUFFIX pattern
+            println!("  [HIG]   Extracting chains from data: {}", data);
+            let chains_match = Regex::new(&format!(r"{}", *CHAINS_SUFFIX))?
+                .captures(data)
+                .ok_or_else(|| anyhow::anyhow!("Failed to extract constituent chains"))?;
+            println!("  [HIG]   Extracted chains match: {:?}", chains_match);
+            let chains = chains_match[1].split(',')
+                .map(|s| ChainId(s.to_string()))
+                .collect();
+            println!("  [HIG]   Extracted chains: {:?}", chains);
+
+            Ok((cat_id, status, chains))
+        } else {
+            Err(anyhow::anyhow!("Invalid CAT transaction format: {}", data))
+        }
     }
 }
 
@@ -260,22 +278,10 @@ impl HyperIG for HyperIGNode {
 
         // Send status proposal to Hyper Scheduler if it's a CAT transaction
         if tx.data.starts_with("CAT") {
-            // extract the cat id and status from the data
-            let parts: Vec<&str> = tx.data.split(":").collect();
-            if parts.len() != 2 {
-                return Err(anyhow::anyhow!("Invalid CAT tx data format: expected 'CAT.SIMULATION.<Status>:<ID>', got '{}'", tx.data));
-            }
-            let cat_id = CATId(parts[1].to_string());
-            let status = if parts[0].contains("Success") {
-                StatusLimited::Success
-            } else if parts[0].contains("Failure") {
-                StatusLimited::Failure
-            } else {
-                return Err(anyhow::anyhow!("Invalid CAT status in data: {}", parts[0]));
-            };
-            println!("  [HIG]   Extracted cat-id='{}' with status: {:?}", cat_id.0, status);
+            let (cat_id, status, constituent_chains) = Self::parse_cat_transaction(&tx.data)?;
+            println!("  [HIG]   Extracted cat-id='{}', status={:?}, chains={:?}", cat_id.0, status, constituent_chains);
             println!("  [HIG]   Sending status proposal for cat-id='{}'", cat_id.0);
-            self.send_cat_status_proposal(cat_id, status).await?;
+            self.send_cat_status_proposal(cat_id, status, constituent_chains).await?;
             println!("  [HIG]   Status proposal sent for CAT transaction.");
         }
 
@@ -298,13 +304,14 @@ impl HyperIG for HyperIGNode {
         Ok(self.state.lock().await.pending_transactions.iter().cloned().collect())
     }
 
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperIGError> {
+    /// Send a CAT status proposal to the Hyper Scheduler
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
         if let Some(sender) = &mut self.sender_hig_to_hs {
             let status_update = CATStatusUpdate {
                 cat_id: cat_id.clone(),
-                // TODO dummy chain id for now
                 chain_id: ChainId("dummy-chain".to_string()),
                 status: status.clone(),
+                constituent_chains: constituent_chains.clone(),
             };
             sender.send(status_update).await.map_err(|e| HyperIGError::Communication(e.to_string()))?;
         }
@@ -357,9 +364,9 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
         node.get_pending_transactions().await
     }
 
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperIGError> {
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
         let mut node = self.lock().await;
-        node.send_cat_status_proposal(cat_id, status).await
+        node.send_cat_status_proposal(cat_id, status, constituent_chains).await
     }
 
     async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError> {

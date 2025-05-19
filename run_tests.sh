@@ -69,7 +69,9 @@ TESTS=(
 
 
 TESTS2=(
-    confirmation_layer::basic::test_regular_transactions
+    integration::cl_to_cl::channels::test_single_chain_cat_success
+    # integration::cl_to_cl::channels::test_single_chain_cat_failure
+    # integration::e2e::channels::test_single_chain_cat_success
 )
 
 # Run the appropriate test set based on the input
@@ -87,3 +89,4 @@ else
     echo "Invalid test set. Use 1 or 2."
     exit 1
 fi
+ 

@@ -35,6 +35,8 @@ pub struct CATStatusUpdate {
     pub chain_id: ChainId,
     /// The new status
     pub status: StatusLimited,
+    /// The set of all chains involved in this CAT (including the chain_id that sent this update)
+    pub constituent_chains: Vec<ChainId>,
 }
 
 /// A Crosschain Atomic Transaction (CAT)
