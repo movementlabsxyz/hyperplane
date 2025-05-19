@@ -90,7 +90,7 @@ async fn test_cl_basic_confirmation_layer() {
         // Try to submit a transaction for unregistered chain (should fail)
         let tx2 = CLTransaction::new(
             TransactionId("test-tx-2".to_string()),
-            chain_id.clone(),
+            ChainId("unregistered-chain".to_string()),
             "REGULAR.SIMULATION.Success".to_string()
         ).expect("Failed to create transaction");
         match cl_node_with_lock.submit_transaction(tx2).await {
@@ -116,9 +116,9 @@ async fn test_cl_basic_confirmation_layer() {
         // Check blocks 3 to 7 for the presence of the transaction (it may be difficult to pin the exact block)
         let chain_id = ChainId("test-chain".to_string());
         let mut found = false;
-        for block_id in 5..=9 {
+        for block_id in _start_block_height + 5..=_start_block_height + 9 {
             let subblock = cl_node_with_lock.get_subblock(chain_id.clone(), block_id).await.unwrap();
-            if subblock.transactions.iter().any(|tx| tx.data == "test message") {
+            if subblock.transactions.iter().any(|tx| tx.data == "REGULAR.SIMULATION.Success") {
                 found = true;
                 break;
             }
