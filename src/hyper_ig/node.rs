@@ -97,11 +97,9 @@ impl HyperIGNode {
     }
 
     /// Start the node's block processing loop
-    pub async fn start(&mut self) {
+    pub async fn start(node: Arc<Mutex<HyperIGNode>>) {
         println!("  [HIG]   Starting HyperIG node");
-        if let Err(e) = self.process_incoming_subblocks().await {
-            println!("  [HIG]   Error in message processing loop: {}", e);
-        }
+        tokio::spawn(async move { HyperIGNode::process_messages(node).await });
     }
 
     /// Process incoming subblocks from the Confirmation Layer

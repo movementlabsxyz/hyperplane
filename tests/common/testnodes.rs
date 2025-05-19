@@ -20,24 +20,12 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
     
     // Create nodes with their channels
     let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(receiver_hig_to_hs, sender_hs_to_cl)));
-    let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
-        receiver_hs_to_cl,
-        sender_cl_to_hig,
-        block_interval
-    ).expect("Failed to create confirmation node")));
+    let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(receiver_hs_to_cl,sender_cl_to_hig,block_interval).expect("Failed to create confirmation node")));
     let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs)));
 
-    // Start the HS incoming message processing loop
-    let hs_node_for_message_loop = hs_node.clone();
-    let _hs_message_loop_handle = tokio::spawn(async move {
-        HyperSchedulerNode::process_messages(hs_node_for_message_loop).await;
-    });
-
-    // Start the HIG incoming block processing loop
-    let hig_node_for_message_loop = hig_node.clone();
-    let _hig_message_loop_handle = tokio::spawn(async move {
-        HyperIGNode::process_messages(hig_node_for_message_loop).await;
-    });
+    // Start the nodes (processing loops)
+    HyperSchedulerNode::start(hs_node.clone()).await;
+    HyperIGNode::start(hig_node.clone()).await;
 
     // Start block production if requested (default to true)
     if start_block_production {

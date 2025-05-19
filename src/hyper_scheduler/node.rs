@@ -5,6 +5,7 @@ use tokio::sync::mpsc;
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio;
 
 /// The internal state of the HyperSchedulerNode
 pub struct HyperSchedulerState {
@@ -93,9 +94,8 @@ impl HyperSchedulerNode {
     }
 
     /// Start the message processing loop (deprecated, use process_messages instead)
-    pub async fn start(&mut self) {
-        let hs_node = Arc::new(Mutex::new(self.clone()));
-        Self::process_messages(hs_node).await;
+    pub async fn start(node: Arc<Mutex<HyperSchedulerNode>>) {
+        tokio::spawn(async move { HyperSchedulerNode::process_messages(node).await });
     }
 
     /// Set the chain ID to use for submitting transactions
