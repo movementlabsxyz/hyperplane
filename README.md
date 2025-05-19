@@ -66,16 +66,33 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 
 ### Current Features
 - Basic type definitions and core data structures
-- Hyper IG implementation with transaction execution and status management
-- Confirmation layer with centralized confirmation mechanism
-- Basic integration tests for core components
+- Communication model based on channels between components
+- Basic Confirmation Layer implementation that produces blocks per chain
+- Basic HyperIG implementation with transaction execution and status management
+- Basic HyperScheduler implementation that schedules transactions
+- Basic tests per component in `tests/`
+- Basic integration tests in `tests/integration`
 
 ### Planned Features
 - BFT confirmation engine
-- libp2p network backend
+- Mock VM
+- Full VM
 - Metrics and observability
 - Performance profiling
 - Production deployment setup
+- (optional) libp2p network backend, where necessary
+
+### Testing
+
+Run all tests:
+```
+cargo test
+```
+
+Run a specific test with output
+```
+./run_tests.sh <1 or 2>
+```
 
 ## Contributing
 

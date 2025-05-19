@@ -1,213 +1,319 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tokio::time::{Duration, interval};
-use crate::types::{
-    BlockId, ChainId, ChainRegistration, SubBlock, CLTransaction, Transaction,
-};
+use tokio::time::Duration;
+use tokio::sync::mpsc;
+use crate::types::{Transaction, ChainId, CLTransaction, SubBlock};
 use super::{ConfirmationLayer, ConfirmationLayerError};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use std::collections::HashMap;
+
+/// The internal state of the ConfirmationLayerNode
+pub struct ConfirmationLayerState {
+    /// Currently registered chains
+    pub registered_chains: Vec<ChainId>,
+    /// Current block number
+    pub current_block: u64,
+    /// Block interval
+    pub block_interval: Duration,
+    /// Pending transactions
+    pub pending_transactions: Vec<CLTransaction>,
+    /// Processed transactions
+    pub processed_transactions: Vec<(ChainId, CLTransaction)>,
+    /// Block history
+    pub blocks: Vec<u64>,
+    /// Block to transactions mapping
+    pub block_transactions: HashMap<u64, Vec<(ChainId, CLTransaction)>>,
+}
 
 /// A simple node implementation of the ConfirmationLayer
-pub struct ConfirmationNode {
-    /// Currently registered chains
-    chains: Arc<RwLock<HashMap<ChainId, ChainRegistration>>>,
-    /// Current block ID
-    current_block: Arc<RwLock<BlockId>>,
-    /// Block interval
-    block_interval: Arc<RwLock<Duration>>,
-    /// Pending transactions for each chain
-    pending_txs: Arc<RwLock<HashMap<ChainId, Vec<CLTransaction>>>>,
-    /// Stored subblocks by chain and block ID
-    subblocks: Arc<RwLock<HashMap<(ChainId, BlockId), SubBlock>>>,
+pub struct ConfirmationLayerNode {
+    /// The internal state of the node
+    pub state: Arc<Mutex<ConfirmationLayerState>>,
+    /// Receiver for messages from Hyper Scheduler
+    receiver_hs_to_cl: Option<mpsc::Receiver<CLTransaction>>,
+    /// Sender for messages to Hyper IG
+    sender_cl_to_hig: Option<mpsc::Sender<SubBlock>>,
 }
 
-impl Clone for ConfirmationNode {
-    fn clone(&self) -> Self {
+impl ConfirmationLayerNode {
+    /// Create a new ConfirmationLayerNode with default settings
+    pub fn new(receiver_hs_to_cl: mpsc::Receiver<CLTransaction>, sender_cl_to_hig: mpsc::Sender<SubBlock>) -> Self {
         Self {
-            chains: Arc::new(RwLock::new(HashMap::new())),
-            current_block: Arc::new(RwLock::new(BlockId("0".to_string()))),
-            block_interval: Arc::new(RwLock::new(Duration::from_millis(100))),
-            pending_txs: Arc::new(RwLock::new(HashMap::new())),
-            subblocks: Arc::new(RwLock::new(HashMap::new())),
+            state: Arc::new(Mutex::new(ConfirmationLayerState {
+                registered_chains: Vec::new(),
+                current_block: 0,
+                block_interval: Duration::from_millis(100),
+                pending_transactions: Vec::new(),
+                processed_transactions: Vec::new(),
+                blocks: Vec::new(),
+                block_transactions: HashMap::new(),
+            })),
+            receiver_hs_to_cl: Some(receiver_hs_to_cl),
+            sender_cl_to_hig: Some(sender_cl_to_hig),
         }
     }
-}
 
-impl ConfirmationNode {
-    /// Create a new confirmation node with default settings
-    pub fn new() -> Self {
-        let node = Self {
-            chains: Arc::new(RwLock::new(HashMap::new())),
-            current_block: Arc::new(RwLock::new(BlockId("0".to_string()))),
-            block_interval: Arc::new(RwLock::new(Duration::from_secs(1))),
-            pending_txs: Arc::new(RwLock::new(HashMap::new())),
-            subblocks: Arc::new(RwLock::new(HashMap::new())),
-        };
-        
-        // Start block production
-        node.start_block_production();
-        node
-    }
-
-    /// Create a new confirmation node with custom block interval
-    pub fn with_block_interval(interval: Duration) -> Result<Self, ConfirmationLayerError> {
+    /// Create a new ConfirmationLayerNode with a custom block interval
+    pub fn new_with_block_interval(
+        receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
+        sender_cl_to_hig: mpsc::Sender<SubBlock>,
+        interval: Duration
+    ) -> Result<Self, ConfirmationLayerError> {
         if interval.is_zero() {
             return Err(ConfirmationLayerError::InvalidBlockInterval(interval));
         }
-        let node = Self {
-            chains: Arc::new(RwLock::new(HashMap::new())),
-            current_block: Arc::new(RwLock::new(BlockId("0".to_string()))),
-            block_interval: Arc::new(RwLock::new(interval)),
-            pending_txs: Arc::new(RwLock::new(HashMap::new())),
-            subblocks: Arc::new(RwLock::new(HashMap::new())),
-        };
-        
-        // Start block production
-        node.start_block_production();
-        Ok(node)
+        Ok(Self {
+            state: Arc::new(Mutex::new(ConfirmationLayerState {
+                registered_chains: Vec::new(),
+                current_block: 0,
+                block_interval: interval,
+                pending_transactions: Vec::new(),
+                processed_transactions: Vec::new(),
+                blocks: Vec::new(),
+                block_transactions: HashMap::new(),
+            })),
+            receiver_hs_to_cl: Some(receiver_hs_to_cl),
+            sender_cl_to_hig: Some(sender_cl_to_hig),
+        })
+    }
+
+    /// Start the message processing loop
+    pub async fn start(&mut self) {
+        while let Some(transaction) = self.receiver_hs_to_cl.as_mut().unwrap().recv().await {
+            tracing::info!("Received transaction from HS: {:?}", transaction);
+            if !self.state.lock().await.registered_chains.contains(&transaction.chain_id) {
+                tracing::error!("Chain {} not found", transaction.chain_id.0);
+                continue;
+            }
+            self.state.lock().await.pending_transactions.push(transaction);
+        }
     }
 
     /// Start the block production loop
-    fn start_block_production(&self) {
-        let chains = self.chains.clone();
-        let current_block = self.current_block.clone();
-        let block_interval = self.block_interval.clone();
-        let pending_txs = self.pending_txs.clone();
-        let subblocks = self.subblocks.clone();
+    pub async fn start_block_production(node: Arc<Mutex<Self>>) {
+        let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
+        loop {
+            interval.tick().await;
+            println!("  [BLOCK]   Height: {}", node.lock().await.state.lock().await.current_block);
 
-        tokio::spawn(async move {
-            let mut interval = interval(Duration::from_millis(100)); // Check every 100ms
-            loop {
-                interval.tick().await;
-                let _interval_duration = *block_interval.read().await;
-                
-                // Get current block
-                let mut block = current_block.write().await;
-                let block_id = block.0.clone();
-                
-                // Create subblocks for each chain
-                let mut txs = pending_txs.write().await;
-                let registered_chains = chains.read().await;
-                
-                for (chain_id, registration) in registered_chains.iter() {
-                    if registration.active {
-                        // Take transactions for this chain
-                        if let Some(chain_txs) = txs.get_mut(chain_id) {
-                            if !chain_txs.is_empty() {
-                                println!("Creating subblock for chain {} with {} transactions", chain_id.0, chain_txs.len());
-                                // Create a subblock for this chain
-                                let subblock = SubBlock {
-                                    block_id: BlockId(block_id.clone()),
-                                    chain_id: chain_id.clone(),
-                                    transactions: chain_txs.drain(..).map(|tx| Transaction {
-                                        id: tx.id,
-                                        data: tx.data,
-                                    }).collect(),
-                                };
-                                // Store the subblock
-                                subblocks.write().await.insert((chain_id.clone(), BlockId(block_id.clone())), subblock);
-                            }
-                        }
+            // Process any pending transactions
+            {
+                let mut state = node.lock().await;
+                while let Ok(transaction) = state.receiver_hs_to_cl.as_mut().unwrap().try_recv() {
+                    println!("  [BLOCK]   received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
+                    let mut inner_state = state.state.lock().await;
+                    if inner_state.registered_chains.contains(&transaction.chain_id) {
+                        inner_state.pending_transactions.push(transaction);
                     }
                 }
-                
-                // Increment block ID
-                block.0 = (block.0.parse::<u64>().unwrap() + 1).to_string();
             }
-        });
+
+            // Process the current block
+            let (current_block, processed_this_block, registered_chains) = {
+                let state = node.lock().await;
+                let mut inner_state = state.state.lock().await;
+                inner_state.current_block += 1;
+                let current_block = inner_state.current_block;
+                
+                // Process pending transactions for this block
+                let mut processed_this_block = Vec::new();
+                let mut remaining = Vec::new();
+                let registered_chains = inner_state.registered_chains.clone();
+                for tx in inner_state.pending_transactions.drain(..) {
+                    if registered_chains.contains(&tx.chain_id) {
+                        processed_this_block.push((tx.chain_id.clone(), tx.clone()));
+                    } else {
+                        remaining.push(tx);
+                    }
+                }
+                inner_state.pending_transactions = remaining;
+                
+                // Create a block
+                inner_state.blocks.push(current_block);
+                
+                // Store transactions for this block
+                inner_state.block_transactions.insert(current_block, processed_this_block.clone());
+                
+                // Add processed transactions
+                inner_state.processed_transactions.extend(processed_this_block.clone());
+                
+                (current_block, processed_this_block, registered_chains)
+            };
+
+            // Send subblocks to each chain
+            {
+                #[allow(unused_mut)]
+                let mut state = node.lock().await;
+                for chain_id in &registered_chains {
+                    let subblock = SubBlock {
+                        chain_id: chain_id.clone(),
+                        block_id: current_block,
+                        transactions: processed_this_block
+                            .iter()
+                            .filter(|(cid, _)| cid == chain_id)
+                            .map(|(_, tx)| Transaction {
+                                id: tx.id.clone(),
+                                data: tx.data.clone(),
+                            })
+                            .collect(),
+                    };
+                    if let Err(e) = state.sender_cl_to_hig.as_mut().unwrap().send(subblock).await {
+                        println!("  [BLOCK]   Error sending subblock: {}", e);
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A wrapper for Arc<Mutex<ConfirmationLayerNode>> that implements ConfirmationLayer
+// #[derive(Clone)]
+// pub struct ConfirmationLayerNodeWrapper {
+//     pub inner: Arc<Mutex<ConfirmationLayerNode>>,
+// }
+
+// impl ConfirmationLayerNodeWrapper {
+//     pub fn new(inner: ConfirmationLayerNode) -> Self {
+//         Self { inner: Arc::new(Mutex::new(inner)) }
+//     }
+
+//     /// Start the message processing loop
+//     pub async fn start(&mut self) {
+//         let mut node = self.inner.lock().await;
+//         node.start().await;
+//     }
+
+//     /// Start block production
+//     pub async fn start_block_production(&self) {
+//         ConfirmationLayerNode::start_block_production(self.inner.clone()).await;
+//     }
+// }
+
+/// Trait for starting node operations
+#[async_trait::async_trait]
+pub trait NodeStarter {
+    /// Start the message processing loop
+    async fn start(&mut self);
+    /// Start block production
+    async fn start_block_production(&self);
+}
+
+#[async_trait::async_trait]
+impl NodeStarter for Arc<Mutex<ConfirmationLayerNode>> {
+    async fn start(&mut self) {
+        let mut node = self.lock().await;
+        node.start().await;
+    }
+
+    async fn start_block_production(&self) {
+        ConfirmationLayerNode::start_block_production(self.clone()).await;
     }
 }
 
 #[async_trait::async_trait]
-impl ConfirmationLayer for ConfirmationNode {
-    async fn register_chain(&mut self, chain_id: ChainId) -> Result<BlockId, ConfirmationLayerError> {
-        let mut chains = self.chains.write().await;
-        
-        // Check if chain is already registered
-        if chains.contains_key(&chain_id) {
+impl ConfirmationLayer for ConfirmationLayerNode {
+    async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError> {
+        let mut state = self.state.lock().await;
+        if state.registered_chains.contains(&chain_id) {
             return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
-
-        // Get current block for registration
-        let current_block = self.current_block.read().await.clone();
-        
-        // Register the chain
-        let registration = ChainRegistration {
-            chain_id: chain_id.clone(),
-            name: format!("Chain {}", chain_id),
-            rpc_url: format!("http://localhost:8000"),
-            registration_block: current_block.clone(),
-            active: true,
-        };
-        chains.insert(chain_id.clone(), registration);
-
-        // Initialize empty transaction queue for this chain
-        self.pending_txs.write().await.insert(chain_id, Vec::new());
-
-        Ok(current_block)
+        state.registered_chains.push(chain_id);
+        Ok(state.current_block)
     }
 
-    async fn get_current_block(&self) -> Result<BlockId, ConfirmationLayerError> {
-        Ok(self.current_block.read().await.clone())
+    async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
+        let mut state = self.state.lock().await;
+        if !state.registered_chains.contains(&transaction.chain_id) {
+            return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
+        }
+        state.pending_transactions.push(transaction);
+        Ok(())
     }
 
-    async fn get_subblock(&self, chain_id: ChainId, block_id: BlockId) -> Result<SubBlock, ConfirmationLayerError> {
-        let chains = self.chains.read().await;
-        
-        // Check if chain exists and is active
-        let registration = chains.get(&chain_id)
-            .ok_or_else(|| ConfirmationLayerError::ChainNotFound(chain_id.clone()))?;
-        
-        if !registration.active {
+    async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
+        let state = self.state.lock().await;
+        if !state.registered_chains.contains(&chain_id) {
             return Err(ConfirmationLayerError::ChainNotFound(chain_id));
         }
 
-        // Get stored subblock or return empty one
-        let subblocks = self.subblocks.read().await;
-        let block_id_clone = block_id.clone();
-        Ok(subblocks.get(&(chain_id.clone(), block_id))
-            .cloned()
-            .unwrap_or_else(|| SubBlock {
-                block_id: block_id_clone,
-                chain_id,
-                transactions: Vec::new(),
-            }))
+        // Get transactions for this block, or return empty list if no transactions
+        let transactions = state.block_transactions
+            .get(&block_id)
+            .map(|txs| txs.iter()
+                .filter(|(cid, _)| cid == &chain_id)
+                .map(|(_, tx)| Transaction {
+                    id: tx.id.clone(),
+                    data: tx.data.clone(),
+                })
+                .collect())
+            .unwrap_or_default();
+
+        Ok(SubBlock {
+            chain_id: chain_id.clone(),
+            block_id,
+            transactions,
+        })
     }
 
-    async fn get_registered_chains(&self) -> Result<Vec<ChainRegistration>, ConfirmationLayerError> {
-        Ok(self.chains.read().await.values().cloned().collect())
+    async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError> {
+        let state = self.state.lock().await;
+        Ok(state.current_block)
     }
 
-    async fn set_block_interval(&mut self, duration: Duration) -> Result<(), ConfirmationLayerError> {
-        if duration.is_zero() {
-            return Err(ConfirmationLayerError::InvalidBlockInterval(duration));
+    async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError> {
+        let state = self.state.lock().await;
+        Ok(state.registered_chains.clone())
+    }
+
+    async fn set_block_interval(&mut self, interval: Duration) -> Result<(), ConfirmationLayerError> {
+        if interval.is_zero() {
+            return Err(ConfirmationLayerError::InvalidBlockInterval(interval));
         }
-        *self.block_interval.write().await = duration;
+        let mut state = self.state.lock().await;
+        state.block_interval = interval;
         Ok(())
     }
 
     async fn get_block_interval(&self) -> Result<Duration, ConfirmationLayerError> {
-        Ok(*self.block_interval.read().await)
+        let state = self.state.lock().await;
+        Ok(state.block_interval)
+    }
+}
+
+#[async_trait::async_trait]
+impl ConfirmationLayer for Arc<Mutex<ConfirmationLayerNode>> {
+    async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError> {
+        let mut node = self.lock().await;
+        node.register_chain(chain_id).await
     }
 
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
-        let chains = self.chains.read().await;
-        
-        // Check if chain exists and is active
-        let registration = chains.get(&transaction.chain_id)
-            .ok_or_else(|| ConfirmationLayerError::ChainNotFound(transaction.chain_id.clone()))?;
-        
-        if !registration.active {
-            return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
-        }
+        let mut node = self.lock().await;
+        node.submit_transaction(transaction).await
+    }
 
-        // Add transaction to pending queue
-        let mut pending_txs = self.pending_txs.write().await;
-        if let Some(chain_txs) = pending_txs.get_mut(&transaction.chain_id) {
-            chain_txs.push(transaction);
-            Ok(())
-        } else {
-            Err(ConfirmationLayerError::Internal("Chain not found in pending transactions".to_string()))
-        }
+    async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
+        let node = self.lock().await;
+        node.get_subblock(chain_id, block_id).await
+    }
+
+    async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError> {
+        let node = self.lock().await;
+        node.get_current_block().await
+    }
+
+    async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError> {
+        let node = self.lock().await;
+        node.get_registered_chains().await
+    }
+
+    async fn set_block_interval(&mut self, interval: Duration) -> Result<(), ConfirmationLayerError> {
+        let mut node = self.lock().await;
+        node.set_block_interval(interval).await
+    }
+
+    async fn get_block_interval(&self) -> Result<Duration, ConfirmationLayerError> {
+        let node = self.lock().await;
+        node.get_block_interval().await
     }
 } 

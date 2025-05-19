@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use super::TransactionId;
+use super::{TransactionId, ChainId};
 
 /// Unique identifier for a Crosschain Atomic Transaction (CAT)
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -17,23 +17,24 @@ pub enum CATStatus {
     Failure,
 }
 
-/// The proposed status of a CAT from the Hyper IG to the Hyper Scheduler
-/// We use this as we would like to have a reduced set of options (we do not want to have a pending status)
+/// The possible final status of a CAT or transaction
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum CATStatusUpdate {
-    /// CAT is successful
+pub enum StatusLimited {
+    /// CAT or transaction is successful
     Success,
-    /// CAT failed
+    /// CAT or transaction failed
     Failure,
 }
 
 /// A status update for a CAT
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CATUpdate {
+pub struct CATStatusUpdate {
     /// The ID of the CAT
     pub cat_id: CATId,
+    /// The ID of the chain that the status is from
+    pub chain_id: ChainId,
     /// The new status
-    pub status: CATStatus,
+    pub status: StatusLimited,
 }
 
 /// A Crosschain Atomic Transaction (CAT)
