@@ -59,8 +59,8 @@ async fn test_regular_transaction_failure() {
 /// - Pending status verification (stays pending until CAT is resolved)
 /// - Pending transaction list inclusion
 #[tokio::test]
-async fn test_normal_transaction_pending() {
-    println!("\n=== Starting test_normal_transaction_pending ===");
+async fn test_regular_transaction_pending() {
+    println!("\n=== Starting test_regular_transaction_pending ===");
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");

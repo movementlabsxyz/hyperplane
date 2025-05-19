@@ -11,34 +11,30 @@ fi
 
 TESTS=(
     # - - - CL tests - - -
-    confirmation_layer::basic::test_cl_normal_transactions
+    confirmation_layer::basic::test_regular_transactions
     confirmation_layer::concurrent_setup::concurrent_setup_v11_to_v12::test_concurrent_setup_v12
     confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
-    confirmation_layer::basic::test_cl_basic_confirmation_layer
-    confirmation_layer::basic::test_cl_block_interval
-    confirmation_layer::basic::test_normal_transactions
-    confirmation_layer::basic::test_cl_register_chain
-    confirmation_layer::basic::test_cl_get_current_block
-    confirmation_layer::basic::test_cl_get_subblock
-    confirmation_layer::basic::test_cl_submit_transaction
-    confirmation_layer::basic::test_cl_set_block_interval
-    confirmation_layer::basic::test_cl_invalid_block_interval
-    confirmation_layer::basic::test_cl_chain_not_found
-    confirmation_layer::basic::test_cl_chain_already_registered
-    confirmation_layer::basic::test_cl_chain_registration
-    confirmation_layer::basic::test_cl_block_interval_validation
-    confirmation_layer::basic::test_cl_subblock_not_found
-    confirmation_layer::basic::test_cl_get_registered_chains
-    confirmation_layer::basic::test_cl_get_block_interval
-    confirmation_layer::basic::test_cl_submit_transaction_chain_not_registered
-    confirmation_layer::basic::test_cl_get_subblock_chain_not_registered
-    confirmation_layer::basic::test_cl_register_chain_already_registered
-    confirmation_layer::basic::test_cl_set_block_interval_zero
+    confirmation_layer::basic::test_basic_confirmation_layer
+    confirmation_layer::basic::test_block_interval
+    confirmation_layer::basic::test_register_chain
+    confirmation_layer::basic::test_get_current_block
+    confirmation_layer::basic::test_get_subblock
+    confirmation_layer::basic::test_submit_transaction
+    confirmation_layer::basic::test_set_block_interval
+    confirmation_layer::basic::test_invalid_block_interval
+    confirmation_layer::basic::test_chain_not_found
+    confirmation_layer::basic::test_chain_already_registered
+    confirmation_layer::basic::test_chain_registration
+    confirmation_layer::basic::test_block_interval_validation
+    confirmation_layer::basic::test_subblock_not_found
+    confirmation_layer::basic::test_get_registered_chains
+    confirmation_layer::basic::test_get_block_interval
+    confirmation_layer::basic::test_submit_transaction_chain_not_registered
     
     # - - - HIG tests - - -
     hyper_ig::basic::test_regular_transaction_success
     hyper_ig::basic::test_regular_transaction_failure
-    hyper_ig::basic::test_normal_transaction_pending
+    hyper_ig::basic::test_regular_transaction_pending
     hyper_ig::basic::test_cat_success_proposal
     hyper_ig::basic::test_cat_failure_proposal
     hyper_ig::basic::test_get_pending_transactions
@@ -73,7 +69,7 @@ TESTS=(
 
 
 TESTS2=(
-    confirmation_layer::basic::test_cl_normal_transactions
+    confirmation_layer::basic::test_regular_transactions
 )
 
 # Run the appropriate test set based on the input

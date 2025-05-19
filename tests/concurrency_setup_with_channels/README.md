@@ -15,7 +15,7 @@ Each version builds upon the previous one, adding complexity and real-world scen
 
 ## Test Versions Overview
 
-- **V1**: Simple counter with incrementer
+- **V1**: Simple counter
   - Basic mutex usage
   - Single value updates
   - Simple sleep-based yielding
