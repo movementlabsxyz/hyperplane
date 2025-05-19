@@ -11,6 +11,7 @@ fi
 
 TESTS=(
     # - - - CL tests - - -
+    confirmation_layer::basic::test_cl_normal_transactions
     confirmation_layer::concurrent_setup::concurrent_setup_v11_to_v12::test_concurrent_setup_v12
     confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
     confirmation_layer::basic::test_cl_basic_confirmation_layer
@@ -72,7 +73,7 @@ TESTS=(
 
 
 TESTS2=(
-confirmation_layer::basic::test_cl_basic_confirmation_layer
+    confirmation_layer::basic::test_cl_normal_transactions
 )
 
 # Run the appropriate test set based on the input
