@@ -482,3 +482,39 @@ async fn test_submit_transaction_chain_not_registered() {
     let result = cl_node.submit_transaction(tx).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))), "Should not be able to submit transaction for unregistered chain");
 }
+
+// submit a transaction destined for multiple chains
+#[tokio::test]
+async fn test_submit_cl_transaction_for_multiple_chains() {
+    println!("\n=== Starting test_submit_cl_transaction_for_multiple_chains ===");
+    let (_, mut cl_node, _,start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+
+    // Register multiple chains
+    let chain_ids = vec![
+        ChainId("test-chain-1".to_string()),
+        ChainId("test-chain-2".to_string()),
+        ChainId("test-chain-3".to_string()),
+    ];
+
+    for chain_id in chain_ids.clone() {
+        cl_node.register_chain(chain_id).await.unwrap();
+    }
+
+    // submit a transaction destined for all chains
+    let tx = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        chain_ids.clone(),
+        "REGULAR.SIMULATION:Success".to_string()
+    ).expect("Failed to create CLTransaction");
+    cl_node.submit_transaction(tx).await.unwrap();
+
+    // wait for block production
+    sleep(Duration::from_millis(200)).await;
+
+    // check that the transaction is included in the subblock for each chain
+    for chain_id in chain_ids {
+        let subblock = cl_node.get_subblock(chain_id, start_block_height + 1).await.unwrap();
+        assert_eq!(subblock.transactions.len(), 1);
+        assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
+    }
+}

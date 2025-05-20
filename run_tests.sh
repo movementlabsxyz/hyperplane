@@ -43,6 +43,7 @@ TESTS=(
     confirmation_layer::basic::test_get_registered_chains
     confirmation_layer::basic::test_get_block_interval
     confirmation_layer::basic::test_submit_transaction_chain_not_registered
+    confirmation_layer::basic::test_submit_cl_transaction_for_multiple_chains
     
     # - - - HIG tests - - -
     hyper_ig::basic::test_regular_transaction_success
@@ -82,6 +83,8 @@ TESTS=(
 
 
 TESTS2=(
+        confirmation_layer::basic::test_submit_cl_transaction_for_multiple_chains
+
     # confirmation_layer::basic::test_basic_confirmation_layer
     # integration::e2e::channels::test_single_chain_cat_failure 
     # integration::e2e::channels::test_single_chain_cat_success
