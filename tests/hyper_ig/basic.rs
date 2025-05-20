@@ -22,7 +22,8 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
     println!("\n[TEST]   Processing transaction: {}", tx_id);
     let tx = Transaction::new(
         TransactionId(tx_id.to_string()),
-        format!("REGULAR.SIMULATION:{:?}", expected_status)
+        vec![ChainId("chain-1".to_string())],
+        format!("REGULAR.SIMULATION:{:?}", expected_status),
     ).expect("Failed to create transaction");
     
     // Process transaction and verify initial status
@@ -71,7 +72,8 @@ async fn test_regular_transaction_pending() {
     println!("[TEST]   Creating dependent transaction...");
     let tx = Transaction::new(
         TransactionId("REGULAR.SIMULATION:Success".to_string()),
-        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string()
+        vec![ChainId("chain-1".to_string())],
+        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     println!("[TEST]   Transaction created with tx-id='{}'", tx.id);
     
@@ -124,7 +126,8 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction::new(
         TransactionId("test-tx".to_string()),
-        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat-tx.CHAINS:(chain-1)", expected_status)
+        vec![ChainId("chain-1".to_string())],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat-tx", expected_status),
     ).expect("Failed to create transaction");
     println!("[TEST]   CAT transaction created with tx-id='{}' : data='{}'", tx.id, tx.data);
     
@@ -216,7 +219,8 @@ async fn test_get_pending_transactions() {
     println!("[TEST]   Creating dependent transaction...");
     let tx = Transaction::new(
         TransactionId("pending-tx".to_string()),
-        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string()
+        vec![ChainId("chain-1".to_string())],
+        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     println!("[TEST]   Executing transaction...");
     hig_node.lock().await.process_transaction(tx.clone())

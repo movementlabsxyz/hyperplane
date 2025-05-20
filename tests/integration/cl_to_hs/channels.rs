@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{ChainId, CATId, StatusLimited, TransactionId, CLTransaction, Transaction},
+    types::{ChainId, CATId, StatusLimited, TransactionId, CLTransaction},
     hyper_scheduler::{HyperScheduler},
     confirmation_layer::ConfirmationLayer,
 };
@@ -11,8 +11,8 @@ use crate::common::testnodes;
 /// - CL proposes a block with a Success status for a CAT
 /// - HIG receives the block, processes the transaction, and proposes a status update for the CAT
 /// - HS receives and stores the status
-async fn run_test_single_chain_cat_success(expected_status: StatusLimited) {
-    println!("\n[TEST]   === Starting test_single_chain_cat_success ===");
+async fn run_test_single_chain_cat(expected_status: StatusLimited) {
+    println!("\n[TEST]   === Starting test_single_chain_cat ===");
     let (hs_node, cl_node, _hig_node, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
@@ -26,22 +26,19 @@ async fn run_test_single_chain_cat_success(expected_status: StatusLimited) {
     println!("[TEST]   Chain registered successfully");
 
     // Create a CAT transaction with simulation success
-    let cat_id = CATId("test-cat-tx".to_string());
-    let tx = Transaction::new(
-        TransactionId("cat-tx.chain-1".to_string()),
-        format!("CAT.SIMULATION:{:?}.CAT_ID:{}.CHAINS:(chain-1)", expected_status, cat_id.0)
-    ).expect("Failed to create transaction");
+    let cat_id = CATId("test-cat".to_string());
+    let cl_tx = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        vec![chain_id.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", expected_status, cat_id.0)
+    ).expect("Failed to create CLTransaction");
 
     // Submit the transaction to CL
     println!("[TEST]   Submitting transaction to CL...");
     // create a local scope (note the test fails without this)
     {
         let mut node = cl_node.lock().await;
-        node.submit_transaction(CLTransaction::new(
-            tx.id.clone(),
-            chain_id.clone(),
-            tx.data.clone()
-        ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
+        node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
     }
     println!("[TEST]   Transaction submitted successfully");
 
@@ -67,12 +64,12 @@ async fn run_test_single_chain_cat_success(expected_status: StatusLimited) {
 /// Tests cat (success) for single chain 
 #[tokio::test]
 async fn test_single_chain_cat_success() {
-    run_test_single_chain_cat_success(StatusLimited::Success).await;
+    run_test_single_chain_cat(StatusLimited::Success).await;
 }
 
 /// Tests cat (failure) for single chain 
 #[tokio::test]
 async fn test_single_chain_cat_failure() {
-    run_test_single_chain_cat_success(StatusLimited::Failure).await;
+    run_test_single_chain_cat(StatusLimited::Failure).await;
 }
 

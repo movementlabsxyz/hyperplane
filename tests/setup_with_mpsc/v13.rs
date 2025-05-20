@@ -12,8 +12,8 @@ use crate::common::testnodes;
 
 /// V13: Integrates closer to actual node setup
 #[tokio::test]
-async fn test_concurrent_setup_v13() {
-    println!("\n=== Starting test_concurrent_setup_v13 ===");
+async fn test_v13() {
+    println!("\n=== Starting test_v13 ===");
     
     // Get the test nodes using our new helper function
     let (hs_node, cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
@@ -37,13 +37,13 @@ async fn test_concurrent_setup_v13() {
         // Try to register chain1 again (should fail)
         match cl_node_with_lock.register_chain(ChainId("chain1".to_string())).await {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
+            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: '{}'", e),
         }
 
         // Try to get subblock for unregistered chain
         match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), 0).await {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
         }
     }
 
@@ -65,7 +65,7 @@ async fn test_concurrent_setup_v13() {
                 assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
                 assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
             },
-            Err(e) => panic!("Failed to get subblock for chain1: {}", e),
+            Err(e) => panic!("Failed to get subblock for chain1: '{}'", e),
         }
     }
 
@@ -78,7 +78,7 @@ async fn test_concurrent_setup_v13() {
         let tx1 = CLTransaction {
             id: TransactionId("tx1".to_string()),
             data: "message1.chain1".to_string(),
-            chain_id: ChainId("chain1".to_string()),
+            constituent_chains: vec![ChainId("chain1".to_string())],
         };
         cl_node_with_lock_2.submit_transaction(tx1).await.expect("Failed to submit transaction for chain1");
         
@@ -86,7 +86,7 @@ async fn test_concurrent_setup_v13() {
         let tx2 = CLTransaction {
             id: TransactionId("tx2".to_string()),
             data: "message1.chain2".to_string(),
-            chain_id: ChainId("chain2".to_string()),
+            constituent_chains: vec![ChainId("chain2".to_string())],
         };
         cl_node_with_lock_2.submit_transaction(tx2).await.expect("Failed to submit transaction for chain2");
         
@@ -94,11 +94,11 @@ async fn test_concurrent_setup_v13() {
         let tx3 = CLTransaction {
             id: TransactionId("tx3".to_string()),
             data: "message1.chain3".to_string(),
-            chain_id: ChainId("chain3".to_string()),
+            constituent_chains: vec![ChainId("chain3".to_string())],
         };
         match cl_node_with_lock_2.submit_transaction(tx3).await {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: '{}'", e),
         }
     }
 
@@ -139,7 +139,7 @@ async fn test_concurrent_setup_v13() {
     // Test getting subblock for registered chain
     match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0).await {
         Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
-        Err(e) => panic!("Failed to get subblock for chain1: {}", e),
+        Err(e) => panic!("Failed to get subblock for chain1: '{}'", e),
     }
     
     // Drop the first state lock
@@ -172,10 +172,10 @@ async fn run_spammer(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
         let tx = CLTransaction {
             id: TransactionId(format!("tx{}.{}", i, chain_id.0)),
             data: format!("message{}.{}", i, chain_id.0),
-            chain_id: chain_id.clone(),
+            constituent_chains: vec![chain_id.clone()],
         };
         if let Err(e) = sender.send(tx).await {
-            println!("Error sending transaction: {}", e);
+            println!("  [TEST] [Adder] Error sending transaction: '{}'", e);
             break;
         }
         // wait for 300ms before sending next transaction

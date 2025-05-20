@@ -51,8 +51,8 @@ struct Block {
 /// - Validates block intervals
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_concurrent_setup_v8() {
-    println!("\n=== Starting test_concurrent_setup_v8 ===");
+async fn test_v8() {
+    println!("\n=== Starting test_v8 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -83,13 +83,13 @@ async fn test_concurrent_setup_v8() {
         // Try to register chain1 again (should fail)
         match state.register_chain("chain1") {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
+            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: '{}'", e),
         }
 
         // Try to get subblock for unregistered chain
         match state.get_subblock("chain3", 0) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
         }
     }
 
@@ -263,7 +263,7 @@ impl TestNodeStateV8 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v8(state: Arc<Mutex<TestNodeStateV8>>) {
-    println!("  [Processor] task started");
+    println!("  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -284,10 +284,10 @@ async fn run_processor_v8(state: Arc<Mutex<TestNodeStateV8>>) {
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
             if state.is_chain_registered(&chain_id) {
-                println!("  [Processor] received message from chain {}: {}", chain_id, message);
+                println!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message);
                 state.pending_messages.push((chain_id, message));
             } else {
-                println!("  [Processor] ignoring message from unregistered chain {}: {}", chain_id, message);
+                println!("  [TEST] [Processor] ignoring message from unregistered chain {}: {}", chain_id, message);
             }
         }
         
@@ -327,20 +327,20 @@ async fn run_processor_v8(state: Arc<Mutex<TestNodeStateV8>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("  [Processor] failed to send subblock for chain {}: {}", chain_id, e);
+                    println!("  [TEST] [Processor] failed to send subblock for chain {}: {}", chain_id, e);
                 }
             }
         }
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
+            print!("  [TEST] [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
                 print!("  - \"{}\"", msg);
             }
             println!();
         } else {
-            println!("  [Processor] produced empty block {}", block_id);
+            println!("  [TEST] [Processor] produced empty block {}", block_id);
         }
         
         // Release the lock by dropping state
@@ -374,8 +374,8 @@ async fn run_adder_v8(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
 /// - Uses proper ChainId type
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_concurrent_setup_v9() {
-    println!("\n=== Starting test_concurrent_setup_v9 ===");
+async fn test_v9() {
+    println!("\n=== Starting test_v9 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -406,13 +406,13 @@ async fn test_concurrent_setup_v9() {
         // Try to register chain1 again (should fail)
         match state.register_chain(ChainId("chain1".to_string())) {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
+            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: '{}'", e),
         }
 
         // Try to get subblock for unregistered chain
         match state.get_subblock(ChainId("chain3".to_string()), BlockId("0".to_string())) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
         }
     }
 
@@ -469,7 +469,7 @@ async fn test_concurrent_setup_v9() {
     // Test getting subblock for registered chain
     match state_guard.get_subblock(ChainId("chain1".to_string()), BlockId("0".to_string())) {
         Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
-        Err(e) => panic!("Failed to get subblock for chain1: {}", e),
+        Err(e) => panic!("Failed to get subblock for chain1: '{}'", e),
     }
     
     // Drop the first state lock
@@ -583,7 +583,7 @@ impl TestNodeStateV9 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
-    println!("  [Processor] task started");
+    println!("  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -604,10 +604,10 @@ async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
         // Check for new messages from channel
         while let Ok((chain_id, transaction)) = state.message_receiver.try_recv() {
             if state.is_chain_registered(&chain_id) {
-                println!("  [Processor] received transaction from chain {}: {}", chain_id.0, transaction.data);
+                println!("  [TEST] [Processor] received transaction from chain {}: {}", chain_id.0, transaction.data);
                 state.pending_transactions.push((chain_id, transaction));
             } else {
-                println!("  [Processor] ignoring transaction from unregistered chain {}: {}", chain_id.0, transaction.data);
+                println!("  [TEST] [Processor] ignoring transaction from unregistered chain {}: {}", chain_id.0, transaction.data);
             }
         }
         
@@ -646,20 +646,20 @@ async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("  [Processor] failed to send subblock for chain {}: {}", chain_id.0, e);
+                    println!("  [TEST] [Processor] failed to send subblock for chain {}: {}", chain_id.0, e);
                 }
             }
         }
         
         // Print block status
         if !block.transactions.is_empty() {
-            print!("  [Processor] produced block {} with {} transactions", block_id.0, block.transactions.len());
+            print!("  [TEST] [Processor] produced block {} with {} transactions", block_id.0, block.transactions.len());
             for tx in &block.transactions {
                 print!("  - id={}, data={}", tx.id.0, tx.data);
             }
             println!();
         } else {
-            println!("  [Processor] produced empty block {}", block_id.0);
+            println!("  [TEST] [Processor] produced empty block {}", block_id.0);
         }
         
         // Release the lock by dropping state
@@ -669,7 +669,7 @@ async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v9(sender: mpsc::Sender<(ChainId, Transaction)>, chain_id: ChainId) {
-    println!("  [Adder-{}] task started", chain_id.0);
+    println!("  [TEST] [Adder-{}] task started", chain_id.0);
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
@@ -679,12 +679,12 @@ async fn run_adder_v9(sender: mpsc::Sender<(ChainId, Transaction)>, chain_id: Ch
             chain_id: chain_id.clone(),
         };
         if let Err(e) = sender.send((chain_id.clone(), transaction.clone())).await {
-            println!("  [Adder-{}] failed to send transaction: {}", chain_id.0, e);
+            println!("  [TEST] [Adder-{}] failed to send transaction: {}", chain_id.0, e);
             break;
         }
-        println!("  [Adder-{}] sent transaction{}", chain_id.0, i);
+        println!("  [TEST] [Adder-{}] sent transaction{}", chain_id.0, i);
     }
-    println!("  [Adder-{}] task completed", chain_id.0);
+    println!("  [TEST] [Adder-{}] task completed", chain_id.0);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -696,8 +696,8 @@ async fn run_adder_v9(sender: mpsc::Sender<(ChainId, Transaction)>, chain_id: Ch
 /// - Matches test_basic functionality
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
-async fn test_concurrent_setup_v10() {
-    println!("\n=== Starting test_concurrent_setup_v10 ===");
+async fn test_v10() {
+    println!("\n=== Starting test_v10 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);

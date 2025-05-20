@@ -14,8 +14,8 @@ use std::collections::HashSet;
 /// V11: copies v10 but uses correct types
 /// - changes to real types
 #[tokio::test]
-async fn test_concurrent_setup_v11() {
-    println!("\n=== Starting test_concurrent_setup_v11 ===");
+async fn test_v11() {
+    println!("\n=== Starting test_v11 ===");
     
     // Create channels for messages and subblocks
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
@@ -40,19 +40,19 @@ async fn test_concurrent_setup_v11() {
     println!("[TEST]   Registering chains...");
     {
         let mut state = state.lock().await;
-        state.register_chain(ChainId("chain1".to_string())).expect("Failed to register chain1");
-        state.register_chain(ChainId("chain2".to_string())).expect("Failed to register chain2");
+        state.register_chain(ChainId("chain-1".to_string())).expect("Failed to register chain-1");
+        state.register_chain(ChainId("chain-2".to_string())).expect("Failed to register chain-2");
         
-        // Try to register chain1 again (should fail)
-        match state.register_chain(ChainId("chain1".to_string())) {
-            Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
+        // Try to register chain-1 again (should fail)
+        match state.register_chain(ChainId("chain-1".to_string())) {
+            Ok(_) => panic!("Should not be able to register chain-1 twice"),
+            Err(e) => println!("[TEST]   Expected error when registering chain-1 twice: '{}'", e),
         }
 
         // Try to get subblock for unregistered chain
-        match state.get_subblock(ChainId("chain3".to_string()), 0) {
+        match state.get_subblock(ChainId("chain-3".to_string()), 0) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
         }
     }
 
@@ -64,57 +64,42 @@ async fn test_concurrent_setup_v11() {
         // Submit a transaction for chain1
         let tx1 = CLTransaction {
             id: TransactionId("tx1".to_string()),
-            data: "message1.chain1".to_string(),
-            chain_id: ChainId("chain1".to_string()),
+            data: "message1.chain-1".to_string(),
+            constituent_chains: vec![ChainId("chain-1".to_string())],
         };
-        state.submit_transaction(tx1).expect("Failed to submit transaction for chain1");
+        state.submit_transaction(tx1).expect("Failed to submit transaction for chain-1");
         
         // Submit a transaction for chain2
         let tx2 = CLTransaction {
             id: TransactionId("tx2".to_string()),
-            data: "message1.chain2".to_string(),
-            chain_id: ChainId("chain2".to_string()),
+            data: "message1.chain-2".to_string(),
+            constituent_chains: vec![ChainId("chain-2".to_string())],
         };
-        state.submit_transaction(tx2).expect("Failed to submit transaction for chain2");
+        state.submit_transaction(tx2).expect("Failed to submit transaction for chain-2");
         
         // Try to submit a transaction for unregistered chain (should fail)
         let tx3 = CLTransaction {
             id: TransactionId("tx3".to_string()),
-            data: "message1.chain3".to_string(),
-            chain_id: ChainId("chain3".to_string()),
+            data: "message1.chain-3".to_string(),
+            constituent_chains: vec![ChainId("chain-3".to_string())],
         };
         match state.submit_transaction(tx3) {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: '{}'", e),
         }
     }
 
     // Spawn tasks to add more transactions for different chains
     let sender_for_chain1 = sender_hs_to_cl.clone();
     let _adder_handle1 = tokio::spawn(async move {
-        run_adder_v11(sender_for_chain1, ChainId("chain1".to_string())).await;
+        run_adder_v11(sender_for_chain1, ChainId("chain-1".to_string())).await;
     });
 
     let sender_for_chain2 = sender_hs_to_cl.clone();
     let _adder_handle2 = tokio::spawn(async move {
-        run_adder_v11(sender_for_chain2, ChainId("chain2".to_string())).await;
+        run_adder_v11(sender_for_chain2, ChainId("chain-2".to_string())).await;
     });
 
-    // // Spawn a task to receive and verify subblocks
-    // let _receiver_handle = tokio::spawn(async move {
-    //     let mut received_blocks = 0;
-    //     while let Some(subblock_msg) = subblock_receiver.recv().await {
-    //         print!("  [Receiver] received subblock for chain {} with {} transactions", 
-    //             subblock_msg.subblock.chain_id.0, subblock_msg.subblock.transactions.len());
-    //         for tx in &subblock_msg.subblock.transactions {
-    //             print!("  - id={}, data={}", tx.id.0, tx.data);
-    //         }
-    //         println!();
-    //         received_blocks += 1;
-    //     }
-    //     println!("  [Receiver] received {} subblocks total", received_blocks);
-    // });
-    
     // Wait for a few seconds to let the processor run
     println!("Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
@@ -134,9 +119,9 @@ async fn test_concurrent_setup_v11() {
     assert_eq!(state_guard.registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
-    match state_guard.get_subblock(ChainId("chain1".to_string()), 0) {
-        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
-        Err(e) => panic!("Failed to get subblock for chain1: {}", e),
+    match state_guard.get_subblock(ChainId("chain-1".to_string()), 0) {
+        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain-1: {:?}", subblock),
+        Err(e) => panic!("Failed to get subblock for chain-1: {}", e),
     }
     
     // Drop the first state lock
@@ -202,8 +187,8 @@ impl TestNodeStateV11 {
     }
 
     fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), String> {
-        if !self.registered_chains.contains(&transaction.chain_id) {
-            return Err(format!("Chain {} is not registered", transaction.chain_id.0));
+        if !transaction.constituent_chains.iter().all(|c| self.registered_chains.contains(c)) {
+            return Err(format!("Chain {} is not registered", transaction.constituent_chains[0].0));
         }
         self.pending_transactions.push(transaction);
         Ok(())
@@ -223,6 +208,7 @@ impl TestNodeStateV11 {
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
                     data: tx.data.clone(),
+                    constituent_chains: tx.constituent_chains.clone(),
                 })
                 .collect(),
         })
@@ -239,8 +225,8 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
         
         // Process any new transactions from the channel
         while let Ok(transaction) = state.receiver_hs_to_cl.try_recv() {
-            println!("  [Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
-            if state.registered_chains.contains(&transaction.chain_id) {
+            println!("  [TEST] [Processor] received transaction for chains {:?}: {}", transaction.constituent_chains, transaction.data);
+            if transaction.constituent_chains.iter().all(|c| state.registered_chains.contains(c)) {
                 state.pending_transactions.push(transaction);
             }
         }
@@ -252,8 +238,8 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
         let mut remaining = Vec::new();
         let registered_chains = state.registered_chains.clone();
         for tx in state.pending_transactions.drain(..) {
-            if registered_chains.contains(&tx.chain_id) {
-                processed_this_block.push((tx.chain_id.clone(), tx.clone()));
+            if tx.constituent_chains.iter().all(|c| registered_chains.contains(c)) {
+                processed_this_block.push((tx.constituent_chains[0].clone(), tx.clone()));
             } else {
                 remaining.push(tx);
             }
@@ -275,11 +261,12 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
                     .map(|(_, tx)| Transaction {
                         id: tx.id.clone(),
                         data: tx.data.clone(),
+                        constituent_chains: tx.constituent_chains.clone(),
                     })
                     .collect(),
             };
             if let Err(e) = state.sender_cl_to_hig.send(subblock).await {
-                println!("  [Processor] Error sending subblock: {}", e);
+                println!("  [TEST] [Processor] Error sending subblock: {}", e);
                 break;
             }
         }
@@ -287,13 +274,13 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
         
         // Print block status
         if !processed_this_block.is_empty() {
-            print!("  [Processor] produced block {} with {} transactions", state.current_block, processed_this_block.len());
+            print!("  [TEST] [Processor] produced block {} with {} transactions", state.current_block, processed_this_block.len());
             for (_, tx) in &processed_this_block {
                 print!("  - id={}, data={}", tx.id.0, tx.data);
             }
             println!();
         } else {
-            println!("  [Processor] produced empty block {}", state.current_block);
+            println!("  [TEST] [Processor] produced empty block {}", state.current_block);
         }
     }
 }
@@ -304,10 +291,10 @@ async fn run_adder_v11(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
         let tx = CLTransaction {
             id: TransactionId(format!("tx{}.{}", i, chain_id.0)),
             data: format!("message{}.{}", i, chain_id.0),
-            chain_id: chain_id.clone(),
+            constituent_chains: vec![chain_id.clone()],
         };
         if let Err(e) = sender.send(tx).await {
-            println!("  [adder] Error sending transaction: {}", e);
+            println!("  [TEST] [Adder] Error sending transaction: {}", e);
             break;
         }
         sleep(Duration::from_millis(300)).await;
@@ -320,8 +307,8 @@ async fn run_adder_v11(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
 
 /// V12: Integrates closer to actual node setup
 #[tokio::test]
-async fn test_concurrent_setup_v12() {
-    println!("\n=== Starting test_concurrent_setup_v12 ===");
+async fn test_v12() {
+    println!("\n=== Starting test_v12 ===");
     
     // Get the test nodes using our new helper function
     let (hs_node, cl_node, _hig_node) = setup_test_nodes(Duration::from_millis(100)).await;
@@ -339,17 +326,17 @@ async fn test_concurrent_setup_v12() {
     println!("[TEST]   Registering chains...");
     {
         let mut cl_node_with_lock = cl_node.lock().await;
-        cl_node_with_lock.register_chain(ChainId("chain1".to_string())).expect("Failed to register chain1");
-        cl_node_with_lock.register_chain(ChainId("chain2".to_string())).expect("Failed to register chain2");
+        cl_node_with_lock.register_chain(ChainId("chain-1".to_string())).expect("Failed to register chain-1");
+        cl_node_with_lock.register_chain(ChainId("chain-2".to_string())).expect("Failed to register chain-2");
         
         // Try to register chain1 again (should fail)
-        match cl_node_with_lock.register_chain(ChainId("chain1".to_string())) {
-            Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
+        match cl_node_with_lock.register_chain(ChainId("chain-1".to_string())) {
+            Ok(_) => panic!("Should not be able to register chain-1 twice"),
+            Err(e) => println!("[TEST]   Expected error when registering chain-1 twice: {}", e),
         }
 
         // Try to get subblock for unregistered chain
-        match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), 0) {
+        match cl_node_with_lock.get_subblock(ChainId("chain-3".to_string()), 0) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
             Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
         }
@@ -361,18 +348,18 @@ async fn test_concurrent_setup_v12() {
         let cl_node_with_lock = cl_node.lock().await;
         // Verify registered chains
         assert_eq!(cl_node_with_lock.registered_chains.len(), 2, "Should have exactly 2 registered chains");
-        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain1".to_string())), "chain1 should be registered");
-        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain2".to_string())), "chain2 should be registered");
+        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain-1".to_string())), "chain-1 should be registered");
+        assert!(cl_node_with_lock.registered_chains.contains(&ChainId("chain-2".to_string())), "chain-2 should be registered");
 
         // Get subblock for registered chain
-        match cl_node_with_lock.get_subblock(ChainId("chain1".to_string()), 0) {
+        match cl_node_with_lock.get_subblock(ChainId("chain-1".to_string()), 0) {
             Ok(subblock) => {
-                println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock);
-                assert_eq!(subblock.chain_id, ChainId("chain1".to_string()), "Subblock should be for chain1");
+                println!("[TEST]   Successfully got subblock for chain-1: {:?}", subblock);
+                assert_eq!(subblock.chain_id, ChainId("chain-1".to_string()), "Subblock should be for chain-1");
                 assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
                 assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
             },
-            Err(e) => panic!("Failed to get subblock for chain1: {}", e),
+            Err(e) => panic!("Failed to get subblock for chain-1: {}", e),
         }
     }
 
@@ -383,25 +370,25 @@ async fn test_concurrent_setup_v12() {
         
         // Submit a transaction for chain1
         let tx1 = CLTransaction {
-            id: TransactionId("tx1".to_string()),
-            data: "message1.chain1".to_string(),
-            chain_id: ChainId("chain1".to_string()),
+            id: TransactionId("tx-1".to_string()),
+            data: "message.chain-1".to_string(),
+            constituent_chains: vec![ChainId("chain-1".to_string())],
         };
-        cl_node_with_lock_2.submit_transaction(tx1).expect("Failed to submit transaction for chain1");
+        cl_node_with_lock_2.submit_transaction(tx1).expect("Failed to submit transaction for chain-1");
         
         // Submit a transaction for chain2
         let tx2 = CLTransaction {
-            id: TransactionId("tx2".to_string()),
-            data: "message1.chain2".to_string(),
-            chain_id: ChainId("chain2".to_string()),
+            id: TransactionId("tx-2".to_string()),
+            data: "message.chain-2".to_string(),
+            constituent_chains: vec![ChainId("chain-2".to_string())],
         };
-        cl_node_with_lock_2.submit_transaction(tx2).expect("Failed to submit transaction for chain2");
+        cl_node_with_lock_2.submit_transaction(tx2).expect("Failed to submit transaction for chain-2");
         
         // Try to submit a transaction for unregistered chain (should fail)
         let tx3 = CLTransaction {
-            id: TransactionId("tx3".to_string()),
-            data: "message1.chain3".to_string(),
-            chain_id: ChainId("chain3".to_string()),
+            id: TransactionId("tx-3".to_string()),
+            data: "message.chain-3".to_string(),
+            constituent_chains: vec![ChainId("chain-3".to_string())],
         };
         match cl_node_with_lock_2.submit_transaction(tx3) {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
@@ -415,12 +402,12 @@ async fn test_concurrent_setup_v12() {
     // Spawn tasks to add more transactions for different chains
     let sender_for_chain1 = hs_node.get_sender_to_cl();
     let _adder_handle1 = tokio::spawn(async move {
-        run_spammer_v12(sender_for_chain1, ChainId("chain1".to_string())).await;
+        run_spammer_v12(sender_for_chain1, ChainId("chain-1".to_string())).await;
     });
 
     let sender_for_chain2 = hs_node.get_sender_to_cl();
     let _adder_handle2 = tokio::spawn(async move {
-        run_spammer_v12(sender_for_chain2, ChainId("chain2".to_string())).await;
+        run_spammer_v12(sender_for_chain2, ChainId("chain-2".to_string())).await;
     });
 
     // Wait for a few seconds to let the processor run
@@ -442,9 +429,9 @@ async fn test_concurrent_setup_v12() {
     assert_eq!(cl_node_with_lock_3.registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
-    match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0) {
-        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
-        Err(e) => panic!("Failed to get subblock for chain1: {}", e),
+    match cl_node_with_lock_3.get_subblock(ChainId("chain-1".to_string()), 0) {
+        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain-1: {:?}", subblock),
+        Err(e) => panic!("Failed to get subblock for chain-1: {}", e),
     }
     
     // Drop the first state lock
@@ -510,8 +497,8 @@ impl TestConfirmationLayerNode {
     }
 
     fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), String> {
-        if !self.registered_chains.contains(&transaction.chain_id) {
-            return Err(format!("Chain {} is not registered", transaction.chain_id.0));
+        if !transaction.constituent_chains.iter().all(|c| self.registered_chains.contains(c)) {
+            return Err(format!("Chain {} is not registered", transaction.constituent_chains[0].0));
         }
         self.pending_transactions.push(transaction);
         Ok(())
@@ -531,6 +518,7 @@ impl TestConfirmationLayerNode {
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
                     data: tx.data.clone(),
+                    constituent_chains: tx.constituent_chains.clone(),
                 })
                 .collect(),
         })
@@ -621,8 +609,8 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
         
         // Process any new transactions from the channel
         while let Ok(transaction) = state.msg_receiver.try_recv() {
-            println!("  [Processor] received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
-            if state.registered_chains.contains(&transaction.chain_id) {
+            println!("  [TEST] [Processor] received transaction for chains {:?}: {}", transaction.constituent_chains, transaction.data);
+            if transaction.constituent_chains.iter().all(|c| state.registered_chains.contains(c)) {
                 state.pending_transactions.push(transaction);
             }
         }
@@ -634,8 +622,8 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
         let mut remaining = Vec::new();
         let registered_chains = state.registered_chains.clone();
         for tx in state.pending_transactions.drain(..) {
-            if registered_chains.contains(&tx.chain_id) {
-                processed_this_block.push((tx.chain_id.clone(), tx.clone()));
+            if tx.constituent_chains.iter().all(|c| registered_chains.contains(c)) {
+                processed_this_block.push((tx.constituent_chains[0].clone(), tx.clone()));
             } else {
                 remaining.push(tx);
             }
@@ -657,11 +645,12 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
                     .map(|(_, tx)| Transaction {
                         id: tx.id.clone(),
                         data: tx.data.clone(),
+                        constituent_chains: tx.constituent_chains.clone(),
                     })
                     .collect(),
             };
             if let Err(e) = state.subblock_sender.send(subblock).await {
-                println!("  [Processor] Error sending subblock: {}", e);
+                println!("  [TEST] [Processor] Error sending subblock: {}", e);
                 break;
             }
         }
@@ -669,13 +658,13 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
         
         // Print block status
         if !processed_this_block.is_empty() {
-            print!("  [Processor] produced block {} with {} transactions", state.current_block, processed_this_block.len());
+            print!("  [TEST] [Processor] produced block {} with {} transactions", state.current_block, processed_this_block.len());
             for (_, tx) in &processed_this_block {
                 print!("  - id={}, data={}", tx.id.0, tx.data);
             }
             println!();
         } else {
-            println!("  [Processor] produced empty block {}", state.current_block);
+            println!("  [TEST] [Processor] produced empty block {}", state.current_block);
         }
     }
 }
@@ -686,10 +675,10 @@ async fn run_spammer_v12(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId)
         let tx = CLTransaction {
             id: TransactionId(format!("tx{}.{}", i, chain_id.0)),
             data: format!("message{}.{}", i, chain_id.0),
-            chain_id: chain_id.clone(),
+            constituent_chains: vec![chain_id.clone()],
         };
         if let Err(e) = sender.send(tx).await {
-            println!("Error sending transaction: {}", e);
+            println!("  [TEST] [Adder] Error sending transaction: {}", e);
             break;
         }
         // wait for 300ms before sending next transaction
@@ -738,6 +727,7 @@ impl TestConfirmationLayer {
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
                     data: tx.data.clone(),
+                    constituent_chains: tx.constituent_chains.clone(),
                 })
                 .collect(),
         })

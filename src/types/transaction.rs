@@ -14,23 +14,23 @@ pub enum TransactionStatus {
     Failure,
 }
 
-/// A transaction in the confirmation layer destined to be included in a subblock
+/// A transaction in the confirmation layer destined to be included in one or more subblocks
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CLTransaction {
     /// Unique identifier for this transaction
     pub id: TransactionId,
-    /// The chain ID
-    pub chain_id: ChainId,
+    /// The chain IDs to which this transaction is destined
+    pub constituent_chains: Vec<ChainId>,
     /// The transaction data
     pub data: String,
 }
 
 impl CLTransaction {
     /// Creates a new CLTransaction, ensuring that the `data` string matches expected format
-    pub fn new(id: TransactionId, chain_id: ChainId, data: String) -> Result<Self, String> {
+    pub fn new(id: TransactionId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
-        Ok(CLTransaction { id, chain_id, data })
+        Ok(CLTransaction { id, constituent_chains, data })
     }
 }
 
@@ -39,16 +39,18 @@ impl CLTransaction {
 pub struct Transaction {
     /// Unique identifier for this transaction
     pub id: TransactionId,
+    /// The chain IDs to which this transaction is destined
+    pub constituent_chains: Vec<ChainId>,
     /// The actual transaction data (just a string for now)
     pub data: String,
 }
 
 impl Transaction {
     /// Creates a new Transaction, ensuring that the `data` string matches expected format
-    pub fn new(id: TransactionId, data: String) -> Result<Self, String> {
+    pub fn new(id: TransactionId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
-        Ok(Transaction { id, data })
+        Ok(Transaction { id, constituent_chains, data })
     }
 }
 

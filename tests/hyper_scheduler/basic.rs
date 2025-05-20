@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{CATId, StatusLimited},
+    types::{CATId, StatusLimited, ChainId},
     hyper_scheduler::node::HyperSchedulerNode,
     HyperScheduler,
 };
@@ -25,11 +25,12 @@ async fn test_receive_success_proposal_first_message() {
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
     let status = StatusLimited::Success;
+    let constituent_chains = vec![ChainId("test-chain".to_string())];
     println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
 
     // Receive the status proposal directly
     println!("[TEST]   Receiving CAT status proposal...");
-    hs_node.receive_cat_status_proposal(cat_id.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
         .await
         .expect("Failed to receive CAT status proposal");
     println!("[TEST]   CAT status proposal received successfully");
@@ -57,11 +58,12 @@ async fn test_receive_failure_proposal_first_message() {
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
     let status = StatusLimited::Failure;
+    let constituent_chains = vec![ChainId("test-chain".to_string())];
     println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
 
     // Receive the status proposal directly
     println!("[TEST]   Receiving CAT status proposal...");
-    hs_node.receive_cat_status_proposal(cat_id.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
         .await
         .expect("Failed to receive CAT status proposal");
     println!("[TEST]   CAT status proposal received successfully");
@@ -98,15 +100,16 @@ async fn test_duplicate_rejection() {
     // Test proposal behavior
     let cat_id = CATId("test-cat".to_string());
     let status = StatusLimited::Success;
+    let constituent_chains = vec![ChainId("test-chain".to_string())];
     
     // First proposal should create a record
-    hs_node.receive_cat_status_proposal(cat_id.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
         .await
         .expect("Failed to receive first CAT status proposal");
     println!("[TEST]   First proposal received successfully");
 
     // Second proposal should be rejected
-    let result = hs_node.receive_cat_status_proposal(cat_id.clone(), status.clone())
+    let result = hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
         .await;
     assert!(result.is_err(), "Expected duplicate proposal to be rejected");
     println!("[TEST]   Verified duplicate proposal was rejected");

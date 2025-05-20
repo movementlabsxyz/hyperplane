@@ -41,27 +41,15 @@ impl TransactionData {
 
 lazy_static! {
     pub static ref CAT_ID_SUFFIX: &'static str = r"\.CAT_ID:(?P<cat_id>[a-zA-Z0-9_-]+)";
-    pub static ref CHAINS_SUFFIX: &'static str = r"\.CHAINS:\((?P<chains>[a-zA-Z0-9_-]+(,[a-zA-Z0-9_-]+)*)\)";
 
     // Expected formats of the data field of a transaction:
     // REGULAR.SIMULATION:<StatusLimited>
     // DEPENDENT.SIMULATION:<StatusLimited>.CAT_ID:<ID>
-    // CAT.SIMULATION:<StatusLimited>.CAT_ID:<ID>.CHAINS:(<chain-1>,<chain-2>,...)
-    // STATUS_UPDATE:<StatusLimited>.CAT_ID:<ID>.CHAINS:(<chain-1>,<chain-2>,...)
-    pub static ref REGULAR_PATTERN: Regex = Regex::new(
-        r"^REGULAR\.SIMULATION:(Success|Failure)$"
-    ).unwrap();
-
-    pub static ref DEPENDENT_PATTERN: Regex = Regex::new(
-        &format!(r"^DEPENDENT\.SIMULATION:(Success|Failure){}$", *CAT_ID_SUFFIX)
-    ).unwrap();
-
-    pub static ref CAT_PATTERN: Regex = Regex::new(
-        &format!(r"^CAT\.SIMULATION:(Success|Failure){}{}$", *CAT_ID_SUFFIX, *CHAINS_SUFFIX)
-    ).unwrap();
-
-    pub static ref STATUS_UPDATE_PATTERN: Regex = Regex::new(
-        &format!(r"^STATUS_UPDATE:(Success|Failure){}{}$", *CAT_ID_SUFFIX, *CHAINS_SUFFIX)
-    ).unwrap();
+    // CAT.SIMULATION:<StatusLimited>.CAT_ID:<ID>
+    // STATUS_UPDATE:<StatusLimited>.CAT_ID:<ID>
+    pub static ref REGULAR_PATTERN: Regex = Regex::new(r"^REGULAR\.SIMULATION:(Success|Failure)$").unwrap();
+    pub static ref DEPENDENT_PATTERN: Regex = Regex::new(&format!(r"^DEPENDENT\.SIMULATION:(Success|Failure){}$", *CAT_ID_SUFFIX)).unwrap();
+    pub static ref CAT_PATTERN: Regex = Regex::new(&format!(r"^CAT\.SIMULATION:(Success|Failure){}$", *CAT_ID_SUFFIX)).unwrap();
+    pub static ref STATUS_UPDATE_PATTERN: Regex = Regex::new(&format!(r"^STATUS_UPDATE:(Success|Failure){}$", *CAT_ID_SUFFIX)).unwrap();
 }
 

@@ -87,9 +87,12 @@ impl ConfirmationLayerNode {
             {
                 let mut state = node.lock().await;
                 while let Ok(transaction) = state.receiver_hs_to_cl.as_mut().unwrap().try_recv() {
-                    println!("  [BLOCK]   received transaction for chain {}: {}", transaction.chain_id.0, transaction.data);
+                    println!("  [BLOCK]   received transaction for chains {:?}: {}", 
+                        transaction.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>(), 
+                        transaction.data);
                     let mut inner_state = state.state.lock().await;
-                    if inner_state.registered_chains.contains(&transaction.chain_id) {
+                    // Check if all chains are registered
+                    if transaction.constituent_chains.iter().all(|c| inner_state.registered_chains.contains(c)) {
                         inner_state.pending_transactions.push(transaction);
                     }
                 }
@@ -107,8 +110,12 @@ impl ConfirmationLayerNode {
                 let mut remaining = Vec::new();
                 let registered_chains = inner_state.registered_chains.clone();
                 for tx in inner_state.pending_transactions.drain(..) {
-                    if registered_chains.contains(&tx.chain_id) {
-                        processed_this_block.push((tx.chain_id.clone(), tx.clone()));
+                    // Check if all chains are registered
+                    if tx.constituent_chains.iter().all(|c| registered_chains.contains(c)) {
+                        // Add to processed transactions for each chain
+                        for chain_id in &tx.constituent_chains {
+                            processed_this_block.push((chain_id.clone(), tx.clone()));
+                        }
                     } else {
                         remaining.push(tx);
                     }
@@ -141,6 +148,7 @@ impl ConfirmationLayerNode {
                             .map(|(_, tx)| Transaction {
                                 id: tx.id.clone(),
                                 data: tx.data.clone(),
+                                constituent_chains: tx.constituent_chains.clone(),
                             })
                             .collect(),
                     };
@@ -173,9 +181,14 @@ impl ConfirmationLayer for ConfirmationLayerNode {
 
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
         let mut state = self.state.lock().await;
-        if !state.registered_chains.contains(&transaction.chain_id) {
-            return Err(ConfirmationLayerError::ChainNotFound(transaction.chain_id));
+        
+        // Check if all chains are registered
+        for chain_id in &transaction.constituent_chains {
+            if !state.registered_chains.contains(chain_id) {
+                return Err(ConfirmationLayerError::ChainNotFound(chain_id.clone()));
+            }
         }
+        
         state.pending_transactions.push(transaction);
         Ok(())
     }
@@ -194,6 +207,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
                     data: tx.data.clone(),
+                    constituent_chains: tx.constituent_chains.clone(),
                 })
                 .collect())
             .unwrap_or_default();
@@ -228,6 +242,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         let state = self.state.lock().await;
         Ok(state.block_interval)
     }
+
 }
 
 #[async_trait::async_trait]

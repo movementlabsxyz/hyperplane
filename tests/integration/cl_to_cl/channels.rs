@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, ChainId, CLTransaction, StatusLimited},
+    types::{CLTransaction, TransactionId, ChainId, StatusLimited},
     confirmation_layer::ConfirmationLayer,
 };
 use tokio::time::Duration;
@@ -33,18 +33,16 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     println!("[TEST]   Chain registered successfully");
 
     // Submit CAT transaction to CL
-    let tx = Transaction::new(
+    let data = format!("STATUS_UPDATE:{:?}.CAT_ID:test-cat", expected_status);
+    let cl_tx = CLTransaction::new(
         TransactionId("test-cat".to_string()),
-        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat.CHAINS:(chain-1)", expected_status)
-    ).expect("Failed to create transaction");
-    println!("[TEST]   Submitting CAT transaction with ID: {}", tx.id.0);
+        vec![ChainId("test-chain".to_string())],
+        data.clone()
+    ).expect("Failed to create CLTransaction");
+    println!("[TEST]   Submitting CAT transaction with ID: {}", cl_tx.id.0);
     {
         let mut node = cl_node.lock().await;
-        node.submit_transaction(CLTransaction::new(
-            tx.id.clone(),
-            chain_id.clone(),
-            tx.data.clone()
-        ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
+        node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
     }
     println!("[TEST]   CAT transaction submitted successfully");
 
@@ -74,7 +72,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
         let tx_count = subblock.transactions.len();
         // Find our transaction in the subblock
         for tx in subblock.transactions {
-            if tx.data.contains(&format!("STATUS_UPDATE:{:?}.CAT_ID:test-cat.CHAINS:(chain-1)", expected_status)) {
+            if tx.data.contains(&data) {
                 found_tx = true;
                 println!("[TEST]   Found status update in subblock: block_id={}, chain_id={}, tx_count={} with tx id:{} and data: {}", 
                     subblock.block_id, subblock.chain_id.0, tx_count, tx.id, tx.data);    
@@ -82,7 +80,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
             }
         }
     }
-    assert!(found_tx, "Transaction tx.id='{}', data='{}' not found in subblock", tx.id, tx.data);
+    assert!(found_tx, "Transaction with data '{}' not found in subblock", data);
     
     println!("[TEST]   === Test completed successfully ===\n");
 }

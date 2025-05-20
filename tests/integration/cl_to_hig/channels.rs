@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{Transaction, TransactionId, TransactionStatus, ChainId, CLTransaction},
+    types::{TransactionId, TransactionStatus, ChainId, CLTransaction},
     hyper_ig::HyperIG,
     confirmation_layer::ConfirmationLayer,
 };
@@ -32,20 +32,17 @@ async fn run_test_process_subblock(
     }
     println!("[TEST]   Chain registered successfully");
 
-    // Submit regulartransaction to CL
-    let tx = Transaction::new(
+    // Submit regular transaction to CL
+    let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
+        vec![ChainId("test-chain".to_string())],
         transaction_data.to_string()
     ).expect("Failed to create transaction");
-    println!("[TEST]   Submitting transaction with ID: {}", tx.id.0);
+    println!("[TEST]   Submitting CLTransaction with ID: {}", cl_tx.id.0);
     // create a local scope (note the test currently fails without this)
     {
         let mut node = cl_node.lock().await;
-        node.submit_transaction(CLTransaction::new(
-            tx.id.clone(),
-            chain_id.clone(),
-            tx.data.clone()
-        ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
+        node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
     }
     println!("[TEST]   Transaction submitted successfully");
 
@@ -68,7 +65,7 @@ async fn run_test_process_subblock(
     // Verify transaction status
     println!("[TEST]   Verifying transaction status...");
     let node = hig_node.lock().await;
-    let status = node.get_transaction_status(tx.id).await.unwrap();
+    let status = node.get_transaction_status(cl_tx.id).await.unwrap();
     println!("[TEST]   Retrieved transaction status: {:?}", status);
     assert_eq!(status, expected_status, "Transaction status is not {:?}", expected_status);
     println!("[TEST]   Transaction status verification successful");
@@ -91,6 +88,6 @@ async fn test_process_subblock_with_regular_transaction_failure() {
 /// Tests that a subblock with a CAT transaction is properly processed by the HIG
 #[tokio::test]
 async fn test_process_subblock_with_cat_transaction() {
-    run_test_process_subblock("CAT.SIMULATION:Success.CAT_ID:test-cat.CHAINS:(chain-1)", TransactionStatus::Pending).await;
+    run_test_process_subblock("CAT.SIMULATION:Success.CAT_ID:test-cat", TransactionStatus::Pending).await;
 }
 

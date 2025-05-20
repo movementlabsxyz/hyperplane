@@ -10,10 +10,23 @@ fi
 # Running confirmation layer tests
 
 TESTS=(
+    # - - - Concurrency setup tests - - -
+    setup_with_mpsc::v1_to_v7::test_v1
+    setup_with_mpsc::v1_to_v7::test_v2
+    setup_with_mpsc::v1_to_v7::test_v3
+    setup_with_mpsc::v1_to_v7::test_v4
+    setup_with_mpsc::v1_to_v7::test_v5
+    setup_with_mpsc::v1_to_v7::test_v6
+    setup_with_mpsc::v1_to_v7::test_v7
+    setup_with_mpsc::v8_to_v10::test_v8
+    setup_with_mpsc::v8_to_v10::test_v9
+    setup_with_mpsc::v8_to_v10::test_v10
+    setup_with_mpsc::v11_to_v12::test_v11
+    setup_with_mpsc::v11_to_v12::test_v12
+    setup_with_mpsc::v13::test_v13
+
     # - - - CL tests - - -
     confirmation_layer::basic::test_regular_transactions
-    confirmation_layer::concurrent_setup::concurrent_setup_v11_to_v12::test_concurrent_setup_v12
-    confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
     confirmation_layer::basic::test_basic_confirmation_layer
     confirmation_layer::basic::test_block_interval
     confirmation_layer::basic::test_register_chain
@@ -69,7 +82,15 @@ TESTS=(
 
 
 TESTS2=(
-    integration::cl_to_cl::channels::test_single_chain_cat_success
+    # confirmation_layer::basic::test_basic_confirmation_layer
+    # integration::e2e::channels::test_single_chain_cat_failure 
+    # integration::e2e::channels::test_single_chain_cat_success
+
+
+
+
+
+    # integration::cl_to_cl::channels::test_single_chain_cat_success
     # integration::cl_to_cl::channels::test_single_chain_cat_failure
     # integration::e2e::channels::test_single_chain_cat_success
 )

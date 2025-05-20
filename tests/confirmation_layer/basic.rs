@@ -31,19 +31,19 @@ async fn test_basic_confirmation_layer() {
     println!("[TEST]   Registering chains...");
     {
         let mut cl_node_with_lock = cl_node.lock().await;
-        let chain_id = ChainId("test-chain".to_string());
+        let chain_id = ChainId("registered-chain".to_string());
         cl_node_with_lock.register_chain(chain_id.clone()).await.expect("Failed to register chain");
         
         // Try to register chain again (should fail)
         match cl_node_with_lock.register_chain(chain_id.clone()).await {
             Ok(_) => panic!("Should not be able to register chain twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain twice: {}", e),
+            Err(e) => println!("[TEST]   Expected error when registering chain twice: '{}'", e),
         }
 
         // Try to get subblock for unregistered chain
         match cl_node_with_lock.get_subblock(ChainId("unregistered-chain".to_string()), 0).await {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
         }
     }
 
@@ -51,7 +51,7 @@ async fn test_basic_confirmation_layer() {
     println!("[TEST]   Verifying chain registration and subblock retrieval...");
     {
         let cl_node_with_lock = cl_node.lock().await;
-        let chain_id = ChainId("test-chain".to_string());
+        let chain_id = ChainId("registered-chain".to_string());
         
         // Verify registered chains
         let registered_chains = cl_node_with_lock.get_registered_chains().await.unwrap();
@@ -66,7 +66,7 @@ async fn test_basic_confirmation_layer() {
                 assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
                 assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
             },
-            Err(e) => panic!("Failed to get subblock: {}", e),
+            Err(e) => panic!("Failed to get subblock: '{}'", e),
         }
     }
 
@@ -77,25 +77,25 @@ async fn test_basic_confirmation_layer() {
     println!("[TEST]   Submitting transaction...");
     {
         let mut cl_node_with_lock = cl_node.lock().await;
-        let chain_id = ChainId("test-chain".to_string());
+        let chain_id = ChainId("registered-chain".to_string());
         
         // Submit a transaction
         let tx = CLTransaction::new(
             TransactionId("test-tx".to_string()),
-            chain_id.clone(),
+            vec![chain_id.clone()],
             "REGULAR.SIMULATION:Success".to_string()
-        ).expect("Failed to create transaction");
+        ).expect("Failed to create CLTransaction");
         cl_node_with_lock.submit_transaction(tx).await.expect("Failed to submit transaction");
         
         // Try to submit a transaction for unregistered chain (should fail)
         let tx2 = CLTransaction::new(
-            TransactionId("test-tx-2".to_string()),
-            ChainId("unregistered-chain".to_string()),
-            "REGULAR.SIMULATION:Success".to_string()
-        ).expect("Failed to create transaction");
+            TransactionId("test-tx2".to_string()),
+            vec![ChainId("unregistered-chain".to_string())],
+            "REGULAR.SIMULATION:Failure".to_string()
+        ).expect("Failed to create CLTransaction");
         match cl_node_with_lock.submit_transaction(tx2).await {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: {}", e),
+            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: '{}'", e),
         }
     }
 
@@ -114,7 +114,7 @@ async fn test_basic_confirmation_layer() {
         assert!(current_block >= 10, "Should have produced at least 10 blocks");
         
         // Check blocks 3 to 7 for the presence of the transaction (it may be difficult to pin the exact block)
-        let chain_id = ChainId("test-chain".to_string());
+        let chain_id = ChainId("registered-chain".to_string());
         let mut found = false;
         for block_id in _start_block_height + 5..=_start_block_height + 9 {
             let subblock = cl_node_with_lock.get_subblock(chain_id.clone(), block_id).await.unwrap();
@@ -159,7 +159,7 @@ async fn test_regular_transactions() {
     // Create a regular transaction
     let tx = CLTransaction::new(
         TransactionId("regular-tx".to_string()),
-        chain_id.clone(),
+        vec![chain_id.clone()],
         "REGULAR.SIMULATION:Success".to_string()
     ).expect("Failed to create transaction");
 
@@ -263,9 +263,9 @@ async fn test_submit_transaction() {
     // Submit a transaction
     let transaction = CLTransaction::new(
         TransactionId("test-tx".to_string()),
-        chain_id.clone(),
+        vec![chain_id.clone()],
         "REGULAR.SIMULATION:Success".to_string()
-    ).expect("Failed to create transaction");
+    ).expect("Failed to create CLTransaction");
     let result = cl_node.submit_transaction(transaction).await;
     assert!(result.is_ok());
 
@@ -476,9 +476,9 @@ async fn test_submit_transaction_chain_not_registered() {
     let chain_id = ChainId("non_existent".to_string());
     let tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
-        chain_id.clone(),
+        vec![chain_id.clone()],
         "REGULAR.SIMULATION:Success".to_string()
-    ).expect("Failed to create transaction");
+    ).expect("Failed to create CLTransaction");
     let result = cl_node.submit_transaction(tx).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))), "Should not be able to submit transaction for unregistered chain");
 }

@@ -40,14 +40,15 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     // Submit CAT transaction to CL
     let tx = Transaction::new(
         TransactionId("test-cat".to_string()),
-        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat.CHAINS:(chain-1)", expected_status)
+        vec![chain_id.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status)
     ).expect("Failed to create transaction");
     println!("[TEST]   Submitting CAT transaction with ID: {}", tx.id.0);
     {
         let mut node = cl_node.lock().await;
         node.submit_transaction(CLTransaction::new(
             tx.id.clone(),
-            chain_id.clone(),
+            vec![chain_id.clone()],
             tx.data.clone()
         ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
     }

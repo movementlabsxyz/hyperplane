@@ -78,14 +78,24 @@ impl HyperSchedulerNode {
         
         // Process messages
         while let Some(status_update) = receiver.recv().await {
-            println!("  [HS]   [Message loop task] Received status proposal for cat-id='{}': data={:?} : chains={:?}", status_update.cat_id, status_update.status, status_update.constituent_chains);
+            println!("  [HS]   [Message loop task] Received status proposal for cat-id='{}': data='{:?}' : chains='{:?}'", status_update.cat_id, status_update.status, status_update.constituent_chains);
 
-            // TODO need to handle chain id as well 
             // println!("  [HS]   [Message loop task] Attempting to acquire state lock for status update...");
+            // TODO : we should use process_cat_status_proposal instead
             {
                 let mut state = state.lock().await;
                 // println!("  [HS]   [Message loop task] Acquired state lock for status update");
-                state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
+                // Check if CAT already exists
+                if state.cat_statuses.contains_key(&status_update.cat_id) {
+                    println!("  [HS]   CAT {} already exists, rejecting duplicate proposal", status_update.cat_id.0);
+                    // return Err(HyperSchedulerError::DuplicateProposal(status_update.cat_id));
+                } else {
+                    state.cat_statuses.insert(status_update.cat_id.clone(), status_update.status.clone());
+                    println!("  [HS]   Status for {} set to {:?}", status_update.cat_id.0, status_update.status);
+                    state.constituent_chains.insert(status_update.cat_id.clone(), status_update.constituent_chains.clone());
+                    println!("  [HS]   Constituent chains for {} set to {:?}", status_update.cat_id.0, status_update.constituent_chains);
+
+                }
                 // println!("  [HS]   [Message loop task] Updated state, releasing lock");
 
                 // TODO: this is just dummy for now
@@ -94,10 +104,10 @@ impl HyperSchedulerNode {
             }
             // println!("  [HS]   [Message loop task] Released state lock after status update");
             println!("  [HS]   [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
-            // TODO: we need to send the status update to the CL
+            // TODO: we need to send the status update to the CL only if all results are in
             // for now we just send it always (=single chain cats)
             let mut node = hs_node.lock().await;
-            if let Err(e) = node.send_cat_status_update(status_update.cat_id.clone(), status_update.status.clone()).await {
+            if let Err(e) = node.send_cat_status_update(status_update.cat_id.clone(), status_update.constituent_chains.clone(), status_update.status.clone()).await {
                 println!("  [HS]   Failed to send status update: {:?}", e);
             }
         }
@@ -116,41 +126,10 @@ impl HyperSchedulerNode {
 
     /// Submit a transaction to the confirmation layer
     pub async fn submit_transaction_to_cl(&mut self, tx: CLTransaction) -> Result<(), String> {
-        println!("  [HS]   submit_transaction called for transaction: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
+        println!("  [HS]   submit_transaction called for transaction: id={}, data={}, chain_ids={:?}", 
+            tx.id.0, tx.data, tx.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>());
         if let Some(sender) = &self.sender_to_cl {
             sender.send(tx).await.map_err(|e| e.to_string())
-        } else {
-            Err("No sender to CL set".to_string())
-        }
-    }
-
-    /// Get the current block from the confirmation layer
-    // TODO: i think we dont need this
-    pub async fn get_current_block(&mut self) -> Result<u64, String> {
-        if let Some(sender) = &self.sender_to_cl {
-            let tx = CLTransaction {
-                id: TransactionId("GET_CURRENT_BLOCK".to_string()),
-                data: "GET_CURRENT_BLOCK".to_string(),
-                chain_id: ChainId("SYSTEM".to_string()),
-            };
-            sender.send(tx).await.map_err(|e| e.to_string())?;
-            Ok(0) // For now, just return 0 since we don't have a response channel
-        } else {
-            Err("No sender to CL set".to_string())
-        }
-    }
-
-    /// Get a subblock from the confirmation layer
-    // TODO: i think we dont need this
-    pub async fn get_subblock(&mut self, chain_id: ChainId, block_num: u64) -> Result<Vec<CLTransaction>, String> {
-        if let Some(sender) = &self.sender_to_cl {
-            let tx = CLTransaction {
-                id: TransactionId(format!("GET_SUBBLOCK_{}", block_num)),
-                data: format!("GET_SUBBLOCK_{}", block_num),
-                chain_id: chain_id.clone(),
-            };
-            sender.send(tx).await.map_err(|e| e.to_string())?;
-            Ok(vec![]) // For now, just return empty vec since we don't have a response channel
         } else {
             Err("No sender to CL set".to_string())
         }
@@ -201,7 +180,7 @@ impl HyperSchedulerNode {
 #[async_trait]
 impl HyperScheduler for HyperSchedulerNode {
     async fn get_cat_status(&self, id: CATId) -> Result<StatusLimited, HyperSchedulerError> {
-        println!("  [HS]   get_cat_status called for {}", id.0);
+        println!("  [HS]   get_cat_status called for tx-id='{}'", id.0);
         // println!("  [HS]   Attempting to acquire state lock for get_cat_status...");
         let result = {
             let state = self.state.lock().await;
@@ -212,9 +191,9 @@ impl HyperScheduler for HyperSchedulerNode {
         };
         // println!("  [HS]   Released state lock after get_cat_status");
         if let Some(ref status) = result {
-            println!("  [HS]   get_cat_status found status for {}: {:?}", id.0, status);
+            println!("  [HS]   get_cat_status found status for tx-id='{}': {:?}", id.0, status);
         } else {
-            println!("  [HS]   get_cat_status did not find status for '{}'", id.0);
+            println!("  [HS]   get_cat_status did not find status for tx-id='{}'", id.0);
         }
         result.ok_or_else(|| HyperSchedulerError::CATNotFound(id))
     }
@@ -223,8 +202,8 @@ impl HyperScheduler for HyperSchedulerNode {
         Ok(self.state.lock().await.cat_statuses.keys().cloned().collect())
     }
 
-    async fn receive_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperSchedulerError> {
-        println!("  [HS]   receive_cat_status_proposal called for {} with status {:?}", cat_id.0, status);
+    async fn process_cat_status_proposal(&mut self, cat_id: CATId, constituent_chains: Vec<ChainId>, status: StatusLimited) -> Result<(), HyperSchedulerError> {
+        println!("  [HS]   process_cat_status_proposal called for {} with status {:?}", cat_id.0, status);
         let mut state = self.state.lock().await;
         
         // Check if CAT already exists
@@ -233,42 +212,33 @@ impl HyperScheduler for HyperSchedulerNode {
             return Err(HyperSchedulerError::DuplicateProposal(cat_id));
         }
         
+        state.constituent_chains.insert(cat_id.clone(), constituent_chains.clone());
+        println!("  [HS]   Constituent chains for {} set to {:?}", cat_id.0, constituent_chains);
         // Store the status update
         state.cat_statuses.insert(cat_id.clone(), status.clone());
         println!("  [HS]   Status for {} set to {:?}", cat_id.0, status);
         Ok(())
     }
 
-    async fn send_cat_status_update(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperSchedulerError> {
-        println!("  [HS]   send_cat_status_update called for CAT {} with status {:?}", cat_id.0, status);
-        // Update the CAT status
-        self.state.lock().await.cat_statuses.insert(cat_id.clone(), status.clone());
-
-        // Get chain IDs
-        let chain_ids = self.state.lock().await.chain_ids.clone();
-        if chain_ids.is_empty() {
-            println!("  [HS]   No chain IDs set, cannot send status update");
-            return Err(HyperSchedulerError::Internal("No chain IDs set".to_string()));
-        }
+    async fn send_cat_status_update(&mut self, cat_id: CATId, constituent_chains: Vec<ChainId>, status: StatusLimited) -> Result<(), HyperSchedulerError> {
+        println!("  [HS]   send_cat_status_update called for CAT {}", cat_id.0);
 
         let status_str = match status {
             StatusLimited::Success => "STATUS_UPDATE:Success.CAT_ID:".to_string() + &cat_id.0,
             StatusLimited::Failure => "STATUS_UPDATE:Failure.CAT_ID:".to_string() + &cat_id.0,
         };
 
-        // Send the status update to all registered chains
+        // Send the status update to the confirmation layer
         if let Some(sender) = &self.sender_to_cl {
-            for chain_id in chain_ids {
-                let tx = CLTransaction {
-                    id: TransactionId(cat_id.0.clone()+".UPDATE"),
-                    data: status_str.clone(),
-                    chain_id: chain_id.clone(),
-                };
-                println!("  [HS]   Submitting status update transaction to CL: id={}, data={}, chain_id={}", tx.id.0, tx.data, tx.chain_id.0);
-                sender.send(tx)
-                    .await
-                    .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
-            }
+            let tx = CLTransaction {
+                id: TransactionId(cat_id.0.clone()+".UPDATE"),
+                data: status_str.clone(),
+                constituent_chains: constituent_chains.clone(),
+            };
+            println!("  [HS]   Submitting status update transaction to CL: id={}, data={}, chain_ids={:?}", tx.id.0, tx.data, tx.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>());
+            sender.send(tx)
+                .await
+                .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
         } else {
             println!("  [HS]   No sender to CL set, cannot send status update");
             return Err(HyperSchedulerError::Internal("No sender to CL set".to_string()));
