@@ -116,3 +116,45 @@ async fn test_duplicate_rejection() {
     
     println!("=== Test completed successfully ===\n");
 }
+
+/// Test processing proposals for a two-chain CAT
+/// - Receive a success proposal from first chain
+/// - Receive a success proposal from second chain
+/// - Verify that the CAT status is updated to success
+#[tokio::test]
+async fn test_process_proposals_for_two_chain_cat() {
+    println!("\n=== Starting test_process_proposals_for_two_chain_cat ===");
+
+    let mut hs_node = create_hs_node();
+    println!("[TEST]   HyperSchedulerNode created");
+
+    // Create a CAT ID and status update
+    let cat_id = CATId("test-cat".to_string());
+    let status = StatusLimited::Success;
+    let constituent_chains = vec![ChainId("test-chain-1".to_string()), ChainId("test-chain-2".to_string())];
+    println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
+
+    // Process the status proposal from first chain
+    println!("[TEST]   Processing CAT status proposal from first chain...");
+    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+        .await
+        .expect("Failed to process first CAT status proposal");
+    println!("[TEST]   First proposal processed successfully");
+
+    // Process the status proposal from second chain
+    println!("[TEST]   Processing CAT status proposal from second chain...");
+    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+        .await
+        .expect("Failed to process second CAT status proposal");
+    println!("[TEST]   Second proposal processed successfully");
+
+    // Verify the CAT status is updated to success
+    let stored_status = hs_node.get_cat_status(cat_id.clone())
+        .await
+        .expect("Failed to get CAT status");
+    println!("[TEST]   Retrieved stored status: {:?}", stored_status);
+    assert_eq!(stored_status, status);
+    println!("[TEST]   Status verification successful");
+
+    println!("=== Test completed successfully ===\n");
+}

@@ -40,6 +40,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     // Submit CAT transaction to CL
     let tx = Transaction::new(
         TransactionId("test-cat".to_string()),
+        chain_id.clone(),
         vec![chain_id.clone()],
         format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status)
     ).expect("Failed to create transaction");

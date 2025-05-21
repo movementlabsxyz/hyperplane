@@ -39,6 +39,8 @@ impl CLTransaction {
 pub struct Transaction {
     /// Unique identifier for this transaction
     pub id: TransactionId,
+    /// The target chain ID of this transaction
+    pub this_chain_id: ChainId,
     /// The chain IDs to which this transaction is destined
     pub constituent_chains: Vec<ChainId>,
     /// The actual transaction data (just a string for now)
@@ -47,10 +49,10 @@ pub struct Transaction {
 
 impl Transaction {
     /// Creates a new Transaction, ensuring that the `data` string matches expected format
-    pub fn new(id: TransactionId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
+    pub fn new(id: TransactionId, this_chain_id: ChainId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
-        Ok(Transaction { id, constituent_chains, data })
+        Ok(Transaction { id, this_chain_id, constituent_chains, data })
     }
 }
 

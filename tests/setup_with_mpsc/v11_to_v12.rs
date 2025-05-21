@@ -207,6 +207,7 @@ impl TestNodeStateV11 {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
+                    this_chain_id: chain_id.clone(),
                     data: tx.data.clone(),
                     constituent_chains: tx.constituent_chains.clone(),
                 })
@@ -260,6 +261,7 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
                     .filter(|(cid, _)| cid == chain_id)
                     .map(|(_, tx)| Transaction {
                         id: tx.id.clone(),
+                        this_chain_id: chain_id.clone(),
                         data: tx.data.clone(),
                         constituent_chains: tx.constituent_chains.clone(),
                     })
@@ -517,6 +519,7 @@ impl TestConfirmationLayerNode {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
+                    this_chain_id: chain_id.clone(),
                     data: tx.data.clone(),
                     constituent_chains: tx.constituent_chains.clone(),
                 })
@@ -644,6 +647,7 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
                     .filter(|(cid, _)| cid == chain_id)
                     .map(|(_, tx)| Transaction {
                         id: tx.id.clone(),
+                        this_chain_id: chain_id.clone(),
                         data: tx.data.clone(),
                         constituent_chains: tx.constituent_chains.clone(),
                     })
@@ -726,6 +730,7 @@ impl TestConfirmationLayer {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
+                    this_chain_id: chain_id.clone(),
                     data: tx.data.clone(),
                     constituent_chains: tx.constituent_chains.clone(),
                 })

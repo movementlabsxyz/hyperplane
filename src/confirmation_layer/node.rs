@@ -147,6 +147,7 @@ impl ConfirmationLayerNode {
                             .filter(|(cid, _)| cid == chain_id)
                             .map(|(_, tx)| Transaction {
                                 id: tx.id.clone(),
+                                this_chain_id: chain_id.clone(),
                                 data: tx.data.clone(),
                                 constituent_chains: tx.constituent_chains.clone(),
                             })
@@ -206,6 +207,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction {
                     id: tx.id.clone(),
+                    this_chain_id: chain_id.clone(),
                     data: tx.data.clone(),
                     constituent_chains: tx.constituent_chains.clone(),
                 })

@@ -57,7 +57,8 @@ TESTS=(
     hyper_scheduler::basic::test_receive_success_proposal_first_message
     hyper_scheduler::basic::test_receive_failure_proposal_first_message
     hyper_scheduler::basic::test_duplicate_rejection
-
+    hyper_scheduler::basic::test_process_proposals_for_two_chain_cat
+    
     # - - - CL to HIG tests - - -
     integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_success
     integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_failure
@@ -83,7 +84,7 @@ TESTS=(
 
 
 TESTS2=(
-        confirmation_layer::basic::test_submit_cl_transaction_for_multiple_chains
+    hyper_scheduler::basic::test_process_proposals_for_two_chain_cat
 
     # confirmation_layer::basic::test_basic_confirmation_layer
     # integration::e2e::channels::test_single_chain_cat_failure 
