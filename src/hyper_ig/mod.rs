@@ -15,6 +15,8 @@ pub enum HyperIGError {
     Internal(String),
     #[error("Communication error: {0}")]
     Communication(String),
+    #[error("Received subblock with wrong chain ID: expected {expected}, got {received}")]
+    WrongChainId { expected: ChainId, received: ChainId },
 }
 
 /// The Hyper IG is responsible for executing transactions,

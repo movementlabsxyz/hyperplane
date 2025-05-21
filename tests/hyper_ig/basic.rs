@@ -1,11 +1,13 @@
 use hyperplane::{
     types::{Transaction, TransactionId, TransactionStatus, StatusLimited},
     hyper_ig::HyperIG,
+    hyper_ig::node::HyperIGNode,
+    types::{SubBlock, ChainId},
 };
 use crate::common::testnodes;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use hyperplane::types::{CATId, ChainId};
+use hyperplane::types::{CATId};
 
 /// Helper function: Tests regular non-dependent transaction path in HyperIG
 /// - Status verification
@@ -238,6 +240,46 @@ async fn test_get_pending_transactions() {
         .expect("Failed to get pending transactions");
     println!("[TEST]   Pending transactions: {:?}", pending);
     assert!(pending.contains(&tx.id));
+    
+    println!("=== Test completed successfully ===\n");
+}
+
+/// Tests that a subblock with a wrong chain ID should not happen
+/// - Only the subblock with the correct chain ID should be received.
+#[tokio::test]
+async fn test_wrong_chain_subblock() {
+    // Create channels
+    let (_sender_cl_to_hig, receiver_cl_to_hig) = tokio::sync::mpsc::channel(100);
+    let (sender_hig_to_hs, _receiver_hig_to_hs) = tokio::sync::mpsc::channel(100);
+
+    // Create HIG node
+    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs)));
+    
+    // Register chain ID
+    {
+        let mut node = hig_node.lock().await;
+        node.register_chain(ChainId("chain-1".to_string())).await.expect("Failed to register chain");
+        println!("[TEST]   Chain 'chain-1' registered");
+    }
+
+    // Start the node
+    HyperIGNode::start(hig_node.clone()).await;
+
+    // Create a subblock with a different chain ID
+    let wrong_chain_subblock = SubBlock {
+        block_height: 1,
+        chain_id: ChainId("wrong-chain".to_string()),
+        transactions: vec![Transaction {
+            id: TransactionId("test-tx".to_string()),
+            this_chain_id: ChainId("wrong-chain".to_string()),
+            data: "REGULAR.SIMULATION:Success".to_string(),
+            constituent_chains: vec![],
+        }],
+    };
+
+    // process the subblock and expect the error WrongChainId
+    let result = hig_node.lock().await.process_subblock(wrong_chain_subblock).await;
+    assert!(result.is_err(), "Expected error when receiving subblock from wrong chain");
     
     println!("=== Test completed successfully ===\n");
 }

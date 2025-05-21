@@ -6,14 +6,13 @@ use hyperplane::{
 use tokio::time::Duration;
 use crate::common::testnodes;
 
-/// Helper function: tests sending a CAT status proposal from CL to HS for single chain
+/// Helper function: tests sending a CAT status proposal from CL to HS
 /// - Submit a cat transaction to CL
-/// - CL proposes a block with a Success status for a CAT
-/// - HIG receives the block, processes the transaction, and proposes a status update for the CAT
-/// - HS receives and stores the status
-async fn run_test_cat_one_chain_responds(proposed_status: StatusLimited, expected_status: CATStatus) {
-    println!("\n[TEST]   === Starting test_single_chain_cat ===");
-    let (hs_node, cl_node, _hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+/// - Wait for the transaction to be processed by the HIGs
+/// - Check that the CAT status is set to the expected status in the HS
+async fn run_test_one_cat(proposed_status: StatusLimited, expected_status: CATStatus) {
+    println!("\n[TEST]   === Starting test_one_cat ===");
+    let (hs_node, cl_node, _, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain in CL
@@ -25,7 +24,7 @@ async fn run_test_cat_one_chain_responds(proposed_status: StatusLimited, expecte
     }
     println!("[TEST]   Chain registered successfully");
 
-    // Create a CAT transaction with simulation success
+    // Create a CAT transaction
     let cat_id = CATId("test-cat".to_string());
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
@@ -59,15 +58,15 @@ async fn run_test_cat_one_chain_responds(proposed_status: StatusLimited, expecte
     println!("[TEST]   === Test completed successfully ===\n");
 }
 
-/// Tests cat (success) for single chain 
+/// Tests cat (success)
 #[tokio::test]
-async fn test_cat_one_chain_responds_success() {
-    run_test_cat_one_chain_responds(StatusLimited::Success, CATStatus::Pending).await;
+async fn test_cat_one_cat_success() {
+    run_test_one_cat(StatusLimited::Success, CATStatus::Success).await;
 }
 
-/// Tests cat (failure) for single chain 
+/// Tests cat (failure) 
 #[tokio::test]
-async fn test_cat_one_chain_responds_failure() {
-    run_test_cat_one_chain_responds(StatusLimited::Failure, CATStatus::Failure).await;
+async fn test_cat_one_cat_failure() {
+    run_test_one_cat(StatusLimited::Failure, CATStatus::Failure).await;
 }
 

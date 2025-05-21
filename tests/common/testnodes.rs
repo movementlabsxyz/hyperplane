@@ -3,6 +3,7 @@ use hyperplane::{
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
     hyper_ig::node::HyperIGNode,
+    types::ChainId,
 };
 use tokio::time::Duration;
 use tokio::sync::mpsc;
@@ -30,6 +31,16 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
     ).expect("Failed to create confirmation node")));
     let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs)));
     let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs)));
+
+    // Register chain IDs for HIG nodes
+    {
+        let mut hig1 = hig_node_1.lock().await;
+        hig1.register_chain(ChainId("chain-1".to_string())).await.expect("Failed to register chain-1");
+    }
+    {
+        let mut hig2 = hig_node_2.lock().await;
+        hig2.register_chain(ChainId("chain-2".to_string())).await.expect("Failed to register chain-2");
+    }
 
     // Start the HyperScheduler and HyperIG nodes
     HyperSchedulerNode::start(hs_node.clone()).await;

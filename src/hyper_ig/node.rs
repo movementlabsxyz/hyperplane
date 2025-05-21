@@ -18,6 +18,8 @@ struct HyperIGState {
     pending_transactions: HashSet<TransactionId>,
     /// Proposed status for CAT transactions
     cat_proposed_statuses: HashMap<TransactionId, StatusLimited>,
+    /// my chain id
+    my_chain_id: ChainId,
 }
 
 /// Node implementation of the Hyper Information Gateway
@@ -38,14 +40,25 @@ impl HyperIGNode {
                 transaction_statuses: HashMap::new(),
                 pending_transactions: HashSet::new(),
                 cat_proposed_statuses: HashMap::new(),
+                my_chain_id: ChainId("unregistered".to_string()),
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
         }
     }
 
+    /// Register this HIG with a chain ID
+    pub async fn register_chain(&mut self, chain_id: ChainId) -> Result<(), HyperIGError> {
+        let mut state = self.state.lock().await;
+        if state.my_chain_id.0 != "unregistered" {
+            return Err(HyperIGError::Internal("Chain already registered".to_string()));
+        }
+        state.my_chain_id = chain_id;
+        Ok(())
+    }
+
     /// Process messages
-    pub async fn process_messages(hig_node: Arc<Mutex<HyperIGNode>>) {
+    pub async fn process_messages(hig_node: Arc<Mutex<HyperIGNode>>) -> Result<(), HyperIGError> {
         println!("  [HIG]   [Message loop task] Starting message processing loop");
         loop {
             // println!("  [HIG]   [Message loop task] Attempting to acquire hig_node lock...");
@@ -84,12 +97,24 @@ impl HyperIGNode {
             }
         }
         println!("  [HIG]   [Message loop task] Message processing loop exiting");
+        Ok(())
     }
 
     /// Process a subblock
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
         println!("  [HIG] [process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
             subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
+        // check if the received subblock matches our chain id. If not we have a bug.
+        if subblock.chain_id.0 != self.state.lock().await.my_chain_id.0 {
+            println!("  [HIG]   [Message loop task] [ERROR] Received subblock with chain_id='{}', but should be '{}', ignoring", 
+                subblock.chain_id.0, self.state.lock().await.my_chain_id.0);
+            return Err(HyperIGError::WrongChainId { 
+                expected: self.state.lock().await.my_chain_id.clone(),
+                received: subblock.chain_id.clone(),
+            });
+        }
+
+
         for tx in &subblock.transactions {
             println!("  [HIG] [process_subblock] tx-id={} : data={}", tx.id.0, tx.data);
         }
@@ -102,7 +127,7 @@ impl HyperIGNode {
     /// Start the node's block processing loop
     pub async fn start(node: Arc<Mutex<HyperIGNode>>) {
         println!("  [HIG]   Starting HyperIG node");
-        tokio::spawn(async move { HyperIGNode::process_messages(node).await });
+        tokio::spawn(async move { HyperIGNode::process_messages(node).await.unwrap() });
     }
 
     /// Process incoming subblocks from the Confirmation Layer
