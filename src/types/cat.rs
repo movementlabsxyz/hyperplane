@@ -7,7 +7,7 @@ use super::{TransactionId, ChainId};
 pub struct CATId(pub String);
 
 /// Status of a Crosschain Atomic Transaction (CAT)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CATStatus {
     /// CAT is pending
     Pending,

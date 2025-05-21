@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{ChainId, CATId, StatusLimited, TransactionId, CLTransaction},
+    types::{ChainId, CATId, StatusLimited, TransactionId, CLTransaction, CATStatus},
     hyper_scheduler::{HyperScheduler},
     confirmation_layer::ConfirmationLayer,
 };
@@ -11,7 +11,7 @@ use crate::common::testnodes;
 /// - CL proposes a block with a Success status for a CAT
 /// - HIG receives the block, processes the transaction, and proposes a status update for the CAT
 /// - HS receives and stores the status
-async fn run_test_single_chain_cat(expected_status: StatusLimited) {
+async fn run_test_single_chain_cat(proposed_status: StatusLimited) {
     println!("\n[TEST]   === Starting test_single_chain_cat ===");
     let (hs_node, cl_node, _hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
@@ -30,7 +30,7 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
         vec![chain_id.clone()],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", expected_status, cat_id.0)
+        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0)
     ).expect("Failed to create CLTransaction");
 
     // Submit the transaction to CL
@@ -49,6 +49,10 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
 
     // Verify the CAT status was updated in HS
     println!("[TEST]   Verifying CAT status in HS...");
+    let expected_status = match proposed_status {
+        StatusLimited::Success => CATStatus::Success,
+        StatusLimited::Failure => CATStatus::Failure,
+    };
     // create a local scope (note the test fails without this)
     {
         let node = hs_node.lock().await;

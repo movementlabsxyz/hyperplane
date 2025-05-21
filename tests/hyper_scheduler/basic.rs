@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{CATId, StatusLimited, ChainId},
+    types::{CATId, StatusLimited, ChainId, CATStatus},
     hyper_scheduler::node::HyperSchedulerNode,
     HyperScheduler,
 };
@@ -7,9 +7,10 @@ use tokio::sync::mpsc;
 
 // create a HyperSchedulerNode with empty channels
 fn create_hs_node() -> HyperSchedulerNode {
-    let (_, receiver_from_hig) = mpsc::channel(1);
+    let (_, receiver_from_hig_1) = mpsc::channel(1);
+    let (_, receiver_from_hig_2) = mpsc::channel(1);
     let (sender_to_cl, _) = mpsc::channel(1);
-    HyperSchedulerNode::new(receiver_from_hig, sender_to_cl)
+    HyperSchedulerNode::new(receiver_from_hig_1, receiver_from_hig_2, sender_to_cl)
 }
 
 
@@ -24,23 +25,23 @@ async fn test_receive_success_proposal_first_message() {
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status = StatusLimited::Success;
+    let status_proposal = StatusLimited::Success;
     let constituent_chains = vec![ChainId("chain-1".to_string())];
-    println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
+    println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status_proposal);
 
     // Receive the status proposal directly
     println!("[TEST]   Receiving CAT status proposal...");
-    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), ChainId("chain-1".to_string()), constituent_chains.clone(), status_proposal.clone())
         .await
         .expect("Failed to receive CAT status proposal");
     println!("[TEST]   CAT status proposal received successfully");
 
     // Verify HS stored the status
-    let stored_status = hs_node.get_cat_status(cat_id.clone())
+    let status_stored = hs_node.get_cat_status(cat_id.clone())
         .await
         .expect("Failed to get CAT status");
-    println!("[TEST]   Retrieved stored status: {:?}", stored_status);
-    assert_eq!(stored_status, status);
+    println!("[TEST]   Retrieved stored status: {:?}", status_stored);
+    assert_eq!(status_stored, CATStatus::Success);
     println!("[TEST]   Status verification successful");
     
     println!("=== Test completed successfully ===\n");
@@ -57,13 +58,13 @@ async fn test_receive_failure_proposal_first_message() {
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status = StatusLimited::Failure;
+    let status_proposed = StatusLimited::Failure;
     let constituent_chains = vec![ChainId("chain-1".to_string())];
-    println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
+    println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status_proposed);
 
     // Receive the status proposal directly
     println!("[TEST]   Receiving CAT status proposal...");
-    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), ChainId("chain-1".to_string()), constituent_chains.clone(), status_proposed.clone())
         .await
         .expect("Failed to receive CAT status proposal");
     println!("[TEST]   CAT status proposal received successfully");
@@ -73,7 +74,7 @@ async fn test_receive_failure_proposal_first_message() {
         .await
         .expect("Failed to get CAT status");
     println!("[TEST]   Retrieved stored status: {:?}", stored_status);
-    assert_eq!(stored_status, status);
+    assert_eq!(stored_status, CATStatus::Failure);
     println!("[TEST]   Status verification successful");
 
     // Verify CAT is in pending list
@@ -103,13 +104,13 @@ async fn test_duplicate_rejection() {
     let constituent_chains = vec![ChainId("chain-1".to_string())];
     
     // First proposal should create a record
-    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), ChainId("chain-1".to_string()), constituent_chains.clone(), status.clone())
         .await
         .expect("Failed to receive first CAT status proposal");
     println!("[TEST]   First proposal received successfully");
 
     // Second proposal should be rejected
-    let result = hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+    let result = hs_node.process_cat_status_proposal(cat_id.clone(), ChainId("chain-1".to_string()), constituent_chains.clone(), status.clone())
         .await;
     assert!(result.is_err(), "Expected duplicate proposal to be rejected");
     println!("[TEST]   Verified duplicate proposal was rejected");
@@ -136,14 +137,14 @@ async fn test_process_proposals_for_two_chain_cat() {
 
     // Process the status proposal from first chain
     println!("[TEST]   Processing CAT status proposal from first chain...");
-    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), ChainId("chain-1".to_string()), constituent_chains.clone(), status.clone())
         .await
         .expect("Failed to process first CAT status proposal");
     println!("[TEST]   First proposal processed successfully");
 
     // Process the status proposal from second chain
     println!("[TEST]   Processing CAT status proposal from second chain...");
-    hs_node.process_cat_status_proposal(cat_id.clone(), constituent_chains.clone(), status.clone())
+    hs_node.process_cat_status_proposal(cat_id.clone(), ChainId("chain-2".to_string()), constituent_chains.clone(), status.clone())
         .await
         .expect("Failed to process second CAT status proposal");
     println!("[TEST]   Second proposal processed successfully");
@@ -153,7 +154,7 @@ async fn test_process_proposals_for_two_chain_cat() {
         .await
         .expect("Failed to get CAT status");
     println!("[TEST]   Retrieved stored status: {:?}", stored_status);
-    assert_eq!(stored_status, status);
+    assert_eq!(stored_status, CATStatus::Success);
     println!("[TEST]   Status verification successful");
 
     println!("=== Test completed successfully ===\n");
