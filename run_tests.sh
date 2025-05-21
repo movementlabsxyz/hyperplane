@@ -69,8 +69,8 @@ TESTS=(
     integration::hs_to_cl::channels::test_several_single_chain_cat_status_updates
 
     ## - - - CL to HS tests - - -
-    integration::cl_to_hs::channels::test_single_chain_cat_success
-    integration::cl_to_hs::channels::test_single_chain_cat_failure
+    integration::cl_to_hs::channels::test_cat_one_chain_responds_success
+    integration::cl_to_hs::channels::test_cat_one_chain_responds_failure
 
     # - - - CL to CL tests - - -
     integration::cl_to_cl::channels::test_two_chain_cat_success
@@ -85,9 +85,8 @@ TESTS=(
 
 TESTS2=(
 
-        integration::cl_to_cl::channels::test_two_chain_cat_failure
-    # integration::cl_to_cl::channels::test_two_chain_cat_success
-    # integration::cl_to_hs::channels::test_single_chain_cat_success
+    integration::cl_to_hs::channels::test_cat_one_chain_responds_success
+    integration::cl_to_hs::channels::test_cat_one_chain_responds_failure
 )
 
 # Run the appropriate test set based on the input

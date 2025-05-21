@@ -11,7 +11,7 @@ use crate::common::testnodes;
 /// - CL proposes a block with a Success status for a CAT
 /// - HIG receives the block, processes the transaction, and proposes a status update for the CAT
 /// - HS receives and stores the status
-async fn run_test_single_chain_cat(proposed_status: StatusLimited) {
+async fn run_test_cat_one_chain_responds(proposed_status: StatusLimited, expected_status: CATStatus) {
     println!("\n[TEST]   === Starting test_single_chain_cat ===");
     let (hs_node, cl_node, _hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
@@ -47,12 +47,6 @@ async fn run_test_single_chain_cat(proposed_status: StatusLimited) {
     tokio::time::sleep(Duration::from_millis(200)).await;
     println!("[TEST]   Wait complete");
 
-    // Verify the CAT status was updated in HS
-    println!("[TEST]   Verifying CAT status in HS...");
-    let expected_status = match proposed_status {
-        StatusLimited::Success => CATStatus::Success,
-        StatusLimited::Failure => CATStatus::Failure,
-    };
     // create a local scope (note the test fails without this)
     {
         let node = hs_node.lock().await;
@@ -67,13 +61,13 @@ async fn run_test_single_chain_cat(proposed_status: StatusLimited) {
 
 /// Tests cat (success) for single chain 
 #[tokio::test]
-async fn test_single_chain_cat_success() {
-    run_test_single_chain_cat(StatusLimited::Success).await;
+async fn test_cat_one_chain_responds_success() {
+    run_test_cat_one_chain_responds(StatusLimited::Success, CATStatus::Pending).await;
 }
 
 /// Tests cat (failure) for single chain 
 #[tokio::test]
-async fn test_single_chain_cat_failure() {
-    run_test_single_chain_cat(StatusLimited::Failure).await;
+async fn test_cat_one_chain_responds_failure() {
+    run_test_cat_one_chain_responds(StatusLimited::Failure, CATStatus::Failure).await;
 }
 
