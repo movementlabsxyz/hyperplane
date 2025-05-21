@@ -1,47 +1,45 @@
 use hyperplane::{
-    types::{ChainId, CATId, StatusLimited, TransactionId, CLTransaction, Transaction},
+    types::{ChainId, CATId, StatusLimited, TransactionId, CLTransaction, CATStatus},
     hyper_scheduler::{HyperScheduler},
     confirmation_layer::ConfirmationLayer,
 };
 use tokio::time::Duration;
 use crate::common::testnodes;
 
-/// Helper function: tests sending a CAT status proposal from CL to HS for single chain
+/// Helper function: tests sending a CAT status proposal from CL to HS
 /// - Submit a cat transaction to CL
-/// - CL proposes a block with a Success status for a CAT
-/// - HIG receives the block, processes the transaction, and proposes a status update for the CAT
-/// - HS receives and stores the status
-async fn run_test_single_chain_cat_success(expected_status: StatusLimited) {
-    println!("\n[TEST]   === Starting test_single_chain_cat_success ===");
-    let (hs_node, cl_node, _hig_node, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+/// - Wait for the transaction to be processed by the HIGs
+/// - Check that the CAT status is set to the expected status in the HS
+async fn run_test_one_cat(proposed_status: StatusLimited, expected_status: CATStatus) {
+    println!("\n[TEST]   === Starting test_one_cat ===");
+    let (hs_node, cl_node, _, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain in CL
-    let chain_id = ChainId("test-chain".to_string());
-    println!("[TEST]   Registering chain: {}", chain_id.0);
+    let chain_id_1 = ChainId("chain-1".to_string());
+    let chain_id_2 = ChainId("chain-2".to_string());
+    println!("[TEST]   Registering chains: {} and {}", chain_id_1.0, chain_id_2.0);
     {
         let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+        node.register_chain(chain_id_1.clone()).await.expect("Failed to register chain");
+        node.register_chain(chain_id_2.clone()).await.expect("Failed to register chain");
     }
-    println!("[TEST]   Chain registered successfully");
+    println!("[TEST]   Chains registered successfully");
 
-    // Create a CAT transaction with simulation success
-    let cat_id = CATId("test-cat-tx".to_string());
-    let tx = Transaction::new(
-        TransactionId("cat-tx.chain-1".to_string()),
-        format!("CAT.SIMULATION.{:?}.CAT_ID:{}", expected_status, cat_id.0)
-    ).expect("Failed to create transaction");
+    // Create a CAT transaction
+    let cat_id = CATId("test-cat".to_string());
+    let cl_tx = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0)
+    ).expect("Failed to create CLTransaction");
 
     // Submit the transaction to CL
     println!("[TEST]   Submitting transaction to CL...");
     // create a local scope (note the test fails without this)
     {
         let mut node = cl_node.lock().await;
-        node.submit_transaction(CLTransaction::new(
-            tx.id.clone(),
-            chain_id.clone(),
-            tx.data.clone()
-        ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
+        node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
     }
     println!("[TEST]   Transaction submitted successfully");
 
@@ -50,29 +48,27 @@ async fn run_test_single_chain_cat_success(expected_status: StatusLimited) {
     tokio::time::sleep(Duration::from_millis(200)).await;
     println!("[TEST]   Wait complete");
 
-    // Verify the CAT status was updated in HS
-    println!("[TEST]   Verifying CAT status in HS...");
     // create a local scope (note the test fails without this)
     {
         let node = hs_node.lock().await;
         let status = node.get_cat_status(cat_id).await.expect("Failed to get CAT status");
         println!("[TEST]   Retrieved status: {:?}", status);
-        assert_eq!(status, expected_status);
+        assert_eq!(status, expected_status, "CAT status should be {:?}", expected_status);
     }
     println!("[TEST]   Status verification successful");
 
     println!("[TEST]   === Test completed successfully ===\n");
 }
 
-/// Tests cat (success) for single chain 
+/// Tests cat (success)
 #[tokio::test]
-async fn test_single_chain_cat_success() {
-    run_test_single_chain_cat_success(StatusLimited::Success).await;
+async fn test_cat_one_cat_success() {
+    run_test_one_cat(StatusLimited::Success, CATStatus::Success).await;
 }
 
-/// Tests cat (failure) for single chain 
+/// Tests cat (failure) 
 #[tokio::test]
-async fn test_single_chain_cat_failure() {
-    run_test_single_chain_cat_success(StatusLimited::Failure).await;
+async fn test_cat_one_cat_failure() {
+    run_test_one_cat(StatusLimited::Failure, CATStatus::Failure).await;
 }
 

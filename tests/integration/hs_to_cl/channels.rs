@@ -12,11 +12,11 @@ use tokio::time::Duration;
 #[tokio::test]
 async fn test_single_chain_cat_status_update() {
     println!("\n[TEST]   === Starting test_single_chain_cat_status_update ===");
-    let (hs_node, cl_node, _hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register a chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;
@@ -28,7 +28,7 @@ async fn test_single_chain_cat_status_update() {
     println!("[TEST]   Setting chain ID in HS...");
     {
         let mut node = hs_node.lock().await;
-        node.set_chain_id(chain_id.clone()).await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain ID set in HS");
 
@@ -37,7 +37,7 @@ async fn test_single_chain_cat_status_update() {
     println!("[TEST]   Sending CAT status update for '{}'...", cat_id.0);
     {
         let mut node = hs_node.lock().await;
-        node.send_cat_status_update(cat_id.clone(), StatusLimited::Success)
+        node.send_cat_status_update(cat_id.clone(), vec![chain_id.clone()], StatusLimited::Success)
             .await
             .expect("Failed to send status update");
     }
@@ -67,7 +67,7 @@ async fn test_single_chain_cat_status_update() {
     };
     println!("[TEST]   Retrieved subblock with {} transactions", subblock.transactions.len());
     assert_eq!(subblock.transactions.len(), 1);
-    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE.Success.CAT_ID:test-cat");
+    assert_eq!(subblock.transactions[0].data, "STATUS_UPDATE:Success.CAT_ID:test-cat");
     println!("[TEST]   Transaction verification successful");
     
     println!("[TEST]   === Test completed successfully ===\n");
@@ -79,11 +79,11 @@ async fn test_single_chain_cat_status_update() {
 #[tokio::test]
 async fn test_several_single_chain_cat_status_updates() {
     println!("\n[TEST]   === Starting test_several_single_chain_cat_status_updates ===");
-    let (hs_node, cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register a test chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;
@@ -97,7 +97,7 @@ async fn test_several_single_chain_cat_status_updates() {
     println!("[TEST]   Setting chain ID in HS...");
     {
         let mut node = hs_node.lock().await;
-        node.set_chain_id(chain_id.clone()).await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain ID set in HS");
 
@@ -115,29 +115,41 @@ async fn test_several_single_chain_cat_status_updates() {
             i + 1, updates.len(), cat_id.0, status);
         {
             let mut node = hs_node.lock().await;
-            node.send_cat_status_update(cat_id.clone(), status.clone())
+            node.send_cat_status_update(cat_id.clone(), vec![chain_id.clone()], status.clone())
                 .await
                 .expect("Failed to send status update");
         }
         println!("[TEST]   Update sent successfully");
 
         // Wait for block production
-        println!("[TEST]   Waiting for block production (100ms)...");
-        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        println!("[TEST]   Waiting for block production (300ms)...");
+        tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
         println!("[TEST]   Wait complete");
 
-        // Verify the status update was processed
-        println!("[TEST]   Verifying status update...");
-        {
-            let node = hs_node.lock().await;
-            let current_status = node.get_cat_status(cat_id.clone()).await.unwrap();
-            println!("[TEST]   Retrieved status: {:?}", current_status);
-            assert_eq!(current_status, *status);
+        // Verify the status update was included in the block
+        println!("[TEST]   Verifying status update was included in the block...");
+        let mut found = false;
+        for block_id in start_block_height + 1..=start_block_height + 9 {
+            let subblock = {
+                let node = cl_node.lock().await;
+                node.get_subblock(chain_id.clone(), block_id)
+                    .await
+                    .expect("Failed to get subblock")
+            };
+            println!("[TEST]   Checking block {} with {} transactions", block_id, subblock.transactions.len());
+            if subblock.transactions.iter().any(|tx| tx.data == format!("STATUS_UPDATE:{:?}.CAT_ID:{}", status, cat_id.0)) {
+                found = true;
+                break;
+            }
         }
-        println!("[TEST]   Status verification successful");
+        assert!(found, "Status update not found in any block");
+        println!("[TEST]   Status update verification successful");
+        
     }
-    
+
     println!("[TEST]   === Test completed successfully ===\n");
 }
+
+
 
 

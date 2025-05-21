@@ -1,4 +1,4 @@
-use crate::types::{CATId, TransactionId, StatusLimited};
+use crate::types::{CATId, TransactionId, StatusLimited, ChainId, CATStatus};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -20,14 +20,14 @@ pub enum HyperSchedulerError {
 #[async_trait]
 pub trait HyperScheduler: Send + Sync {
     /// Get the current status update of a CAT
-    async fn get_cat_status(&self, id: CATId) -> Result<StatusLimited, HyperSchedulerError>;
+    async fn get_cat_status(&self, id: CATId) -> Result<CATStatus, HyperSchedulerError>;
     
     /// Get all pending CAT IDs
     async fn get_pending_cats(&self) -> Result<Vec<CATId>, HyperSchedulerError>;
 
     /// Receive a CAT status proposal from the Hyper IG
-    async fn receive_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperSchedulerError>;
+    async fn process_cat_status_proposal(&mut self, cat_id: CATId, this_chain_id: ChainId, constituent_chains: Vec<ChainId>, status: StatusLimited) -> Result<(), HyperSchedulerError>;
 
     /// Send a CAT status update to the confirmation layer
-    async fn send_cat_status_update(&mut self, cat_id: CATId, status: StatusLimited) -> Result<(), HyperSchedulerError>;
+    async fn send_cat_status_update(&mut self, cat_id: CATId, constituent_chains: Vec<ChainId>, status: StatusLimited) -> Result<(), HyperSchedulerError>;
 } 

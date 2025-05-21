@@ -10,44 +10,56 @@ fi
 # Running confirmation layer tests
 
 TESTS=(
+    # - - - Concurrency setup tests - - -
+    setup_with_mpsc::v1_to_v7::test_v1
+    setup_with_mpsc::v1_to_v7::test_v2
+    setup_with_mpsc::v1_to_v7::test_v3
+    setup_with_mpsc::v1_to_v7::test_v4
+    setup_with_mpsc::v1_to_v7::test_v5
+    setup_with_mpsc::v1_to_v7::test_v6
+    setup_with_mpsc::v1_to_v7::test_v7
+    setup_with_mpsc::v8_to_v10::test_v8
+    setup_with_mpsc::v8_to_v10::test_v9
+    setup_with_mpsc::v8_to_v10::test_v10
+    setup_with_mpsc::v11_to_v12::test_v11
+    setup_with_mpsc::v11_to_v12::test_v12
+    setup_with_mpsc::v13::test_v13
+
     # - - - CL tests - - -
-    confirmation_layer::basic::test_cl_normal_transactions
-    confirmation_layer::concurrent_setup::concurrent_setup_v11_to_v12::test_concurrent_setup_v12
-    confirmation_layer::concurrent_setup::concurrent_setup_v13::test_concurrent_setup_v13
-    confirmation_layer::basic::test_cl_basic_confirmation_layer
-    confirmation_layer::basic::test_cl_block_interval
-    confirmation_layer::basic::test_normal_transactions
-    confirmation_layer::basic::test_cl_register_chain
-    confirmation_layer::basic::test_cl_get_current_block
-    confirmation_layer::basic::test_cl_get_subblock
-    confirmation_layer::basic::test_cl_submit_transaction
-    confirmation_layer::basic::test_cl_set_block_interval
-    confirmation_layer::basic::test_cl_invalid_block_interval
-    confirmation_layer::basic::test_cl_chain_not_found
-    confirmation_layer::basic::test_cl_chain_already_registered
-    confirmation_layer::basic::test_cl_chain_registration
-    confirmation_layer::basic::test_cl_block_interval_validation
-    confirmation_layer::basic::test_cl_subblock_not_found
-    confirmation_layer::basic::test_cl_get_registered_chains
-    confirmation_layer::basic::test_cl_get_block_interval
-    confirmation_layer::basic::test_cl_submit_transaction_chain_not_registered
-    confirmation_layer::basic::test_cl_get_subblock_chain_not_registered
-    confirmation_layer::basic::test_cl_register_chain_already_registered
-    confirmation_layer::basic::test_cl_set_block_interval_zero
+    confirmation_layer::basic::test_regular_transactions
+    confirmation_layer::basic::test_basic_confirmation_layer
+    confirmation_layer::basic::test_block_interval
+    confirmation_layer::basic::test_register_chain
+    confirmation_layer::basic::test_get_current_block
+    confirmation_layer::basic::test_get_subblock
+    confirmation_layer::basic::test_submit_transaction
+    confirmation_layer::basic::test_set_block_interval
+    confirmation_layer::basic::test_invalid_block_interval
+    confirmation_layer::basic::test_chain_not_found
+    confirmation_layer::basic::test_chain_already_registered
+    confirmation_layer::basic::test_chain_registration
+    confirmation_layer::basic::test_block_interval_validation
+    confirmation_layer::basic::test_subblock_not_found
+    confirmation_layer::basic::test_get_registered_chains
+    confirmation_layer::basic::test_get_block_interval
+    confirmation_layer::basic::test_submit_transaction_chain_not_registered
+    confirmation_layer::basic::test_submit_cl_transaction_for_multiple_chains
     
     # - - - HIG tests - - -
     hyper_ig::basic::test_regular_transaction_success
     hyper_ig::basic::test_regular_transaction_failure
-    hyper_ig::basic::test_normal_transaction_pending
+    hyper_ig::basic::test_regular_transaction_pending
     hyper_ig::basic::test_cat_success_proposal
     hyper_ig::basic::test_cat_failure_proposal
     hyper_ig::basic::test_get_pending_transactions
+    hyper_ig::basic::test_wrong_chain_subblock
 
     # - - - HS tests - - -
     hyper_scheduler::basic::test_receive_success_proposal_first_message
     hyper_scheduler::basic::test_receive_failure_proposal_first_message
     hyper_scheduler::basic::test_duplicate_rejection
-
+    hyper_scheduler::basic::test_process_proposals_for_two_chain_cat
+    
     # - - - CL to HIG tests - - -
     integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_success
     integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_failure
@@ -58,12 +70,12 @@ TESTS=(
     integration::hs_to_cl::channels::test_several_single_chain_cat_status_updates
 
     ## - - - CL to HS tests - - -
-    integration::cl_to_hs::channels::test_single_chain_cat_success
-    integration::cl_to_hs::channels::test_single_chain_cat_failure
+    integration::cl_to_hs::channels::test_cat_one_cat_success
+    integration::cl_to_hs::channels::test_cat_one_cat_failure
 
     # - - - CL to CL tests - - -
-    integration::cl_to_cl::channels::test_single_chain_cat_success
-    integration::cl_to_cl::channels::test_single_chain_cat_failure
+    integration::cl_to_cl::channels::test_two_chain_cat_success
+    integration::cl_to_cl::channels::test_two_chain_cat_failure
 
     # - - - e2e tests - - -
     integration::e2e::channels::test_single_chain_cat_success
@@ -73,7 +85,8 @@ TESTS=(
 
 
 TESTS2=(
-    confirmation_layer::basic::test_cl_normal_transactions
+
+integration::cl_to_hs::channels::test_cat_one_cat_success
 )
 
 # Run the appropriate test set based on the input
@@ -91,3 +104,4 @@ else
     echo "Invalid test set. Use 1 or 2."
     exit 1
 fi
+ 

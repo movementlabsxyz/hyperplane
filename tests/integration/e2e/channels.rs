@@ -20,11 +20,11 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_hs_node, cl_node, hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, cl_node, hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;
@@ -33,21 +33,23 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     // Register chain in HS node
     {
         let mut node = _hs_node.lock().await;
-        node.set_chain_id(chain_id.clone()).await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain registered successfully");
 
     // Submit CAT transaction to CL
     let tx = Transaction::new(
         TransactionId("test-cat".to_string()),
-        format!("CAT.SIMULATION.{:?}.CAT_ID:test-cat", expected_status)
+        chain_id.clone(),
+        vec![chain_id.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status)
     ).expect("Failed to create transaction");
     println!("[TEST]   Submitting CAT transaction with ID: {}", tx.id.0);
     {
         let mut node = cl_node.lock().await;
         node.submit_transaction(CLTransaction::new(
             tx.id.clone(),
-            chain_id.clone(),
+            vec![chain_id.clone()],
             tx.data.clone()
         ).expect("Failed to create CLTransaction")).await.expect("Failed to submit transaction");
     }

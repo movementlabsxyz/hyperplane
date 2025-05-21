@@ -1,6 +1,8 @@
 use hyperplane::{
     types::{Transaction, TransactionId, TransactionStatus, StatusLimited},
     hyper_ig::HyperIG,
+    hyper_ig::node::HyperIGNode,
+    types::{SubBlock, ChainId},
 };
 use crate::common::testnodes;
 use std::sync::Arc;
@@ -15,14 +17,16 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     let tx_id = "test-tx";
     println!("\n[TEST]   Processing transaction: {}", tx_id);
     let tx = Transaction::new(
         TransactionId(tx_id.to_string()),
-        format!("REGULAR.SIMULATION.{:?}", expected_status)
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        format!("REGULAR.SIMULATION:{:?}", expected_status),
     ).expect("Failed to create transaction");
     
     // Process transaction and verify initial status
@@ -59,19 +63,21 @@ async fn test_regular_transaction_failure() {
 /// - Pending status verification (stays pending until CAT is resolved)
 /// - Pending transaction list inclusion
 #[tokio::test]
-async fn test_normal_transaction_pending() {
-    println!("\n=== Starting test_normal_transaction_pending ===");
+async fn test_regular_transaction_pending() {
+    println!("\n=== Starting test_regular_transaction_pending ===");
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
     
     // Create a regular transaction that depends on a CAT transaction
     println!("[TEST]   Creating dependent transaction...");
     let tx = Transaction::new(
-        TransactionId("REGULAR.SIMULATION.Success".to_string()),
-        "DEPENDENT.SIMULATION.Success".to_string()
+        TransactionId("REGULAR.SIMULATION:Success".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     println!("[TEST]   Transaction created with tx-id='{}'", tx.id);
     
@@ -113,7 +119,7 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (hs_node, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
 
     // Wrap hs_node in Arc<Mutex>
     println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
@@ -124,7 +130,9 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     println!("[TEST]   Creating CAT transaction...");
     let tx = Transaction::new(
         TransactionId("test-tx".to_string()),
-        format!("CAT.SIMULATION.{:?}.CAT_ID:test-cat-tx", expected_status)
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat-tx", expected_status),
     ).expect("Failed to create transaction");
     println!("[TEST]   CAT transaction created with tx-id='{}' : data='{}'", tx.id, tx.data);
     
@@ -168,7 +176,9 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     
     // Send the status proposal to HS
     println!("[TEST]   Sending status proposal to HS...");
-    hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), expected_status)
+    // we only have one chain for now, so we create a vector with one element
+    let chain_id = vec![ChainId("chain-1".to_string())];
+    hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), expected_status, chain_id)
         .await
         .expect("Failed to send status proposal");
     println!("[TEST]   Status proposal sent to HS");
@@ -199,7 +209,7 @@ async fn test_get_pending_transactions() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Get pending transactions when none exist
@@ -214,7 +224,9 @@ async fn test_get_pending_transactions() {
     println!("[TEST]   Creating dependent transaction...");
     let tx = Transaction::new(
         TransactionId("pending-tx".to_string()),
-        "DEPENDENT.SIMULATION.Success".to_string()
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     println!("[TEST]   Executing transaction...");
     hig_node.lock().await.process_transaction(tx.clone())
@@ -228,6 +240,46 @@ async fn test_get_pending_transactions() {
         .expect("Failed to get pending transactions");
     println!("[TEST]   Pending transactions: {:?}", pending);
     assert!(pending.contains(&tx.id));
+    
+    println!("=== Test completed successfully ===\n");
+}
+
+/// Tests that a subblock with a wrong chain ID should not happen
+/// - Only the subblock with the correct chain ID should be received.
+#[tokio::test]
+async fn test_wrong_chain_subblock() {
+    // Create channels
+    let (_sender_cl_to_hig, receiver_cl_to_hig) = tokio::sync::mpsc::channel(100);
+    let (sender_hig_to_hs, _receiver_hig_to_hs) = tokio::sync::mpsc::channel(100);
+
+    // Create HIG node
+    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs)));
+    
+    // Register chain ID
+    {
+        let mut node = hig_node.lock().await;
+        node.register_chain(ChainId("chain-1".to_string())).await.expect("Failed to register chain");
+        println!("[TEST]   Chain 'chain-1' registered");
+    }
+
+    // Start the node
+    HyperIGNode::start(hig_node.clone()).await;
+
+    // Create a subblock with a different chain ID
+    let wrong_chain_subblock = SubBlock {
+        block_height: 1,
+        chain_id: ChainId("wrong-chain".to_string()),
+        transactions: vec![Transaction {
+            id: TransactionId("test-tx".to_string()),
+            this_chain_id: ChainId("wrong-chain".to_string()),
+            data: "REGULAR.SIMULATION:Success".to_string(),
+            constituent_chains: vec![],
+        }],
+    };
+
+    // process the subblock and expect the error WrongChainId
+    let result = hig_node.lock().await.process_subblock(wrong_chain_subblock).await;
+    assert!(result.is_err(), "Expected error when receiving subblock from wrong chain");
     
     println!("=== Test completed successfully ===\n");
 }

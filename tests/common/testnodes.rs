@@ -3,6 +3,7 @@ use hyperplane::{
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
     hyper_ig::node::HyperIGNode,
+    types::ChainId,
 };
 use tokio::time::Duration;
 use tokio::sync::mpsc;
@@ -12,40 +13,43 @@ use tokio::sync::Mutex;
 /// Helper function to create test nodes with basic setup
 /// Returns a tuple of the nodes and the current block number at the end of the setup
 pub async fn setup_test_nodes_with_block_production_choice(block_interval: Duration, start_block_production: bool) 
--> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, u64) {
+-> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
-    let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
-    let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
+    let (sender_hig1_to_hs, receiver_hig1_to_hs) = mpsc::channel(100);
+    let (sender_hig2_to_hs, receiver_hig2_to_hs) = mpsc::channel(100);
+    let (sender_cl_to_hig1, receiver_cl_to_hig1) = mpsc::channel(100);
+    let (sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(100);
     
     // Create nodes with their channels
-    let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(receiver_hig_to_hs, sender_hs_to_cl)));
+    let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(receiver_hig1_to_hs, receiver_hig2_to_hs, sender_hs_to_cl)));
     let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
-        sender_cl_to_hig,
+        sender_cl_to_hig1,
+        sender_cl_to_hig2,
         block_interval
     ).expect("Failed to create confirmation node")));
-    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs)));
+    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs)));
+    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs)));
 
-    // Start the HS incoming message processing loop
-    let hs_node_for_message_loop = hs_node.clone();
-    let _hs_message_loop_handle = tokio::spawn(async move {
-        HyperSchedulerNode::process_messages(hs_node_for_message_loop).await;
-    });
+    // Register chain IDs for HIG nodes
+    {
+        let mut hig1 = hig_node_1.lock().await;
+        hig1.register_chain(ChainId("chain-1".to_string())).await.expect("Failed to register chain-1");
+    }
+    {
+        let mut hig2 = hig_node_2.lock().await;
+        hig2.register_chain(ChainId("chain-2".to_string())).await.expect("Failed to register chain-2");
+    }
 
-    // Start the HIG incoming block processing loop
-    let hig_node_for_message_loop = hig_node.clone();
-    let _hig_message_loop_handle = tokio::spawn(async move {
-        HyperIGNode::process_messages(hig_node_for_message_loop).await;
-    });
+    // Start the HyperScheduler and HyperIG nodes
+    HyperSchedulerNode::start(hs_node.clone()).await;
+    HyperIGNode::start(hig_node_1.clone()).await;
+    HyperIGNode::start(hig_node_2.clone()).await;
 
-    // Start block production if requested (default to true)
+    // Start the Confirmation Layer node (block production, default to true)
     if start_block_production {
-        // Clone the state for block production
-        let cl_node_for_block_production = cl_node.clone();
-        let _block_production_handle = tokio::spawn(async move {
-            ConfirmationLayerNode::start_block_production(cl_node_for_block_production).await;
-        });
+        ConfirmationLayerNode::start(cl_node.clone()).await;
 
         // Wait for block production to be ready
         let mut attempts = 0;
@@ -66,18 +70,18 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
     println!("  [NODES SETUP]   Nodes setup complete, current block: {}", cl_node.lock().await.get_current_block().await.unwrap());
     let current_block = cl_node.lock().await.get_current_block().await.unwrap();
 
-    (hs_node, cl_node, hig_node, current_block)
+    (hs_node, cl_node, hig_node_1, hig_node_2, current_block)
 }
 
 /// Helper function to create test nodes with block production
 /// Returns a tuple of the nodes and the current block number at the end of the setup
-pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, u64) {
+pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     setup_test_nodes_with_block_production_choice(block_interval, true).await
 }
 
 /// Helper function to create test nodes with no block production
 /// Returns a tuple of the nodes and the current block number at the end of the setup
-pub async fn setup_test_nodes_no_block_production() -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, u64) {
+pub async fn setup_test_nodes_no_block_production() -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     setup_test_nodes_with_block_production_choice(Duration::from_millis(100), false).await
 }
 
