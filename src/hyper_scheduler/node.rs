@@ -72,7 +72,6 @@ impl HyperSchedulerNode {
             2 => node.receiver_from_hig_2.take().expect("Receiver already taken"),
             _ => panic!("Invalid receiver index"),
         };
-        let state = node.state.clone();
         drop(node); // Release the lock before starting the loop
         // println!("  [HS]   [Message loop task] Released hs_node lock");
         
@@ -80,80 +79,18 @@ impl HyperSchedulerNode {
         while let Some(status_update) = receiver.recv().await {
             println!("  [HS]   [Message loop task] Received status proposal for cat-id='{}': data='{:?}' : chains='{:?}'", status_update.cat_id, status_update.status, status_update.constituent_chains);
 
-            // println!("  [HS]   [Message loop task] Attempting to acquire state lock for status update...");
-            // TODO : we should use process_cat_status_proposal instead
-            {
-                let mut state = state.lock().await;
-                // println!("  [HS]   [Message loop task] Acquired state lock for status update");
-                // Check if CAT proposal already exists
-                if state.cat_chainwise_statuses.contains_key(&status_update.cat_id) {
-                    if state.cat_chainwise_statuses.get(&status_update.cat_id).unwrap().contains_key(&status_update.chain_id) {
-                        println!("  [HS]   CAT {} already exists, rejecting duplicate proposal", status_update.cat_id.0);
-                        continue;
-                    }
-                }        
-                // Store the status proposal
-                state.cat_chainwise_statuses.entry(status_update.cat_id.clone())
-                    .or_insert_with(HashMap::new)
-                    .insert(status_update.chain_id.clone(), status_update.status.clone());
-                println!("  [HS]   Proposal for {} from {} set to {:?}", status_update.cat_id.0, status_update.chain_id.0, status_update.status);
-
-                // when reaching this point the cat should not be set to success. this is a severe bug so we should panic
-                if matches!(state.cat_statuses.get(&status_update.cat_id), Some(CATStatus::Success)) {
-                    panic!("  [HS]   Cat status is already set to success. This is a severe bug, please fix immediately.");
-                }
-
-                // if the cat is already set to failure, we don't need to do anything
-                if matches!(state.cat_statuses.get(&status_update.cat_id), Some(CATStatus::Failure)) {
-                    println!("  [HS]   CAT {} is already set to failure, skipping", status_update.cat_id.0);
-                    continue;
-                // if the proposal is failure, we set the status of the cat itself to failure
-                } else if status_update.status == StatusLimited::Failure {
-                    state.cat_statuses.insert(status_update.cat_id.clone(), CATStatus::Failure);
-                    println!("  [HS]   Status for {} set to {:?}", status_update.cat_id.0, CATStatus::Failure);
-                    state.constituent_chains.insert(status_update.cat_id.clone(), status_update.constituent_chains.clone());
-                    println!("  [HS]   Constituent chains for {} set to {:?}", status_update.cat_id.0, status_update.constituent_chains);
-                // if the cat does not exist in cat_statuses, we need to add it
-                } else if !state.cat_statuses.contains_key(&status_update.cat_id) {
-                    // since this cat is new, and we need two chains to be successful, we set the status to Pending
-                    state.cat_statuses.insert(status_update.cat_id.clone(), CATStatus::Pending);
-                    println!("  [HS]   Status for {} set to {:?}", status_update.cat_id.0, CATStatus::Pending);
-                    state.constituent_chains.insert(status_update.cat_id.clone(), status_update.constituent_chains.clone());
-                    println!("  [HS]   Constituent chains for {} set to {:?}", status_update.cat_id.0, status_update.constituent_chains);
-                // if the cat proposal already exists, we need to check if all chains have submitted their status
-                } else {
-                    // the cat status should be pending at this point
-                    if !matches!(state.cat_statuses.get(&status_update.cat_id), Some(CATStatus::Pending)) {
-                        println!("  [HS]   Cat status is not pending");
-                        continue;
-                    }
-                    // the constituent chains recorded for the cat should be the same as the ones in the proposal
-                    if state.constituent_chains.get(&status_update.cat_id) != Some(&status_update.constituent_chains) {
-                        println!("  [HS]   Constituent chains do not match");
-                        continue;
-                    }
-                    // we need to check if the proposed statuses in cat_chainwise_statuses are all present and set to success for all constituent chains
-                    for chain_id in &status_update.constituent_chains {
-                        if !matches!(state.cat_chainwise_statuses.get(&status_update.cat_id).unwrap().get(chain_id), Some(&StatusLimited::Success)) {
-                            println!("  [HS]   Not all chains have submitted a success status");
-                            continue;
-                        }
-                        // all is well and complete. Set the status of the cat to success
-                        state.cat_statuses.insert(status_update.cat_id.clone(), CATStatus::Success);
-                        println!("  [HS]   Status for {} set to {:?}", status_update.cat_id.0, CATStatus::Success);
-                    }
-                }
-                // println!("  [HS]   [Message loop task] Updated state, releasing lock");
-
-                // TODO: this is just dummy for now
-                // state.check_and_update_cat_status(&status_update.cat_id).await.unwrap();
-
-            }
-            // println!("  [HS]   [Message loop task] Released state lock after status update");
-            println!("  [HS]   [Message loop task] Successfully processed status proposal for {}", status_update.cat_id);
-            // TODO: we need to send the status update to the CL only if all results are in
-            // for now we just send it always (=single chain cats)
             let mut node = hs_node.lock().await;
+            if let Err(e) = node.process_cat_status_proposal(
+                status_update.cat_id.clone(),
+                status_update.chain_id.clone(),
+                status_update.constituent_chains.clone(),
+                status_update.status.clone()
+            ).await {
+                println!("  [HS]   Failed to process status proposal: {:?}", e);
+                continue;
+            }
+
+            // Send status update to CL
             if let Err(e) = node.send_cat_status_update(status_update.cat_id.clone(), status_update.constituent_chains.clone(), status_update.status.clone()).await {
                 println!("  [HS]   Failed to send status update: {:?}", e);
             }
@@ -192,47 +129,6 @@ impl HyperSchedulerNode {
             Err("No sender to CL set".to_string())
         }
     }
-
-    // /// Check if all member chains have submitted their status and update final status if needed
-    // async fn _check_and_update_cat_status(&mut self, cat_id: &CATId) -> Result<(), HyperSchedulerError> {
-    //     let mut state = self.state.lock().await;
-        
-    //     // Get member chains for this CAT
-    //     let member_chains = match state.constituent_chains.get(cat_id) {
-    //         Some(chains) => chains.clone(),
-    //         None => return Err(HyperSchedulerError::CATNotFound(cat_id.clone())),
-    //     };
-
-    //     // Get status map for this CAT
-    //     let status_map = match state.cat_chainwise_statuses.get(cat_id) {
-    //         Some(map) => map.clone(),
-    //         None => return Err(HyperSchedulerError::CATNotFound(cat_id.clone())),
-    //     };
-
-    //     // Check if we have status from all member chains
-    //     let all_chains_have_status = member_chains.iter()
-    //         .all(|chain_id| status_map.contains_key(chain_id));
-
-    //     if all_chains_have_status {
-    //         // Check if all statuses are Success
-    //         let all_success = member_chains.iter()
-    //             .all(|chain_id| status_map.get(chain_id) == Some(&StatusLimited::Success));
-
-    //         // Update final status
-    //         let final_status = if all_success {
-    //             StatusLimited::Success
-    //         } else {
-    //             StatusLimited::Failure
-    //         };
-
-    //         state.cat_statuses.insert(cat_id.clone(), final_status.clone());
-    //         println!("  [HS]   Updated final status for CAT {} to {:?} based on all member chain statuses", cat_id.0, final_status);
-    //     } else {
-    //         println!("  [HS]   Not all member chains have submitted status for CAT {}", cat_id.0);
-    //     }
-
-    //     Ok(())
-    // }
 }
 
 #[async_trait]
