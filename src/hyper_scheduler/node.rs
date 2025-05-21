@@ -10,7 +10,7 @@ use tokio;
 /// The internal state of the HyperSchedulerNode
 pub struct HyperSchedulerState {
     /// The chain IDs of valid chains
-    pub chain_ids: HashSet<ChainId>,
+    pub registered_chains: HashSet<ChainId>,
     /// Map of CAT IDs to their constituent chains
     pub constituent_chains: HashMap<CATId, Vec<ChainId>>,
     /// Map of CAT IDs to their status (this is the result of the cat_chainwise_statuses)
@@ -47,7 +47,7 @@ impl HyperSchedulerNode {
         Self {
             state: Arc::new(Mutex::new(HyperSchedulerState {
                 cat_statuses: HashMap::new(),
-                chain_ids: HashSet::new(),
+                registered_chains: HashSet::new(),
                 constituent_chains: HashMap::new(),
                 cat_chainwise_statuses: HashMap::new(),
             })),
@@ -169,10 +169,18 @@ impl HyperSchedulerNode {
         tokio::spawn(async move { HyperSchedulerNode::process_messages(node2, 2).await });
     }
 
-    /// Set the chain ID to use for submitting transactions
-    pub async fn set_chain_id(&mut self, chain_id: ChainId) {
-        self.state.lock().await.chain_ids.insert(chain_id);
+    /// Register a chain with the HyperSchedulerNode
+    pub async fn register_chain(&mut self, chain_id: ChainId) -> Result<(), String> {
+        let mut state = self.state.lock().await;
+        if state.registered_chains.contains(&chain_id) {
+            return Err(format!("   [HS]   Chain {} already registered", chain_id.0));
+        }
+        state.registered_chains.insert(chain_id.clone());
+        println!("   [HS]   Chain {} registered", chain_id.0);
+        Ok(())
     }
+
+
 
     /// Submit a transaction to the confirmation layer
     pub async fn submit_transaction_to_cl(&mut self, tx: CLTransaction) -> Result<(), String> {

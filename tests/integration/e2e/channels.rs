@@ -33,7 +33,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     // Register chain in HS node
     {
         let mut node = _hs_node.lock().await;
-        node.set_chain_id(chain_id.clone()).await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain registered successfully");
 

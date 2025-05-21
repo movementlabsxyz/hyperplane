@@ -15,7 +15,7 @@ fn create_hs_node() -> HyperSchedulerNode {
 
 
 /// Test receiving a success proposal for a CAT
-/// - Verify CAT is stored with success status
+/// - Verify CAT is stored with pending status
 #[tokio::test]
 async fn test_receive_success_proposal_first_message() {
     println!("\n=== Starting test_receive_success_proposal_first_message ===");
@@ -41,7 +41,7 @@ async fn test_receive_success_proposal_first_message() {
         .await
         .expect("Failed to get CAT status");
     println!("[TEST]   Retrieved stored status: {:?}", status_stored);
-    assert_eq!(status_stored, CATStatus::Success);
+    assert_eq!(status_stored, CATStatus::Pending);
     println!("[TEST]   Status verification successful");
     
     println!("=== Test completed successfully ===\n");

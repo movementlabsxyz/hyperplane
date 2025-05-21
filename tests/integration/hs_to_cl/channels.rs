@@ -28,7 +28,7 @@ async fn test_single_chain_cat_status_update() {
     println!("[TEST]   Setting chain ID in HS...");
     {
         let mut node = hs_node.lock().await;
-        node.set_chain_id(chain_id.clone()).await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain ID set in HS");
 
@@ -97,7 +97,7 @@ async fn test_several_single_chain_cat_status_updates() {
     println!("[TEST]   Setting chain ID in HS...");
     {
         let mut node = hs_node.lock().await;
-        node.set_chain_id(chain_id.clone()).await;
+        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain ID set in HS");
 

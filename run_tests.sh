@@ -73,8 +73,8 @@ TESTS=(
     integration::cl_to_hs::channels::test_single_chain_cat_failure
 
     # - - - CL to CL tests - - -
-    integration::cl_to_cl::channels::test_single_chain_cat_success
-    integration::cl_to_cl::channels::test_single_chain_cat_failure
+    integration::cl_to_cl::channels::test_two_chain_cat_success
+    integration::cl_to_cl::channels::test_two_chain_cat_failure
 
     # - - - e2e tests - - -
     integration::e2e::channels::test_single_chain_cat_success
@@ -85,8 +85,9 @@ TESTS=(
 
 TESTS2=(
 
-hyper_scheduler::basic::test_duplicate_rejection
-
+        integration::cl_to_cl::channels::test_two_chain_cat_failure
+    # integration::cl_to_cl::channels::test_two_chain_cat_success
+    # integration::cl_to_hs::channels::test_single_chain_cat_success
 )
 
 # Run the appropriate test set based on the input
