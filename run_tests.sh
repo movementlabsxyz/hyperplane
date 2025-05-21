@@ -85,8 +85,8 @@ TESTS=(
 
 TESTS2=(
 
-integration::cl_to_hs::channels::test_single_chain_cat_success
-    # hyper_scheduler::basic::test_process_proposals_for_two_chain_cat
+hyper_scheduler::basic::test_duplicate_rejection
+
 )
 
 # Run the appropriate test set based on the input

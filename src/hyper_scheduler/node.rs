@@ -93,7 +93,9 @@ impl HyperSchedulerNode {
                     }
                 }        
                 // Store the status proposal
-                state.cat_chainwise_statuses.get_mut(&status_update.cat_id).unwrap().insert(status_update.chain_id.clone(), status_update.status.clone());
+                state.cat_chainwise_statuses.entry(status_update.cat_id.clone())
+                    .or_insert_with(HashMap::new)
+                    .insert(status_update.chain_id.clone(), status_update.status.clone());
                 println!("  [HS]   Proposal for {} from {} set to {:?}", status_update.cat_id.0, status_update.chain_id.0, status_update.status);
 
                 // when reaching this point the cat should not be set to success. this is a severe bug so we should panic
@@ -260,14 +262,15 @@ impl HyperScheduler for HyperSchedulerNode {
         let mut state = self.state.lock().await;
         
         // Check if CAT proposal already exists
-        if state.cat_chainwise_statuses.contains_key(&cat_id) {
-            if state.cat_chainwise_statuses.get(&cat_id).unwrap().contains_key(&this_chain_id) {
+        if let Some(chain_statuses) = state.cat_chainwise_statuses.get(&cat_id) {
+            if chain_statuses.contains_key(&this_chain_id) {
                 println!("  [HS]   CAT {} already exists, rejecting duplicate proposal", cat_id.0);
                 return Err(HyperSchedulerError::DuplicateProposal(cat_id));
             }
-        }        
-        // Store the status proposal
-        state.cat_chainwise_statuses.get_mut(&cat_id).unwrap().insert(this_chain_id.clone(), status.clone());
+        }
+        
+        // Store the status proposal - this should never fail as the map is initialized in new()
+        state.cat_chainwise_statuses.entry(cat_id.clone()).or_insert_with(HashMap::new).insert(this_chain_id.clone(), status.clone());
         println!("  [HS]   Proposal for {} from {} set to {:?}", cat_id.0, this_chain_id.0, status);
 
         // when reaching this point the cat should not be set to success. this is a severe bug so we should panic
@@ -311,7 +314,6 @@ impl HyperScheduler for HyperSchedulerNode {
                 state.cat_statuses.insert(cat_id.clone(), CATStatus::Success);
                 println!("  [HS]   Status for {} set to {:?}", cat_id.0, CATStatus::Success);
             }
-
         }
 
         Ok(())
