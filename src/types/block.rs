@@ -9,8 +9,8 @@ pub struct BlockId(pub String);
 /// A sub-block that can be included in a block
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubBlock {
-    /// The block number this subBlock belongs to
-    pub block_id: u64,
+    /// The block height this subBlock belongs to
+    pub block_height: u64,
     /// The chain this subBlock is for
     pub chain_id: ChainId,
     /// The transactions in this sub-block

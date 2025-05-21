@@ -16,7 +16,7 @@ async fn test_v13() {
     println!("\n=== Starting test_v13 ===");
     
     // Get the test nodes using our new helper function
-    let (hs_node, cl_node, _hig_node,_start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     
     // Test initial state
     println!("[TEST]   Testing initial state...");
@@ -31,13 +31,13 @@ async fn test_v13() {
     println!("[TEST]   Registering chains...");
     {
         let mut cl_node_with_lock = cl_node.lock().await;
-        cl_node_with_lock.register_chain(ChainId("chain1".to_string())).await.expect("Failed to register chain1");
-        cl_node_with_lock.register_chain(ChainId("chain2".to_string())).await.expect("Failed to register chain2");
+        cl_node_with_lock.register_chain(ChainId("chain-1".to_string())).await.expect("Failed to register chain-1");
+        cl_node_with_lock.register_chain(ChainId("chain-2".to_string())).await.expect("Failed to register chain-2");
         
-        // Try to register chain1 again (should fail)
-        match cl_node_with_lock.register_chain(ChainId("chain1".to_string())).await {
-            Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: '{}'", e),
+        // Try to register chain-1 again (should fail)
+        match cl_node_with_lock.register_chain(ChainId("chain-1".to_string())).await {
+            Ok(_) => panic!("Should not be able to register chain-1 twice"),
+            Err(e) => println!("[TEST]   Expected error when registering chain-1 twice: '{}'", e),
         }
 
         // Try to get subblock for unregistered chain
@@ -54,18 +54,18 @@ async fn test_v13() {
         // Verify registered chains
         let registered_chains = cl_node_with_lock.get_registered_chains().await.unwrap();
         assert_eq!(registered_chains.len(), 2, "Should have exactly 2 registered chains");
-        assert!(registered_chains.contains(&ChainId("chain1".to_string())), "chain1 should be registered");
-        assert!(registered_chains.contains(&ChainId("chain2".to_string())), "chain2 should be registered");
+        assert!(registered_chains.contains(&ChainId("chain-1".to_string())), "chain-1 should be registered");
+        assert!(registered_chains.contains(&ChainId("chain-2".to_string())), "chain-2 should be registered");
 
         // Get subblock for registered chain
-        match cl_node_with_lock.get_subblock(ChainId("chain1".to_string()), 0).await {
+        match cl_node_with_lock.get_subblock(ChainId("chain-1".to_string()), 0).await {
             Ok(subblock) => {
-                println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock);
-                assert_eq!(subblock.chain_id, ChainId("chain1".to_string()), "Subblock should be for chain1");
-                assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
+                println!("[TEST]   Successfully got subblock for chain-1: {:?}", subblock);
+                assert_eq!(subblock.chain_id, ChainId("chain-1".to_string()), "Subblock should be for chain-1");
+                assert_eq!(subblock.block_height, 0, "Subblock should be for block 0");
                 assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
             },
-            Err(e) => panic!("Failed to get subblock for chain1: '{}'", e),
+            Err(e) => panic!("Failed to get subblock for chain-1: '{}'", e),
         }
     }
 
@@ -74,21 +74,21 @@ async fn test_v13() {
     {
         let mut cl_node_with_lock_2 = cl_node.lock().await;
         
-        // Submit a transaction for chain1
+        // Submit a transaction for chain-1
         let tx1 = CLTransaction {
             id: TransactionId("tx1".to_string()),
-            data: "message1.chain1".to_string(),
-            constituent_chains: vec![ChainId("chain1".to_string())],
+            data: "message1.chain-1".to_string(),
+            constituent_chains: vec![ChainId("chain-1".to_string())],
         };
-        cl_node_with_lock_2.submit_transaction(tx1).await.expect("Failed to submit transaction for chain1");
+        cl_node_with_lock_2.submit_transaction(tx1).await.expect("Failed to submit transaction for chain-1");
         
-        // Submit a transaction for chain2
+        // Submit a transaction for chain-2
         let tx2 = CLTransaction {
             id: TransactionId("tx2".to_string()),
-            data: "message1.chain2".to_string(),
-            constituent_chains: vec![ChainId("chain2".to_string())],
+            data: "message1.chain-2".to_string(),
+            constituent_chains: vec![ChainId("chain-2".to_string())],
         };
-        cl_node_with_lock_2.submit_transaction(tx2).await.expect("Failed to submit transaction for chain2");
+        cl_node_with_lock_2.submit_transaction(tx2).await.expect("Failed to submit transaction for chain-2");
         
         // Try to submit a transaction for unregistered chain (should fail)
         let tx3 = CLTransaction {
@@ -106,14 +106,14 @@ async fn test_v13() {
     sleep(Duration::from_secs(1)).await;
 
     // Spawn tasks to add more transactions for different chains
-    let sender_for_chain1 = hs_node.lock().await.get_sender_to_cl().await;
+    let sender_for_chain_1 = hs_node.lock().await.get_sender_to_cl().await;
     let _adder_handle1 = tokio::spawn(async move {
-        run_spammer(sender_for_chain1, ChainId("chain1".to_string())).await;
+        run_spammer(sender_for_chain_1, ChainId("chain-1".to_string())).await;
     });
 
-    let sender_for_chain2 = hs_node.lock().await.get_sender_to_cl().await;
+    let sender_for_chain_2 = hs_node.lock().await.get_sender_to_cl().await;
     let _adder_handle2 = tokio::spawn(async move {
-        run_spammer(sender_for_chain2, ChainId("chain2".to_string())).await;
+        run_spammer(sender_for_chain_2, ChainId("chain-2".to_string())).await;
     });
 
     // Wait for a few seconds to let the processor run
@@ -137,9 +137,9 @@ async fn test_v13() {
     assert_eq!(registered_chains.len(), 2, "Should have exactly 2 registered chains");
     
     // Test getting subblock for registered chain
-    match cl_node_with_lock_3.get_subblock(ChainId("chain1".to_string()), 0).await {
-        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
-        Err(e) => panic!("Failed to get subblock for chain1: '{}'", e),
+    match cl_node_with_lock_3.get_subblock(ChainId("chain-1".to_string()), 0).await {
+        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain-1: {:?}", subblock),
+        Err(e) => panic!("Failed to get subblock for chain-1: '{}'", e),
     }
     
     // Drop the first state lock

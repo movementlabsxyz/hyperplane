@@ -12,11 +12,11 @@ use tokio::time::Duration;
 #[tokio::test]
 async fn test_single_chain_cat_status_update() {
     println!("\n[TEST]   === Starting test_single_chain_cat_status_update ===");
-    let (hs_node, cl_node, _hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register a chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;
@@ -79,11 +79,11 @@ async fn test_single_chain_cat_status_update() {
 #[tokio::test]
 async fn test_several_single_chain_cat_status_updates() {
     println!("\n[TEST]   === Starting test_several_single_chain_cat_status_updates ===");
-    let (hs_node, cl_node, _hig_node,start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register a test chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;

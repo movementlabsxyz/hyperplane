@@ -15,11 +15,11 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_hs_node, cl_node, _hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;
@@ -36,7 +36,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     let data = format!("STATUS_UPDATE:{:?}.CAT_ID:test-cat", expected_status);
     let cl_tx = CLTransaction::new(
         TransactionId("test-cat".to_string()),
-        vec![ChainId("test-chain".to_string())],
+        vec![ChainId("chain-1".to_string())],
         data.clone()
     ).expect("Failed to create CLTransaction");
     println!("[TEST]   Submitting CAT transaction with ID: {}", cl_tx.id.0);
@@ -75,7 +75,7 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
             if tx.data.contains(&data) {
                 found_tx = true;
                 println!("[TEST]   Found status update in subblock: block_id={}, chain_id={}, tx_count={} with tx id:{} and data: {}", 
-                    subblock.block_id, subblock.chain_id.0, tx_count, tx.id, tx.data);    
+                    subblock.block_height, subblock.chain_id.0, tx_count, tx.id, tx.data);    
                 break;
             }
         }

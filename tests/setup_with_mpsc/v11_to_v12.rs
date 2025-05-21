@@ -194,14 +194,14 @@ impl TestNodeStateV11 {
         Ok(())
     }
 
-    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
+    fn get_subblock(&self, chain_id: ChainId, block_height: u64) -> Result<SubBlock, String> {
         if !self.registered_chains.contains(&chain_id) {
             return Err(format!("Chain {} is not registered", chain_id.0));
         }
         // For simplicity, just return a dummy subblock
         Ok(SubBlock {
             chain_id: chain_id.clone(),
-            block_id,
+            block_height,
             transactions: self.processed_transactions
                 .iter()
                 .filter(|(cid, _)| cid == &chain_id)
@@ -248,14 +248,14 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
         state.pending_transactions = remaining;
         
         // Create a block
-        let block_id = 0;
-        state.blocks.push(block_id);
+        let block_height = 0;
+        state.blocks.push(block_height);
         
         // Send subblocks for each chain with only this block's transactions
         for chain_id in &state.registered_chains {
             let subblock = SubBlock {
                 chain_id: chain_id.clone(),
-                block_id,
+                block_height,
                 transactions: processed_this_block
                     .iter()
                     .filter(|(cid, _)| cid == chain_id)
@@ -358,7 +358,7 @@ async fn test_v12() {
             Ok(subblock) => {
                 println!("[TEST]   Successfully got subblock for chain-1: {:?}", subblock);
                 assert_eq!(subblock.chain_id, ChainId("chain-1".to_string()), "Subblock should be for chain-1");
-                assert_eq!(subblock.block_id, 0, "Subblock should be for block 0");
+                assert_eq!(subblock.block_height, 0, "Subblock should be for block 0");
                 assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
             },
             Err(e) => panic!("Failed to get subblock for chain-1: {}", e),
@@ -506,14 +506,14 @@ impl TestConfirmationLayerNode {
         Ok(())
     }
 
-    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
+    fn get_subblock(&self, chain_id: ChainId, block_height: u64) -> Result<SubBlock, String> {
         if !self.registered_chains.contains(&chain_id) {
             return Err(format!("Chain {} is not registered", chain_id.0));
         }
         // For simplicity, just return a dummy subblock
         Ok(SubBlock {
             chain_id: chain_id.clone(),
-            block_id,
+            block_height,
             transactions: self.processed_transactions
                 .iter()
                 .filter(|(cid, _)| cid == &chain_id)
@@ -634,14 +634,14 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
         state.pending_transactions = remaining;
         
         // Create a block
-        let block_id = 0;
-        state.blocks.push(block_id);
+        let block_height = 0;
+        state.blocks.push(block_height);
         
         // Send subblocks for each chain with only this block's transactions
         for chain_id in &state.registered_chains {
             let subblock = SubBlock {
                 chain_id: chain_id.clone(),
-                block_id,
+                block_height,
                 transactions: processed_this_block
                     .iter()
                     .filter(|(cid, _)| cid == chain_id)
@@ -718,13 +718,13 @@ impl TestConfirmationLayer {
         Ok(self.current_block)
     }
 
-    fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, String> {
+    fn get_subblock(&self, chain_id: ChainId, block_height: u64) -> Result<SubBlock, String> {
         if !self.registered_chains.contains(&chain_id) {
             return Err(format!("Chain {} is not registered", chain_id.0));
         }
         Ok(SubBlock {
             chain_id: chain_id.clone(),
-            block_id,
+            block_height,
             transactions: self.processed_transactions
                 .iter()
                 .filter(|(cid, _)| cid == &chain_id)
@@ -745,17 +745,17 @@ async fn test_confirmation_layer() {
     let chain_id = ChainId("1".to_string());
     
     // Test registering a chain
-    let block_id = cl.register_chain(chain_id.clone()).unwrap();
-    assert_eq!(block_id, 0);
+    let block_height = cl.register_chain(chain_id.clone()).unwrap();
+    assert_eq!(block_height, 0);
     
     // Test getting current block
     let current_block = cl.get_current_block().unwrap();
     assert_eq!(current_block, 0);
     
     // Test getting subblock
-    let subblock = cl.get_subblock(chain_id.clone(), block_id).unwrap();
+    let subblock = cl.get_subblock(chain_id.clone(), block_height).unwrap();
     assert_eq!(subblock.chain_id, chain_id);
-    assert_eq!(subblock.block_id, block_id);
+    assert_eq!(subblock.block_height, block_height);
     assert!(subblock.transactions.is_empty());
 }
 

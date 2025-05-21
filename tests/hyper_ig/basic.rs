@@ -15,7 +15,7 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     let tx_id = "test-tx";
@@ -66,7 +66,7 @@ async fn test_regular_transaction_pending() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
     
     // Create a regular transaction that depends on a CAT transaction
@@ -117,7 +117,7 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (hs_node, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
 
     // Wrap hs_node in Arc<Mutex>
     println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
@@ -207,7 +207,7 @@ async fn test_get_pending_transactions() {
     
     // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Get pending transactions when none exist

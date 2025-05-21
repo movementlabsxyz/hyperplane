@@ -13,11 +13,11 @@ use crate::common::testnodes;
 /// - HS receives and stores the status
 async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     println!("\n[TEST]   === Starting test_single_chain_cat ===");
-    let (hs_node, cl_node, _hig_node, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain in CL
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;

@@ -64,7 +64,7 @@ impl HyperIGNode {
             match receiver.try_recv() {
                 Ok(subblock) => {
                     println!("  [HIG]   [Message loop task] Received subblock: block_id={}, chain_id={}, tx_count={}", 
-                        subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
+                        subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
                     
                     // Process the subblock
                     if let Err(e) = node.process_subblock(subblock).await {
@@ -89,7 +89,7 @@ impl HyperIGNode {
     /// Process a subblock
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
         println!("  [HIG] [process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
-            subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
+            subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
         for tx in &subblock.transactions {
             println!("  [HIG] [process_subblock] tx-id={} : data={}", tx.id.0, tx.data);
         }
@@ -327,7 +327,7 @@ impl HyperIG for HyperIGNode {
     // TODO remove one of them
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
         println!("  [HIG]   Processing subblock: block_id={}, chain_id={}, tx_count={}", 
-            subblock.block_id, subblock.chain_id.0, subblock.transactions.len());
+            subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
         for tx in &subblock.transactions {
             println!("  [HIG]   .......tx-id={} : data={}", tx.id.0, tx.data);
         }

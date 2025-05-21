@@ -84,19 +84,9 @@ TESTS=(
 
 
 TESTS2=(
-    hyper_scheduler::basic::test_process_proposals_for_two_chain_cat
 
-    # confirmation_layer::basic::test_basic_confirmation_layer
-    # integration::e2e::channels::test_single_chain_cat_failure 
-    # integration::e2e::channels::test_single_chain_cat_success
-
-
-
-
-
-    # integration::cl_to_cl::channels::test_single_chain_cat_success
-    # integration::cl_to_cl::channels::test_single_chain_cat_failure
-    # integration::e2e::channels::test_single_chain_cat_success
+integration::cl_to_hs::channels::test_single_chain_cat_success
+    # hyper_scheduler::basic::test_process_proposals_for_two_chain_cat
 )
 
 # Run the appropriate test set based on the input

@@ -20,11 +20,11 @@ async fn run_single_chain_cat_test(expected_status: StatusLimited) {
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_hs_node, cl_node, hig_node, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, cl_node, hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;

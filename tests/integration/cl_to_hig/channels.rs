@@ -19,11 +19,11 @@ async fn run_test_process_subblock(
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_hs_node, cl_node, hig_node, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (_hs_node, cl_node, hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
-    let chain_id = ChainId("test-chain".to_string());
+    let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     // create a local scope (note the test currently fails without this)
     {
@@ -35,7 +35,7 @@ async fn run_test_process_subblock(
     // Submit regular transaction to CL
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
-        vec![ChainId("test-chain".to_string())],
+        vec![ChainId("chain-1".to_string())],
         transaction_data.to_string()
     ).expect("Failed to create transaction");
     println!("[TEST]   Submitting CLTransaction with ID: {}", cl_tx.id.0);

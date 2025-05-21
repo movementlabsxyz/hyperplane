@@ -11,7 +11,7 @@ pub struct ConfirmationLayerState {
     /// Currently registered chains
     pub registered_chains: Vec<ChainId>,
     /// Current block number
-    pub current_block: u64,
+    pub current_block_height: u64,
     /// Block interval
     pub block_interval: Duration,
     /// Pending transactions
@@ -30,17 +30,19 @@ pub struct ConfirmationLayerNode {
     pub state: Arc<Mutex<ConfirmationLayerState>>,
     /// Receiver for messages from Hyper Scheduler
     receiver_hs_to_cl: Option<mpsc::Receiver<CLTransaction>>,
-    /// Sender for messages to Hyper IG
-    sender_cl_to_hig: Option<mpsc::Sender<SubBlock>>,
+    /// Sender for messages to first Hyper IG
+    sender_cl_to_hig1: Option<mpsc::Sender<SubBlock>>,
+    /// Sender for messages to second Hyper IG
+    sender_cl_to_hig2: Option<mpsc::Sender<SubBlock>>,
 }
 
 impl ConfirmationLayerNode {
     /// Create a new ConfirmationLayerNode with default settings
-    pub fn new(receiver_hs_to_cl: mpsc::Receiver<CLTransaction>, sender_cl_to_hig: mpsc::Sender<SubBlock>) -> Self {
+    pub fn new(receiver_hs_to_cl: mpsc::Receiver<CLTransaction>, sender_cl_to_hig1: mpsc::Sender<SubBlock>, sender_cl_to_hig2: mpsc::Sender<SubBlock>) -> Self {
         Self {
             state: Arc::new(Mutex::new(ConfirmationLayerState {
                 registered_chains: Vec::new(),
-                current_block: 0,
+                current_block_height: 0,
                 block_interval: Duration::from_millis(100),
                 pending_transactions: Vec::new(),
                 processed_transactions: Vec::new(),
@@ -48,14 +50,16 @@ impl ConfirmationLayerNode {
                 block_transactions: HashMap::new(),
             })),
             receiver_hs_to_cl: Some(receiver_hs_to_cl),
-            sender_cl_to_hig: Some(sender_cl_to_hig),
+            sender_cl_to_hig1: Some(sender_cl_to_hig1),
+            sender_cl_to_hig2: Some(sender_cl_to_hig2),
         }
     }
 
     /// Create a new ConfirmationLayerNode with a custom block interval
     pub fn new_with_block_interval(
         receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
-        sender_cl_to_hig: mpsc::Sender<SubBlock>,
+        sender_cl_to_hig1: mpsc::Sender<SubBlock>,
+        sender_cl_to_hig2: mpsc::Sender<SubBlock>,
         interval: Duration
     ) -> Result<Self, ConfirmationLayerError> {
         if interval.is_zero() {
@@ -64,7 +68,7 @@ impl ConfirmationLayerNode {
         Ok(Self {
             state: Arc::new(Mutex::new(ConfirmationLayerState {
                 registered_chains: Vec::new(),
-                current_block: 0,
+                current_block_height: 0,
                 block_interval: interval,
                 pending_transactions: Vec::new(),
                 processed_transactions: Vec::new(),
@@ -72,16 +76,18 @@ impl ConfirmationLayerNode {
                 block_transactions: HashMap::new(),
             })),
             receiver_hs_to_cl: Some(receiver_hs_to_cl),
-            sender_cl_to_hig: Some(sender_cl_to_hig),
+            sender_cl_to_hig1: Some(sender_cl_to_hig1),
+            sender_cl_to_hig2: Some(sender_cl_to_hig2),
         })
     }
 
     /// Process messages and create blocks
+    // TODO: split this into two separate functions, one for processing messages and one for creating blocks
     pub async fn process_messages_and_create_blocks(node: Arc<Mutex<Self>>) {
         let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
         loop {
             interval.tick().await;
-            println!("  [BLOCK]   Height: {}", node.lock().await.state.lock().await.current_block);
+            println!("  [BLOCK]   Height: {}", node.lock().await.state.lock().await.current_block_height);
 
             // Process any pending transactions
             {
@@ -98,12 +104,12 @@ impl ConfirmationLayerNode {
                 }
             }
 
-            // Process the current block
-            let (current_block, processed_this_block, registered_chains) = {
+            // Process the current block height
+            let (current_block_height, processed_this_block, registered_chains) = {
                 let state = node.lock().await;
                 let mut inner_state = state.state.lock().await;
-                inner_state.current_block += 1;
-                let current_block = inner_state.current_block;
+                inner_state.current_block_height += 1;
+                let current_block_height = inner_state.current_block_height;
                 
                 // Process pending transactions for this block
                 let mut processed_this_block = Vec::new();
@@ -123,15 +129,15 @@ impl ConfirmationLayerNode {
                 inner_state.pending_transactions = remaining;
                 
                 // Create a block
-                inner_state.blocks.push(current_block);
+                inner_state.blocks.push(current_block_height);
                 
                 // Store transactions for this block
-                inner_state.block_transactions.insert(current_block, processed_this_block.clone());
+                inner_state.block_transactions.insert(current_block_height, processed_this_block.clone());
                 
                 // Add processed transactions
                 inner_state.processed_transactions.extend(processed_this_block.clone());
                 
-                (current_block, processed_this_block, registered_chains)
+                (current_block_height, processed_this_block, registered_chains)
             };
 
             // Send subblocks to each chain
@@ -141,7 +147,7 @@ impl ConfirmationLayerNode {
                 for chain_id in &registered_chains {
                     let subblock = SubBlock {
                         chain_id: chain_id.clone(),
-                        block_id: current_block,
+                        block_height: current_block_height,
                         transactions: processed_this_block
                             .iter()
                             .filter(|(cid, _)| cid == chain_id)
@@ -153,9 +159,20 @@ impl ConfirmationLayerNode {
                             })
                             .collect(),
                     };
-                    if let Err(e) = state.sender_cl_to_hig.as_mut().unwrap().send(subblock).await {
-                        println!("  [BLOCK]   Error sending subblock: {}", e);
-                        continue;
+                    // dummy implementation for now
+                    if *chain_id == ChainId("chain-1".to_string()) {
+                        if let Err(e) = state.sender_cl_to_hig1.as_mut().unwrap().send(subblock).await {
+                            println!("  [BLOCK]   Error sending subblock: {}", e);
+                            continue;
+                        }
+                    } else if *chain_id == ChainId("chain-2".to_string()) {
+                        if let Err(e) = state.sender_cl_to_hig2.as_mut().unwrap().send(subblock).await {
+                            println!("  [BLOCK]   Error sending subblock: {}", e);
+                            continue;
+                        }
+                    } else {
+                        // throw an error
+                        panic!("  [BLOCK]   Chain not registered: {}", chain_id);
                     }
                 }
             }
@@ -177,7 +194,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
             return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
         state.registered_chains.push(chain_id);
-        Ok(state.current_block)
+        Ok(state.current_block_height)
     }
 
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
@@ -194,7 +211,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         Ok(())
     }
 
-    async fn get_subblock(&self, chain_id: ChainId, block_id: u64) -> Result<SubBlock, ConfirmationLayerError> {
+    async fn get_subblock(&self, chain_id: ChainId, block_height: u64) -> Result<SubBlock, ConfirmationLayerError> {
         let state = self.state.lock().await;
         if !state.registered_chains.contains(&chain_id) {
             return Err(ConfirmationLayerError::ChainNotFound(chain_id));
@@ -202,7 +219,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
 
         // Get transactions for this block, or return empty list if no transactions
         let transactions = state.block_transactions
-            .get(&block_id)
+            .get(&block_height)
             .map(|txs| txs.iter()
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction {
@@ -216,14 +233,14 @@ impl ConfirmationLayer for ConfirmationLayerNode {
 
         Ok(SubBlock {
             chain_id: chain_id.clone(),
-            block_id,
+            block_height: block_height,
             transactions,
         })
     }
 
     async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError> {
         let state = self.state.lock().await;
-        Ok(state.current_block)
+        Ok(state.current_block_height)
     }
 
     async fn get_registered_chains(&self) -> Result<Vec<ChainId>, ConfirmationLayerError> {
