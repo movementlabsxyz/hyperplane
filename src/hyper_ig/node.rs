@@ -325,7 +325,7 @@ impl HyperIG for HyperIGNode {
         if let Some(sender) = &mut self.sender_hig_to_hs {
             let status_update = CATStatusUpdate {
                 cat_id: cat_id.clone(),
-                chain_id: ChainId("dummy-chain".to_string()),
+                chain_id: self.state.lock().await.my_chain_id.clone(),
                 status: status.clone(),
                 constituent_chains: constituent_chains.clone(),
             };

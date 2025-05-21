@@ -16,19 +16,21 @@ async fn run_test_one_cat(proposed_status: StatusLimited, expected_status: CATSt
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain in CL
-    let chain_id = ChainId("chain-1".to_string());
-    println!("[TEST]   Registering chain: {}", chain_id.0);
+    let chain_id_1 = ChainId("chain-1".to_string());
+    let chain_id_2 = ChainId("chain-2".to_string());
+    println!("[TEST]   Registering chains: {} and {}", chain_id_1.0, chain_id_2.0);
     {
         let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+        node.register_chain(chain_id_1.clone()).await.expect("Failed to register chain");
+        node.register_chain(chain_id_2.clone()).await.expect("Failed to register chain");
     }
-    println!("[TEST]   Chain registered successfully");
+    println!("[TEST]   Chains registered successfully");
 
     // Create a CAT transaction
     let cat_id = CATId("test-cat".to_string());
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
-        vec![chain_id.clone()],
+        vec![chain_id_1.clone(), chain_id_2.clone()],
         format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0)
     ).expect("Failed to create CLTransaction");
 

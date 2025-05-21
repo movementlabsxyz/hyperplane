@@ -165,10 +165,10 @@ impl HyperScheduler for HyperSchedulerNode {
         println!("  [HS]   process_cat_status_proposal called for cat-id='{}' by chain-id='{}' with status {:?}", cat_id.0, this_chain_id.0, status);
         let mut state = self.state.lock().await;
         
-        // Check if CAT proposal already exists
+        // Check if this chain has already submitted a proposal
         if let Some(chain_statuses) = state.cat_chainwise_statuses.get(&cat_id) {
             if chain_statuses.contains_key(&this_chain_id) {
-                println!("  [HS]   CAT {} already exists, rejecting duplicate proposal", cat_id.0);
+                println!("  [HS]   Chain {} has already submitted a proposal for CAT {}, rejecting duplicate", this_chain_id.0, cat_id.0);
                 return Err(HyperSchedulerError::DuplicateProposal(cat_id));
             }
         }
@@ -210,13 +210,29 @@ impl HyperScheduler for HyperSchedulerNode {
                 return Err(HyperSchedulerError::Internal("Constituent chains do not match".to_string()));
             }
             // we need to check if the proposed statuses in cat_chainwise_statuses are all present and set to success for all constituent chains
-            for chain_id in constituent_chains {
-                if !matches!(state.cat_chainwise_statuses.get(&cat_id).unwrap().get(&chain_id), Some(&StatusLimited::Success)) {
-                    return Err(HyperSchedulerError::Internal("Not all chains have submitted a success status".to_string()));
+            println!("  [HS]   Checking chain statuses for cat-id='{}'", cat_id.0);
+            println!("  [HS]   Constituent chains: {:?}", constituent_chains);
+            println!("  [HS]   Current chain statuses: {:?}", state.cat_chainwise_statuses.get(&cat_id));
+            
+            let mut all_success = true;
+            for chain_id in &constituent_chains {
+                println!("  [HS]   Checking status for chain-id='{}'", chain_id.0);
+                let chain_status = state.cat_chainwise_statuses.get(&cat_id).unwrap().get(chain_id);
+                println!("  [HS]   Chain status: {:?}", chain_status);
+                if !matches!(chain_status, Some(&StatusLimited::Success)) {
+                    println!("  [HS]   Chain '{}' is not Success, breaking", chain_id.0);
+                    all_success = false;
+                    break;
                 }
+                println!("  [HS]   Chain '{}' is Success", chain_id.0);
+            }
+            println!("  [HS]   All chains success: {}", all_success);
+            if all_success {
                 // all is well and complete. Set the status of the cat to success
                 state.cat_statuses.insert(cat_id.clone(), CATStatus::Success);
                 println!("  [HS]   Status for {} set to {:?}", cat_id.0, CATStatus::Success);
+            } else {
+                println!("  [HS]   Not all chains are Success, keeping status as Pending");
             }
         }
 
