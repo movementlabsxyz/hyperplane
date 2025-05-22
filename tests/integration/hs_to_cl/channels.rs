@@ -1,9 +1,11 @@
+#![cfg(feature = "test")]
+
 use hyperplane::{
-    types::{ChainId, CATId, StatusLimited},
-    hyper_scheduler::HyperScheduler,
+    types::{StatusLimited, ChainId, CATId},
     confirmation_layer::ConfirmationLayer,
+    HyperScheduler,
 };
-use crate::common::testnodes;
+use hyperplane::common::testnodes;
 use tokio::time::Duration;
 
 /// Tests that a single-chain CAT status update is properly included in a block:

@@ -1,10 +1,12 @@
+#![cfg(feature = "test")]
+
 use tokio::time::{Duration, sleep};
 use tokio::sync::mpsc;
 use hyperplane::{
     types::{TransactionId, ChainId, CLTransaction},
     confirmation_layer::ConfirmationLayer,
 };
-use crate::common::testnodes;
+use hyperplane::common::testnodes;
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
 // V13: Integrates closer to actual node setup

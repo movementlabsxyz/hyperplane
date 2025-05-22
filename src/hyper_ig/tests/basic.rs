@@ -4,9 +4,7 @@ use crate::{
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::sync::mpsc;
-use tokio::time::Duration;
-use crate::common::tests::testnodes;
+use crate::common::testnodes;
 
 /// Helper function: Tests regular non-dependent transaction path in HyperIG
 /// - Status verification

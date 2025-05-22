@@ -972,6 +972,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "futures",
+ "hyperplane",
  "lazy_static",
  "libp2p",
  "regex",

@@ -1,9 +1,11 @@
+#![cfg(feature = "test")]
+
 use hyperplane::{
     types::{Transaction, TransactionId, StatusLimited, ChainId, CLTransaction, TransactionStatus},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
-use crate::common::testnodes;
+use hyperplane::common::testnodes;
 use tokio::time::{Duration, timeout};
 
 
