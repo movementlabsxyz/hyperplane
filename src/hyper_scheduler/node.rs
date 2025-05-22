@@ -1,4 +1,4 @@
-use crate::types::{CATId, TransactionId, StatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus};
+use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus};
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
@@ -16,7 +16,7 @@ pub struct HyperSchedulerState {
     /// Map of CAT IDs to their status (this is the result of the cat_chainwise_statuses)
     pub cat_statuses: HashMap<CATId, CATStatus>,
     /// Map of CAT IDs to their status per constituent chain
-    pub cat_chainwise_statuses: HashMap<CATId, HashMap<ChainId, StatusLimited>>,
+    pub cat_chainwise_statuses: HashMap<CATId, HashMap<ChainId, CATStatusLimited>>,
 }
 
 /// A node that implements the HyperScheduler trait
@@ -161,7 +161,27 @@ impl HyperScheduler for HyperSchedulerNode {
     /// this_chain_id: the ID of the chain that is proposing the status
     /// constituent_chains: the IDs of the chains that are part of the CAT
     /// status: the status that the proposing chain is proposing
-    async fn process_cat_status_proposal(&mut self, cat_id: CATId, this_chain_id: ChainId, constituent_chains: Vec<ChainId>, status: StatusLimited) -> Result<(), HyperSchedulerError> {
+    async fn process_cat_status_proposal(
+        &mut self,
+        cat_id: CATId,
+        this_chain_id: ChainId,
+        constituent_chains: Vec<ChainId>,
+        status: CATStatusLimited,
+    ) -> Result<(), HyperSchedulerError> {
+        // Validate constituent chains
+        if constituent_chains.len() <= 1 {
+            return Err(HyperSchedulerError::InvalidCATProposal(
+                "CAT must have more than one constituent chain".to_string()
+            ));
+        }
+
+        // Check if source chain is part of constituent chains
+        if !constituent_chains.contains(&this_chain_id) {
+            return Err(HyperSchedulerError::InvalidCATProposal(
+                format!("Source chain {} is not part of constituent chains", this_chain_id.0)
+            ));
+        }
+
         println!("  [HS]   process_cat_status_proposal called for cat-id='{}' by chain-id='{}' with status {:?}", cat_id.0, this_chain_id.0, status);
         let mut state = self.state.lock().await;
         
@@ -187,7 +207,7 @@ impl HyperScheduler for HyperSchedulerNode {
             println!("  [HS]   CAT {} is already set to failure, skipping", cat_id.0);
             return Ok(());
         // if the proposal is failure, we set the status of the cat itself to failure
-        } else if status == StatusLimited::Failure {
+        } else if status == CATStatusLimited::Failure {
             state.cat_statuses.insert(cat_id.clone(), CATStatus::Failure);
             println!("  [HS]   Status for {} set to {:?}", cat_id.0, CATStatus::Failure);
             state.constituent_chains.insert(cat_id.clone(), constituent_chains.clone());
@@ -219,7 +239,7 @@ impl HyperScheduler for HyperSchedulerNode {
                 println!("  [HS]   Checking status for chain-id='{}'", chain_id.0);
                 let chain_status = state.cat_chainwise_statuses.get(&cat_id).unwrap().get(chain_id);
                 println!("  [HS]   Chain status: {:?}", chain_status);
-                if !matches!(chain_status, Some(&StatusLimited::Success)) {
+                if !matches!(chain_status, Some(&CATStatusLimited::Success)) {
                     println!("  [HS]   Chain '{}' is not Success, breaking", chain_id.0);
                     all_success = false;
                     break;
@@ -239,12 +259,12 @@ impl HyperScheduler for HyperSchedulerNode {
         Ok(())
     }
 
-    async fn send_cat_status_update(&mut self, cat_id: CATId, constituent_chains: Vec<ChainId>, status: StatusLimited) -> Result<(), HyperSchedulerError> {
+    async fn send_cat_status_update(&mut self, cat_id: CATId, constituent_chains: Vec<ChainId>, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
         println!("  [HS]   send_cat_status_update called for CAT {}", cat_id.0);
 
         let status_str = match status {
-            StatusLimited::Success => "STATUS_UPDATE:Success.CAT_ID:".to_string() + &cat_id.0,
-            StatusLimited::Failure => "STATUS_UPDATE:Failure.CAT_ID:".to_string() + &cat_id.0,
+            CATStatusLimited::Success => "STATUS_UPDATE:Success.CAT_ID:".to_string() + &cat_id.0,
+            CATStatusLimited::Failure => "STATUS_UPDATE:Failure.CAT_ID:".to_string() + &cat_id.0,
         };
 
         // Send the status update to the confirmation layer

@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, StatusLimited, ChainId, CLTransaction, CATStatus},
+    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATStatus},
     confirmation_layer::ConfirmationLayer,
 };
 use hyperplane::common::testnodes;
@@ -12,7 +12,7 @@ use tokio::time::Duration;
 /// - HIG: Process the CAT transaction (pending) and send a status update to the HS
 /// - HS: Process the status update and send a status update to the CL
 /// - CL: Verify the status update
-async fn run_two_chain_cat_test(proposed_status: StatusLimited, expected_status: CATStatus) {
+async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_status: CATStatus) {
     println!("\n[TEST]   === Starting CAT test with proposed status: {:?} ===", proposed_status);
     
     // Initialize components with 100ms block interval
@@ -85,11 +85,11 @@ async fn run_two_chain_cat_test(proposed_status: StatusLimited, expected_status:
 /// Tests single chain CAT success
 #[tokio::test]
 async fn test_two_chain_cat_success() {
-    run_two_chain_cat_test(StatusLimited::Success, CATStatus::Success).await;
+    run_two_chain_cat_test(CATStatusLimited::Success, CATStatus::Success).await;
 }
 
 /// Tests single chain CAT failure
 #[tokio::test]
 async fn test_two_chain_cat_failure() {
-    run_two_chain_cat_test(StatusLimited::Failure, CATStatus::Failure).await;
+    run_two_chain_cat_test(CATStatusLimited::Failure, CATStatus::Failure).await;
 }

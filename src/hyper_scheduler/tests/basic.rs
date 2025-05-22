@@ -1,5 +1,5 @@
 use crate::{
-    types::{CATId, StatusLimited, ChainId, CATStatus},
+    types::{CATId, CATStatusLimited, ChainId, CATStatus},
     hyper_scheduler::{node::HyperSchedulerNode, HyperScheduler},
 };
 use tokio::sync::mpsc;
@@ -24,8 +24,8 @@ async fn test_receive_success_proposal_first_message() {
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status_proposal = StatusLimited::Success;
-    let constituent_chains = vec![ChainId("chain-1".to_string())];
+    let status_proposal = CATStatusLimited::Success;
+    let constituent_chains = vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())];
     println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status_proposal);
 
     // Receive the status proposal directly
@@ -57,8 +57,8 @@ async fn test_receive_failure_proposal_first_message() {
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status_proposed = StatusLimited::Failure;
-    let constituent_chains = vec![ChainId("chain-1".to_string())];
+    let status_proposed = CATStatusLimited::Failure;
+    let constituent_chains = vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())];
     println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status_proposed);
 
     // Receive the status proposal directly
@@ -99,8 +99,8 @@ async fn test_duplicate_rejection() {
 
     // Test proposal behavior
     let cat_id = CATId("test-cat".to_string());
-    let status = StatusLimited::Success;
-    let constituent_chains = vec![ChainId("chain-1".to_string())];
+    let status = CATStatusLimited::Success;
+    let constituent_chains = vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())];
     
     // First proposal should create a record
     hs_node.process_cat_status_proposal(cat_id.clone(), ChainId("chain-1".to_string()), constituent_chains.clone(), status.clone())
@@ -130,7 +130,7 @@ async fn test_process_proposals_for_two_chain_cat() {
 
     // Create a CAT ID and status update
     let cat_id = CATId("test-cat".to_string());
-    let status = StatusLimited::Success;
+    let status = CATStatusLimited::Success;
     let constituent_chains = vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())];
     println!("[TEST]   Created CAT ID: {} with status: {:?}", cat_id.0, status);
 

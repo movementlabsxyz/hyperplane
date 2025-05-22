@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use crate::types::{Transaction, TransactionId, TransactionStatus, StatusLimited, CAT, CATId, SubBlock, CATStatusUpdate};
+use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CAT, CATId, SubBlock, CATStatusUpdate};
 use super::{HyperIG, HyperIGError};
 use tokio::sync::mpsc;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ struct HyperIGState {
     /// Set of pending transaction IDs
     pending_transactions: HashSet<TransactionId>,
     /// Proposed status for CAT transactions
-    cat_proposed_statuses: HashMap<TransactionId, StatusLimited>,
+    cat_proposed_statuses: HashMap<TransactionId, CATStatusLimited>,
     /// my chain id
     my_chain_id: ChainId,
 }
@@ -59,7 +59,7 @@ impl HyperIGNode {
 
     /// Process messages
     pub async fn process_messages(hig_node: Arc<Mutex<HyperIGNode>>) -> Result<(), HyperIGError> {
-        println!("  [HIG]   [Message loop task] Starting message processing loop");
+        println!("  [HIG {:?}]   [Message loop task] Starting message processing loop", hig_node.lock().await.state.lock().await.my_chain_id);
         loop {
             // println!("  [HIG]   [Message loop task] Attempting to acquire hig_node lock...");
             let mut node = hig_node.lock().await;
@@ -69,19 +69,19 @@ impl HyperIGNode {
             let receiver = if let Some(receiver) = &mut node.receiver_cl_to_hig {
                 receiver
             } else {
-                println!("  [HIG]   [Message loop task] No receiver available, exiting loop");
+                println!("  [HIG {:?}]   [Message loop task] No receiver available, exiting loop", node.state.lock().await.my_chain_id);
                 break;
             };
 
             // Try to receive a message
             match receiver.try_recv() {
                 Ok(subblock) => {
-                    println!("  [HIG]   [Message loop task] Received subblock: block_id={}, chain_id={}, tx_count={}", 
-                        subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
+                    println!("  [HIG {:?}]   [Message loop task] Received subblock: block_id={}, chain_id={}, tx_count={}", 
+                        node.state.lock().await.my_chain_id, subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
                     
                     // Process the subblock
                     if let Err(e) = node.process_subblock(subblock).await {
-                        println!("  [HIG]   [Message loop task] Error processing subblock: {}", e);
+                        println!("  [HIG {:?}]   [Message loop task] Error processing subblock: {}", node.state.lock().await.my_chain_id, e);
                     }
                 }
                 Err(mpsc::error::TryRecvError::Empty) => {
@@ -91,7 +91,7 @@ impl HyperIGNode {
                     continue;
                 }
                 Err(mpsc::error::TryRecvError::Disconnected) => {
-                    println!("  [HIG]   [Message loop task] Channel disconnected, exiting loop");
+                    println!("  [HIG {:?}]   [Message loop task] Channel disconnected, exiting loop", node.state.lock().await.my_chain_id);
                     break;
                 }
             }
@@ -102,8 +102,8 @@ impl HyperIGNode {
 
     /// Process a subblock
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
-        println!("  [HIG] [process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
-            subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
+        println!("  [HIG {:?}]   [process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
+            self.state.lock().await.my_chain_id, subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
         // check if the received subblock matches our chain id. If not we have a bug.
         if subblock.chain_id.0 != self.state.lock().await.my_chain_id.0 {
             println!("  [HIG]   [Message loop task] [ERROR] Received subblock with chain_id='{}', but should be '{}', ignoring", 
@@ -116,7 +116,7 @@ impl HyperIGNode {
 
 
         for tx in &subblock.transactions {
-            println!("  [HIG] [process_subblock] tx-id={} : data={}", tx.id.0, tx.data);
+            println!("  [HIG {:?}]   [process_subblock] tx-id={} : data={}", self.state.lock().await.my_chain_id, tx.id.0, tx.data);
         }
         for tx in subblock.transactions {
             HyperIG::process_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
@@ -142,7 +142,7 @@ impl HyperIGNode {
     }
 
     /// Get the proposed status for a CAT transaction
-    pub async fn get_proposed_status(&self, tx_id: TransactionId) -> Result<StatusLimited, anyhow::Error> {
+    pub async fn get_proposed_status(&self, tx_id: TransactionId) -> Result<CATStatusLimited, anyhow::Error> {
         Ok(self.state.lock().await.cat_proposed_statuses.get(&tx_id)
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("No proposed status found for transaction"))?)
@@ -150,7 +150,7 @@ impl HyperIGNode {
 
     /// Handle a CAT transaction
     async fn handle_cat_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        println!("  [HIG]   Handling CAT transaction: {}", tx.id.0);
+        println!("  [HIG {:?}]   Handling CAT transaction: {}", self.state.lock().await.my_chain_id, tx.id.0);
         // CAT transactions are always pending
         self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
         // Add to pending transactions set
@@ -158,10 +158,10 @@ impl HyperIGNode {
         
         // Store proposed status based on transaction data
         let proposed_status = if tx.data.contains("Success") {
-            StatusLimited::Success
+            CATStatusLimited::Success
         } else {
             // Default to Failure for all other cases
-            StatusLimited::Failure
+            CATStatusLimited::Failure
         };
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
         
@@ -236,13 +236,13 @@ impl HyperIGNode {
     }
 
     /// Parse a CAT transaction
-    fn parse_cat_transaction(data: &str) -> Result<(CATId, StatusLimited), anyhow::Error> {
+    fn parse_cat_transaction(data: &str) -> Result<(CATId, CATStatusLimited), anyhow::Error> {
         println!("  [HIG]   Parsing CAT transaction: {}", data);
         if let Some(_captures) = CAT_PATTERN.captures(data) {
             let status = if data.contains("CAT.SIMULATION:Success") {
-                StatusLimited::Success
+                CATStatusLimited::Success
             } else {
-                StatusLimited::Failure
+                CATStatusLimited::Failure
             };
             
             // Extract CAT ID using CAT_ID_SUFFIX pattern
@@ -274,7 +274,7 @@ impl HyperIG for HyperIGNode {
             // now handle the case where it is any of the other transaction types
             // Store initial status
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
-            println!("  [HIG] [process_transaction] Set initial status to Pending for tx-id: '{}' : data: '{}'", tx.id, tx.data);
+            println!("  [HIG {:?}]   [process_transaction] Set initial status to Pending for tx-id: '{}' : data: '{}'", self.state.lock().await.my_chain_id, tx.id, tx.data);
             
             let status = if tx.data.starts_with("CAT") {
                 self.handle_cat_transaction(tx.clone()).await?
@@ -286,7 +286,7 @@ impl HyperIG for HyperIGNode {
             
             // Update status
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), status.clone());
-            println!("  [HIG] [process_transaction] Updated status to {:?} for tx-id='{}'", status, tx.id.0);
+            println!("  [HIG {:?}]   [process_transaction] Updated status to {:?} for tx-id='{}'", self.state.lock().await.my_chain_id, status, tx.id.0);
             
             status
         };
@@ -295,24 +295,39 @@ impl HyperIG for HyperIGNode {
         if tx.data.starts_with("CAT") {
             let (cat_id, status) = Self::parse_cat_transaction(&tx.data)?;
             let constituent_chains = tx.constituent_chains.clone();
-            println!("  [HIG] [process_transaction] Extracted cat-id='{}', status='{:?}', chains='{:?}'", cat_id.0, status, constituent_chains);
-            println!("  [HIG] [process_transaction] Sending status proposal for cat-id='{}'", cat_id.0);
+            
+            // Validate constituent chains
+            if constituent_chains.len() <= 1 {
+                return Err(HyperIGError::InvalidCATConstituentChains(
+                    "CAT must have more than one constituent chain".to_string()
+                ).into());
+            }
+            
+            // Check if own chain is part of constituent chains
+            if !constituent_chains.contains(&self.state.lock().await.my_chain_id) {
+                return Err(HyperIGError::InvalidCATConstituentChains(
+                    format!("Own chain {} is not part of constituent chains", self.state.lock().await.my_chain_id.0)
+                ).into());
+            }
+
+            println!("  [HIG {:?}] [process_transaction] Extracted cat-id='{}', status='{:?}', chains='{:?}'",tx.this_chain_id, cat_id.0, status, constituent_chains);
+            println!("  [HIG {:?}] [process_transaction] Sending status proposal for cat-id='{}'",tx.this_chain_id, cat_id.0);
             self.send_cat_status_proposal(cat_id, status, constituent_chains).await?;
-            println!("  [HIG] [process_transaction] Status proposal sent for CAT transaction.");
+            println!("  [HIG {:?}] [process_transaction] Status proposal sent for CAT transaction.",tx.this_chain_id);
         }
 
         Ok(status)
     }
 
     async fn get_transaction_status(&self, tx_id: TransactionId) -> Result<TransactionStatus, anyhow::Error> {
-        println!("  [HIG] [get_transaction_status] Getting status for tx-id='{}'", tx_id);
+        println!("  [HIG {:?}] [get_transaction_status] Getting status for tx-id='{}'", self.state.lock().await.my_chain_id, tx_id);
         let statuses = self.state.lock().await.transaction_statuses.get(&tx_id)
             .cloned()
             .ok_or_else(|| {
                 println!("  [HIG] [get_transaction_status] Transaction not found tx-id='{}'", tx_id);
                 anyhow::anyhow!("Transaction not found: {}", tx_id)
             })?;
-        println!("  [HIG] [get_transaction_status] Found status for tx-id='{}': {:?}", tx_id, statuses);
+        println!("  [HIG {:?}] [get_transaction_status] Found status for tx-id='{}': {:?}", self.state.lock().await.my_chain_id, tx_id, statuses);
         Ok(statuses)
     }
 
@@ -321,7 +336,7 @@ impl HyperIG for HyperIGNode {
     }
 
     /// Send a CAT status proposal to the Hyper Scheduler
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
         if let Some(sender) = &mut self.sender_hig_to_hs {
             let status_update = CATStatusUpdate {
                 cat_id: cat_id.clone(),
@@ -380,7 +395,7 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
         node.get_pending_transactions().await
     }
 
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
         let mut node = self.lock().await;
         node.send_cat_status_proposal(cat_id, status, constituent_chains).await
     }

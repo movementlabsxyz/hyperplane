@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, StatusLimited, ChainId, CLTransaction, CATId, CATStatus},
+    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATId, CATStatus},
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
 };
@@ -12,7 +12,7 @@ use tokio::time::Duration;
 /// - Submit a cat transaction to CL
 /// - Wait for the transaction to be processed by the HIGs
 /// - Check that the CAT status is set to the expected status in the HS
-async fn run_test_one_cat(proposed_status: StatusLimited, expected_status: CATStatus) {
+async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CATStatus) {
     println!("\n[TEST]   === Starting test_one_cat ===");
     let (hs_node, cl_node, _, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
@@ -65,12 +65,12 @@ async fn run_test_one_cat(proposed_status: StatusLimited, expected_status: CATSt
 /// Tests cat (success)
 #[tokio::test]
 async fn test_cat_one_cat_success() {
-    run_test_one_cat(StatusLimited::Success, CATStatus::Success).await;
+    run_test_one_cat(CATStatusLimited::Success, CATStatus::Success).await;
 }
 
 /// Tests cat (failure) 
 #[tokio::test]
 async fn test_cat_one_cat_failure() {
-    run_test_one_cat(StatusLimited::Failure, CATStatus::Failure).await;
+    run_test_one_cat(CATStatusLimited::Failure, CATStatus::Failure).await;
 }
 

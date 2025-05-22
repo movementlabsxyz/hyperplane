@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{StatusLimited, ChainId, CATId},
+    types::{CATStatusLimited, ChainId, CATId},
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
 };
@@ -39,7 +39,7 @@ async fn test_single_chain_cat_status_update() {
     println!("[TEST]   Sending CAT status update for '{}'...", cat_id.0);
     {
         let mut node = hs_node.lock().await;
-        node.send_cat_status_update(cat_id.clone(), vec![chain_id.clone()], StatusLimited::Success)
+        node.send_cat_status_update(cat_id.clone(), vec![chain_id.clone()], CATStatusLimited::Success)
             .await
             .expect("Failed to send status update");
     }
@@ -105,9 +105,9 @@ async fn test_several_single_chain_cat_status_updates() {
 
     // Create and send multiple CAT status updates
     let updates = vec![
-        (CATId("cat-1".to_string()), StatusLimited::Success),
-        (CATId("cat-2".to_string()), StatusLimited::Failure),
-        (CATId("cat-3".to_string()), StatusLimited::Success),
+        (CATId("cat-1".to_string()), CATStatusLimited::Success),
+        (CATId("cat-2".to_string()), CATStatusLimited::Failure),
+        (CATId("cat-3".to_string()), CATStatusLimited::Success),
     ];
     println!("[TEST]   Created {} CAT status updates", updates.len());
 

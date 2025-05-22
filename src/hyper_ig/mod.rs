@@ -1,4 +1,4 @@
-use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, StatusLimited, SubBlock, ChainId};
+use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, CATStatusLimited, SubBlock, ChainId};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -17,6 +17,8 @@ pub enum HyperIGError {
     Communication(String),
     #[error("Received subblock with wrong chain ID: expected {expected}, got {received}")]
     WrongChainId { expected: ChainId, received: ChainId },
+    #[error("Invalid CAT constituent chains: {0}")]
+    InvalidCATConstituentChains(String),
 }
 
 /// The Hyper IG is responsible for executing transactions,
@@ -33,7 +35,7 @@ pub trait HyperIG: Send + Sync {
     async fn get_pending_transactions(&self) -> Result<Vec<TransactionId>, anyhow::Error>;
 
     /// Submit a CAT status proposal to the Hyper Scheduler
-    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: StatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError>;
+    async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError>;
 
     /// Resolve the status of a CAT transaction based on hyper_scheduler and sequencer views
     async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError>;

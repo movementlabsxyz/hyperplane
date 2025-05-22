@@ -7,22 +7,24 @@ use super::{TransactionId, ChainId};
 pub struct CATId(pub String);
 
 /// Status of a Crosschain Atomic Transaction (CAT)
+/// used in HS to keep track of the status of a CAT
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CATStatus {
     /// CAT is pending
     Pending,
     /// CAT is successful
     Success,
-    /// CAT failed
+    /// CAT is failed
     Failure,
 }
 
 /// The possible final status of a CAT or transaction
+/// used for proposals from HIG to HS,  status updates from HS to CL, and to keep track of the status proposals in HS
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum StatusLimited {
-    /// CAT or transaction is successful
+pub enum CATStatusLimited {
+    /// CAT is successful
     Success,
-    /// CAT or transaction failed
+    /// CAT is failed
     Failure,
 }
 
@@ -34,7 +36,7 @@ pub struct CATStatusUpdate {
     /// The ID of the chain that the status is from
     pub chain_id: ChainId,
     /// The new status
-    pub status: StatusLimited,
+    pub status: CATStatusLimited,
     /// The set of all chains involved in this CAT (including the chain_id that sent this update)
     pub constituent_chains: Vec<ChainId>,
 }

@@ -1,5 +1,5 @@
 use crate::{
-    types::{Transaction, TransactionId, TransactionStatus, StatusLimited, SubBlock, ChainId, CATId},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId},
     hyper_ig::{HyperIG, node::HyperIGNode},
 };
 use std::sync::Arc;
@@ -110,8 +110,8 @@ async fn test_regular_transaction_pending() {
     println!("=== Test completed successfully ===\n");
 }
 
-/// Helper function to test CAT status proposal
-async fn run_test_single_chain_cat(expected_status: StatusLimited) {
+/// Helper function to test sending a CAT status proposal
+async fn run_send_cat(expected_status: CATStatusLimited) {
     println!("\n=== Starting test_single_chain_cat ({:?}) ===", expected_status);
     
     // use testnodes from common
@@ -128,7 +128,7 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
     let tx = Transaction::new(
         TransactionId("test-tx".to_string()),
         ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string())],
+        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
         format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat-tx", expected_status),
     ).expect("Failed to create transaction");
     println!("[TEST]   CAT transaction created with tx-id='{}' : data='{}'", tx.id, tx.data);
@@ -187,14 +187,14 @@ async fn run_test_single_chain_cat(expected_status: StatusLimited) {
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_success_proposal() {
-    run_test_single_chain_cat(StatusLimited::Success).await;
+    run_send_cat(CATStatusLimited::Success).await;
 }
 
 /// Tests CAT transaction failure proposal path in HyperIG
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_failure_proposal() {
-    run_test_single_chain_cat(StatusLimited::Failure).await;
+    run_send_cat(CATStatusLimited::Failure).await;
 }
 
 /// Tests get pending transactions functionality:

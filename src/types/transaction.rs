@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use super::{ChainId, TransactionId};
 use crate::types::communication::cl_to_hig::TransactionData;
+
 /// Status of a transaction
+/// used in HIG to keep track of the status of a transaction
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TransactionStatus {
     /// Transaction is pending
