@@ -1,7 +1,6 @@
-use hyperplane::{
+use crate::{
     types::{CATId, StatusLimited, ChainId, CATStatus},
-    hyper_scheduler::node::HyperSchedulerNode,
-    HyperScheduler,
+    hyper_scheduler::{node::HyperSchedulerNode, HyperScheduler},
 };
 use tokio::sync::mpsc;
 
