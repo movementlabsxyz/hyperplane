@@ -85,7 +85,7 @@ TESTS=(
 )
 
 TESTS2=(
-    confirmation_layer::tests::basic::test_regular_transactions
+    integration::cl_to_cl::channels::test_two_chain_cat_success
 )
 
 # Run the appropriate test set based on the input
