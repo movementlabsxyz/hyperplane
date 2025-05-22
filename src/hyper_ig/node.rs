@@ -34,27 +34,17 @@ pub struct HyperIGNode {
 
 impl HyperIGNode {
     /// Create a new HyperIGNode
-    pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>) -> Self {
+    pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId) -> Self {
         Self {
             state: Arc::new(Mutex::new(HyperIGState {
                 transaction_statuses: HashMap::new(),
                 pending_transactions: HashSet::new(),
                 cat_proposed_statuses: HashMap::new(),
-                my_chain_id: ChainId("unregistered".to_string()),
+                my_chain_id: my_chain_id,
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
         }
-    }
-
-    /// Register this HIG with a chain ID
-    pub async fn register_chain(&mut self, chain_id: ChainId) -> Result<(), HyperIGError> {
-        let mut state = self.state.lock().await;
-        if state.my_chain_id.0 != "unregistered" {
-            return Err(HyperIGError::Internal("Chain already registered".to_string()));
-        }
-        state.my_chain_id = chain_id;
-        Ok(())
     }
 
     /// Process messages
@@ -306,7 +296,7 @@ impl HyperIG for HyperIGNode {
             // Check if own chain is part of constituent chains
             if !constituent_chains.contains(&self.state.lock().await.my_chain_id) {
                 return Err(HyperIGError::InvalidCATConstituentChains(
-                    format!("Own chain {} is not part of constituent chains", self.state.lock().await.my_chain_id.0)
+                    format!("Own chain '{}' is not part of constituent chains", self.state.lock().await.my_chain_id.0)
                 ).into());
             }
 

@@ -3,9 +3,9 @@
 use hyperplane::{
     types::{CATStatusLimited, ChainId, CATId},
     confirmation_layer::ConfirmationLayer,
-    HyperScheduler,
+    hyper_scheduler::HyperScheduler,
 };
-use hyperplane::common::testnodes;
+use super::super::common::testnodes;
 use tokio::time::Duration;
 
 /// Tests that a single-chain CAT status update is properly included in a block:

@@ -5,7 +5,7 @@ use crate::{
 use tokio::sync::mpsc;
 
 // create a HyperSchedulerNode with empty channels
-fn create_hs_node() -> HyperSchedulerNode {
+fn setup_test_hs_node() -> HyperSchedulerNode {
     let (_, receiver_from_hig_1) = mpsc::channel(1);
     let (_, receiver_from_hig_2) = mpsc::channel(1);
     let (sender_to_cl, _) = mpsc::channel(1);
@@ -19,7 +19,7 @@ fn create_hs_node() -> HyperSchedulerNode {
 async fn test_receive_success_proposal_first_message() {
     println!("\n=== Starting test_receive_success_proposal_first_message ===");
     
-    let mut hs_node = create_hs_node();
+    let mut hs_node = setup_test_hs_node();
     println!("[TEST]   HyperSchedulerNode created");
 
     // Create a CAT ID and status update
@@ -52,7 +52,7 @@ async fn test_receive_success_proposal_first_message() {
 async fn test_receive_failure_proposal_first_message() {
     println!("\n=== Starting test_receive_failure_proposal_first_message ===");
     
-    let mut hs_node = create_hs_node();
+    let mut hs_node = setup_test_hs_node();
     println!("[TEST]   HyperSchedulerNode created");
 
     // Create a CAT ID and status update
@@ -94,7 +94,7 @@ async fn test_receive_failure_proposal_first_message() {
 async fn test_duplicate_rejection() {
     println!("\n=== Starting test_duplicate_rejection ===");
     
-    let mut hs_node = create_hs_node();
+    let mut hs_node = setup_test_hs_node();
     println!("[TEST]   HyperSchedulerNode created");
 
     // Test proposal behavior
@@ -125,7 +125,7 @@ async fn test_duplicate_rejection() {
 async fn test_process_proposals_for_two_chain_cat() {
     println!("\n=== Starting test_process_proposals_for_two_chain_cat ===");
 
-    let mut hs_node = create_hs_node();
+    let mut hs_node = setup_test_hs_node();
     println!("[TEST]   HyperSchedulerNode created");
 
     // Create a CAT ID and status update

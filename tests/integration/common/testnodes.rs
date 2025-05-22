@@ -1,4 +1,4 @@
-use crate::{
+use hyperplane::{
     hyper_scheduler::node::HyperSchedulerNode,
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
@@ -29,18 +29,8 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
         sender_cl_to_hig2,
         block_interval
     ).expect("Failed to create confirmation node")));
-    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs)));
-    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs)));
-
-    // Register chain IDs for HIG nodes
-    {
-        let mut hig1 = hig_node_1.lock().await;
-        hig1.register_chain(ChainId("chain-1".to_string())).await.expect("Failed to register chain-1");
-    }
-    {
-        let mut hig2 = hig_node_2.lock().await;
-        hig2.register_chain(ChainId("chain-2".to_string())).await.expect("Failed to register chain-2");
-    }
+    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()))));
+    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()))));
 
     // Start the HyperScheduler and HyperIG nodes
     HyperSchedulerNode::start(hs_node.clone()).await;
@@ -77,10 +67,4 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
 /// Returns a tuple of the nodes and the current block number at the end of the setup
 pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     setup_test_nodes_with_block_production_choice(block_interval, true).await
-}
-
-/// Helper function to create test nodes with no block production
-/// Returns a tuple of the nodes and the current block number at the end of the setup
-pub async fn setup_test_nodes_no_block_production() -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
-    setup_test_nodes_with_block_production_choice(Duration::from_millis(100), false).await
 }

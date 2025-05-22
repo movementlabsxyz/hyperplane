@@ -51,8 +51,8 @@ TESTS=(
     hyper_ig::tests::basic::test_regular_transaction_success
     hyper_ig::tests::basic::test_regular_transaction_failure
     hyper_ig::tests::basic::test_regular_transaction_pending
-    hyper_ig::tests::basic::test_cat_success_proposal
-    hyper_ig::tests::basic::test_cat_failure_proposal
+    hyper_ig::tests::basic::test_cat_process_and_send_success
+    hyper_ig::tests::basic::test_cat_process_and_send_failure
     hyper_ig::tests::basic::test_get_pending_transactions
     hyper_ig::tests::basic::test_wrong_chain_subblock
 
@@ -85,8 +85,6 @@ TESTS=(
 )
 
 TESTS2=(
-    integration::e2e::channels::test_two_chain_cat_success
-    integration::e2e::channels::test_two_chain_cat_failure
 )
 
 # Run the appropriate test set based on the input
@@ -99,6 +97,7 @@ elif [ "$1" = "2" ]; then
     for test in "${TESTS2[@]}"; do
         echo -e "\nRunning $test..."
         cargo test $test -- --test-threads=1 --nocapture #| grep "FAILED"
+        # cargo test $test -- --test-threads=1 --nocapture --exact #| grep "FAILED"
     done
 else
     echo "Invalid test set. Use 1 or 2."

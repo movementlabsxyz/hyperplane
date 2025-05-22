@@ -178,7 +178,7 @@ impl HyperScheduler for HyperSchedulerNode {
         // Check if source chain is part of constituent chains
         if !constituent_chains.contains(&this_chain_id) {
             return Err(HyperSchedulerError::InvalidCATProposal(
-                format!("Source chain {} is not part of constituent chains", this_chain_id.0)
+                format!("Source chain '{}' is not part of constituent chains", this_chain_id.0)
             ));
         }
 

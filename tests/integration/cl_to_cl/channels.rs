@@ -4,7 +4,7 @@ use hyperplane::{
     types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATStatus},
     confirmation_layer::ConfirmationLayer,
 };
-use hyperplane::common::testnodes;
+use super::super::common::testnodes;
 use tokio::time::Duration;
 
 /// Helper function to run a two chain CAT test

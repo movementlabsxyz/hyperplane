@@ -6,7 +6,7 @@ use hyperplane::{
     types::{TransactionId, ChainId, CLTransaction},
     confirmation_layer::ConfirmationLayer,
 };
-use hyperplane::common::testnodes;
+use super::super::integration::common::testnodes;
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
 // V13: Integrates closer to actual node setup

@@ -1,10 +1,26 @@
 use crate::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId, CLTransaction},
     hyper_ig::{HyperIG, node::HyperIGNode},
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::common::testnodes;
+use tokio::sync::mpsc;
+
+/// Helper function to set up a test HIG node
+async fn setup_test_hig_node() -> Arc<Mutex<HyperIGNode>> {
+    let (_sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
+    let (sender_hig_to_hs, mut receiver_hig_to_hs) = mpsc::channel(100);
+    
+    // Spawn a task to keep the receiver alive
+    tokio::spawn(async move {
+        while let Some(_) = receiver_hig_to_hs.recv().await {
+            // Just consume the messages to keep the channel alive
+        }
+    });
+    
+    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, ChainId("chain-1".to_string()));
+    Arc::new(Mutex::new(hig_node))
+}
 
 /// Helper function: Tests regular non-dependent transaction path in HyperIG
 /// - Status verification
@@ -12,9 +28,8 @@ use crate::common::testnodes;
 async fn run_test_regular_transaction_status(expected_status: TransactionStatus) {
     println!("\n=== Starting regular non-dependent transaction test with status {:?}===", expected_status);
     
-    // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let hig_node = setup_test_hig_node().await;
     println!("[TEST]   Test nodes setup complete");
 
     let tx_id = "test-tx";
@@ -63,9 +78,8 @@ async fn test_regular_transaction_failure() {
 async fn test_regular_transaction_pending() {
     println!("\n=== Starting test_regular_transaction_pending ===");
     
-    // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let hig_node = setup_test_hig_node().await;
     println!("[TEST]   Test nodes setup complete");
     
     // Create a regular transaction that depends on a CAT transaction
@@ -111,31 +125,29 @@ async fn test_regular_transaction_pending() {
 }
 
 /// Helper function to test sending a CAT status proposal
-async fn run_send_cat(expected_status: CATStatusLimited) {
+async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     println!("\n=== Starting test_single_chain_cat ({:?}) ===", expected_status);
     
-    // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (hs_node, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
-
-    // Wrap hs_node in Arc<Mutex>
-    println!("[TEST]   Wrapping HS node in Arc<Mutex>...");
-    let _hs_node = Arc::new(Mutex::new(hs_node));
-    println!("[TEST]   HS node wrapped successfully");
+    let hig_node = setup_test_hig_node().await;
+    println!("[TEST]   Test nodes setup complete");
     
     // Create a CAT transaction
-    println!("[TEST]   Creating CAT transaction...");
-    let tx = Transaction::new(
+    let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
-        ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
         format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat-tx", expected_status),
     ).expect("Failed to create transaction");
-    println!("[TEST]   CAT transaction created with tx-id='{}' : data='{}'", tx.id, tx.data);
     
-    // Execute the transaction
+    // Create a transaction from the CAT transaction
     println!("[TEST]   Executing CAT transaction...");
-    let status = hig_node.lock().await.process_transaction(tx.clone())
+    let tx = Transaction::new(
+        cl_tx.id.clone(),
+        ChainId("chain-1".to_string()),
+        cl_tx.constituent_chains.clone(),
+        cl_tx.data.clone(),
+    ).expect("Failed to create transaction");
+    let status = hig_node.lock().await.process_transaction(tx)
         .await
         .expect("Failed to execute transaction");
     println!("[TEST]   Transaction status: {:?}", status);
@@ -146,7 +158,7 @@ async fn run_send_cat(expected_status: CATStatusLimited) {
     
     // Verify we can retrieve the same status
     println!("[TEST]   Verifying transaction status...");
-    let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
+    let retrieved_status = hig_node.lock().await.get_transaction_status(cl_tx.id.clone())
         .await
         .expect("Failed to get transaction status");
     println!("[TEST]   Retrieved status: {:?}", retrieved_status);
@@ -159,12 +171,12 @@ async fn run_send_cat(expected_status: CATStatusLimited) {
         .await
         .expect("Failed to get pending transactions");
     println!("[TEST]   Pending transactions: {:?}", pending);
-    assert!(pending.contains(&tx.id));
+    assert!(pending.contains(&cl_tx.id));
     println!("[TEST]   Verified transaction is in pending list");
     
     // Verify the proposed status
     println!("[TEST]   Verifying proposed status...");
-    let proposed_status = hig_node.lock().await.get_proposed_status(tx.id.clone())
+    let proposed_status = hig_node.lock().await.get_proposed_status(cl_tx.id.clone())
         .await
         .expect("Failed to get proposed status");
     println!("[TEST]   Proposed status: {:?}", proposed_status);
@@ -175,7 +187,7 @@ async fn run_send_cat(expected_status: CATStatusLimited) {
     println!("[TEST]   Sending status proposal to HS...");
     // we only have one chain for now, so we create a vector with one element
     let chain_id = vec![ChainId("chain-1".to_string())];
-    hig_node.lock().await.send_cat_status_proposal(CATId(tx.id.0.clone()), expected_status, chain_id)
+    hig_node.lock().await.send_cat_status_proposal(CATId(cl_tx.id.0.clone()), expected_status, chain_id)
         .await
         .expect("Failed to send status proposal");
     println!("[TEST]   Status proposal sent to HS");
@@ -186,15 +198,15 @@ async fn run_send_cat(expected_status: CATStatusLimited) {
 /// Tests CAT transaction success proposal path in HyperIG
 #[tokio::test]
 #[allow(unused_variables)]
-async fn test_cat_success_proposal() {
-    run_send_cat(CATStatusLimited::Success).await;
+async fn test_cat_process_and_send_success() {
+    run_process_and_send_cat(CATStatusLimited::Success).await;
 }
 
 /// Tests CAT transaction failure proposal path in HyperIG
 #[tokio::test]
 #[allow(unused_variables)]
-async fn test_cat_failure_proposal() {
-    run_send_cat(CATStatusLimited::Failure).await;
+async fn test_cat_process_and_send_failure() {
+    run_process_and_send_cat(CATStatusLimited::Failure).await;
 }
 
 /// Tests get pending transactions functionality:
@@ -204,9 +216,8 @@ async fn test_cat_failure_proposal() {
 async fn test_get_pending_transactions() {
     println!("\n=== Starting test_get_pending_transactions ===");
     
-    // use testnodes from common
     println!("[TEST]   Setting up test nodes...");
-    let (_, _, hig_node,_,_start_block_height) = testnodes::setup_test_nodes_no_block_production().await;
+    let hig_node = setup_test_hig_node().await;
     println!("[TEST]   Test nodes setup complete");
 
     // Get pending transactions when none exist
@@ -250,14 +261,7 @@ async fn test_wrong_chain_subblock() {
     let (sender_hig_to_hs, _receiver_hig_to_hs) = tokio::sync::mpsc::channel(100);
 
     // Create HIG node
-    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs)));
-    
-    // Register chain ID
-    {
-        let mut node = hig_node.lock().await;
-        node.register_chain(ChainId("chain-1".to_string())).await.expect("Failed to register chain");
-        println!("[TEST]   Chain 'chain-1' registered");
-    }
+    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, ChainId("chain-1".to_string()))));
 
     // Start the node
     HyperIGNode::start(hig_node.clone()).await;

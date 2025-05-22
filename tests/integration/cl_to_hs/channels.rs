@@ -5,7 +5,7 @@ use hyperplane::{
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
 };
-use hyperplane::common::testnodes;
+use super::super::common::testnodes;
 use tokio::time::Duration;
 
 /// Helper function: tests sending a CAT status proposal from CL to HS

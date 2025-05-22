@@ -5,7 +5,7 @@ use hyperplane::{
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
-use hyperplane::common::testnodes;
+use super::super::common::testnodes;
 use tokio::time::Duration;
 
 /// Helper function: Test that a subblock with new transactions is properly processed by the HIG:
