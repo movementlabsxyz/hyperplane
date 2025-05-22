@@ -1,9 +1,11 @@
+#![cfg(feature = "test")]
+
 use hyperplane::{
-    types::{CLTransaction, TransactionId, ChainId, StatusLimited, CATStatus},
+    types::{TransactionId, StatusLimited, ChainId, CLTransaction, CATStatus},
     confirmation_layer::ConfirmationLayer,
 };
+use hyperplane::common::testnodes;
 use tokio::time::Duration;
-use crate::common::testnodes;
 
 /// Helper function to run a two chain CAT test
 /// - CL: Send a CAT transaction to the CL and produce a block

@@ -28,4 +28,10 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "simulator"
-path = "src/bin/simulator.rs" 
+path = "src/bin/simulator.rs"
+
+[features]
+test = []
+
+[dev-dependencies]
+hyperplane = { path = ".", features = ["test"] } 

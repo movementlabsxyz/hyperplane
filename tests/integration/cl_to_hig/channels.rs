@@ -1,10 +1,12 @@
+#![cfg(feature = "test")]
+
 use hyperplane::{
-    types::{TransactionId, TransactionStatus, ChainId, CLTransaction},
-    hyper_ig::HyperIG,
+    types::{TransactionId, ChainId, CLTransaction, TransactionStatus},
     confirmation_layer::ConfirmationLayer,
+    hyper_ig::HyperIG,
 };
+use hyperplane::common::testnodes;
 use tokio::time::Duration;
-use crate::common::testnodes;
 
 /// Helper function: Test that a subblock with new transactions is properly processed by the HIG:
 /// - Submit a regular transaction to the CL

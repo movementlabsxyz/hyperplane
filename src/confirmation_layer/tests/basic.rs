@@ -1,5 +1,5 @@
 use tokio::time::{Duration, sleep};
-use hyperplane::{
+use crate::{
     types::{TransactionId, ChainId, CLTransaction},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError},
 };

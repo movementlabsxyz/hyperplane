@@ -1,10 +1,12 @@
+#![cfg(feature = "test")]
+
 use hyperplane::{
-    types::{ChainId, CATId, StatusLimited, TransactionId, CLTransaction, CATStatus},
-    hyper_scheduler::{HyperScheduler},
+    types::{TransactionId, StatusLimited, ChainId, CLTransaction, CATId, CATStatus},
     confirmation_layer::ConfirmationLayer,
+    HyperScheduler,
 };
+use hyperplane::common::testnodes;
 use tokio::time::Duration;
-use crate::common::testnodes;
 
 /// Helper function: tests sending a CAT status proposal from CL to HS
 /// - Submit a cat transaction to CL

@@ -1,4 +1,4 @@
-use hyperplane::{
+use crate::{
     hyper_scheduler::node::HyperSchedulerNode,
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
@@ -84,4 +84,3 @@ pub async fn setup_test_nodes(block_interval: Duration) -> (Arc<Mutex<HyperSched
 pub async fn setup_test_nodes_no_block_production() -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     setup_test_nodes_with_block_production_choice(Duration::from_millis(100), false).await
 }
-

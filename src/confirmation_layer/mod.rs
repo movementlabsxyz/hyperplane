@@ -6,6 +6,9 @@ use crate::types::{ChainId, SubBlock, CLTransaction};
 pub mod node;
 pub use node::ConfirmationLayerNode;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Error)]
 pub enum ConfirmationLayerError {
     #[error("Chain not found: {0}")]

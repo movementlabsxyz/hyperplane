@@ -43,4 +43,7 @@ pub trait HyperIG: Send + Sync {
 
     /// Process a subblock of transactions
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError>;
-} 
+}
+
+#[cfg(test)]
+mod tests; 

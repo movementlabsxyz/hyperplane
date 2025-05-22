@@ -30,4 +30,7 @@ pub trait HyperScheduler: Send + Sync {
 
     /// Send a CAT status update to the confirmation layer
     async fn send_cat_status_update(&mut self, cat_id: CATId, constituent_chains: Vec<ChainId>, status: StatusLimited) -> Result<(), HyperSchedulerError>;
-} 
+}
+
+#[cfg(test)]
+mod tests; 
