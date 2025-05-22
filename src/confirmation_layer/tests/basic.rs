@@ -3,11 +3,11 @@ use crate::{
     types::{TransactionId, ChainId, CLTransaction},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError},
 };
+use crate::common::tests::testnodes;
 use crate::confirmation_layer::node::ConfirmationLayerNode;
 use tokio::sync::mpsc;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::common::testnodes;
 
 /// Tests basic confirmation layer node functionality:
 /// - Initial state (block interval, current block)
