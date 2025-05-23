@@ -241,3 +241,48 @@ async fn test_process_proposals_for_two_chain_cat() {
 
     println!("=== Test completed successfully ===\n");
 }
+
+/// Test that a CAT cannot be set to Success if constituent chains don't match
+/// - Set the CAT to Success with chains 1 and 2
+/// - Attempt to set the CAT to Success with chains 1 only
+/// - Verify that the CAT status is not changed
+#[tokio::test]
+async fn test_cannot_set_success_if_constituent_chains_dont_match() {
+    println!("\n=== Starting test_cannot_set_success_if_constituent_chains_dont_match ===");
+    
+    let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
+    let chain_id_1 = ChainId("chain-1".to_string());
+    let chain_id_2 = ChainId("chain-2".to_string());
+    let chain_id_3 = ChainId("chain-3".to_string());
+    let cat_id = CATId("test-cat".to_string());
+
+    // register also chain-3
+    let (_sender_3, receiver_3) = mpsc::channel(1);
+    hs_node.register_chain(chain_id_3.clone(), receiver_3).await.expect("Failed to register chain-3");
+    
+    // First proposal with chains 1 and 2
+    let constituent_chains_1 = vec![chain_id_1.clone(), chain_id_2.clone()];
+    hs_node.process_cat_status_proposal(
+        cat_id.clone(),
+        chain_id_1.clone(),
+        constituent_chains_1.clone(),
+        CATStatusLimited::Success
+    ).await.expect("Failed to process first proposal");
+
+    // Try to set Success with different constituent chains
+    let constituent_chains_2 = vec![chain_id_2.clone(), chain_id_3.clone()];
+    let result = hs_node.process_cat_status_proposal(
+        cat_id.clone(),
+        chain_id_2.clone(),
+        constituent_chains_2,
+        CATStatusLimited::Success
+    ).await;
+
+    assert!(result.is_err(), "Should not be able to set Success with different constituent chains");
+    if let Err(HyperSchedulerError::ConstituentChainsMismatch { expected, received }) = result {
+        assert_eq!(expected, constituent_chains_1, "Expected first set of constituent chains");
+        assert_eq!(received, vec![chain_id_2.clone(), chain_id_3.clone()], "Expected second set of constituent chains");
+    } else {
+        panic!("Expected ConstituentChainsMismatch error");
+    }
+}

@@ -17,6 +17,8 @@ pub enum HyperSchedulerError {
     DuplicateProposal(CATId),
     #[error("Invalid CAT proposal: {0}")]
     InvalidCATProposal(String),
+    #[error("Constituent chains mismatch: expected {expected:?}, got {received:?}")]
+    ConstituentChainsMismatch { expected: Vec<ChainId>, received: Vec<ChainId> },
 }
 
 #[async_trait]

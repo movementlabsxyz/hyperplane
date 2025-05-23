@@ -14,12 +14,11 @@ use tokio::time::Duration;
 /// - Check that the CAT status is set to the expected status in the HS
 async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CATStatus) {
     println!("\n[TEST]   === Starting test_one_cat ===");
-    let (hs_node, cl_node, _, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, _hig_node_1, _hig_node_2, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
-
 
     // Create a CAT transaction
     let cat_id = CATId("test-cat".to_string());
@@ -38,12 +37,25 @@ async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CA
     }
     println!("[TEST]   Transaction submitted successfully");
 
-    // Wait for message processing
-    println!("[TEST]   Waiting for message processing (200ms)...");
+    // Wait for block production in CL (cat-tx), processing in HIG and HS, and then block production in CL (status-update-tx)
+    println!("[TEST]   Waiting for block production and processing (200ms)...");
     tokio::time::sleep(Duration::from_millis(200)).await;
     println!("[TEST]   Wait complete");
 
-    // create a local scope (note the test fails without this)
+    // Verify block was produced
+    {
+        let node = cl_node.lock().await;
+        let current_block = node.get_current_block().await.expect("Failed to get current block");
+        println!("[TEST]   Current block height: {}", current_block);
+        assert!(current_block >= 1, "No block was produced");
+    }
+
+
+    // Wait to make logs more readable
+    tokio::time::sleep(Duration::from_millis(400)).await;
+
+    // Verify the CAT status in HS
+    println!("[TEST]   Verifying CAT status in HS...");
     {
         let node = hs_node.lock().await;
         let status = node.get_cat_status(cat_id).await.expect("Failed to get CAT status");

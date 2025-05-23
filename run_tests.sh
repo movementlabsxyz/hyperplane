@@ -78,8 +78,7 @@ TESTS=(
 )
 
 TESTS2=(
-    hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
-
+integration::cl_to_hs::channels::test_cat_one_cat_success
 )
 
 # Run the appropriate test set based on the input

@@ -71,18 +71,20 @@ impl HyperSchedulerNode {
         state.registered_chains.insert(chain_id.clone());
         println!("  [HS]   Chain {} registered", chain_id.0);
         
-        // Store the receiver
-        self.receivers_from_hig.insert(chain_id.0.clone(), receiver);
+        // Start message processing for this chain
+        println!("  [HS]   Starting message processing loop for chain '{}'", chain_id.0);
+        let node = Arc::new(Mutex::new(self.clone()));
+        let chain_id_str = chain_id.0.clone();
+        tokio::spawn(async move {
+            HyperSchedulerNode::process_messages_with_receiver(node, chain_id_str, receiver).await;
+        });
+        println!("  [HS]   Message processing loop for chain '{}' should be started", chain_id.0);
         
         Ok(())
     }
 
-    /// Process messages for a specific chain
-    async fn process_messages_for_chain(hs_node: Arc<Mutex<HyperSchedulerNode>>, chain_id: String) {
-        let mut node = hs_node.lock().await;
-        let mut receiver = node.receivers_from_hig.remove(&chain_id).expect("Receiver not found");
-        drop(node); // Release the lock before starting the loop
-        
+    /// Process messages for a specific chain with a given receiver
+    async fn process_messages_with_receiver(hs_node: Arc<Mutex<HyperSchedulerNode>>, chain_id: String, mut receiver: mpsc::Receiver<CATStatusUpdate>) {
         // Process messages
         while let Some(status_update) = receiver.recv().await {
             println!("  [HS]   [Message loop task] Received status proposal for cat-id='{}': data='{:?}' : chains='{:?}'", 
@@ -109,21 +111,25 @@ impl HyperSchedulerNode {
 
     /// Start the message processing loop for all registered chains
     pub async fn start(node: Arc<Mutex<HyperSchedulerNode>>) {
-        let mut handles = Vec::new();
-        {
+        // Collect chain IDs first
+        let chain_ids = {
             let node_guard = node.lock().await;
-            for chain_id in node_guard.receivers_from_hig.keys().cloned().collect::<Vec<_>>() {
-                let node_clone = node.clone();
-                let handle = tokio::spawn(async move {
-                    HyperSchedulerNode::process_messages_for_chain(node_clone, chain_id).await;
-                });
-                handles.push(handle);
-            }
-        }
+            node_guard.receivers_from_hig.keys().cloned().collect::<Vec<_>>()
+        };
         
-        // Wait for all message processing tasks to complete
-        for handle in handles {
-            let _ = handle.await;
+        println!("  [HS]   Starting message processing loop for {} chains: {:?}", chain_ids.len(), chain_ids);
+        
+        // Spawn tasks for each chain
+        for chain_id in chain_ids {
+            println!("  [HS]   Starting message processing loop for chain '{}'", chain_id);
+            let node_clone = node.clone();
+            let receiver = {
+                let mut node_guard = node_clone.lock().await;
+                node_guard.receivers_from_hig.remove(&chain_id).expect("Receiver not found")
+            };
+            tokio::spawn(async move {
+                HyperSchedulerNode::process_messages_with_receiver(node_clone, chain_id, receiver).await;
+            });
         }
     }
 
@@ -218,6 +224,19 @@ impl HyperScheduler for HyperSchedulerNode {
                 return Err(HyperSchedulerError::DuplicateProposal(cat_id));
             }
         }
+
+        // If this is not the first proposal, validate that constituent chains match
+        if state.constituent_chains.contains_key(&cat_id) {
+            let existing_chains = state.constituent_chains.get(&cat_id).unwrap();
+            if existing_chains != &constituent_chains {
+                println!("  [HS]   Constituent chains mismatch for CAT {}: expected {:?}, got {:?}. Aborting message.", 
+                    cat_id.0, existing_chains, constituent_chains);
+                return Err(HyperSchedulerError::ConstituentChainsMismatch {
+                    expected: existing_chains.clone(),
+                    received: constituent_chains,
+                });
+            }
+        }
         
         // Store the status proposal - this should never fail as the map is initialized in new()
         state.cat_chainwise_statuses.entry(cat_id.clone()).or_insert_with(HashMap::new).insert(this_chain_id.clone(), status.clone());
@@ -251,10 +270,7 @@ impl HyperScheduler for HyperSchedulerNode {
             if !matches!(state.cat_statuses.get(&cat_id), Some(CATStatus::Pending)) {
                 return Err(HyperSchedulerError::Internal("Cat status is not pending".to_string()));
             }
-            // the constituent chains recorded for the cat should be the same as the ones in the proposal
-            if state.constituent_chains.get(&cat_id) != Some(&constituent_chains) {
-                return Err(HyperSchedulerError::Internal("Constituent chains do not match".to_string()));
-            }
+            
             // we need to check if the proposed statuses in cat_chainwise_statuses are all present and set to success for all constituent chains
             println!("  [HS]   Checking chain statuses for cat-id='{}'", cat_id.0);
             println!("  [HS]   Constituent chains: {:?}", constituent_chains);

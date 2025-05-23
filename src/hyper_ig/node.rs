@@ -66,8 +66,8 @@ impl HyperIGNode {
             // Try to receive a message
             match receiver.try_recv() {
                 Ok(subblock) => {
-                    println!("  [HIG {:?}]   [Message loop task] Received subblock: block_id={}, chain_id={}, tx_count={}", 
-                        node.state.lock().await.my_chain_id, subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
+                    // println!("  [HIG {:?}]   [Message loop task] Received subblock: block_id={}, chain_id={}, tx_count={}", 
+                    //     node.state.lock().await.my_chain_id, subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
                     
                     // Process the subblock
                     if let Err(e) = node.process_subblock(subblock).await {
