@@ -30,15 +30,13 @@ pub struct ConfirmationLayerNode {
     pub state: Arc<Mutex<ConfirmationLayerState>>,
     /// Receiver for messages from Hyper Scheduler
     receiver_hs_to_cl: Option<mpsc::Receiver<CLTransaction>>,
-    /// Sender for messages to first Hyper IG
-    sender_cl_to_hig1: Option<mpsc::Sender<SubBlock>>,
-    /// Sender for messages to second Hyper IG
-    sender_cl_to_hig2: Option<mpsc::Sender<SubBlock>>,
+    /// Replace individual senders with a collection of senders
+    pub senders_cl_to_hig: HashMap<String, mpsc::Sender<SubBlock>>, // Map HIG ID to its channel
 }
 
 impl ConfirmationLayerNode {
     /// Create a new ConfirmationLayerNode with default settings
-    pub fn new(receiver_hs_to_cl: mpsc::Receiver<CLTransaction>, sender_cl_to_hig1: mpsc::Sender<SubBlock>, sender_cl_to_hig2: mpsc::Sender<SubBlock>) -> Self {
+    pub fn new(receiver_hs_to_cl: mpsc::Receiver<CLTransaction>) -> Self {
         Self {
             state: Arc::new(Mutex::new(ConfirmationLayerState {
                 registered_chains: Vec::new(),
@@ -50,16 +48,13 @@ impl ConfirmationLayerNode {
                 block_transactions: HashMap::new(),
             })),
             receiver_hs_to_cl: Some(receiver_hs_to_cl),
-            sender_cl_to_hig1: Some(sender_cl_to_hig1),
-            sender_cl_to_hig2: Some(sender_cl_to_hig2),
+            senders_cl_to_hig: HashMap::new(), // Initialize empty map for dynamic channels
         }
     }
 
     /// Create a new ConfirmationLayerNode with a custom block interval
     pub fn new_with_block_interval(
         receiver_hs_to_cl: mpsc::Receiver<CLTransaction>,
-        sender_cl_to_hig1: mpsc::Sender<SubBlock>,
-        sender_cl_to_hig2: mpsc::Sender<SubBlock>,
         interval: Duration
     ) -> Result<Self, ConfirmationLayerError> {
         if interval.is_zero() {
@@ -76,9 +71,34 @@ impl ConfirmationLayerNode {
                 block_transactions: HashMap::new(),
             })),
             receiver_hs_to_cl: Some(receiver_hs_to_cl),
-            sender_cl_to_hig1: Some(sender_cl_to_hig1),
-            sender_cl_to_hig2: Some(sender_cl_to_hig2),
+            senders_cl_to_hig: HashMap::new(), // Initialize empty map for dynamic channels
         })
+    }
+
+    /// Register a new channel for a chain
+    pub async fn register_chain_channel(&mut self, chain_id: ChainId, channel: mpsc::Sender<SubBlock>) {
+        if self.senders_cl_to_hig.contains_key(&chain_id.0) {
+            println!("Chain {} is already registered.", chain_id.0);
+        } else {
+            self.senders_cl_to_hig.insert(chain_id.0.clone(), channel);
+            println!("Chain {} registered successfully.", chain_id.0);
+
+            // Register the chain in registered_chains
+            let mut state = self.state.lock().await;
+            if !state.registered_chains.contains(&chain_id) {
+                state.registered_chains.push(chain_id.clone());
+                println!("Chain {} added to registered_chains.", chain_id.0);
+            }
+        }
+    }
+
+    /// Send subblocks to dynamically registered chains
+    pub async fn send_to_registered_chains(&self, subblock: SubBlock) {
+        for (chain_id, sender) in self.senders_cl_to_hig.iter() {
+            if let Err(err) = sender.send(subblock.clone()).await {
+                println!("Failed to send subblock to chain {}: {}", chain_id, err);
+            }
+        }
     }
 
     /// Process messages and create blocks
@@ -140,10 +160,9 @@ impl ConfirmationLayerNode {
                 (current_block_height, processed_this_block, registered_chains)
             };
 
-            // Send subblocks to each chain
+            // Send subblocks to each registered chain
             {
-                #[allow(unused_mut)]
-                let mut state = node.lock().await;
+                let state = node.lock().await;
                 for chain_id in &registered_chains {
                     let subblock = SubBlock {
                         chain_id: chain_id.clone(),
@@ -159,20 +178,16 @@ impl ConfirmationLayerNode {
                             })
                             .collect(),
                     };
-                    // dummy implementation for now
-                    if *chain_id == ChainId("chain-1".to_string()) {
-                        if let Err(e) = state.sender_cl_to_hig1.as_mut().unwrap().send(subblock).await {
-                            println!("  [BLOCK]   Error sending subblock: {}", e);
-                            continue;
-                        }
-                    } else if *chain_id == ChainId("chain-2".to_string()) {
-                        if let Err(e) = state.sender_cl_to_hig2.as_mut().unwrap().send(subblock).await {
-                            println!("  [BLOCK]   Error sending subblock: {}", e);
-                            continue;
+
+                    // Send to the registered chain's HIG channel dynamically
+                    if let Some(sender) = state.senders_cl_to_hig.get(&chain_id.0) {
+                        if let Err(e) = sender.send(subblock).await {
+                            println!("  [BLOCK]   Error sending subblock to chain {}: {}", chain_id.0, e);
                         }
                     } else {
-                        // throw an error
-                        panic!("  [BLOCK]   Chain not registered: {}", chain_id);
+                        println!("  [BLOCK]   No channel found for chain {}", chain_id.0);
+                        // this should be a panic, because we should not be able to have a channel without a registered chain
+                        panic!("No channel found for chain {}", chain_id.0);
                     }
                 }
             }
@@ -262,6 +277,19 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         Ok(state.block_interval)
     }
 
+    async fn register_newchain(&self, chain_id: String, channel: mpsc::Sender<SubBlock>) {
+        let mut senders_cl_to_hig = self.senders_cl_to_hig.clone();
+        if senders_cl_to_hig.contains_key(&chain_id) {
+            println!("HIG node {} is already registered.", chain_id);
+        } else {
+            senders_cl_to_hig.insert(chain_id.clone(), channel);
+            println!("HIG node {} registered successfully.", chain_id);
+        }
+        let mut self_mut = self as *const _ as *mut Self;
+        unsafe {
+            (*self_mut).senders_cl_to_hig = senders_cl_to_hig;
+        }
+    }
 }
 
 #[async_trait::async_trait]
@@ -300,4 +328,9 @@ impl ConfirmationLayer for Arc<Mutex<ConfirmationLayerNode>> {
         let node = self.lock().await;
         node.get_block_interval().await
     }
-} 
+
+    async fn register_newchain(&self, chain_id: String, channel: mpsc::Sender<SubBlock>) {
+        let mut node = self.lock().await;
+        node.register_newchain(chain_id, channel).await;
+    }
+}

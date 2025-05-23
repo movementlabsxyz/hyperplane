@@ -18,16 +18,14 @@ pub async fn setup_test_nodes_with_block_production_choice(block_interval: Durat
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
     let (sender_hig1_to_hs, receiver_hig1_to_hs) = mpsc::channel(100);
     let (sender_hig2_to_hs, receiver_hig2_to_hs) = mpsc::channel(100);
-    let (sender_cl_to_hig1, receiver_cl_to_hig1) = mpsc::channel(100);
-    let (sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(100);
+    let (_sender_cl_to_hig1, receiver_cl_to_hig1) = mpsc::channel(100);
+    let (_sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(100);
     
     // Create nodes with their channels
     let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(receiver_hig1_to_hs, receiver_hig2_to_hs, sender_hs_to_cl)));
     let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
-        sender_cl_to_hig1,
-        sender_cl_to_hig2,
-        block_interval
+        block_interval,
     ).expect("Failed to create confirmation node")));
     let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()))));
     let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()))));

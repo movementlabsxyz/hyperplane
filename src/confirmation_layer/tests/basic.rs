@@ -1,6 +1,6 @@
 use tokio::time::{Duration, sleep};
 use crate::{
-    types::{TransactionId, ChainId, CLTransaction},
+    types::{TransactionId, ChainId, CLTransaction, SubBlock},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError, node::ConfirmationLayerNode},
 };
 use std::sync::Arc;
@@ -10,12 +10,8 @@ use tokio::sync::mpsc;
 /// Helper function to set up a test CL node
 async fn setup_cl_node(block_interval: Duration) -> Arc<Mutex<ConfirmationLayerNode>> {
     let (_sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
-    let (sender_cl_to_hig1, _receiver_cl_to_hig1) = mpsc::channel(100);
-    let (sender_cl_to_hig2, _receiver_cl_to_hig2) = mpsc::channel(100);
     let cl_node = ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
-        sender_cl_to_hig1,
-        sender_cl_to_hig2,
         block_interval
     ).expect("Failed to create CL node");
     let cl_node = Arc::new(Mutex::new(cl_node));
@@ -297,4 +293,30 @@ async fn test_submit_cl_transaction_for_two_chains() {
         assert_eq!(subblock.transactions.len(), 1);
         assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
     }
+}
+
+/// Tests dynamic channel registration and message delivery to dynamically registered HIG nodes
+#[tokio::test]
+async fn test_dynamic_channel_registration() {
+    let cl_node = setup_cl_node(Duration::from_millis(100)).await;
+
+    // Create a mock channel
+    let (tx, mut rx) = mpsc::channel(10);
+    let hig_id = "hig_dynamic".to_string();
+
+    // Register the dynamic channel
+    cl_node.lock().await.register_newchain(hig_id.clone(), tx).await;
+
+    // Verify the channel is registered
+    let senders_cl_to_hig = cl_node.lock().await.senders_cl_to_hig.clone();
+    assert!(senders_cl_to_hig.contains_key(&hig_id));
+
+    // Send a subblock and verify it is received
+    let subblock = SubBlock {
+        chain_id: ChainId("chain-1".to_string()),
+        block_height: 1,
+        transactions: vec![],
+    };
+    cl_node.lock().await.send_to_registered_chains(subblock.clone()).await;
+    assert_eq!(rx.recv().await.unwrap(), subblock);
 }

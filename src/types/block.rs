@@ -7,7 +7,7 @@ use super::{ChainId, Transaction};
 pub struct BlockId(pub String);
 
 /// A sub-block that can be included in a block
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SubBlock {
     /// The block height this subBlock belongs to
     pub block_height: u64,
@@ -21,4 +21,4 @@ impl fmt::Display for BlockId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
-} 
+}

@@ -37,7 +37,7 @@ impl CLTransaction {
 }
 
 /// A simple transaction type for testing destined to be included in a subblock and the respective chain
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Transaction {
     /// Unique identifier for this transaction
     pub id: TransactionId,
@@ -69,4 +69,4 @@ impl fmt::Display for TransactionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
-} 
+}
