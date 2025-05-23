@@ -75,21 +75,24 @@ impl ConfirmationLayerNode {
         })
     }
 
-    /// Register a new channel for a chain
-    pub async fn register_chain_channel(&mut self, chain_id: ChainId, channel: mpsc::Sender<SubBlock>) {
-        if self.senders_cl_to_hig.contains_key(&chain_id.0) {
-            println!("Chain {} is already registered.", chain_id.0);
-        } else {
-            self.senders_cl_to_hig.insert(chain_id.0.clone(), channel);
-            println!("Chain {} registered successfully.", chain_id.0);
+    /// Register a new chain
+    pub async fn register_chain(&mut self, chain_id: ChainId, sender: mpsc::Sender<SubBlock>) -> Result<u64, ConfirmationLayerError> {
+        let mut state = self.state.lock().await;
 
-            // Register the chain in registered_chains
-            let mut state = self.state.lock().await;
-            if !state.registered_chains.contains(&chain_id) {
-                state.registered_chains.push(chain_id.clone());
-                println!("Chain {} added to registered_chains.", chain_id.0);
-            }
+        if self.senders_cl_to_hig.contains_key(&chain_id.0) {
+            println!("[CL]   Chain {} is already registered.", chain_id.0);
+            return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
+
+        self.senders_cl_to_hig.insert(chain_id.0.clone(), sender);
+        println!("[CL]   Channel registered successfully for chain '{}'.", chain_id.0);
+
+        if !state.registered_chains.contains(&chain_id) {
+            state.registered_chains.push(chain_id.clone());
+            println!("[CL]   Chain {} added to registered_chains.", chain_id.0);
+        }
+
+        Ok(state.current_block_height)
     }
 
     /// Send subblocks to dynamically registered chains
@@ -203,15 +206,6 @@ impl ConfirmationLayerNode {
 
 #[async_trait::async_trait]
 impl ConfirmationLayer for ConfirmationLayerNode {
-    async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError> {
-        let mut state = self.state.lock().await;
-        if state.registered_chains.contains(&chain_id) {
-            return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
-        }
-        state.registered_chains.push(chain_id);
-        Ok(state.current_block_height)
-    }
-
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
         let mut state = self.state.lock().await;
         
@@ -277,28 +271,29 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         Ok(state.block_interval)
     }
 
-    async fn register_newchain(&self, chain_id: String, channel: mpsc::Sender<SubBlock>) {
-        let mut senders_cl_to_hig = self.senders_cl_to_hig.clone();
-        if senders_cl_to_hig.contains_key(&chain_id) {
-            println!("HIG node {} is already registered.", chain_id);
-        } else {
-            senders_cl_to_hig.insert(chain_id.clone(), channel);
-            println!("HIG node {} registered successfully.", chain_id);
+    async fn register_chain(&mut self, chain_id: ChainId, sender: mpsc::Sender<SubBlock>) -> Result<u64, ConfirmationLayerError> {
+        let mut state = self.state.lock().await;
+
+        if self.senders_cl_to_hig.contains_key(&chain_id.0) {
+            println!("[CL]   Chain {} is already registered.", chain_id.0);
+            return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
-        let mut self_mut = self as *const _ as *mut Self;
-        unsafe {
-            (*self_mut).senders_cl_to_hig = senders_cl_to_hig;
+
+        self.senders_cl_to_hig.insert(chain_id.0.clone(), sender);
+        println!("[CL]   Channel registered successfully for chain '{}'.", chain_id.0);
+
+        if !state.registered_chains.contains(&chain_id) {
+            state.registered_chains.push(chain_id.clone());
+            println!("[CL]   Chain {} added to registered_chains.", chain_id.0);
         }
+
+        Ok(state.current_block_height)
     }
+
 }
 
 #[async_trait::async_trait]
 impl ConfirmationLayer for Arc<Mutex<ConfirmationLayerNode>> {
-    async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError> {
-        let mut node = self.lock().await;
-        node.register_chain(chain_id).await
-    }
-
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
         let mut node = self.lock().await;
         node.submit_transaction(transaction).await
@@ -329,8 +324,9 @@ impl ConfirmationLayer for Arc<Mutex<ConfirmationLayerNode>> {
         node.get_block_interval().await
     }
 
-    async fn register_newchain(&self, chain_id: String, channel: mpsc::Sender<SubBlock>) {
+    async fn register_chain(&mut self, chain_id: ChainId, sender: mpsc::Sender<SubBlock>) -> Result<u64, ConfirmationLayerError> {
         let mut node = self.lock().await;
-        node.register_newchain(chain_id, channel).await;
+        node.register_chain(chain_id, sender).await
     }
+
 }

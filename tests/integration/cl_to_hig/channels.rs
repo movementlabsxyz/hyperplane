@@ -7,6 +7,7 @@ use hyperplane::{
 };
 use super::super::common::testnodes;
 use tokio::time::Duration;
+use tokio::sync::mpsc;
 
 /// Helper function: Test that a subblock with new transactions is properly processed by the HIG:
 /// - Submit a regular transaction to the CL
@@ -29,8 +30,9 @@ async fn run_test_process_subblock(
     println!("[TEST]   Registering chain: {}", chain_id.0);
     // create a local scope (note the test currently fails without this)
     {
-        let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+        let mut cl_node_guard = cl_node.lock().await;
+        let (sender, _receiver) = mpsc::channel(10);
+        cl_node_guard.register_chain(chain_id.clone(), sender).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain registered successfully");
 

@@ -7,6 +7,7 @@ use hyperplane::{
 };
 use super::super::common::testnodes;
 use tokio::time::{Duration, timeout};
+use tokio::sync::mpsc;
 
 
 // take inspiration from cl_to_cl/channels.rs
@@ -22,7 +23,7 @@ async fn run_two_chain_cat_test(expected_status: CATStatusLimited) {
     
     // Initialize components with 100ms block interval
     println!("[TEST]   Setting up test nodes with 100ms block interval...");
-    let (_hs_node, cl_node, hig_node_1, _hig_node_2, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    let (hs_node, cl_node, hig_node_1, _hig_node_2, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
     // Register chain
@@ -30,15 +31,17 @@ async fn run_two_chain_cat_test(expected_status: CATStatusLimited) {
     let chain_id_2 = ChainId("chain-2".to_string());
     println!("[TEST]   Registering chains: {} and {}", chain_id_1.0, chain_id_2.0);
     {
-        let mut node_guard = cl_node.lock().await;
-        node_guard.register_chain(chain_id_1.clone()).await.expect("Failed to register chain");
-        node_guard.register_chain(chain_id_2.clone()).await.expect("Failed to register chain");
+        let mut cl_node_guard = cl_node.lock().await;
+        let (sender_1, _receiver_1) = mpsc::channel(10);
+        let (sender_2, _receiver_2) = mpsc::channel(10);
+        cl_node_guard.register_chain(chain_id_1.clone(), sender_1).await.expect("Failed to register chain");
+        cl_node_guard.register_chain(chain_id_2.clone(), sender_2).await.expect("Failed to register chain");
     }
     // Register chain in HS node
     {
-        let mut node_guard = _hs_node.lock().await;
-        node_guard.register_chain(chain_id_1.clone()).await.expect("Failed to register chain");
-        node_guard.register_chain(chain_id_2.clone()).await.expect("Failed to register chain");
+        let mut hs_node_guard = hs_node.lock().await;
+        hs_node_guard.register_chain(chain_id_1.clone()).await.expect("Failed to register chain");
+        hs_node_guard.register_chain(chain_id_2.clone()).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain registered successfully");
 

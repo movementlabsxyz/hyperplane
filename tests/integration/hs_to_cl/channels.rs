@@ -7,6 +7,7 @@ use hyperplane::{
 };
 use super::super::common::testnodes;
 use tokio::time::Duration;
+use tokio::sync::mpsc;
 
 /// Tests that a single-chain CAT status update is properly included in a block:
 /// - HS submits a single-chain CAT status update to CL
@@ -21,8 +22,9 @@ async fn test_single_chain_cat_status_update() {
     let chain_id = ChainId("chain-1".to_string());
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
-        let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
+        let mut cl_node_guard = cl_node.lock().await;
+        let (sender, _receiver) = mpsc::channel(10);
+        cl_node_guard.register_chain(chain_id.clone(), sender).await.expect("Failed to register chain");
     }
     println!("[TEST]   Chain registered successfully");
 
@@ -89,7 +91,8 @@ async fn test_several_single_chain_cat_status_updates() {
     println!("[TEST]   Registering chain: {}", chain_id.0);
     {
         let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone())
+        let (sender, _receiver) = mpsc::channel(10);
+        node.register_chain(chain_id.clone(), sender)
             .await
             .expect("Failed to register chain");
     }

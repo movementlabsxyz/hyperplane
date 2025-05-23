@@ -24,8 +24,15 @@ async fn setup_cl_node_with_registration(block_interval: Duration) -> Arc<Mutex<
     let cl_node = setup_cl_node(block_interval).await;
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
-    cl_node.lock().await.register_chain(chain_id_1.clone()).await.expect("Failed to register chain");
-    cl_node.lock().await.register_chain(chain_id_2.clone()).await.expect("Failed to register chain");
+
+    // Create mock channels for the chains
+    let (sender_1, _receiver_1) = mpsc::channel(10);
+    let (sender_2, _receiver_2) = mpsc::channel(10);
+
+    // Register the chains with their channels
+    cl_node.lock().await.register_chain(chain_id_1.clone(), sender_1).await;
+    cl_node.lock().await.register_chain(chain_id_2.clone(), sender_2).await;
+
     cl_node
 }
 
@@ -138,7 +145,8 @@ async fn test_chain_registration() {
     // Register a chain
     println!("[TEST]   Registering chain...");
     let chain_id = ChainId("chain-1".to_string());
-    let result = cl_node.lock().await.register_chain(chain_id.clone()).await;
+    let (sender, _receiver) = mpsc::channel(10);
+    let result = cl_node.lock().await.register_chain(chain_id.clone(), sender).await;
     assert!(result.is_ok(), "Failed to register chain");
     println!("[TEST]   Chain registered successfully");
 
@@ -151,7 +159,8 @@ async fn test_chain_registration() {
 
     // Try to register the same chain again
     println!("[TEST]   Attempting duplicate registration...");
-    let result = cl_node.lock().await.register_chain(chain_id.clone()).await;
+    let (sender_again, _receiver_again) = mpsc::channel(10);
+    let result = cl_node.lock().await.register_chain(chain_id.clone(),sender_again).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainAlreadyRegistered(_))), 
         "Should not be able to register chain twice");
     println!("[TEST]   Duplicate registration correctly rejected");
@@ -228,7 +237,8 @@ async fn test_get_registered_chains() {
 
     // Register a third chain
     let chain_id = ChainId("chain-3".to_string());
-    cl_node.lock().await.register_chain(chain_id.clone()).await.unwrap();
+    let (sender, _receiver) = mpsc::channel(10);
+    cl_node.lock().await.register_chain(chain_id.clone(),sender).await.unwrap();
 
     // Verify registered chain is returned
     let chains = cl_node.lock().await.get_registered_chains().await.unwrap();
@@ -305,7 +315,7 @@ async fn test_dynamic_channel_registration() {
     let hig_id = "hig_dynamic".to_string();
 
     // Register the dynamic channel
-    cl_node.lock().await.register_newchain(hig_id.clone(), tx).await;
+    cl_node.lock().await.register_chain(ChainId(hig_id.clone()), tx).await;
 
     // Verify the channel is registered
     let senders_cl_to_hig = cl_node.lock().await.senders_cl_to_hig.clone();
