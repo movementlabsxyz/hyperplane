@@ -1,6 +1,6 @@
 use tokio::time::{Duration, sleep};
 use crate::{
-    types::{TransactionId, ChainId, CLTransaction},
+    types::{TransactionId, ChainId, CLTransaction, SubBlock},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError, node::ConfirmationLayerNode},
 };
 use std::sync::Arc;
@@ -10,12 +10,8 @@ use tokio::sync::mpsc;
 /// Helper function to set up a test CL node
 async fn setup_cl_node(block_interval: Duration) -> Arc<Mutex<ConfirmationLayerNode>> {
     let (_sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
-    let (sender_cl_to_hig1, _receiver_cl_to_hig1) = mpsc::channel(100);
-    let (sender_cl_to_hig2, _receiver_cl_to_hig2) = mpsc::channel(100);
     let cl_node = ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
-        sender_cl_to_hig1,
-        sender_cl_to_hig2,
         block_interval
     ).expect("Failed to create CL node");
     let cl_node = Arc::new(Mutex::new(cl_node));
@@ -28,8 +24,15 @@ async fn setup_cl_node_with_registration(block_interval: Duration) -> Arc<Mutex<
     let cl_node = setup_cl_node(block_interval).await;
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
-    cl_node.lock().await.register_chain(chain_id_1.clone()).await.expect("Failed to register chain");
-    cl_node.lock().await.register_chain(chain_id_2.clone()).await.expect("Failed to register chain");
+
+    // Create mock channels for the chains
+    let (sender_1, _receiver_1) = mpsc::channel(10);
+    let (sender_2, _receiver_2) = mpsc::channel(10);
+
+    // Register the chains with their channels
+    cl_node.lock().await.register_chain(chain_id_1.clone(), sender_1).await.expect("Failed to register chain-1");
+    cl_node.lock().await.register_chain(chain_id_2.clone(), sender_2).await.expect("Failed to register chain-2");
+
     cl_node
 }
 
@@ -142,7 +145,8 @@ async fn test_chain_registration() {
     // Register a chain
     println!("[TEST]   Registering chain...");
     let chain_id = ChainId("chain-1".to_string());
-    let result = cl_node.lock().await.register_chain(chain_id.clone()).await;
+    let (sender, _receiver) = mpsc::channel(10);
+    let result = cl_node.lock().await.register_chain(chain_id.clone(), sender).await;
     assert!(result.is_ok(), "Failed to register chain");
     println!("[TEST]   Chain registered successfully");
 
@@ -155,7 +159,8 @@ async fn test_chain_registration() {
 
     // Try to register the same chain again
     println!("[TEST]   Attempting duplicate registration...");
-    let result = cl_node.lock().await.register_chain(chain_id.clone()).await;
+    let (sender_again, _receiver_again) = mpsc::channel(10);
+    let result = cl_node.lock().await.register_chain(chain_id.clone(),sender_again).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainAlreadyRegistered(_))), 
         "Should not be able to register chain twice");
     println!("[TEST]   Duplicate registration correctly rejected");
@@ -232,7 +237,8 @@ async fn test_get_registered_chains() {
 
     // Register a third chain
     let chain_id = ChainId("chain-3".to_string());
-    cl_node.lock().await.register_chain(chain_id.clone()).await.unwrap();
+    let (sender, _receiver) = mpsc::channel(10);
+    cl_node.lock().await.register_chain(chain_id.clone(), sender).await.expect("Failed to register chain-3");
 
     // Verify registered chain is returned
     let chains = cl_node.lock().await.get_registered_chains().await.unwrap();
@@ -297,4 +303,40 @@ async fn test_submit_cl_transaction_for_two_chains() {
         assert_eq!(subblock.transactions.len(), 1);
         assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
     }
+}
+
+/// Tests dynamic channel registration and message delivery to dynamically registered HIG nodes
+#[tokio::test]
+async fn test_dynamic_channel_registration() {
+    let cl_node = setup_cl_node(Duration::from_millis(100)).await;
+
+    // Create a mock channel
+    let (sender, mut receiver) = mpsc::channel(10);
+    let hig_id = "hig_dynamic".to_string();
+    let chain_id = ChainId(hig_id.clone());
+
+    // Register the dynamic channel
+    cl_node.lock().await.register_chain(chain_id.clone(), sender).await.expect("Failed to register dynamic channel");
+
+    // Verify the channel is registered
+    let senders_cl_to_hig = cl_node.lock().await.senders_cl_to_hig.clone();
+    assert!(senders_cl_to_hig.contains_key(&hig_id));
+
+    // Submit a transaction to trigger block creation
+    let tx = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        vec![chain_id.clone()],
+        "REGULAR.SIMULATION:Success".to_string()
+    ).expect("Failed to create transaction");
+    cl_node.lock().await.submit_transaction(tx).await.expect("Failed to submit transaction");
+
+    // Wait for block production
+    sleep(Duration::from_millis(200)).await;
+
+    // Verify we received a subblock
+    let subblock = receiver.recv().await.expect("Failed to receive subblock");
+    assert_eq!(subblock.chain_id, chain_id);
+    assert_eq!(subblock.block_height, 1);
+    assert_eq!(subblock.transactions.len(), 1);
+    assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
 }

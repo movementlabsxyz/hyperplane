@@ -23,9 +23,8 @@ pub struct HyperSchedulerState {
 pub struct HyperSchedulerNode {
     /// The internal state of the node
     pub state: Arc<Mutex<HyperSchedulerState>>,
-    /// Receiver for messages from Hyper IG
-    pub receiver_from_hig_1: Option<mpsc::Receiver<CATStatusUpdate>>,
-    pub receiver_from_hig_2: Option<mpsc::Receiver<CATStatusUpdate>>,
+    /// Map of chain IDs to their receivers from HIG
+    pub receivers_from_hig: HashMap<String, mpsc::Receiver<CATStatusUpdate>>,
     /// Sender for messages to CL
     pub sender_to_cl: Option<mpsc::Sender<CLTransaction>>,
 }
@@ -34,8 +33,7 @@ impl Clone for HyperSchedulerNode {
     fn clone(&self) -> Self {
         Self {
             state: self.state.clone(),
-            receiver_from_hig_1: None, // Can't clone receiver
-            receiver_from_hig_2: None, // Can't clone receiver
+            receivers_from_hig: HashMap::new(), // Can't clone receivers
             sender_to_cl: self.sender_to_cl.clone(),
         }
     }
@@ -43,7 +41,7 @@ impl Clone for HyperSchedulerNode {
 
 impl HyperSchedulerNode {
     /// Create a new HyperSchedulerNode
-    pub fn new(receiver_from_hig_1: mpsc::Receiver<CATStatusUpdate>, receiver_from_hig_2: mpsc::Receiver<CATStatusUpdate>, sender_to_cl: mpsc::Sender<CLTransaction>) -> Self {
+    pub fn new(sender_to_cl: mpsc::Sender<CLTransaction>) -> Self {
         Self {
             state: Arc::new(Mutex::new(HyperSchedulerState {
                 cat_statuses: HashMap::new(),
@@ -51,8 +49,7 @@ impl HyperSchedulerNode {
                 constituent_chains: HashMap::new(),
                 cat_chainwise_statuses: HashMap::new(),
             })),
-            receiver_from_hig_1: Some(receiver_from_hig_1),
-            receiver_from_hig_2: Some(receiver_from_hig_2),
+            receivers_from_hig: HashMap::new(),
             sender_to_cl: Some(sender_to_cl),
         }
     }
@@ -62,22 +59,36 @@ impl HyperSchedulerNode {
         self.sender_to_cl.as_ref().expect("Sender to CL not set").clone()
     }
 
-    /// Process messages without holding the node lock
-    pub async fn process_messages(hs_node: Arc<Mutex<HyperSchedulerNode>>, which_receiver: u8) {
-        // println!("  [HS]   [Message loop task] Attempting to acquire hs_node lock...");
-        let mut node = hs_node.lock().await;
-        // println!("  [HS]   [Message loop task] Acquired hs_node lock");
-        let mut receiver = match which_receiver {
-            1 => node.receiver_from_hig_1.take().expect("Receiver already taken"),
-            2 => node.receiver_from_hig_2.take().expect("Receiver already taken"),
-            _ => panic!("Invalid receiver index"),
-        };
-        drop(node); // Release the lock before starting the loop
-        // println!("  [HS]   [Message loop task] Released hs_node lock");
+    /// Register a new chain with its receiver channel
+    pub async fn register_chain(&mut self, chain_id: ChainId, receiver: mpsc::Receiver<CATStatusUpdate>) -> Result<(), HyperSchedulerError> {
+        let mut state = self.state.lock().await;
+        if state.registered_chains.contains(&chain_id) {
+            println!("  [HS]   Chain {} already registered", chain_id.0);
+            return Err(HyperSchedulerError::Internal(format!("Chain {} already registered", chain_id.0)));
+        }
         
+        // Register the chain in state
+        state.registered_chains.insert(chain_id.clone());
+        println!("  [HS]   Chain {} registered", chain_id.0);
+        
+        // Start message processing for this chain
+        println!("  [HS]   Starting message processing loop for chain '{}'", chain_id.0);
+        let node = Arc::new(Mutex::new(self.clone()));
+        let chain_id_str = chain_id.0.clone();
+        tokio::spawn(async move {
+            HyperSchedulerNode::process_messages_with_receiver(node, chain_id_str, receiver).await;
+        });
+        println!("  [HS]   Message processing loop for chain '{}' should be started", chain_id.0);
+        
+        Ok(())
+    }
+
+    /// Process messages for a specific chain with a given receiver
+    async fn process_messages_with_receiver(hs_node: Arc<Mutex<HyperSchedulerNode>>, chain_id: String, mut receiver: mpsc::Receiver<CATStatusUpdate>) {
         // Process messages
         while let Some(status_update) = receiver.recv().await {
-            println!("  [HS]   [Message loop task] Received status proposal for cat-id='{}': data='{:?}' : chains='{:?}'", status_update.cat_id, status_update.status, status_update.constituent_chains);
+            println!("  [HS]   [Message loop task] Received status proposal for cat-id='{}': data='{:?}' : chains='{:?}'", 
+                status_update.cat_id, status_update.status, status_update.constituent_chains);
 
             let mut node = hs_node.lock().await;
             if let Err(e) = node.process_cat_status_proposal(
@@ -95,29 +106,32 @@ impl HyperSchedulerNode {
                 println!("  [HS]   Failed to send status update: {:?}", e);
             }
         }
-        println!("  [HS]   [Message loop task] Message processing loop exiting");
+        println!("  [HS]   [Message loop task] Message processing loop exiting for chain {}", chain_id);
     }
 
-    /// Start the message processing loop 
+    /// Start the message processing loop for all registered chains
     pub async fn start(node: Arc<Mutex<HyperSchedulerNode>>) {
-        let node1 = node.clone();
-        let node2 = node.clone();
-        tokio::spawn(async move { HyperSchedulerNode::process_messages(node1, 1).await });
-        tokio::spawn(async move { HyperSchedulerNode::process_messages(node2, 2).await });
-    }
-
-    /// Register a chain with the HyperSchedulerNode
-    pub async fn register_chain(&mut self, chain_id: ChainId) -> Result<(), String> {
-        let mut state = self.state.lock().await;
-        if state.registered_chains.contains(&chain_id) {
-            return Err(format!("   [HS]   Chain {} already registered", chain_id.0));
+        // Collect chain IDs first
+        let chain_ids = {
+            let node_guard = node.lock().await;
+            node_guard.receivers_from_hig.keys().cloned().collect::<Vec<_>>()
+        };
+        
+        println!("  [HS]   Starting message processing loop for {} chains: {:?}", chain_ids.len(), chain_ids);
+        
+        // Spawn tasks for each chain
+        for chain_id in chain_ids {
+            println!("  [HS]   Starting message processing loop for chain '{}'", chain_id);
+            let node_clone = node.clone();
+            let receiver = {
+                let mut node_guard = node_clone.lock().await;
+                node_guard.receivers_from_hig.remove(&chain_id).expect("Receiver not found")
+            };
+            tokio::spawn(async move {
+                HyperSchedulerNode::process_messages_with_receiver(node_clone, chain_id, receiver).await;
+            });
         }
-        state.registered_chains.insert(chain_id.clone());
-        println!("   [HS]   Chain {} registered", chain_id.0);
-        Ok(())
     }
-
-
 
     /// Submit a transaction to the confirmation layer
     pub async fn submit_transaction_to_cl(&mut self, tx: CLTransaction) -> Result<(), String> {
@@ -155,6 +169,12 @@ impl HyperScheduler for HyperSchedulerNode {
     async fn get_pending_cats(&self) -> Result<Vec<CATId>, HyperSchedulerError> {
         Ok(self.state.lock().await.cat_statuses.keys().cloned().collect())
     }
+
+    async fn get_registered_chains(&self) -> Result<Vec<ChainId>, HyperSchedulerError> {
+        let state = self.state.lock().await;
+        Ok(state.registered_chains.iter().cloned().collect())
+    }
+
     /// Process a status proposal for a CAT
     /// 
     /// cat_id: the ID of the CAT
@@ -182,6 +202,18 @@ impl HyperScheduler for HyperSchedulerNode {
             ));
         }
 
+        // Check if all constituent chains are registered
+        let state = self.state.lock().await;
+        for chain_id in &constituent_chains {
+            if !state.registered_chains.contains(chain_id) {
+                println!("  [HS]   Chain '{}' is not registered", chain_id.0);
+                return Err(HyperSchedulerError::InvalidCATProposal(
+                    format!("Chain '{}' is not registered", chain_id.0)
+                ));
+            }
+        }
+        drop(state);
+
         println!("  [HS]   process_cat_status_proposal called for cat-id='{}' by chain-id='{}' with status {:?}", cat_id.0, this_chain_id.0, status);
         let mut state = self.state.lock().await;
         
@@ -192,14 +224,27 @@ impl HyperScheduler for HyperSchedulerNode {
                 return Err(HyperSchedulerError::DuplicateProposal(cat_id));
             }
         }
+
+        // If this is not the first proposal, validate that constituent chains match
+        if state.constituent_chains.contains_key(&cat_id) {
+            let existing_chains = state.constituent_chains.get(&cat_id).unwrap();
+            if existing_chains != &constituent_chains {
+                println!("  [HS]   Constituent chains mismatch for CAT {}: expected {:?}, got {:?}. Aborting message.", 
+                    cat_id.0, existing_chains, constituent_chains);
+                return Err(HyperSchedulerError::ConstituentChainsMismatch {
+                    expected: existing_chains.clone(),
+                    received: constituent_chains,
+                });
+            }
+        }
         
         // Store the status proposal - this should never fail as the map is initialized in new()
         state.cat_chainwise_statuses.entry(cat_id.clone()).or_insert_with(HashMap::new).insert(this_chain_id.clone(), status.clone());
         println!("  [HS]   Proposal for {} from {} set to {:?}", cat_id.0, this_chain_id.0, status);
 
-        // when reaching this point the cat should not be set to success. this is a severe bug so we should panic
+        // when reaching this point the cat should not be set to success. this is a severe bug so we should return an error
         if matches!(state.cat_statuses.get(&cat_id), Some(CATStatus::Success)) {
-            panic!("  [HS]   Cat status is already set to success. This is a severe bug, please fix immediately.");
+            return Err(HyperSchedulerError::Internal("  [HS]   Cat status is already set to success".to_string()));
         }
 
         // if the cat is already set to failure, we don't need to do anything
@@ -225,10 +270,7 @@ impl HyperScheduler for HyperSchedulerNode {
             if !matches!(state.cat_statuses.get(&cat_id), Some(CATStatus::Pending)) {
                 return Err(HyperSchedulerError::Internal("Cat status is not pending".to_string()));
             }
-            // the constituent chains recorded for the cat should be the same as the ones in the proposal
-            if state.constituent_chains.get(&cat_id) != Some(&constituent_chains) {
-                return Err(HyperSchedulerError::Internal("Constituent chains do not match".to_string()));
-            }
+            
             // we need to check if the proposed statuses in cat_chainwise_statuses are all present and set to success for all constituent chains
             println!("  [HS]   Checking chain statuses for cat-id='{}'", cat_id.0);
             println!("  [HS]   Constituent chains: {:?}", constituent_chains);

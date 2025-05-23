@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use std::time::Duration;
 use thiserror::Error;
 use crate::types::{ChainId, SubBlock, CLTransaction};
+use tokio::sync::mpsc; // Import the correct mpsc module
 
 pub mod node;
 pub use node::ConfirmationLayerNode;
@@ -28,7 +29,7 @@ pub enum ConfirmationLayerError {
 #[async_trait]
 pub trait ConfirmationLayer: Send + Sync {
     /// Register a new chain with the confirmation layer
-    async fn register_chain(&mut self, chain_id: ChainId) -> Result<u64, ConfirmationLayerError>;
+    async fn register_chain(&mut self, chain_id: ChainId, sender: mpsc::Sender<SubBlock>) -> Result<u64, ConfirmationLayerError>;
 
     /// Get the current block ID
     async fn get_current_block(&self) -> Result<u64, ConfirmationLayerError>;
@@ -47,4 +48,4 @@ pub trait ConfirmationLayer: Send + Sync {
 
     /// Submit a subblock transaction to be included in the next block
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError>;
-} 
+}

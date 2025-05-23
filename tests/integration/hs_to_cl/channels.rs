@@ -17,22 +17,7 @@ async fn test_single_chain_cat_status_update() {
     let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
-    // Register a chain
     let chain_id = ChainId("chain-1".to_string());
-    println!("[TEST]   Registering chain: {}", chain_id.0);
-    {
-        let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain registered successfully");
-
-    // Set the chain ID in HS
-    println!("[TEST]   Setting chain ID in HS...");
-    {
-        let mut node = hs_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain ID set in HS");
 
     // Send a CAT status update
     let cat_id = CATId("test-cat".to_string());
@@ -84,24 +69,7 @@ async fn test_several_single_chain_cat_status_updates() {
     let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
-    // Register a test chain
     let chain_id = ChainId("chain-1".to_string());
-    println!("[TEST]   Registering chain: {}", chain_id.0);
-    {
-        let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone())
-            .await
-            .expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain registered successfully");
-
-    // Set the chain ID in HS
-    println!("[TEST]   Setting chain ID in HS...");
-    {
-        let mut node = hs_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain ID set in HS");
 
     // Create and send multiple CAT status updates
     let updates = vec![

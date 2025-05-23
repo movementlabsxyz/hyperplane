@@ -24,16 +24,6 @@ async fn run_test_process_subblock(
     let (_hs_node, cl_node, hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
-    // Register chain
-    let chain_id = ChainId("chain-1".to_string());
-    println!("[TEST]   Registering chain: {}", chain_id.0);
-    // create a local scope (note the test currently fails without this)
-    {
-        let mut node = cl_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain registered successfully");
-
     // Submit regular transaction to CL
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),

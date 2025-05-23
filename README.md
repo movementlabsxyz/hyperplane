@@ -49,15 +49,14 @@ Handles communication between nodes using:
 ## Project Structure
 ```
 hyperplane/
+├── documentation/       # Project documentation
 ├── src/
 │   ├── types/           # Core type definitions
 │   ├── hyper_ig/        # Hyper Information Gateway
 │   ├── hyper_scheduler/ # Hyper Scheduler
 │   ├── confirmation/    # Confirmation Layer
 │   └── network/         # Network communication
-├── tests/               # Integration tests
-├── examples/            # Example usage
-└── documentation/       # Project documentation
+└── tests/               # Integration tests
 ```
 
 ## Development Status
