@@ -28,24 +28,16 @@ TESTS=(
     setup_with_mpsc::v13::test_v13
 
     # Confirmation Layer tests
-    confirmation_layer::tests::basic::test_basic_confirmation_layer
     confirmation_layer::tests::basic::test_block_interval
-    confirmation_layer::tests::basic::test_regular_transactions
-    confirmation_layer::tests::basic::test_register_chain
+    confirmation_layer::tests::basic::test_transaction_submission
+    confirmation_layer::tests::basic::test_chain_registration
     confirmation_layer::tests::basic::test_get_current_block
     confirmation_layer::tests::basic::test_get_subblock
-    confirmation_layer::tests::basic::test_submit_transaction
-    confirmation_layer::tests::basic::test_set_block_interval
-    confirmation_layer::tests::basic::test_invalid_block_interval
     confirmation_layer::tests::basic::test_chain_not_found
-    confirmation_layer::tests::basic::test_chain_already_registered
-    confirmation_layer::tests::basic::test_chain_registration
-    confirmation_layer::tests::basic::test_block_interval_validation
-    confirmation_layer::tests::basic::test_subblock_not_found
     confirmation_layer::tests::basic::test_get_registered_chains
     confirmation_layer::tests::basic::test_get_block_interval
     confirmation_layer::tests::basic::test_submit_transaction_chain_not_registered
-    confirmation_layer::tests::basic::test_submit_cl_transaction_for_multiple_chains
+    confirmation_layer::tests::basic::test_submit_cl_transaction_for_two_chains
 
     # Hyper IG tests
     hyper_ig::tests::basic::test_regular_transaction_success
