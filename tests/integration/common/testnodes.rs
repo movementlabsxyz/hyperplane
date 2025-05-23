@@ -22,7 +22,7 @@ pub async fn setup_test_nodes(block_interval: Duration)
     let (sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(100);
     
     // Create nodes with their channels
-    let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(receiver_hig1_to_hs, receiver_hig2_to_hs, sender_hs_to_cl)));
+    let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(sender_hs_to_cl)));
     let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
         receiver_hs_to_cl,
         block_interval,
@@ -43,6 +43,13 @@ pub async fn setup_test_nodes(block_interval: Duration)
         let mut cl_node_guard = cl_node.lock().await;
         cl_node_guard.register_chain(chain_id_1.clone(), sender_cl_to_hig1).await.expect("Failed to register chain");
         cl_node_guard.register_chain(chain_id_2.clone(), sender_cl_to_hig2).await.expect("Failed to register chain");
+    }
+
+    // Register chains in HS
+    {
+        let mut hs_node_guard = hs_node.lock().await;
+        hs_node_guard.register_chain(chain_id_1.clone(), receiver_hig1_to_hs).await.expect("Failed to register chain");
+        hs_node_guard.register_chain(chain_id_2.clone(), receiver_hig2_to_hs).await.expect("Failed to register chain");
     }
 
     // Wait for block production to be ready

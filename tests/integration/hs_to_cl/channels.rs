@@ -19,14 +19,6 @@ async fn test_single_chain_cat_status_update() {
 
     let chain_id = ChainId("chain-1".to_string());
 
-    // Set the chain ID in HS
-    println!("[TEST]   Setting chain ID in HS...");
-    {
-        let mut node = hs_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain ID set in HS");
-
     // Send a CAT status update
     let cat_id = CATId("test-cat".to_string());
     println!("[TEST]   Sending CAT status update for '{}'...", cat_id.0);
@@ -78,14 +70,6 @@ async fn test_several_single_chain_cat_status_updates() {
     println!("[TEST]   Test nodes initialized successfully");
 
     let chain_id = ChainId("chain-1".to_string());
-
-    // Set the chain ID in HS
-    println!("[TEST]   Setting chain ID in HS...");
-    {
-        let mut node = hs_node.lock().await;
-        node.register_chain(chain_id.clone()).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain ID set in HS");
 
     // Create and send multiple CAT status updates
     let updates = vec![

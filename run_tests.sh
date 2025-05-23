@@ -49,6 +49,7 @@ TESTS=(
     hyper_ig::tests::basic::test_wrong_chain_subblock
 
     # Hyper Scheduler tests
+    hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
     hyper_scheduler::tests::basic::test_receive_success_proposal_first_message
     hyper_scheduler::tests::basic::test_receive_failure_proposal_first_message
     hyper_scheduler::tests::basic::test_duplicate_rejection
@@ -77,14 +78,15 @@ TESTS=(
 )
 
 TESTS2=(
-integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_failure
+    hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
+
 )
 
 # Run the appropriate test set based on the input
 if [ "$1" = "1" ]; then
     for test in "${TESTS[@]}"; do
         echo -e "\nRunning $test..."
-        cargo test $test -- --test-threads=1 --nocapture | grep "FAILED"
+        cargo test $test -- --test-threads=1 --nocapture #| grep "FAILED"
     done
 elif [ "$1" = "2" ]; then
     for test in "${TESTS2[@]}"; do

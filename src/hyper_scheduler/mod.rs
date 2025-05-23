@@ -27,6 +27,9 @@ pub trait HyperScheduler: Send + Sync {
     /// Get all pending CAT IDs
     async fn get_pending_cats(&self) -> Result<Vec<CATId>, HyperSchedulerError>;
 
+    /// Get all registered chains
+    async fn get_registered_chains(&self) -> Result<Vec<ChainId>, HyperSchedulerError>;
+
     /// Receive a CAT status proposal from the Hyper IG
     async fn process_cat_status_proposal(&mut self, cat_id: CATId, this_chain_id: ChainId, constituent_chains: Vec<ChainId>, status: CATStatusLimited) -> Result<(), HyperSchedulerError>;
 

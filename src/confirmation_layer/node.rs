@@ -31,7 +31,7 @@ pub struct ConfirmationLayerNode {
     /// Receiver for messages from Hyper Scheduler
     receiver_hs_to_cl: Option<mpsc::Receiver<CLTransaction>>,
     /// Replace individual senders with a collection of senders
-    pub senders_cl_to_hig: HashMap<String, mpsc::Sender<SubBlock>>, // Map HIG ID to its channel
+    pub senders_cl_to_hig: HashMap<String, mpsc::Sender<SubBlock>>, // Map chain ID to its channel
 }
 
 impl ConfirmationLayerNode {
