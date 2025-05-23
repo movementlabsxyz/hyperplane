@@ -7,7 +7,6 @@ use hyperplane::{
 };
 use super::super::common::testnodes;
 use tokio::time::Duration;
-use tokio::sync::mpsc;
 
 /// Tests that a single-chain CAT status update is properly included in a block:
 /// - HS submits a single-chain CAT status update to CL
@@ -18,15 +17,7 @@ async fn test_single_chain_cat_status_update() {
     let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
-    // Register a chain
     let chain_id = ChainId("chain-1".to_string());
-    println!("[TEST]   Registering chain: {}", chain_id.0);
-    {
-        let mut cl_node_guard = cl_node.lock().await;
-        let (sender, _receiver) = mpsc::channel(10);
-        cl_node_guard.register_chain(chain_id.clone(), sender).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain registered successfully");
 
     // Set the chain ID in HS
     println!("[TEST]   Setting chain ID in HS...");
@@ -86,17 +77,7 @@ async fn test_several_single_chain_cat_status_updates() {
     let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
-    // Register a test chain
     let chain_id = ChainId("chain-1".to_string());
-    println!("[TEST]   Registering chain: {}", chain_id.0);
-    {
-        let mut node = cl_node.lock().await;
-        let (sender, _receiver) = mpsc::channel(10);
-        node.register_chain(chain_id.clone(), sender)
-            .await
-            .expect("Failed to register chain");
-    }
-    println!("[TEST]   Chain registered successfully");
 
     // Set the chain ID in HS
     println!("[TEST]   Setting chain ID in HS...");

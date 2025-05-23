@@ -7,7 +7,6 @@ use hyperplane::{
 };
 use super::super::common::testnodes;
 use tokio::time::Duration;
-use tokio::sync::mpsc;
 
 /// Helper function: tests sending a CAT status proposal from CL to HS
 /// - Submit a cat transaction to CL
@@ -18,18 +17,9 @@ async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CA
     let (hs_node, cl_node, _, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     println!("[TEST]   Test nodes initialized successfully");
 
-    // Register chain in CL
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
-    println!("[TEST]   Registering chains: {} and {}", chain_id_1.0, chain_id_2.0);
-    {
-        let mut cl_node_guard = cl_node.lock().await;
-        let (sender_1, _receiver_1) = mpsc::channel(10);
-        let (sender_2, _receiver_2) = mpsc::channel(10);
-        cl_node_guard.register_chain(chain_id_1.clone(), sender_1).await.expect("Failed to register chain");
-        cl_node_guard.register_chain(chain_id_2.clone(), sender_2).await.expect("Failed to register chain");
-    }
-    println!("[TEST]   Chains registered successfully");
+
 
     // Create a CAT transaction
     let cat_id = CATId("test-cat".to_string());

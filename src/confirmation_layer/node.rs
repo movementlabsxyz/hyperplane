@@ -80,16 +80,16 @@ impl ConfirmationLayerNode {
         let mut state = self.state.lock().await;
 
         if self.senders_cl_to_hig.contains_key(&chain_id.0) {
-            println!("[CL]   Chain {} is already registered.", chain_id.0);
+            println!("  [CL]   Chain {} is already registered.", chain_id.0);
             return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
 
         self.senders_cl_to_hig.insert(chain_id.0.clone(), sender);
-        println!("[CL]   Channel registered successfully for chain '{}'.", chain_id.0);
+        println!("  [CL]   Channel registered successfully for chain '{}'.", chain_id.0);
 
         if !state.registered_chains.contains(&chain_id) {
             state.registered_chains.push(chain_id.clone());
-            println!("[CL]   Chain {} added to registered_chains.", chain_id.0);
+            println!("  [CL]   Chain '{}' added to registered_chains.", chain_id.0);
         }
 
         Ok(state.current_block_height)

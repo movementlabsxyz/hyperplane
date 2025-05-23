@@ -34,17 +34,6 @@ async fn test_v13() {
     {
         let mut cl_node_with_lock = cl_node.lock().await;
         
-        // Mock channels for subblock transmission
-        let (sender_1, _receiver_1) = mpsc::channel(10);
-        let (sender_2, _receiver_2) = mpsc::channel(10);
-        match cl_node_with_lock.register_chain(ChainId("chain-1".to_string()), sender_1).await {
-            Ok(_) => println!("[TEST]   Successfully registered chain-1"),
-            Err(e) => panic!("Failed to register chain-1: '{}'", e),
-        }
-        match cl_node_with_lock.register_chain(ChainId("chain-2".to_string()), sender_2).await {
-            Ok(_) => println!("[TEST]   Successfully registered chain-2"),
-            Err(e) => panic!("Failed to register chain-2: '{}'", e),
-        }
         
         // Try to register chain-1 again (should fail)
         let (sender_cl_to_hig_1, _receiver_cl_to_hig_1) = mpsc::channel(10);

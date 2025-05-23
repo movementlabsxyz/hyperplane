@@ -30,8 +30,8 @@ async fn setup_cl_node_with_registration(block_interval: Duration) -> Arc<Mutex<
     let (sender_2, _receiver_2) = mpsc::channel(10);
 
     // Register the chains with their channels
-    cl_node.lock().await.register_chain(chain_id_1.clone(), sender_1).await;
-    cl_node.lock().await.register_chain(chain_id_2.clone(), sender_2).await;
+    cl_node.lock().await.register_chain(chain_id_1.clone(), sender_1).await.expect("Failed to register chain-1");
+    cl_node.lock().await.register_chain(chain_id_2.clone(), sender_2).await.expect("Failed to register chain-2");
 
     cl_node
 }
@@ -238,7 +238,7 @@ async fn test_get_registered_chains() {
     // Register a third chain
     let chain_id = ChainId("chain-3".to_string());
     let (sender, _receiver) = mpsc::channel(10);
-    cl_node.lock().await.register_chain(chain_id.clone(),sender).await.unwrap();
+    cl_node.lock().await.register_chain(chain_id.clone(), sender).await.expect("Failed to register chain-3");
 
     // Verify registered chain is returned
     let chains = cl_node.lock().await.get_registered_chains().await.unwrap();
@@ -311,11 +311,11 @@ async fn test_dynamic_channel_registration() {
     let cl_node = setup_cl_node(Duration::from_millis(100)).await;
 
     // Create a mock channel
-    let (tx, mut rx) = mpsc::channel(10);
+    let (sender, mut receiver) = mpsc::channel(10);
     let hig_id = "hig_dynamic".to_string();
 
     // Register the dynamic channel
-    cl_node.lock().await.register_chain(ChainId(hig_id.clone()), tx).await;
+    cl_node.lock().await.register_chain(ChainId(hig_id.clone()), sender).await.expect("Failed to register dynamic channel");
 
     // Verify the channel is registered
     let senders_cl_to_hig = cl_node.lock().await.senders_cl_to_hig.clone();
@@ -328,5 +328,5 @@ async fn test_dynamic_channel_registration() {
         transactions: vec![],
     };
     cl_node.lock().await.send_to_registered_chains(subblock.clone()).await;
-    assert_eq!(rx.recv().await.unwrap(), subblock);
+    assert_eq!(receiver.recv().await.unwrap(), subblock);
 }

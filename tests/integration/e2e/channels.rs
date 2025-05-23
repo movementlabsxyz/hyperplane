@@ -7,7 +7,7 @@ use hyperplane::{
 };
 use super::super::common::testnodes;
 use tokio::time::{Duration, timeout};
-use tokio::sync::mpsc;
+
 
 
 // take inspiration from cl_to_cl/channels.rs
@@ -30,13 +30,6 @@ async fn run_two_chain_cat_test(expected_status: CATStatusLimited) {
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
     println!("[TEST]   Registering chains: {} and {}", chain_id_1.0, chain_id_2.0);
-    {
-        let mut cl_node_guard = cl_node.lock().await;
-        let (sender_1, _receiver_1) = mpsc::channel(10);
-        let (sender_2, _receiver_2) = mpsc::channel(10);
-        cl_node_guard.register_chain(chain_id_1.clone(), sender_1).await.expect("Failed to register chain");
-        cl_node_guard.register_chain(chain_id_2.clone(), sender_2).await.expect("Failed to register chain");
-    }
     // Register chain in HS node
     {
         let mut hs_node_guard = hs_node.lock().await;

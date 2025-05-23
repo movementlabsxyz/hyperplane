@@ -77,6 +77,7 @@ TESTS=(
 )
 
 TESTS2=(
+integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_failure
 )
 
 # Run the appropriate test set based on the input
