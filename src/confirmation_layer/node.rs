@@ -16,12 +16,18 @@ pub struct ConfirmationLayerState {
     pub block_interval: Duration,
     /// Pending transactions
     pub pending_transactions: Vec<CLTransaction>,
-    /// Processed transactions
-    pub processed_transactions: Vec<(ChainId, CLTransaction)>,
+    /// Processed CL transactions
+    pub processed_cltransactions: Vec<CLTransaction>,
+    /// Processed individual transactions
+    pub processed_transactions: Vec<(ChainId, Transaction)>,
     /// Block history
     pub blocks: Vec<u64>,
-    /// Block to transactions mapping
-    pub block_transactions: HashMap<u64, Vec<(ChainId, CLTransaction)>>,
+    /// Block to CL transactions mapping
+    pub blocks_cltransactions: HashMap<u64, Vec<CLTransaction>>,
+    /// Block to individual transactions mapping
+    pub blocks_transactions: HashMap<u64, Vec<(ChainId, Transaction)>>,
+    /// Subblock to individual transactions mapping
+    pub subblocks_transactions: HashMap<(ChainId, u64), Vec<Transaction>>,
 }
 
 /// A simple node implementation of the ConfirmationLayer
@@ -43,9 +49,12 @@ impl ConfirmationLayerNode {
                 current_block_height: 0,
                 block_interval: Duration::from_millis(100),
                 pending_transactions: Vec::new(),
+                processed_cltransactions: Vec::new(),
                 processed_transactions: Vec::new(),
                 blocks: Vec::new(),
-                block_transactions: HashMap::new(),
+                blocks_cltransactions: HashMap::new(),
+                blocks_transactions: HashMap::new(),
+                subblocks_transactions: HashMap::new(),
             })),
             receiver_hs_to_cl: Some(receiver_hs_to_cl),
             senders_cl_to_hig: HashMap::new(), // Initialize empty map for dynamic channels
@@ -66,9 +75,12 @@ impl ConfirmationLayerNode {
                 current_block_height: 0,
                 block_interval: interval,
                 pending_transactions: Vec::new(),
+                processed_cltransactions: Vec::new(),
                 processed_transactions: Vec::new(),
                 blocks: Vec::new(),
-                block_transactions: HashMap::new(),
+                blocks_cltransactions: HashMap::new(),
+                blocks_transactions: HashMap::new(),
+                subblocks_transactions: HashMap::new(),
             })),
             receiver_hs_to_cl: Some(receiver_hs_to_cl),
             senders_cl_to_hig: HashMap::new(), // Initialize empty map for dynamic channels
@@ -96,7 +108,6 @@ impl ConfirmationLayerNode {
     }
 
     /// Process messages and create blocks
-    // TODO: split this into two separate functions, one for processing messages and one for creating blocks
     pub async fn process_messages_and_create_blocks(node: Arc<Mutex<Self>>) {
         let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
         loop {
@@ -109,7 +120,7 @@ impl ConfirmationLayerNode {
                 while let Ok(transaction) = state.receiver_hs_to_cl.as_mut().unwrap().try_recv() {
                     println!("  [BLOCK]   received transaction for chains {:?}: {}", 
                         transaction.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>(), 
-                        transaction.data);
+                        transaction.transactions.iter().map(|tx| tx.data.clone()).collect::<Vec<_>>().join(", "));
                     let mut inner_state = state.state.lock().await;
                     // Check if all chains are registered
                     if transaction.constituent_chains.iter().all(|c| inner_state.registered_chains.contains(c)) {
@@ -128,16 +139,19 @@ impl ConfirmationLayerNode {
                 // Process pending transactions for this block
                 let mut processed_this_block = Vec::new();
                 let mut remaining = Vec::new();
+                let mut processed_cltransactions = Vec::new();
                 let registered_chains = inner_state.registered_chains.clone();
-                for tx in inner_state.pending_transactions.drain(..) {
+                
+                for cl_tx in inner_state.pending_transactions.drain(..) {
                     // Check if all chains are registered
-                    if tx.constituent_chains.iter().all(|c| registered_chains.contains(c)) {
-                        // Add to processed transactions for each chain
-                        for chain_id in &tx.constituent_chains {
-                            processed_this_block.push((chain_id.clone(), tx.clone()));
+                    if cl_tx.constituent_chains.iter().all(|c| registered_chains.contains(c)) {
+                        // Add to processed transactions for each transaction's this_chain_id
+                        for tx in &cl_tx.transactions {
+                            processed_this_block.push((tx.target_chain_id.clone(), tx.clone()));
                         }
+                        processed_cltransactions.push(cl_tx.clone());
                     } else {
-                        remaining.push(tx);
+                        remaining.push(cl_tx);
                     }
                 }
                 inner_state.pending_transactions = remaining;
@@ -145,11 +159,15 @@ impl ConfirmationLayerNode {
                 // Create a block
                 inner_state.blocks.push(current_block_height);
                 
-                // Store transactions for this block
-                inner_state.block_transactions.insert(current_block_height, processed_this_block.clone());
+                // Store CL transactions for this block
+                inner_state.blocks_cltransactions.insert(current_block_height, processed_cltransactions.clone());
+                
+                // Store individual transactions for this block
+                inner_state.blocks_transactions.insert(current_block_height, processed_this_block.clone());
                 
                 // Add processed transactions
                 inner_state.processed_transactions.extend(processed_this_block.clone());
+                inner_state.processed_cltransactions.extend(processed_cltransactions);
                 
                 (current_block_height, processed_this_block, registered_chains)
             };
@@ -158,20 +176,23 @@ impl ConfirmationLayerNode {
             {
                 let state = node.lock().await;
                 for chain_id in &registered_chains {
+                    let transactions = processed_this_block
+                        .iter()
+                        .filter(|(cid, _)| cid == chain_id)
+                        .map(|(_, tx)| tx.clone())
+                        .collect::<Vec<_>>();
+
                     let subblock = SubBlock {
                         chain_id: chain_id.clone(),
                         block_height: current_block_height,
-                        transactions: processed_this_block
-                            .iter()
-                            .filter(|(cid, _)| cid == chain_id)
-                            .map(|(_, tx)| Transaction {
-                                id: tx.id.clone(),
-                                this_chain_id: chain_id.clone(),
-                                data: tx.data.clone(),
-                                constituent_chains: tx.constituent_chains.clone(),
-                            })
-                            .collect(),
+                        transactions: transactions.clone(),
                     };
+
+                    // Store transactions for this subblock
+                    state.state.lock().await.subblocks_transactions.insert(
+                        (chain_id.clone(), current_block_height),
+                        transactions
+                    );
 
                     // Send to the registered chain's HIG channel dynamically
                     if let Some(sender) = state.senders_cl_to_hig.get(&chain_id.0) {
@@ -180,7 +201,6 @@ impl ConfirmationLayerNode {
                         }
                     } else {
                         println!("  [BLOCK]   No channel found for chain {}", chain_id.0);
-                        // this should be a panic, because we should not be able to have a channel without a registered chain
                         panic!("No channel found for chain {}", chain_id.0);
                     }
                 }
@@ -218,16 +238,16 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         }
 
         // Get transactions for this block, or return empty list if no transactions
-        let transactions = state.block_transactions
+        let transactions = state.blocks_transactions
             .get(&block_height)
             .map(|txs| txs.iter()
                 .filter(|(cid, _)| cid == &chain_id)
-                .map(|(_, tx)| Transaction {
-                    id: tx.id.clone(),
-                    this_chain_id: chain_id.clone(),
-                    data: tx.data.clone(),
-                    constituent_chains: tx.constituent_chains.clone(),
-                })
+                .map(|(_, tx)| Transaction::new(
+                    tx.id.clone(),
+                    tx.target_chain_id.clone(),
+                    tx.constituent_chains.clone(),
+                    tx.data.clone(),
+                ).expect("Failed to create transaction"))
                 .collect())
             .unwrap_or_default();
 

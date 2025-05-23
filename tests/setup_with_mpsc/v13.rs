@@ -3,7 +3,7 @@
 use tokio::time::{Duration, sleep};
 use tokio::sync::mpsc;
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction},
+    types::{TransactionId, ChainId, CLTransaction, Transaction},
     confirmation_layer::ConfirmationLayer,
 };
 use super::super::integration::common::testnodes;
@@ -43,7 +43,7 @@ async fn test_v13() {
         }
 
         // Try to get subblock for unregistered chain
-        match cl_node_with_lock.get_subblock(ChainId("chain3".to_string()), 0).await {
+        match cl_node_with_lock.get_subblock(ChainId("chain-3".to_string()), 0).await {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
             Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
         }
@@ -77,28 +77,46 @@ async fn test_v13() {
         let mut cl_node_with_lock_2 = cl_node.lock().await;
         
         // Submit a transaction for chain-1
-        let tx1 = CLTransaction {
-            id: TransactionId("tx1".to_string()),
-            data: "message1.chain-1".to_string(),
-            constituent_chains: vec![ChainId("chain-1".to_string())],
-        };
-        cl_node_with_lock_2.submit_transaction(tx1).await.expect("Failed to submit transaction for chain-1");
+        let tx_chain_1 = Transaction::new(
+            TransactionId("tx_chain_1".to_string()),
+            ChainId("chain-1".to_string()),
+            vec![ChainId("chain-1".to_string())],
+            "REGULAR.SIMULATION:Success".to_string(),
+        ).expect("Failed to create transaction");
+        let cl_tx_chain_1 = CLTransaction::new(
+            TransactionId("tx_chain_1".to_string()),
+            vec![ChainId("chain-1".to_string())],
+            vec![tx_chain_1.clone()],
+        ).expect("Failed to create CL transaction");
+        cl_node_with_lock_2.submit_transaction(cl_tx_chain_1).await.expect("Failed to submit transaction for chain-1");
         
         // Submit a transaction for chain-2
-        let tx2 = CLTransaction {
-            id: TransactionId("tx2".to_string()),
-            data: "message1.chain-2".to_string(),
-            constituent_chains: vec![ChainId("chain-2".to_string())],
-        };
-        cl_node_with_lock_2.submit_transaction(tx2).await.expect("Failed to submit transaction for chain-2");
+        let tx_chain_2 = Transaction::new(
+            TransactionId("tx_chain_2".to_string()),
+            ChainId("chain-2".to_string()),
+            vec![ChainId("chain-2".to_string())],
+            "REGULAR.SIMULATION:Success".to_string(),
+        ).expect("Failed to create transaction");
+        let cl_tx_chain_2 = CLTransaction::new(
+            TransactionId("tx_chain_2".to_string()),
+            vec![ChainId("chain-2".to_string())],
+            vec![tx_chain_2.clone()],
+        ).expect("Failed to create CL transaction");
+        cl_node_with_lock_2.submit_transaction(cl_tx_chain_2).await.expect("Failed to submit transaction for chain-2");
         
         // Try to submit a transaction for unregistered chain (should fail)
-        let tx3 = CLTransaction {
-            id: TransactionId("tx3".to_string()),
-            data: "message1.chain3".to_string(),
-            constituent_chains: vec![ChainId("chain3".to_string())],
-        };
-        match cl_node_with_lock_2.submit_transaction(tx3).await {
+        let tx_chain_3 = Transaction::new(
+            TransactionId("tx_chain_3".to_string()),
+            ChainId("chain-3".to_string()),
+            vec![ChainId("chain-3".to_string())],
+            "REGULAR.SIMULATION:Success".to_string(),
+        ).expect("Failed to create transaction");
+        let cl_tx_chain_3 = CLTransaction::new(
+            TransactionId("tx_chain_3".to_string()),
+            vec![ChainId("chain-3".to_string())],
+            vec![tx_chain_3.clone()],
+        ).expect("Failed to create CL transaction");
+        match cl_node_with_lock_2.submit_transaction(cl_tx_chain_3).await {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
             Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: '{}'", e),
         }
@@ -171,12 +189,18 @@ async fn test_v13() {
 /// Helper function to run the adder task
 async fn run_spammer(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
     for i in 1..=10 {
-        let tx = CLTransaction {
-            id: TransactionId(format!("tx{}.{}", i, chain_id.0)),
-            data: format!("message{}.{}", i, chain_id.0),
-            constituent_chains: vec![chain_id.clone()],
-        };
-        if let Err(e) = sender.send(tx).await {
+        let tx = Transaction::new(
+            TransactionId(format!("tx{}.{}", i, chain_id.0)),
+            chain_id.clone(),
+            vec![chain_id.clone()],
+            format!("REGULAR.SIMULATION:Success"),
+        ).expect("Failed to create transaction");
+        let cl_tx = CLTransaction::new(
+            TransactionId(format!("tx{}.{}", i, chain_id.0)),
+            vec![chain_id.clone()],
+            vec![tx.clone()],
+        ).expect("Failed to create CL transaction");
+        if let Err(e) = sender.send(cl_tx).await {
             println!("  [TEST] [Adder] Error sending transaction: '{}'", e);
             break;
         }

@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction, TransactionStatus},
+    types::{TransactionId, ChainId, CLTransaction, TransactionStatus, Transaction},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
@@ -25,11 +25,20 @@ async fn run_test_process_subblock(
     println!("[TEST]   Test nodes initialized successfully");
 
     // Submit regular transaction to CL
+    let chain_id = ChainId("chain-1".to_string());
+    let tx = Transaction::new(
+        TransactionId("test-tx".to_string()),
+        chain_id.clone(),
+        vec![chain_id.clone()],
+        transaction_data.to_string(),
+    ).expect("Failed to create transaction");
+
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
-        vec![ChainId("chain-1".to_string())],
-        transaction_data.to_string()
-    ).expect("Failed to create transaction");
+        vec![chain_id.clone()],
+        vec![tx],
+    ).expect("Failed to create CL transaction");
+
     println!("[TEST]   Submitting CLTransaction with ID: {}", cl_tx.id.0);
     // create a local scope (note the test currently fails without this)
     {

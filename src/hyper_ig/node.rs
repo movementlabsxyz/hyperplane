@@ -300,10 +300,10 @@ impl HyperIG for HyperIGNode {
                 ).into());
             }
 
-            println!("  [HIG {:?}] [process_transaction] Extracted cat-id='{}', status='{:?}', chains='{:?}'",tx.this_chain_id, cat_id.0, status, constituent_chains);
-            println!("  [HIG {:?}] [process_transaction] Sending status proposal for cat-id='{}'",tx.this_chain_id, cat_id.0);
+            println!("  [HIG {:?}] [process_transaction] Extracted cat-id='{}', status='{:?}', chains='{:?}'",tx.target_chain_id, cat_id.0, status, constituent_chains);
+            println!("  [HIG {:?}] [process_transaction] Sending status proposal for cat-id='{}'",tx.target_chain_id, cat_id.0);
             self.send_cat_status_proposal(cat_id, status, constituent_chains).await?;
-            println!("  [HIG {:?}] [process_transaction] Status proposal sent for CAT transaction.",tx.this_chain_id);
+            println!("  [HIG {:?}] [process_transaction] Status proposal sent for CAT transaction.",tx.target_chain_id);
         }
 
         Ok(status)

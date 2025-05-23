@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATId, CATStatus},
+    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATId, CATStatus, Transaction},
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
 };
@@ -22,10 +22,23 @@ async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CA
 
     // Create a CAT transaction
     let cat_id = CATId("test-cat".to_string());
+    let tx_chain_1 = Transaction::new(
+        TransactionId("test-tx".to_string()),
+        chain_id_1.clone(),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0),
+    ).expect("Failed to create transaction");
+    let tx_chain_2 = Transaction::new(
+        TransactionId("test-tx".to_string()),
+        chain_id_2.clone(),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0),
+    ).expect("Failed to create transaction");
+
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0)
+        vec![tx_chain_1, tx_chain_2],
     ).expect("Failed to create CLTransaction");
 
     // Submit the transaction to CL
@@ -49,7 +62,6 @@ async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CA
         println!("[TEST]   Current block height: {}", current_block);
         assert!(current_block >= 1, "No block was produced");
     }
-
 
     // Wait to make logs more readable
     tokio::time::sleep(Duration::from_millis(400)).await;

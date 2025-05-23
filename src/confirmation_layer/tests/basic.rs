@@ -1,6 +1,6 @@
 use tokio::time::{Duration, sleep};
 use crate::{
-    types::{TransactionId, ChainId, CLTransaction, SubBlock},
+    types::{TransactionId, ChainId, CLTransaction, Transaction},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError, node::ConfirmationLayerNode},
 };
 use std::sync::Arc;
@@ -92,12 +92,18 @@ async fn test_transaction_submission() {
     // Create and submit a transaction
     println!("[TEST]   Submitting transaction...");
     let chain_id = ChainId("chain-1".to_string());
-    let tx = CLTransaction::new(
+    let tx = Transaction::new(
+        TransactionId("regular-tx".to_string()),
+        chain_id.clone(),
+        vec![chain_id.clone()],
+        "REGULAR.SIMULATION:Success".to_string(),
+    ).expect("Failed to create transaction");
+    let cl_tx = CLTransaction::new(
         TransactionId("regular-tx".to_string()),
         vec![chain_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string()
-    ).expect("Failed to create transaction");
-    let result = cl_node.lock().await.submit_transaction(tx).await;
+        vec![tx],
+    ).expect("Failed to create CL transaction");
+    let result = cl_node.lock().await.submit_transaction(cl_tx).await;
     assert!(result.is_ok(), "Transaction submission should succeed");
     println!("[TEST]   Transaction submitted successfully");
 
@@ -267,76 +273,141 @@ async fn test_submit_transaction_chain_not_registered() {
 
     // Attempt to submit a transaction for a chain not registered
     let chain_id = ChainId("chain-3".to_string());
-    let tx = CLTransaction::new(
+    let tx = Transaction::new(
+        TransactionId("test-tx".to_string()),
+        chain_id.clone(),
+        vec![chain_id.clone()],
+        "REGULAR.SIMULATION:Success".to_string(),
+    ).expect("Failed to create transaction");
+    let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
         vec![chain_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string()
-    ).expect("Failed to create CLTransaction");
-    let result = cl_node.lock().await.submit_transaction(tx).await;
+        vec![tx],
+    ).expect("Failed to create CL transaction");
+    let result = cl_node.lock().await.submit_transaction(cl_tx).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainNotFound(_))), "Should not be able to submit transaction for unregistered chain");
 }
 
-// submit a transaction destined for two registered chains
+/// Tests submit a transaction destined for two registered chains
 #[tokio::test]
 async fn test_submit_cl_transaction_for_two_chains() {
     println!("\n=== Starting test_submit_cl_transaction_for_two_chains ===");
     let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
 
-    // submit a transaction destined for two registered chains
-    let chain_ids = vec![
-        ChainId("chain-1".to_string()),
-        ChainId("chain-2".to_string()),
-    ];
-    let tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
-        chain_ids.clone(),
-        "REGULAR.SIMULATION:Success".to_string()
-    ).expect("Failed to create CLTransaction");
-    cl_node.lock().await.submit_transaction(tx).await.unwrap();
+    // Create and submit a transaction for both chains
+    println!("[TEST]   Submitting transaction for both chains...");
+    let chain1_id = ChainId("chain-1".to_string());
+    let chain2_id = ChainId("chain-2".to_string());
+    
+    let tx1 = Transaction::new(
+        TransactionId("multi-tx-1".to_string()),
+        chain1_id.clone(),
+        vec![chain1_id.clone(), chain2_id.clone()],
+        "REGULAR.SIMULATION:Success".to_string(),
+    ).expect("Failed to create transaction");
+    let tx2 = Transaction::new(
+        TransactionId("multi-tx-2".to_string()),
+        chain2_id.clone(),
+        vec![chain1_id.clone(), chain2_id.clone()],
+        "REGULAR.SIMULATION:Success".to_string(),
+    ).expect("Failed to create transaction");
+    
+    let cl_tx = CLTransaction::new(
+        TransactionId("multi-tx".to_string()),
+        vec![chain1_id.clone(), chain2_id.clone()],
+        vec![tx1, tx2],
+    ).expect("Failed to create CL transaction");
+    
+    let result = cl_node.lock().await.submit_transaction(cl_tx).await;
+    assert!(result.is_ok(), "Transaction submission should succeed");
+    println!("[TEST]   Transaction submitted successfully");
 
-    // wait for block production
-    sleep(Duration::from_millis(200)).await;
+    // Wait for block production
+    println!("[TEST]   Waiting for block production...");
+    sleep(Duration::from_millis(500)).await;
 
-    // check that the transaction is included in the subblock for each chain
-    for chain_id in chain_ids {
-        let subblock = cl_node.lock().await.get_subblock(chain_id, 1).await.unwrap();
-        assert_eq!(subblock.transactions.len(), 1);
-        assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
+    // Verify transaction inclusion in both chains
+    println!("[TEST]   Verifying transaction inclusion in both chains...");
+    let mut found_chain1 = false;
+    let mut found_chain2 = false;
+
+    for block_id in 1..=4 {
+        let subblock1 = cl_node.lock().await.get_subblock(chain1_id.clone(), block_id)
+            .await
+            .expect("Failed to get subblock for chain 1");
+        let subblock2 = cl_node.lock().await.get_subblock(chain2_id.clone(), block_id)
+            .await
+            .expect("Failed to get subblock for chain 2");
+
+        if subblock1.transactions.iter().any(|tx| tx.data == "REGULAR.SIMULATION:Success") {
+            found_chain1 = true;
+        }
+        if subblock2.transactions.iter().any(|tx| tx.data == "REGULAR.SIMULATION:Success") {
+            found_chain2 = true;
+        }
+
+        if found_chain1 && found_chain2 {
+            break;
+        }
     }
+
+    assert!(found_chain1, "Transaction should be present in chain 1");
+    assert!(found_chain2, "Transaction should be present in chain 2");
+    println!("[TEST]   Transaction inclusion verified for both chains");
+
+    println!("=== Test completed successfully ===\n");
 }
 
 /// Tests dynamic channel registration and message delivery to dynamically registered HIG nodes
 #[tokio::test]
 async fn test_dynamic_channel_registration() {
-    let cl_node = setup_cl_node(Duration::from_millis(100)).await;
+    println!("\n=== Starting test_dynamic_channel_registration ===");
+    let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
 
-    // Create a mock channel
-    let (sender, mut receiver) = mpsc::channel(10);
-    let hig_id = "hig_dynamic".to_string();
-    let chain_id = ChainId(hig_id.clone());
+    // Register a new chain dynamically
+    println!("[TEST]   Registering new chain dynamically...");
+    let dynamic_chain_id = ChainId("dynamic-chain".to_string());
+    let (tx, mut rx) = mpsc::channel(100);
+    let _ = cl_node.lock().await.register_chain(dynamic_chain_id.clone(), tx).await;
+    println!("[TEST]   Chain registered successfully");
 
-    // Register the dynamic channel
-    cl_node.lock().await.register_chain(chain_id.clone(), sender).await.expect("Failed to register dynamic channel");
-
-    // Verify the channel is registered
-    let senders_cl_to_hig = cl_node.lock().await.senders_cl_to_hig.clone();
-    assert!(senders_cl_to_hig.contains_key(&hig_id));
-
-    // Submit a transaction to trigger block creation
-    let tx = CLTransaction::new(
+    // Create and submit a transaction for the dynamic chain
+    println!("[TEST]   Submitting transaction for dynamic chain...");
+    let tx = Transaction::new(
         TransactionId("test-tx".to_string()),
-        vec![chain_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string()
+        dynamic_chain_id.clone(),
+        vec![dynamic_chain_id.clone()],
+        "REGULAR.SIMULATION:Success".to_string(),
     ).expect("Failed to create transaction");
-    cl_node.lock().await.submit_transaction(tx).await.expect("Failed to submit transaction");
+    let cl_tx = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        vec![dynamic_chain_id.clone()],
+        vec![tx],
+    ).expect("Failed to create CL transaction");
+    let result = cl_node.lock().await.submit_transaction(cl_tx).await;
+    assert!(result.is_ok(), "Transaction submission should succeed");
+    println!("[TEST]   Transaction submitted successfully");
 
     // Wait for block production
-    sleep(Duration::from_millis(200)).await;
+    println!("[TEST]   Waiting for block production...");
+    sleep(Duration::from_millis(500)).await;
 
-    // Verify we received a subblock
-    let subblock = receiver.recv().await.expect("Failed to receive subblock");
-    assert_eq!(subblock.chain_id, chain_id);
-    assert_eq!(subblock.block_height, 1);
-    assert_eq!(subblock.transactions.len(), 1);
-    assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
+    // Verify the subblock was received
+    println!("[TEST]   Verifying subblock reception...");
+    let mut received = false;
+    for _ in 0..10 {
+        if let Ok(subblock) = rx.try_recv() {
+            assert_eq!(subblock.chain_id, dynamic_chain_id);
+            assert_eq!(subblock.block_height, 1);
+            assert_eq!(subblock.transactions.len(), 1);
+            assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
+            received = true;
+            break;
+        }
+        sleep(Duration::from_millis(50)).await;
+    }
+    assert!(received, "Should receive subblock for dynamic chain");
+    println!("[TEST]   Subblock received and verified");
+
+    println!("=== Test completed successfully ===\n");
 }

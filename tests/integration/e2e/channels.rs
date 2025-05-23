@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, TransactionStatus},
+    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, TransactionStatus, Transaction},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
@@ -25,12 +25,27 @@ async fn run_two_chain_cat_test(expected_status: CATStatusLimited) {
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
 
-    // Submit CAT transaction to CL
+    // Create a transaction for each chain
+    let tx_chain_1 = Transaction::new(
+        TransactionId("test-cat".to_string()),
+        chain_id_1.clone(),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status),
+    ).expect("Failed to create transaction");
+
+    let tx_chain_2 = Transaction::new(
+        TransactionId("test-cat".to_string()),
+        chain_id_2.clone(),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status),
+    ).expect("Failed to create transaction");
+
     let cl_tx = CLTransaction::new(
         TransactionId("test-cat".to_string()),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status)
-    ).expect("Failed to create transaction");
+        vec![tx_chain_1, tx_chain_2],
+    ).expect("Failed to create CL transaction");
+
     println!("[TEST]   Submitting CAT transaction");
     {
         let mut node = cl_node.lock().await;

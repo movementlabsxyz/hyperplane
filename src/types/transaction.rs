@@ -23,16 +23,18 @@ pub struct CLTransaction {
     pub id: TransactionId,
     /// The chain IDs to which this transaction is destined
     pub constituent_chains: Vec<ChainId>,
-    /// The transaction data
-    pub data: String,
+    /// The transactions to be included in the subblocks
+    pub transactions: Vec<Transaction>,
 }
 
 impl CLTransaction {
-    /// Creates a new CLTransaction, ensuring that the `data` string matches expected format
-    pub fn new(id: TransactionId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
-        // Use TransactionData's validation logic
-        TransactionData::validate(&data)?;
-        Ok(CLTransaction { id, constituent_chains, data })
+    /// Creates a new CLTransaction, ensuring that all transaction data strings match expected format
+    pub fn new(id: TransactionId, constituent_chains: Vec<ChainId>, transactions: Vec<Transaction>) -> Result<Self, String> {
+        // Validate all transaction data strings
+        for tx in &transactions {
+            TransactionData::validate(&tx.data)?;
+        }
+        Ok(CLTransaction { id, constituent_chains, transactions })
     }
 }
 
@@ -42,7 +44,7 @@ pub struct Transaction {
     /// Unique identifier for this transaction
     pub id: TransactionId,
     /// The target chain ID of this transaction
-    pub this_chain_id: ChainId,
+    pub target_chain_id: ChainId,
     /// The chain IDs to which this transaction is destined
     pub constituent_chains: Vec<ChainId>,
     /// The actual transaction data (just a string for now)
@@ -51,10 +53,10 @@ pub struct Transaction {
 
 impl Transaction {
     /// Creates a new Transaction, ensuring that the `data` string matches expected format
-    pub fn new(id: TransactionId, this_chain_id: ChainId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
+    pub fn new(id: TransactionId, target_chain_id: ChainId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
-        Ok(Transaction { id, this_chain_id, constituent_chains, data })
+        Ok(Transaction { id, target_chain_id, constituent_chains, data })
     }
 }
 

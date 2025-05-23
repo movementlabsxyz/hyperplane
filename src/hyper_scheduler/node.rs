@@ -1,4 +1,4 @@
-use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus};
+use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus, Transaction};
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
@@ -135,8 +135,10 @@ impl HyperSchedulerNode {
 
     /// Submit a transaction to the confirmation layer
     pub async fn submit_transaction_to_cl(&mut self, tx: CLTransaction) -> Result<(), String> {
-        println!("  [HS]   submit_transaction called for transaction: id={}, data={}, chain_ids={:?}", 
-            tx.id.0, tx.data, tx.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>());
+        println!("  [HS]   submit_transaction called for tx-id={}, transactions={:?}, chain_ids={:?}", 
+            tx.id.0, 
+            tx.transactions.iter().map(|t| t.data.clone()).collect::<Vec<_>>(),
+            tx.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>());
         if let Some(sender) = &self.sender_to_cl {
             sender.send(tx).await.map_err(|e| e.to_string())
         } else {
@@ -304,20 +306,31 @@ impl HyperScheduler for HyperSchedulerNode {
     async fn send_cat_status_update(&mut self, cat_id: CATId, constituent_chains: Vec<ChainId>, status: CATStatusLimited) -> Result<(), HyperSchedulerError> {
         println!("  [HS]   send_cat_status_update called for CAT {}", cat_id.0);
 
-        let status_str = match status {
+        let data = match status {
             CATStatusLimited::Success => "STATUS_UPDATE:Success.CAT_ID:".to_string() + &cat_id.0,
             CATStatusLimited::Failure => "STATUS_UPDATE:Failure.CAT_ID:".to_string() + &cat_id.0,
         };
 
         // Send the status update to the confirmation layer
         if let Some(sender) = &self.sender_to_cl {
-            let tx = CLTransaction {
-                id: TransactionId(cat_id.0.clone()+".UPDATE"),
-                data: status_str.clone(),
-                constituent_chains: constituent_chains.clone(),
-            };
-            println!("  [HS]   Submitting status update transaction to CL: id={}, data={}, chain_ids={:?}", tx.id.0, tx.data, tx.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>());
-            sender.send(tx)
+            // Create a transaction for each constituent chain
+            let transactions: Vec<Transaction> = constituent_chains.iter().map(|chain_id| {
+                Transaction::new(
+                    TransactionId(cat_id.0.clone() + ".UPDATE"),
+                    chain_id.clone(),
+                    constituent_chains.clone(),
+                    data.clone(),
+                ).expect("Failed to create transaction")
+            }).collect();
+
+            let cl_tx = CLTransaction::new(
+                TransactionId(cat_id.0.clone() + ".UPDATE"),
+                constituent_chains.clone(),
+                transactions,
+            ).expect("Failed to create CL transaction");
+            println!("  [HS]   Submitting status update transaction to CL: id={}, chain_ids={:?}", 
+                cl_tx.id.0, cl_tx.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>());
+            sender.send(cl_tx)
                 .await
                 .map_err(|e| HyperSchedulerError::Internal(e.to_string()))?;
         } else {

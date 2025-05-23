@@ -1,5 +1,5 @@
 use crate::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId, CLTransaction},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId},
     hyper_ig::{HyperIG, node::HyperIGNode},
 };
 use std::sync::Arc;
@@ -125,29 +125,23 @@ async fn test_regular_transaction_pending() {
 }
 
 /// Helper function to test sending a CAT status proposal
-async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
-    println!("\n=== Starting test_single_chain_cat ({:?}) ===", expected_status);
-    
+async fn run_process_and_send_cat(expected_status: CATStatusLimited) {    
     println!("[TEST]   Setting up test nodes...");
     let hig_node = setup_test_hig_node().await;
     println!("[TEST]   Test nodes setup complete");
     
-    // Create a CAT transaction
-    let cl_tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
-        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat-tx", expected_status),
-    ).expect("Failed to create transaction");
-    
-    // Create a transaction from the CAT transaction
-    println!("[TEST]   Executing CAT transaction...");
-    let tx = Transaction::new(
-        cl_tx.id.clone(),
+    // Create necessary parts of a CAT transaction
+    let cat_id = CATId("test-cat-tx".to_string());
+    let tx_chain_1 = Transaction::new(
+        TransactionId("tx_chain_1".to_string()),
         ChainId("chain-1".to_string()),
-        cl_tx.constituent_chains.clone(),
-        cl_tx.data.clone(),
+        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", expected_status, cat_id.0),
     ).expect("Failed to create transaction");
-    let status = hig_node.lock().await.process_transaction(tx)
+
+    // Execute the transaction
+    println!("[TEST]   Executing chain-level transaction of a CLCAT transaction...");
+    let status = hig_node.lock().await.process_transaction(tx_chain_1.clone())
         .await
         .expect("Failed to execute transaction");
     println!("[TEST]   Transaction status: {:?}", status);
@@ -158,7 +152,7 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     
     // Verify we can retrieve the same status
     println!("[TEST]   Verifying transaction status...");
-    let retrieved_status = hig_node.lock().await.get_transaction_status(cl_tx.id.clone())
+    let retrieved_status = hig_node.lock().await.get_transaction_status(tx_chain_1.id.clone())
         .await
         .expect("Failed to get transaction status");
     println!("[TEST]   Retrieved status: {:?}", retrieved_status);
@@ -171,12 +165,12 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
         .await
         .expect("Failed to get pending transactions");
     println!("[TEST]   Pending transactions: {:?}", pending);
-    assert!(pending.contains(&cl_tx.id));
+    assert!(pending.contains(&tx_chain_1.id));
     println!("[TEST]   Verified transaction is in pending list");
     
     // Verify the proposed status
     println!("[TEST]   Verifying proposed status...");
-    let proposed_status = hig_node.lock().await.get_proposed_status(cl_tx.id.clone())
+    let proposed_status = hig_node.lock().await.get_proposed_status(tx_chain_1.id.clone())
         .await
         .expect("Failed to get proposed status");
     println!("[TEST]   Proposed status: {:?}", proposed_status);
@@ -187,7 +181,7 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     println!("[TEST]   Sending status proposal to HS...");
     // we only have one chain for now, so we create a vector with one element
     let chain_id = vec![ChainId("chain-1".to_string())];
-    hig_node.lock().await.send_cat_status_proposal(CATId(cl_tx.id.0.clone()), expected_status, chain_id)
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), expected_status, chain_id)
         .await
         .expect("Failed to send status proposal");
     println!("[TEST]   Status proposal sent to HS");
@@ -199,6 +193,7 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_process_and_send_success() {
+    println!("\n=== Starting test_cat_process_and_send_success ===");
     run_process_and_send_cat(CATStatusLimited::Success).await;
 }
 
@@ -206,6 +201,7 @@ async fn test_cat_process_and_send_success() {
 #[tokio::test]
 #[allow(unused_variables)]
 async fn test_cat_process_and_send_failure() {
+    println!("\n=== Starting test_cat_process_and_send_failure ===");
     run_process_and_send_cat(CATStatusLimited::Failure).await;
 }
 
@@ -272,7 +268,7 @@ async fn test_wrong_chain_subblock() {
         chain_id: ChainId("wrong-chain".to_string()),
         transactions: vec![Transaction {
             id: TransactionId("test-tx".to_string()),
-            this_chain_id: ChainId("wrong-chain".to_string()),
+            target_chain_id: ChainId("wrong-chain".to_string()),
             data: "REGULAR.SIMULATION:Success".to_string(),
             constituent_chains: vec![],
         }],
