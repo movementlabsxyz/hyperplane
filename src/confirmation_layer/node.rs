@@ -95,15 +95,6 @@ impl ConfirmationLayerNode {
         Ok(state.current_block_height)
     }
 
-    /// Send subblocks to dynamically registered chains
-    pub async fn send_to_registered_chains(&self, subblock: SubBlock) {
-        for (chain_id, sender) in self.senders_cl_to_hig.iter() {
-            if let Err(err) = sender.send(subblock.clone()).await {
-                println!("Failed to send subblock to chain {}: {}", chain_id, err);
-            }
-        }
-    }
-
     /// Process messages and create blocks
     // TODO: split this into two separate functions, one for processing messages and one for creating blocks
     pub async fn process_messages_and_create_blocks(node: Arc<Mutex<Self>>) {

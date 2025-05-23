@@ -313,20 +313,30 @@ async fn test_dynamic_channel_registration() {
     // Create a mock channel
     let (sender, mut receiver) = mpsc::channel(10);
     let hig_id = "hig_dynamic".to_string();
+    let chain_id = ChainId(hig_id.clone());
 
     // Register the dynamic channel
-    cl_node.lock().await.register_chain(ChainId(hig_id.clone()), sender).await.expect("Failed to register dynamic channel");
+    cl_node.lock().await.register_chain(chain_id.clone(), sender).await.expect("Failed to register dynamic channel");
 
     // Verify the channel is registered
     let senders_cl_to_hig = cl_node.lock().await.senders_cl_to_hig.clone();
     assert!(senders_cl_to_hig.contains_key(&hig_id));
 
-    // Send a subblock and verify it is received
-    let subblock = SubBlock {
-        chain_id: ChainId("chain-1".to_string()),
-        block_height: 1,
-        transactions: vec![],
-    };
-    cl_node.lock().await.send_to_registered_chains(subblock.clone()).await;
-    assert_eq!(receiver.recv().await.unwrap(), subblock);
+    // Submit a transaction to trigger block creation
+    let tx = CLTransaction::new(
+        TransactionId("test-tx".to_string()),
+        vec![chain_id.clone()],
+        "REGULAR.SIMULATION:Success".to_string()
+    ).expect("Failed to create transaction");
+    cl_node.lock().await.submit_transaction(tx).await.expect("Failed to submit transaction");
+
+    // Wait for block production
+    sleep(Duration::from_millis(200)).await;
+
+    // Verify we received a subblock
+    let subblock = receiver.recv().await.expect("Failed to receive subblock");
+    assert_eq!(subblock.chain_id, chain_id);
+    assert_eq!(subblock.block_height, 1);
+    assert_eq!(subblock.transactions.len(), 1);
+    assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
 }
