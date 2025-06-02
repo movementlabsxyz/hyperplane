@@ -1,0 +1,3 @@
+[submodule "x-chain-vm"]
+	path = submodules/x-chain-vm
+	url = https://github.com/movementlabsxyz/x-chain-vm

@@ -85,7 +85,7 @@ integration::cl_to_hs::channels::test_cat_one_cat_success
 if [ "$1" = "1" ]; then
     for test in "${TESTS[@]}"; do
         echo -e "\nRunning $test..."
-        cargo test $test -- --test-threads=1 --nocapture #| grep "FAILED"
+        cargo test $test -- --test-threads=1 --nocapture | grep "FAILED"
     done
 elif [ "$1" = "2" ]; then
     for test in "${TESTS2[@]}"; do
