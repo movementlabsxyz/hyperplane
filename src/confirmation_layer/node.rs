@@ -112,7 +112,7 @@ impl ConfirmationLayerNode {
         let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
         loop {
             interval.tick().await;
-            println!("  [BLOCK]   Height: {}", node.lock().await.state.lock().await.current_block_height);
+            // println!("  [BLOCK]   Height: {}", node.lock().await.state.lock().await.current_block_height);
 
             // Process any pending transactions
             {

@@ -92,8 +92,8 @@ impl HyperIGNode {
 
     /// Process a subblock
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
-        println!("  [HIG {:?}]   [process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
-            self.state.lock().await.my_chain_id, subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
+        // println!("  [HIG {:?}]   [process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
+        //     self.state.lock().await.my_chain_id, subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
         // check if the received subblock matches our chain id. If not we have a bug.
         if subblock.chain_id.0 != self.state.lock().await.my_chain_id.0 {
             println!("  [HIG]   [Message loop task] [ERROR] Received subblock with chain_id='{}', but should be '{}', ignoring", 
@@ -356,10 +356,10 @@ impl HyperIG for HyperIGNode {
     // this is a duplicate of the other process subblock function
     // TODO remove one of them
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
-        println!("  [HIG]   Processing subblock: block_id={}, chain_id={}, tx_count={}", 
-            subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
-        for tx in &subblock.transactions {
-            println!("  [HIG]   .......tx-id={} : data={}", tx.id.0, tx.data);
+        // println!("  [HIG]   Processing subblock: block_id={}, chain_id={}, tx_count={}", 
+        //     subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
+        for _tx in &subblock.transactions {
+            // println!("  [HIG]   .......tx-id={} : data={}", tx.id.0, tx.data);
         }
         for tx in subblock.transactions {
             HyperIG::process_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
