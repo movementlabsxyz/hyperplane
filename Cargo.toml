@@ -26,10 +26,6 @@ path = "src/lib.rs"
 # name = "node"
 # path = "src/bin/node.rs"
 
-[[bin]]
-name = "simulator"
-path = "src/bin/simulator.rs"
-
 [features]
 test = []
 

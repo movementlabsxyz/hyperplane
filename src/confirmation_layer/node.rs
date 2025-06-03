@@ -5,6 +5,7 @@ use super::{ConfirmationLayer, ConfirmationLayerError};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::collections::HashMap;
+use crate::utils::logging::log;
 
 /// The internal state of the ConfirmationLayerNode
 pub struct ConfirmationLayerState {
@@ -92,16 +93,16 @@ impl ConfirmationLayerNode {
         let mut state = self.state.lock().await;
 
         if self.senders_cl_to_hig.contains_key(&chain_id.0) {
-            println!("  [CL]   Chain {} is already registered.", chain_id.0);
+            log("CL", &format!("Chain {} is already registered.", chain_id.0));
             return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
 
         self.senders_cl_to_hig.insert(chain_id.0.clone(), sender);
-        println!("  [CL]   Channel registered successfully for chain '{}'.", chain_id.0);
+        log("CL", &format!("Channel registered successfully for chain '{}'.", chain_id.0));
 
         if !state.registered_chains.contains(&chain_id) {
             state.registered_chains.push(chain_id.clone());
-            println!("  [CL]   Chain '{}' added to registered_chains.", chain_id.0);
+            log("CL", &format!("Chain '{}' added to registered_chains.", chain_id.0));
         }
 
         Ok(state.current_block_height)
@@ -112,15 +113,15 @@ impl ConfirmationLayerNode {
         let mut interval = tokio::time::interval(node.lock().await.state.lock().await.block_interval);
         loop {
             interval.tick().await;
-            // println!("  [BLOCK]   Height: {}", node.lock().await.state.lock().await.current_block_height);
+            log("BLOCK", &format!("Height: {}", node.lock().await.state.lock().await.current_block_height));
 
             // Process any pending transactions
             {
                 let mut state = node.lock().await;
                 while let Ok(transaction) = state.receiver_hs_to_cl.as_mut().unwrap().try_recv() {
-                    println!("  [BLOCK]   received transaction for chains {:?}: {}", 
+                    log("BLOCK", &format!("received transaction for chains {:?}: {}", 
                         transaction.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>(), 
-                        transaction.transactions.iter().map(|tx| tx.data.clone()).collect::<Vec<_>>().join(", "));
+                        transaction.transactions.iter().map(|tx| tx.data.clone()).collect::<Vec<_>>().join(", ")));
                     let mut inner_state = state.state.lock().await;
                     // Check if all chains are registered
                     if transaction.constituent_chains.iter().all(|c| inner_state.registered_chains.contains(c)) {
@@ -197,10 +198,10 @@ impl ConfirmationLayerNode {
                     // Send to the registered chain's HIG channel dynamically
                     if let Some(sender) = state.senders_cl_to_hig.get(&chain_id.0) {
                         if let Err(e) = sender.send(subblock).await {
-                            println!("  [BLOCK]   Error sending subblock to chain {}: {}", chain_id.0, e);
+                            log("BLOCK", &format!("Error sending subblock to chain {}: {}", chain_id.0, e));
                         }
                     } else {
-                        println!("  [BLOCK]   No channel found for chain {}", chain_id.0);
+                        log("BLOCK", &format!("No channel found for chain {}", chain_id.0));
                         panic!("No channel found for chain {}", chain_id.0);
                     }
                 }
@@ -210,7 +211,7 @@ impl ConfirmationLayerNode {
 
     /// Start the message processing and block production loop
     pub async fn start(node: Arc<Mutex<Self>>) {
-        println!("  [CL]   Starting block production");
+        log("CL", "Starting block production");
         tokio::spawn(async move { Self::process_messages_and_create_blocks(node).await });
     }
 }
@@ -286,16 +287,16 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         let mut state = self.state.lock().await;
 
         if self.senders_cl_to_hig.contains_key(&chain_id.0) {
-            println!("[CL]   Chain {} is already registered.", chain_id.0);
+            log("CL", &format!("Chain {} is already registered.", chain_id.0));
             return Err(ConfirmationLayerError::ChainAlreadyRegistered(chain_id));
         }
 
         self.senders_cl_to_hig.insert(chain_id.0.clone(), sender);
-        println!("[CL]   Channel registered successfully for chain '{}'.", chain_id.0);
+        log("CL", &format!("Channel registered successfully for chain '{}'.", chain_id.0));
 
         if !state.registered_chains.contains(&chain_id) {
             state.registered_chains.push(chain_id.clone());
-            println!("[CL]   Chain {} added to registered_chains.", chain_id.0);
+            log("CL", &format!("Chain {} added to registered_chains.", chain_id.0));
         }
 
         Ok(state.current_block_height)

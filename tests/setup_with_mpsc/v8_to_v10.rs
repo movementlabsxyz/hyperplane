@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep, interval};
 use tokio::sync::mpsc;
+use hyperplane::utils::logging;
 
 /// A simplified version of a chain ID
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -52,7 +53,8 @@ struct Block {
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v8() {
-    println!("\n=== Starting test_v8 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v8 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -74,7 +76,7 @@ async fn test_v8() {
     });
 
     // Register chains first
-    println!("[TEST]   Registering chains...");
+    logging::log("TEST", "[TEST]   Registering chains...");
     {
         let mut state = state.lock().await;
         state.register_chain("chain1").expect("Failed to register chain1");
@@ -83,13 +85,13 @@ async fn test_v8() {
         // Try to register chain1 again (should fail)
         match state.register_chain("chain1") {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: '{}'", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when registering chain1 twice: '{}'", e)),
         }
 
         // Try to get subblock for unregistered chain
         match state.get_subblock("chain3", 0) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e)),
         }
     }
 
@@ -114,28 +116,28 @@ async fn test_v8() {
     let _receiver_handle = tokio::spawn(async move {
         let mut received_blocks = 0;
         while let Some(subblock) = subblock_receiver.recv().await {
-            print!("  [Receiver] received subblock for chain {} with {} messages", 
+            let mut block_status = format!("  [Receiver] received subblock for chain {} with {} messages", 
                 subblock.chain_id, subblock.messages.len());
             for msg in &subblock.messages {
-                print!("  - \"{}\"", msg);
+                block_status.push_str(&format!("\n  - \"{}\"", msg));
             }
-            println!();
+            logging::log("TEST", &block_status);
             received_blocks += 1;
         }
-        println!("  [Receiver] received {} subblocks total", received_blocks);
+        logging::log("TEST", &format!("  [Receiver] received {} subblocks total", received_blocks));
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} messages", state_guard.processed_messages.len());
-    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
-    println!("Main task: registered chains: {:?}", state_guard.registered_chains);
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} messages", state_guard.processed_messages.len()));
+    logging::log("TEST", &format!("Main task: {} messages still pending", state_guard.pending_messages.len()));
+    logging::log("TEST", &format!("Main task: produced {} blocks", state_guard.blocks.len()));
+    logging::log("TEST", &format!("Main task: registered chains: {:?}", state_guard.registered_chains));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -145,7 +147,7 @@ async fn test_v8() {
     
     // Test getting subblock for registered chain
     match state_guard.get_subblock("chain1", 0) {
-        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
+        Ok(subblock) => logging::log("TEST", &format!("[TEST]   Successfully got subblock for chain1: {:?}", subblock)),
         Err(e) => panic!("Failed to get subblock for chain1: {}", e),
     }
     
@@ -160,8 +162,8 @@ async fn test_v8() {
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_messages.len();
     let block_count = state_guard.blocks.len();
-    println!("Main task: final check - block is {}, processed {} messages in {} blocks", 
-        current_block, processed_count, block_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} messages in {} blocks", 
+        current_block, processed_count, block_count));
     
     // Ensure the processor is still running and processing messages
     // With 100ms interval, we should process ~20 blocks in 2 seconds
@@ -170,7 +172,7 @@ async fn test_v8() {
     assert!(processed_count > 10, "Should have processed more than 10 messages in 2 seconds (5 per chain)");
     assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// Error types for the CL node
@@ -263,7 +265,7 @@ impl TestNodeStateV8 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v8(state: Arc<Mutex<TestNodeStateV8>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -284,10 +286,10 @@ async fn run_processor_v8(state: Arc<Mutex<TestNodeStateV8>>) {
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
             if state.is_chain_registered(&chain_id) {
-                println!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message);
+                logging::log("TEST", &format!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message));
                 state.pending_messages.push((chain_id, message));
             } else {
-                println!("  [TEST] [Processor] ignoring message from unregistered chain {}: {}", chain_id, message);
+                logging::log("TEST", &format!("  [TEST] [Processor] ignoring message from unregistered chain {}: {}", chain_id, message));
             }
         }
         
@@ -327,20 +329,20 @@ async fn run_processor_v8(state: Arc<Mutex<TestNodeStateV8>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("  [TEST] [Processor] failed to send subblock for chain {}: {}", chain_id, e);
+                    logging::log("TEST", &format!("  [TEST] [Processor] failed to send subblock for chain {}: {}", chain_id, e));
                 }
             }
         }
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("  [TEST] [Processor] produced block {} with {} messages", block_id, block.messages.len());
+            let mut block_status = format!("  [TEST] [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
-                print!("  - \"{}\"", msg);
+                block_status.push_str(&format!("\n  - \"{}\"", msg));
             }
-            println!();
+            logging::log("TEST", &block_status);
         } else {
-            println!("  [TEST] [Processor] produced empty block {}", block_id);
+            logging::log("TEST", &format!("  [TEST] [Processor] produced empty block {}", block_id));
         }
         
         // Release the lock by dropping state
@@ -350,18 +352,18 @@ async fn run_processor_v8(state: Arc<Mutex<TestNodeStateV8>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v8(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
-    println!("  [Adder-{}] task started", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task started", chain_id));
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
-            println!("  [Adder-{}] failed to send message: {}", chain_id, e);
+            logging::log("TEST", &format!("  [Adder-{}] failed to send message: {}", chain_id, e));
             break;
         }
-        println!("  [Adder-{}] sent message{}", chain_id, i);
+        logging::log("TEST", &format!("  [Adder-{}] sent message{}", chain_id, i));
     }
-    println!("  [Adder-{}] task completed", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task completed", chain_id));
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -375,7 +377,8 @@ async fn run_adder_v8(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v9() {
-    println!("\n=== Starting test_v9 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v9 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -397,7 +400,7 @@ async fn test_v9() {
     });
 
     // Register chains first
-    println!("[TEST]   Registering chains...");
+    logging::log("TEST", "[TEST]   Registering chains...");
     {
         let mut state = state.lock().await;
         state.register_chain(ChainId("chain1".to_string())).expect("Failed to register chain1");
@@ -406,13 +409,13 @@ async fn test_v9() {
         // Try to register chain1 again (should fail)
         match state.register_chain(ChainId("chain1".to_string())) {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: '{}'", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when registering chain1 twice: '{}'", e)),
         }
 
         // Try to get subblock for unregistered chain
         match state.get_subblock(ChainId("chain3".to_string()), BlockId("0".to_string())) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when getting subblock for unregistered chain: '{}'", e)),
         }
     }
 
@@ -437,28 +440,28 @@ async fn test_v9() {
     let _receiver_handle = tokio::spawn(async move {
         let mut received_blocks = 0;
         while let Some(subblock) = subblock_receiver.recv().await {
-            print!("  [Receiver] received subblock for chain {} with {} transactions", 
+            let mut block_status = format!("  [Receiver] received subblock for chain {} with {} transactions", 
                 subblock.chain_id.0, subblock.transactions.len());
             for tx in &subblock.transactions {
-                print!("  - id={}, data={}", tx.id.0, tx.data);
+                block_status.push_str(&format!("\n  - id={}, data={}", tx.id.0, tx.data));
             }
-            println!();
+            logging::log("TEST", &block_status);
             received_blocks += 1;
         }
-        println!("  [Receiver] received {} subblocks total", received_blocks);
+        logging::log("TEST", &format!("  [Receiver] received {} subblocks total", received_blocks));
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} transactions", state_guard.processed_transactions.len());
-    println!("Main task: {} transactions still pending", state_guard.pending_transactions.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
-    println!("Main task: registered chains: {:?}", state_guard.registered_chains);
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} transactions", state_guard.processed_transactions.len()));
+    logging::log("TEST", &format!("Main task: {} transactions still pending", state_guard.pending_transactions.len()));
+    logging::log("TEST", &format!("Main task: produced {} blocks", state_guard.blocks.len()));
+    logging::log("TEST", &format!("Main task: registered chains: {:?}", state_guard.registered_chains));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -468,7 +471,7 @@ async fn test_v9() {
     
     // Test getting subblock for registered chain
     match state_guard.get_subblock(ChainId("chain1".to_string()), BlockId("0".to_string())) {
-        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
+        Ok(subblock) => logging::log("TEST", &format!("[TEST]   Successfully got subblock for chain1: {:?}", subblock)),
         Err(e) => panic!("Failed to get subblock for chain1: '{}'", e),
     }
     
@@ -483,8 +486,8 @@ async fn test_v9() {
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_transactions.len();
     let block_count = state_guard.blocks.len();
-    println!("Main task: final check - block is {}, processed {} transactions in {} blocks", 
-        current_block, processed_count, block_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} transactions in {} blocks", 
+        current_block, processed_count, block_count));
     
     // Ensure the processor is still running and processing transactions
     // With 100ms interval, we should process ~20 blocks in 2 seconds
@@ -493,7 +496,7 @@ async fn test_v9() {
     assert!(processed_count > 10, "Should have processed more than 10 transactions in 2 seconds (5 per chain)");
     assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// A simplified version of a subblock with proper types
@@ -583,7 +586,7 @@ impl TestNodeStateV9 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -604,10 +607,10 @@ async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
         // Check for new messages from channel
         while let Ok((chain_id, transaction)) = state.message_receiver.try_recv() {
             if state.is_chain_registered(&chain_id) {
-                println!("  [TEST] [Processor] received transaction from chain {}: {}", chain_id.0, transaction.data);
+                logging::log("TEST", &format!("  [TEST] [Processor] received transaction from chain {}: {}", chain_id.0, transaction.data));
                 state.pending_transactions.push((chain_id, transaction));
             } else {
-                println!("  [TEST] [Processor] ignoring transaction from unregistered chain {}: {}", chain_id.0, transaction.data);
+                logging::log("TEST", &format!("  [TEST] [Processor] ignoring transaction from unregistered chain {}: {}", chain_id.0, transaction.data));
             }
         }
         
@@ -646,20 +649,20 @@ async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("  [TEST] [Processor] failed to send subblock for chain {}: {}", chain_id.0, e);
+                    logging::log("TEST", &format!("  [TEST] [Processor] failed to send subblock for chain {}: {}", chain_id.0, e));
                 }
             }
         }
         
         // Print block status
         if !block.transactions.is_empty() {
-            print!("  [TEST] [Processor] produced block {} with {} transactions", block_id.0, block.transactions.len());
+            let mut block_status = format!("  [TEST] [Processor] produced block {} with {} transactions", block_id.0, block.transactions.len());
             for tx in &block.transactions {
-                print!("  - id={}, data={}", tx.id.0, tx.data);
+                block_status.push_str(&format!("\n  - id={}, data={}", tx.id.0, tx.data));
             }
-            println!();
+            logging::log("TEST", &block_status);
         } else {
-            println!("  [TEST] [Processor] produced empty block {}", block_id.0);
+            logging::log("TEST", &format!("  [TEST] [Processor] produced empty block {}", block_id.0));
         }
         
         // Release the lock by dropping state
@@ -669,7 +672,7 @@ async fn run_processor_v9(state: Arc<Mutex<TestNodeStateV9>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v9(sender: mpsc::Sender<(ChainId, Transaction)>, chain_id: ChainId) {
-    println!("  [TEST] [Adder-{}] task started", chain_id.0);
+    logging::log("TEST", &format!("  [TEST] [Adder-{}] task started", chain_id.0));
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
@@ -679,12 +682,12 @@ async fn run_adder_v9(sender: mpsc::Sender<(ChainId, Transaction)>, chain_id: Ch
             chain_id: chain_id.clone(),
         };
         if let Err(e) = sender.send((chain_id.clone(), transaction.clone())).await {
-            println!("  [TEST] [Adder-{}] failed to send transaction: {}", chain_id.0, e);
+            logging::log("TEST", &format!("  [TEST] [Adder-{}] failed to send transaction: {}", chain_id.0, e));
             break;
         }
-        println!("  [TEST] [Adder-{}] sent transaction{}", chain_id.0, i);
+        logging::log("TEST", &format!("  [TEST] [Adder-{}] sent transaction{}", chain_id.0, i));
     }
-    println!("  [TEST] [Adder-{}] task completed", chain_id.0);
+    logging::log("TEST", &format!("  [TEST] [Adder-{}] task completed", chain_id.0));
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -697,7 +700,8 @@ async fn run_adder_v9(sender: mpsc::Sender<(ChainId, Transaction)>, chain_id: Ch
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v10() {
-    println!("\n=== Starting test_v10 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v10 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -719,7 +723,7 @@ async fn test_v10() {
     });
 
     // Register chains first
-    println!("[TEST]   Registering chains...");
+    logging::log("TEST", "[TEST]   Registering chains...");
     {
         let mut state = state.lock().await;
         state.register_chain(ChainId("chain1".to_string())).expect("Failed to register chain1");
@@ -728,18 +732,18 @@ async fn test_v10() {
         // Try to register chain1 again (should fail)
         match state.register_chain(ChainId("chain1".to_string())) {
             Ok(_) => panic!("Should not be able to register chain1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain1 twice: {}", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when registering chain1 twice: {}", e)),
         }
 
         // Try to get subblock for unregistered chain
         match state.get_subblock(ChainId("chain3".to_string()), BlockId("0".to_string())) {
             Ok(_) => panic!("Should not be able to get subblock for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when getting subblock for unregistered chain: {}", e)),
         }
     }
 
     // Submit transactions for different chains
-    println!("[TEST]   Submitting transactions...");
+    logging::log("TEST", "[TEST]   Submitting transactions...");
     {
         let mut state = state.lock().await;
         
@@ -767,7 +771,7 @@ async fn test_v10() {
         };
         match state.submit_transaction(tx3) {
             Ok(_) => panic!("Should not be able to submit transaction for unregistered chain"),
-            Err(e) => println!("[TEST]   Expected error when submitting transaction for unregistered chain: {}", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when submitting transaction for unregistered chain: {}", e)),
         }
     }
 
@@ -786,28 +790,28 @@ async fn test_v10() {
     let _receiver_handle = tokio::spawn(async move {
         let mut received_blocks = 0;
         while let Some(subblock) = subblock_receiver.recv().await {
-            print!("  [Receiver] received subblock for chain {} with {} transactions", 
+            let mut block_status = format!("  [Receiver] received subblock for chain {} with {} transactions", 
                 subblock.chain_id.0, subblock.transactions.len());
             for tx in &subblock.transactions {
-                print!("  - id={}, data={}", tx.id.0, tx.data);
+                block_status.push_str(&format!("\n  - id={}, data={}", tx.id.0, tx.data));
             }
-            println!();
+            logging::log("TEST", &block_status);
             received_blocks += 1;
         }
-        println!("  [Receiver] received {} subblocks total", received_blocks);
+        logging::log("TEST", &format!("  [Receiver] received {} subblocks total", received_blocks));
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} transactions", state_guard.processed_transactions.len());
-    println!("Main task: {} transactions still pending", state_guard.pending_transactions.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
-    println!("Main task: registered chains: {:?}", state_guard.registered_chains);
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} transactions", state_guard.processed_transactions.len()));
+    logging::log("TEST", &format!("Main task: {} transactions still pending", state_guard.pending_transactions.len()));
+    logging::log("TEST", &format!("Main task: produced {} blocks", state_guard.blocks.len()));
+    logging::log("TEST", &format!("Main task: registered chains: {:?}", state_guard.registered_chains));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -817,7 +821,7 @@ async fn test_v10() {
     
     // Test getting subblock for registered chain
     match state_guard.get_subblock(ChainId("chain1".to_string()), BlockId("0".to_string())) {
-        Ok(subblock) => println!("[TEST]   Successfully got subblock for chain1: {:?}", subblock),
+        Ok(subblock) => logging::log("TEST", &format!("[TEST]   Successfully got subblock for chain1: {:?}", subblock)),
         Err(e) => panic!("Failed to get subblock for chain1: {}", e),
     }
     
@@ -832,8 +836,8 @@ async fn test_v10() {
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_transactions.len();
     let block_count = state_guard.blocks.len();
-    println!("Main task: final check - block is {}, processed {} transactions in {} blocks", 
-        current_block, processed_count, block_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} transactions in {} blocks", 
+        current_block, processed_count, block_count));
     
     // Ensure the processor is still running and processing transactions
     // With 100ms interval, we should process ~20 blocks in 2 seconds
@@ -842,7 +846,7 @@ async fn test_v10() {
     assert!(processed_count > 10, "Should have processed more than 10 transactions in 2 seconds (5 per chain)");
     assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// A simplified version of a CL transaction
@@ -948,7 +952,7 @@ impl TestNodeStateV10 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v10(state: Arc<Mutex<TestNodeStateV10>>) {
-    println!("  [Processor] task started");
+    logging::log("TEST", "  [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -969,10 +973,10 @@ async fn run_processor_v10(state: Arc<Mutex<TestNodeStateV10>>) {
         // Check for new messages from channel
         while let Ok(transaction) = state.message_receiver.try_recv() {
             if state.is_chain_registered(&transaction.chain_id) {
-                println!("  [Processor] received transaction from chain {}: {}", transaction.chain_id.0, transaction.data);
+                logging::log("TEST", &format!("  [Processor] received transaction from chain {}: {}", transaction.chain_id.0, transaction.data));
                 state.pending_transactions.push(transaction);
             } else {
-                println!("  [Processor] ignoring transaction from unregistered chain {}: {}", transaction.chain_id.0, transaction.data);
+                logging::log("TEST", &format!("  [Processor] ignoring transaction from unregistered chain {}: {}", transaction.chain_id.0, transaction.data));
             }
         }
         
@@ -1011,20 +1015,20 @@ async fn run_processor_v10(state: Arc<Mutex<TestNodeStateV10>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("  [Processor] failed to send subblock for chain {}: {}", chain_id.0, e);
+                    logging::log("TEST", &format!("  [Processor] failed to send subblock for chain {}: {}", chain_id.0, e));
                 }
             }
         }
         
         // Print block status
         if !block.transactions.is_empty() {
-            print!("  [Processor] produced block {} with {} transactions", block_id.0, block.transactions.len());
+            let mut block_status = format!("  [Processor] produced block {} with {} transactions", block_id.0, block.transactions.len());
             for tx in &block.transactions {
-                print!("  - id={}, data={}", tx.id.0, tx.data);
+                block_status.push_str(&format!("\n  - id={}, data={}", tx.id.0, tx.data));
             }
-            println!();
+            logging::log("TEST", &block_status);
         } else {
-            println!("  [Processor] produced empty block {}", block_id.0);
+            logging::log("TEST", &format!("  [Processor] produced empty block {}", block_id.0));
         }
         
         // Release the lock by dropping state
@@ -1034,7 +1038,7 @@ async fn run_processor_v10(state: Arc<Mutex<TestNodeStateV10>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v10(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
-    println!("  [Adder-{}] task started", chain_id.0);
+    logging::log("TEST", &format!("  [Adder-{}] task started", chain_id.0));
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
@@ -1044,10 +1048,10 @@ async fn run_adder_v10(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
             chain_id: chain_id.clone(),
         };
         if let Err(e) = sender.send(transaction.clone()).await {
-            println!("  [Adder-{}] failed to send transaction: {}", chain_id.0, e);
+            logging::log("TEST", &format!("  [Adder-{}] failed to send transaction: {}", chain_id.0, e));
             break;
         }
-        println!("  [Adder-{}] sent transaction{}", chain_id.0, i);
+        logging::log("TEST", &format!("  [Adder-{}] sent transaction{}", chain_id.0, i));
     }
-    println!("  [Adder-{}] task completed", chain_id.0);
+    logging::log("TEST", &format!("  [Adder-{}] task completed", chain_id.0));
 }

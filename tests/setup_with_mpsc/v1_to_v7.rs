@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep, interval};
 use tokio::sync::mpsc;
+use hyperplane::utils::logging;
 
 /// A simplified version of ConfirmationLayerNode's state
 struct TestNodeState {
@@ -31,7 +32,8 @@ impl TestNodeState {
 /// - Simple sleep-based yielding
 #[tokio::test]
 async fn test_v1() {
-    println!("\n=== Starting test_v1 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v1 ===");
     
     // Create a shared counter wrapped in Arc<Mutex>
     let counter = Arc::new(Mutex::new(0));
@@ -45,12 +47,12 @@ async fn test_v1() {
     });
     
     // Wait for a few seconds to let the incrementer run
-    println!("Main task: waiting for 2 seconds...");
+    logging::log("TEST", "Main task: waiting for 2 seconds...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the counter value
     let counter_value = *counter.lock().await;
-    println!("Main task: counter is {}", counter_value);
+    logging::log("TEST", &format!("Main task: counter is {}", counter_value));
     
     // Verify the counter has been incremented
     assert!(counter_value > 0, "Counter should have been incremented");
@@ -64,18 +66,18 @@ async fn test_v1() {
     let counter_value = *counter.lock().await;
     // ensure the counter value is still incrementing
     assert!(counter_value > 15, "Counter should have been incremented more than 15 times in 2 seconds");
-    println!("Main task: counter is {}", counter_value);
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", &format!("Main task: counter is {}", counter_value));
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// A function that continuously increments a counter
 async fn run_processer_v1(counter: Arc<Mutex<i32>>) {
-    println!("Incrementer task started");
+    logging::log("TEST", "Incrementer task started");
     loop {
         // Acquire the lock and increment the counter
         let mut counter = counter.lock().await;
         *counter += 1;
-        println!("Incrementer: counter is now {}", *counter);
+        logging::log("TEST", &format!("Incrementer: counter is now {}", *counter));
         
         // Release the lock by dropping the counter
         drop(counter);
@@ -95,7 +97,8 @@ async fn run_processer_v1(counter: Arc<Mutex<i32>>) {
 /// - Still keeps the simple incrementer pattern
 #[tokio::test]
 async fn test_v2() {
-    println!("\n=== Starting test_v2 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v2 ===");
     
     // Create a shared state wrapped in Arc<Mutex>
     let state = Arc::new(Mutex::new(TestNodeState::new()));
@@ -115,14 +118,14 @@ async fn test_v2() {
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} messages", state_guard.processed_messages.len());
-    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} messages", state_guard.processed_messages.len()));
+    logging::log("TEST", &format!("Main task: {} messages still pending", state_guard.pending_messages.len()));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -138,7 +141,7 @@ async fn test_v2() {
     let state_guard = state.lock().await;
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_messages.len();
-    println!("Main task: final check - block is {}, processed {} messages", current_block, processed_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} messages", current_block, processed_count));
     
     // Ensure the processor is still running and processing messages
     // With 100ms sleep, we should process ~20 blocks in 2 seconds
@@ -146,28 +149,27 @@ async fn test_v2() {
     assert!(current_block > 15, "Block should have been incremented more than 15 times in 2 seconds");
     assert!(processed_count > 5, "Should have processed more than 5 messages in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
-
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v2(state: Arc<Mutex<TestNodeState>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     loop {
         // Acquire the lock and process messages
         let mut state = state.lock().await;
         
         // Always increment block, even if no messages
         state.current_block += 1;
-        print!("  [Processor] block is now {}", state.current_block);
+        logging::log("TEST", &format!("  [Processor] block is now {}", state.current_block));
         
         // Process any pending messages
         if !state.pending_messages.is_empty() {
             let message = state.pending_messages.remove(0);
             state.processed_messages.push(message.clone());
-            println!(" with message: {}", message);
+            logging::log("TEST", &format!("  [Processor] block is now {} with message: {}", state.current_block, message));
         } else {
-            println!(" (no messages)");
+            logging::log("TEST", &format!("  [Processor] block is now {} (no messages)", state.current_block));
         }
         
         // Release the lock by dropping state
@@ -178,18 +180,17 @@ async fn run_processor_v2(state: Arc<Mutex<TestNodeState>>) {
     }
 }
 
-
 /// A function that gradually adds messages to the state
 async fn run_adder_v2(state: Arc<Mutex<TestNodeState>>) {
-    println!("  [TEST] [Adder] task started");
+    logging::log("TEST", "  [TEST] [Adder] task started");
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let mut state = state.lock().await;
         state.pending_messages.push(format!("message{}", i));
-        println!("  [Adder] added message{}", i);
+        logging::log("TEST", &format!("  [Adder] added message{}", i));
     }
-    println!("  [Adder] task completed");
+    logging::log("TEST", "  [Adder] task completed");
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -203,7 +204,8 @@ async fn run_adder_v2(state: Arc<Mutex<TestNodeState>>) {
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v3() {
-    println!("\n=== Starting test_v3 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v3 ===");
     
     // Create a channel for messages
     let (sender, receiver) = mpsc::channel(100);
@@ -225,14 +227,14 @@ async fn test_v3() {
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} messages", state_guard.processed_messages.len());
-    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} messages", state_guard.processed_messages.len()));
+    logging::log("TEST", &format!("Main task: {} messages still pending", state_guard.pending_messages.len()));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -248,7 +250,7 @@ async fn test_v3() {
     let state_guard = state.lock().await;
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_messages.len();
-    println!("Main task: final check - block is {}, processed {} messages", current_block, processed_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} messages", current_block, processed_count));
     
     // Ensure the processor is still running and processing messages
     // With 100ms sleep, we should process ~20 blocks in 2 seconds
@@ -256,7 +258,7 @@ async fn test_v3() {
     assert!(current_block > 15, "Block should have been incremented more than 15 times in 2 seconds");
     assert!(processed_count > 5, "Should have processed more than 5 messages in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 
@@ -281,28 +283,28 @@ impl TestNodeStateV3 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v3(state: Arc<Mutex<TestNodeStateV3>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     loop {
         // Acquire the lock and process messages
         let mut state = state.lock().await;
         
         // Check for new messages from channel
         while let Ok(message) = state.message_receiver.try_recv() {
-            println!("  [TEST] [Processor] received message from channel: {}", message);
+            logging::log("TEST", &format!("  [TEST] [Processor] received message from channel: {}", message));
             state.pending_messages.push(message);
         }
         
         // Always increment block, even if no messages
         state.current_block += 1;
-        print!("  [Processor] block is now {}", state.current_block);
+        logging::log("TEST", &format!("  [Processor] block is now {}", state.current_block));
         
         // Process any pending messages
         if !state.pending_messages.is_empty() {
             let message = state.pending_messages.remove(0);
             state.processed_messages.push(message.clone());
-            println!(" with message: {}", message);
+            logging::log("TEST", &format!("  [Processor] block is now {} with message: {}", state.current_block, message));
         } else {
-            println!(" (no messages)");
+            logging::log("TEST", &format!("  [Processor] block is now {} (no messages)", state.current_block));
         }
         
         // Release the lock by dropping state
@@ -315,18 +317,18 @@ async fn run_processor_v3(state: Arc<Mutex<TestNodeStateV3>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v3(sender: mpsc::Sender<String>) {
-    println!("  [TEST] [Adder] task started");
+    logging::log("TEST", "  [TEST] [Adder] task started");
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send(message.clone()).await {
-            println!("  [TEST] [Adder] failed to send message: {}", e);
+            logging::log("TEST", &format!("  [TEST] [Adder] failed to send message: {}", e));
             break;
         }
-        println!("  [TEST] [Adder] sent message{}", i);
+        logging::log("TEST", &format!("  [TEST] [Adder] sent message{}", i));
     }
-    println!("  [TEST] [Adder] task completed");
+    logging::log("TEST", "  [TEST] [Adder] task completed");
 }
 
 
@@ -340,7 +342,8 @@ async fn run_adder_v3(sender: mpsc::Sender<String>) {
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v4() {
-    println!("\n=== Starting test_v4 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v4 ===");
     
     // Create a channel for messages
     let (sender, receiver) = mpsc::channel(100);
@@ -365,15 +368,15 @@ async fn test_v4() {
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} messages", state_guard.processed_messages.len());
-    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} messages", state_guard.processed_messages.len()));
+    logging::log("TEST", &format!("Main task: {} messages still pending", state_guard.pending_messages.len()));
+    logging::log("TEST", &format!("Main task: produced {} blocks", state_guard.blocks.len()));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -391,8 +394,8 @@ async fn test_v4() {
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_messages.len();
     let block_count = state_guard.blocks.len();
-    println!("Main task: final check - block is {}, processed {} messages in {} blocks", 
-        current_block, processed_count, block_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} messages in {} blocks", 
+        current_block, processed_count, block_count));
     
     // Ensure the processor is still running and processing messages
     // With 100ms interval, we should process ~20 blocks in 2 seconds
@@ -401,7 +404,7 @@ async fn test_v4() {
     assert!(processed_count > 5, "Should have processed more than 5 messages in 2 seconds");
     assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 
@@ -438,7 +441,7 @@ impl TestNodeStateV4 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -458,7 +461,7 @@ async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
         
         // Check for new messages from channel
         while let Ok(message) = state.message_receiver.try_recv() {
-            println!("  [TEST] [Processor] received message from channel: {}", message);
+            logging::log("TEST", &format!("  [TEST] [Processor] received message from channel: {}", message));
             state.pending_messages.push(message);
         }
         
@@ -482,12 +485,13 @@ async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
+            let mut block_status = format!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
-                println!("  - \"{}\"", msg);
+                block_status.push_str(&format!("\n  - \"{}\"", msg));
             }
+            logging::log("TEST", &block_status);
         } else {
-            println!("  [Processor] produced empty block {}", block_id);
+            logging::log("TEST", &format!("  [Processor] produced empty block {}", block_id));
         }
         
         // Release the lock by dropping state
@@ -497,18 +501,18 @@ async fn run_processor_v4(state: Arc<Mutex<TestNodeStateV4>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v4(sender: mpsc::Sender<String>) {
-    println!("  [Adder] task started");
+    logging::log("TEST", "  [Adder] task started");
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send(message.clone()).await {
-            println!("  [Adder] failed to send message: {}", e);
+            logging::log("TEST", &format!("  [Adder] failed to send message: {}", e));
             break;
         }
-        println!("  [Adder] sent message{}", i);
+        logging::log("TEST", &format!("  [Adder] sent message{}", i));
     }
-    println!("  [Adder] task completed");
+    logging::log("TEST", "  [Adder] task completed");
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -521,7 +525,8 @@ async fn run_adder_v4(sender: mpsc::Sender<String>) {
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v5() {
-    println!("\n=== Starting test_v5 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v5 ===");
     
     // Create a channel for messages
     let (sender, receiver) = mpsc::channel(100);
@@ -552,15 +557,15 @@ async fn test_v5() {
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} messages", state_guard.processed_messages.len());
-    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} messages", state_guard.processed_messages.len()));
+    logging::log("TEST", &format!("Main task: {} messages still pending", state_guard.pending_messages.len()));
+    logging::log("TEST", &format!("Main task: produced {} blocks", state_guard.blocks.len()));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -578,8 +583,8 @@ async fn test_v5() {
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_messages.len();
     let block_count = state_guard.blocks.len();
-    println!("Main task: final check - block is {}, processed {} messages in {} blocks", 
-        current_block, processed_count, block_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} messages in {} blocks", 
+        current_block, processed_count, block_count));
     
     // Ensure the processor is still running and processing messages
     // With 100ms interval, we should process ~20 blocks in 2 seconds
@@ -588,7 +593,7 @@ async fn test_v5() {
     assert!(processed_count > 10, "Should have processed more than 10 messages in 2 seconds (5 per chain)");
     assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// A simplified version of ConfirmationLayerNode's state with message channel and block production
@@ -616,7 +621,7 @@ impl TestNodeStateV5 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -636,7 +641,7 @@ async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
         
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
-            println!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message);
+            logging::log("TEST", &format!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message));
             state.pending_messages.push((chain_id, message));
         }
         
@@ -661,13 +666,13 @@ async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
+            let mut block_status = format!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
-                print!("  - \"{}\"", msg);
+                block_status.push_str(&format!("\n  - \"{}\"", msg));
             }
-            println!();
+            logging::log("TEST", &block_status);
         } else {
-            println!("  [Processor] produced empty block {}", block_id);
+            logging::log("TEST", &format!("  [Processor] produced empty block {}", block_id));
         }
         
         // Release the lock by dropping state
@@ -677,18 +682,18 @@ async fn run_processor_v5(state: Arc<Mutex<TestNodeStateV5>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v5(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
-    println!("  [Adder-{}] task started", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task started", chain_id));
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
-            println!("  [Adder-{}] failed to send message: {}", chain_id, e);
+            logging::log("TEST", &format!("  [Adder-{}] failed to send message: {}", chain_id, e));
             break;
         }
-        println!("  [Adder-{}] sent message{}", chain_id, i);
+        logging::log("TEST", &format!("  [Adder-{}] sent message{}", chain_id, i));
     }
-    println!("  [Adder-{}] task completed", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task completed", chain_id));
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -701,7 +706,8 @@ async fn run_adder_v5(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v6() {
-    println!("\n=== Starting test_v6 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v6 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -735,29 +741,27 @@ async fn test_v6() {
 
     // Spawn a task to receive and verify subblocks
     let _receiver_handle = tokio::spawn(async move {
-        let mut received_blocks = 0;
+        let received_blocks = 0;
         while let Some(subblock) = subblock_receiver.recv().await {
-            print!("  [Receiver] received subblock for chain {} with {} messages", 
-                subblock.chain_id, subblock.messages.len());
+            logging::log("TEST", &format!("  [Receiver] received subblock for chain {} with {} messages", 
+                subblock.chain_id, subblock.messages.len()));
             for msg in &subblock.messages {
-                print!("  - \"{}\"", msg);
+                logging::log("TEST", &format!("  - \"{}\"", msg));
             }
-            println!();
-            received_blocks += 1;
         }
-        println!("  [Receiver] received {} subblocks total", received_blocks);
+        logging::log("TEST", &format!("  [Receiver] received {} subblocks total", received_blocks));
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} messages", state_guard.processed_messages.len());
-    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} messages", state_guard.processed_messages.len()));
+    logging::log("TEST", &format!("Main task: {} messages still pending", state_guard.pending_messages.len()));
+    logging::log("TEST", &format!("Main task: produced {} blocks", state_guard.blocks.len()));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -775,8 +779,8 @@ async fn test_v6() {
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_messages.len();
     let block_count = state_guard.blocks.len();
-    println!("Main task: final check - block is {}, processed {} messages in {} blocks", 
-        current_block, processed_count, block_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} messages in {} blocks", 
+        current_block, processed_count, block_count));
     
     // Ensure the processor is still running and processing messages
     // With 100ms interval, we should process ~20 blocks in 2 seconds
@@ -785,7 +789,7 @@ async fn test_v6() {
     assert!(processed_count > 10, "Should have processed more than 10 messages in 2 seconds (5 per chain)");
     assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// A simplified version of a subblock
@@ -828,7 +832,7 @@ impl TestNodeStateV6 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -848,7 +852,7 @@ async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
         
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
-            println!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message);
+            logging::log("TEST", &format!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message));
             state.pending_messages.push((chain_id, message));
         }
         
@@ -888,20 +892,20 @@ async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("  [Processor] failed to send subblock for chain {}: {}", chain_id, e);
+                    logging::log("TEST", &format!("  [Processor] failed to send subblock for chain {}: {}", chain_id, e));
                 }
             }
         }
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
+            let mut block_status = format!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
-                print!("  - \"{}\"", msg);
+                block_status.push_str(&format!("\n  - \"{}\"", msg));
             }
-            println!();
+            logging::log("TEST", &block_status);
         } else {
-            println!("  [Processor] produced empty block {}", block_id);
+            logging::log("TEST", &format!("  [Processor] produced empty block {}", block_id));
         }
         
         // Release the lock by dropping state
@@ -911,18 +915,18 @@ async fn run_processor_v6(state: Arc<Mutex<TestNodeStateV6>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v6(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
-    println!("  [Adder-{}] task started", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task started", chain_id));
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
-            println!("  [Adder-{}] failed to send message: {}", chain_id, e);
+            logging::log("TEST", &format!("  [Adder-{}] failed to send message: {}", chain_id, e));
             break;
         }
-        println!("  [Adder-{}] sent message{}", chain_id, i);
+        logging::log("TEST", &format!("  [Adder-{}] sent message{}", chain_id, i));
     }
-    println!("  [Adder-{}] task completed", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task completed", chain_id));
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - 
@@ -936,7 +940,8 @@ async fn run_adder_v6(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
 /// - Still keeps the simple mutex pattern
 #[tokio::test]
 async fn test_v7() {
-    println!("\n=== Starting test_v7 ===");
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_v7 ===");
     
     // Create channels for messages and subblocks
     let (msg_sender, msg_receiver) = mpsc::channel(100);
@@ -958,7 +963,7 @@ async fn test_v7() {
     });
 
     // Register chains first
-    println!("[TEST]   Registering chains...");
+    logging::log("TEST", "[TEST]   Registering chains...");
     {
         let mut state = state.lock().await;
         state.register_chain("chain-1").expect("Failed to register chain-1");
@@ -967,7 +972,7 @@ async fn test_v7() {
         // Try to register chain1 again (should fail)
         match state.register_chain("chain-1") {
             Ok(_) => panic!("Should not be able to register chain-1 twice"),
-            Err(e) => println!("[TEST]   Expected error when registering chain-1 twice: '{}'", e),
+            Err(e) => logging::log("TEST", &format!("[TEST]   Expected error when registering chain-1 twice: '{}'", e)),
         }
     }
 
@@ -992,28 +997,27 @@ async fn test_v7() {
     let _receiver_handle = tokio::spawn(async move {
         let mut received_blocks = 0;
         while let Some(subblock) = subblock_receiver.recv().await {
-            print!("  [Receiver] received subblock for chain {} with {} messages", 
-                subblock.chain_id, subblock.messages.len());
+            logging::log("TEST", &format!("  [Receiver] received subblock for chain {} with {} messages", 
+                subblock.chain_id, subblock.messages.len()));
             for msg in &subblock.messages {
-                print!("  - \"{}\"", msg);
+                logging::log("TEST", &format!("  - \"{}\"", msg));
             }
-            println!();
             received_blocks += 1;
         }
-        println!("  [Receiver] received {} subblocks total", received_blocks);
+        logging::log("TEST", &format!("  [Receiver] received {} subblocks total", received_blocks));
     });
     
     // Wait for a few seconds to let the processor run
-    println!("Main task: waiting for 1 second...");
+    logging::log("TEST", "Main task: waiting for 1 second...");
     sleep(Duration::from_secs(1)).await;
     
     // Check the state
     let state_guard = state.lock().await;
-    println!("Main task: current block is {}", state_guard.current_block);
-    println!("Main task: processed {} messages", state_guard.processed_messages.len());
-    println!("Main task: {} messages still pending", state_guard.pending_messages.len());
-    println!("Main task: produced {} blocks", state_guard.blocks.len());
-    println!("Main task: registered chains: {:?}", state_guard.registered_chains);
+    logging::log("TEST", &format!("Main task: current block is {}", state_guard.current_block));
+    logging::log("TEST", &format!("Main task: processed {} messages", state_guard.processed_messages.len()));
+    logging::log("TEST", &format!("Main task: {} messages still pending", state_guard.pending_messages.len()));
+    logging::log("TEST", &format!("Main task: produced {} blocks", state_guard.blocks.len()));
+    logging::log("TEST", &format!("Main task: registered chains: {:?}", state_guard.registered_chains));
     
     // Verify the state has been updated
     assert!(state_guard.current_block > 0, "Block should have been incremented");
@@ -1032,8 +1036,8 @@ async fn test_v7() {
     let current_block = state_guard.current_block;
     let processed_count = state_guard.processed_messages.len();
     let block_count = state_guard.blocks.len();
-    println!("Main task: final check - block is {}, processed {} messages in {} blocks", 
-        current_block, processed_count, block_count);
+    logging::log("TEST", &format!("Main task: final check - block is {}, processed {} messages in {} blocks", 
+        current_block, processed_count, block_count));
     
     // Ensure the processor is still running and processing messages
     // With 100ms interval, we should process ~20 blocks in 2 seconds
@@ -1042,7 +1046,7 @@ async fn test_v7() {
     assert!(processed_count > 10, "Should have processed more than 10 messages in 2 seconds (5 per chain)");
     assert!(block_count > 15, "Should have produced more than 15 blocks in 2 seconds");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// A simplified version of ConfirmationLayerNode's state with message channel and block production
@@ -1090,7 +1094,7 @@ impl TestNodeStateV7 {
 
 /// A function that continuously processes messages and updates state
 async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
-    println!("  [TEST] [Processor] task started");
+    logging::log("TEST", "  [TEST] [Processor] task started");
     
     // Get the block interval
     let block_interval = {
@@ -1111,10 +1115,10 @@ async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
         // Check for new messages from channel
         while let Ok((chain_id, message)) = state.message_receiver.try_recv() {
             if state.is_chain_registered(&chain_id) {
-                println!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message);
+                logging::log("TEST", &format!("  [TEST] [Processor] received message from chain {}: {}", chain_id, message));
                 state.pending_messages.push((chain_id, message));
             } else {
-                println!("  [TEST] [Processor] ignoring message from unregistered chain {}: {}", chain_id, message);
+                logging::log("TEST", &format!("  [TEST] [Processor] ignoring message from unregistered chain {}: {}", chain_id, message));
             }
         }
         
@@ -1154,20 +1158,20 @@ async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
                 
                 // Send the subblock
                 if let Err(e) = state.subblock_sender.send(subblock.clone()).await {
-                    println!("  [TEST] [Processor] failed to send subblock for chain {}: {}", chain_id, e);
+                    logging::log("TEST", &format!("  [Processor] failed to send subblock for chain {}: {}", chain_id, e));
                 }
             }
         }
         
         // Print block status
         if !block.messages.is_empty() {
-            print!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
+            let mut block_status = format!("  [Processor] produced block {} with {} messages", block_id, block.messages.len());
             for msg in &block.messages {
-                print!("  - \"{}\"", msg);
+                block_status.push_str(&format!("\n  - \"{}\"", msg));
             }
-            println!();
+            logging::log("TEST", &block_status);
         } else {
-            println!("  [TEST] [Processor] produced empty block {}", block_id);
+            logging::log("TEST", &format!("  [Processor] produced empty block {}", block_id));
         }
         
         // Release the lock by dropping state
@@ -1177,16 +1181,16 @@ async fn run_processor_v7(state: Arc<Mutex<TestNodeStateV7>>) {
 
 /// A function that gradually adds messages to the state through channel
 async fn run_adder_v7(sender: mpsc::Sender<(String, String)>, chain_id: &str) {
-    println!("  [Adder-{}] task started", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task started", chain_id));
     for i in 1..=7 {
         // Wait for ~3 blocks (300ms) before adding next message
         sleep(Duration::from_millis(300)).await;
         let message = format!("message{}", i);
         if let Err(e) = sender.send((chain_id.to_string(), message.clone())).await {
-            println!("  [Adder-{}] failed to send message: {}", chain_id, e);
+            logging::log("TEST", &format!("  [Adder-{}] failed to send message: {}", chain_id, e));
             break;
         }
-        println!("  [Adder-{}] sent message{}", chain_id, i);
+        logging::log("TEST", &format!("  [Adder-{}] sent message{}", chain_id, i));
     }
-    println!("  [Adder-{}] task completed", chain_id);
+    logging::log("TEST", &format!("  [Adder-{}] task completed", chain_id));
 }

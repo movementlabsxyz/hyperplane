@@ -31,6 +31,9 @@ impl TransactionTracker {
 
 #[tokio::main]
 async fn main() {
+    // Initialize logging
+    hyperplane::utils::logging::init_logging();
+
     println!("=== Hyperplane Shell ===");
     println!("Type 'help' for commands.");
     print!("> ");
