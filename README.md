@@ -89,6 +89,12 @@ The project includes an interactive shell for testing and development. To run it
 cargo run --bin main
 ```
 
+Run the protocol with logs enabled:
+
+```bash
+HYPERPLANE_LOGGING=true cargo run --bin main
+```
+
 The shell supports the following commands:
 - `add-chain <chain_id>` - Register a new chain
 - `send-tx <chain_id> <data>` - Send a transaction to a specific chain
@@ -98,9 +104,6 @@ The shell supports the following commands:
 
 Example usage:
 ```bash
-# Start the shell
-cargo run --bin main
-
 # Add a chain
 > add-chain chain1
 [shell] Adding chain: chain1
