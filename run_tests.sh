@@ -111,11 +111,13 @@ if [ "$2" != "0" ] && [ "$2" != "1" ]; then
     exit 1
 fi
 
-# Set logging environment variable
+# Set logging environment variables
 if [ "$2" = "1" ]; then
-    export HYPERPLANE_LOGGING=true
+    export HYPERPLANE_LOGGING=true           # Enable logging
+    export HYPERPLANE_LOG_TO_FILE=false      # Log to terminal for tests
 else
-    export HYPERPLANE_LOGGING=false
+    export HYPERPLANE_LOGGING=false          # Disable logging
+    export HYPERPLANE_LOG_TO_FILE=true       # Default to file when logging is enabled
 fi
 
 # Function to determine test target based on test path

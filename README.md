@@ -86,39 +86,13 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 The project includes an interactive shell for testing and development. To run it:
 
 ```bash
-cargo run --bin main
+cargo run
 ```
 
-Run the protocol with logs enabled:
-
+Note that logs are enabled by default. The logs are written to `hyperplane.log` in the root directory. You can track the logs in real-time by running in a separate terminal:
 ```bash
-HYPERPLANE_LOGGING=true cargo run --bin main
+tail -f hyperplane.log
 ```
-
-The shell supports the following commands:
-- `add-chain <chain_id>` - Register a new chain
-- `send-tx <chain_id> <data>` - Send a transaction to a specific chain
-- `send-cat <chain_id1,chain_id2,...> <data>` - Send a cross-chain atomic transaction
-- `help` - Show available commands
-- `exit` or `quit` - Exit the shell
-
-Example usage:
-```bash
-# Add a chain
-> add-chain chain1
-[shell] Adding chain: chain1
-[shell] Chain chain1 registered successfully.
-
-# Send a regular transaction
-> send-tx chain1 "REGULAR.SIMULATION:Success"
-[shell] Sending tx to chain1: REGULAR.SIMULATION:Success
-
-# Send a cross-chain transaction (CAT)
-> send-cat chain1,chain2 "CAT.SIMULATION:Success.CAT_ID:cat123"
-[shell] Sending CAT to [chain1,chain2]: CAT.SIMULATION:Success.CAT_ID:cat123
-```
-
-Type `help` in the shell to see all available commands and valid transaction data formats.
 
 ### Testing
 

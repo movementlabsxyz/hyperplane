@@ -1,27 +1,58 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
 use std::env;
 
-static ENABLE_LOGGING: AtomicBool = AtomicBool::new(false);
+static LOG_FILE: Lazy<Mutex<Option<std::fs::File>>> = Lazy::new(|| Mutex::new(None));
+static ENABLE_LOGGING: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(true));
+static LOG_TO_FILE: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(true));
 
-/// Initializes logging based on the HYPERPLANE_LOGGING environment variable.
-/// - If HYPERPLANE_LOGGING=true, logging is enabled.
-/// - If HYPERPLANE_LOGGING=false or not set, logging is disabled.
-/// - To enable logging in tests, run: HYPERPLANE_LOGGING=true cargo test -- --nocapture
+/// Initializes logging by opening the log file.
 pub fn init_logging() {
-    match env::var("HYPERPLANE_LOGGING") {
-        Ok(value) => {
-            match value.as_str() {
-                "true" => ENABLE_LOGGING.store(true, Ordering::SeqCst),
-                "false" => ENABLE_LOGGING.store(false, Ordering::SeqCst),
-                _ => panic!("\nError: HYPERPLANE_LOGGING environment variable must be 'true' or 'false'\n\nTo run the program, use one of:\n  HYPERPLANE_LOGGING=true cargo run\n  HYPERPLANE_LOGGING=false cargo run\n"),
-            }
-        }
-        Err(_) => ENABLE_LOGGING.store(false, Ordering::SeqCst),
+    // Check if we're running tests
+    let is_test = env::var("CARGO_PKG_NAME").is_err() || env::var("TEST").is_ok();
+    
+    // For tests, default to terminal logging unless explicitly set to file
+    // For normal runs, default to file logging unless explicitly set to terminal
+    let default_to_file = !is_test;
+    
+    // Check if logging is enabled
+    let enable_logging = env::var("HYPERPLANE_LOGGING")
+        .map(|v| v == "true")
+        .unwrap_or(true);  // Default to enabled
+    
+    // Check if we should log to file
+    let log_to_file = env::var("HYPERPLANE_LOG_TO_FILE")
+        .map(|v| v == "true")
+        .unwrap_or(default_to_file);
+    
+    *ENABLE_LOGGING.lock().unwrap() = enable_logging;
+    *LOG_TO_FILE.lock().unwrap() = log_to_file;
+
+    if enable_logging && log_to_file {
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("hyperplane.log")
+            .expect("Failed to open log file");
+        *LOG_FILE.lock().unwrap() = Some(file);
     }
 }
 
 pub fn log(prefix: &str, message: &str) {
-    if ENABLE_LOGGING.load(Ordering::SeqCst) {
-        println!("  [{}]   {}", prefix, message);
+    if !*ENABLE_LOGGING.lock().unwrap() {
+        return;
+    }
+
+    let log_message = format!("  [{}]   {}\n", prefix, message);
+    
+    if *LOG_TO_FILE.lock().unwrap() {
+        if let Some(file) = &mut *LOG_FILE.lock().unwrap() {
+            let _ = file.write_all(log_message.as_bytes());
+            let _ = file.flush();
+        }
+    } else {
+        print!("{}", log_message);
     }
 } 
