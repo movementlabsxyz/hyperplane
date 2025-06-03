@@ -3,6 +3,7 @@
 use hyperplane::{
     types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATStatus, Transaction},
     confirmation_layer::ConfirmationLayer,
+    utils::logging,
 };
 use super::super::common::testnodes;
 use tokio::time::Duration;
@@ -13,16 +14,16 @@ use tokio::time::Duration;
 /// - HS: Process the status update and send a status update to the CL
 /// - CL: Verify the status update
 async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_status: CATStatus) {
-    println!("\n[TEST]   === Starting CAT test with proposed status: {:?} ===", proposed_status);
+    logging::log("TEST", &format!("\n=== Starting CAT test with proposed status: {:?} ===", proposed_status));
     
     // Initialize components with 100ms block interval
-    println!("[TEST]   Setting up test nodes with 100ms block interval...");
+    logging::log("TEST", "Setting up test nodes with 100ms block interval...");
     let (_hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
-    println!("[TEST]   Test nodes initialized successfully");
+    logging::log("TEST", "Test nodes initialized successfully");
 
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
-    println!("[TEST]   Using chains: {} and {}", chain_id_1.0, chain_id_2.0);
+    logging::log("TEST", &format!("Using chains: {} and {}", chain_id_1.0, chain_id_2.0));
 
     // Create a transaction for each chain
     let cl_data = format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", proposed_status);
@@ -46,19 +47,19 @@ async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_stat
         vec![tx_chain_1, tx_chain_2],
     ).expect("Failed to create CL transaction");
 
-    println!("[TEST]   Submitting CAT transaction with ID: {}", cl_tx.id.0);
+    logging::log("TEST", &format!("Submitting CAT transaction with ID: {}", cl_tx.id.0));
     {
         let mut node = cl_node.lock().await;
         node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
     }
-    println!("[TEST]   CAT transaction submitted successfully");
+    logging::log("TEST", "CAT transaction submitted successfully");
 
     // Wait for block production in CL (cat-tx), processing in HIG and HS, and then block production in CL (status-update-tx)
-    println!("[TEST]   Waiting for block production in CL and processing in HIG and HS (500ms)...");
+    logging::log("TEST", "Waiting for block production in CL and processing in HIG and HS (500ms)...");
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     // Check the subblocks for a status update
-    println!("[TEST]   Verifying transaction status in CL...");
+    logging::log("TEST", "Verifying transaction status in CL...");
 
     // Get the subblock from CL
     // make a loop over the subblocks and check if the status update is included
@@ -74,25 +75,27 @@ async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_stat
         for tx in subblock.transactions {
             if tx.data.contains(&status_data) {
                 found_tx = true;
-                println!("[TEST]   Found status update in subblock: block_id={}, chain_id={}, tx_count={} with tx id:{} and data: {}", 
-                    subblock.block_height, subblock.chain_id.0, tx_count, tx.id, tx.data);    
+                logging::log("TEST", &format!("Found status update in subblock: block_id={}, chain_id={}, tx_count={} with tx id:{} and data: {}", 
+                    subblock.block_height, subblock.chain_id.0, tx_count, tx.id, tx.data));    
                 break;
             }
         }
     }
     assert!(found_tx, "Transaction with data '{}' not found in subblock", cl_data);
     
-    println!("[TEST]   === Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===\n");
 }
 
 /// Tests single chain CAT success
 #[tokio::test]
 async fn test_two_chain_cat_success() {
+    logging::init_logging();
     run_two_chain_cat_test(CATStatusLimited::Success, CATStatus::Success).await;
 }
 
 /// Tests single chain CAT failure
 #[tokio::test]
 async fn test_two_chain_cat_failure() {
+    logging::init_logging();
     run_two_chain_cat_test(CATStatusLimited::Failure, CATStatus::Failure).await;
 }

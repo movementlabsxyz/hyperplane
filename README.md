@@ -81,6 +81,19 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 - Production deployment setup
 - (optional) libp2p network backend, where necessary
 
+### Running the protocol
+
+The project includes an interactive shell for testing and development. To run it:
+
+```bash
+cargo run
+```
+
+Note that logs are enabled by default. The logs are written to `hyperplane.log` in the root directory. You can track the logs in real-time by running in a separate terminal:
+```bash
+tail -f hyperplane.log
+```
+
 ### Testing
 
 Run all tests:
@@ -88,46 +101,23 @@ Run all tests:
 cargo test
 ```
 
-Run a specific test with output
+By default, running `cargo test` will not show logs. To enable logging in tests, you can run:
+
 ```
-./run_tests.sh <1 or 2>
+HYPERPLANE_LOGGING=true cargo test -- --nocapture
 ```
 
-### Running the Shell
-
-The project includes an interactive shell for testing and development. To run it:
-
+We also provide a test runner script:
 ```bash
-cargo run --bin main
+# Run all tests without logging
+./run_tests.sh 1 0
+
+# Run all tests with logging enabled
+./run_tests.sh 1 1
+
+# Run a specific integration test with logging
+./run_tests.sh 2 1
 ```
-
-The shell supports the following commands:
-- `add-chain <chain_id>` - Register a new chain
-- `send-tx <chain_id> <data>` - Send a transaction to a specific chain
-- `send-cat <chain_id1,chain_id2,...> <data>` - Send a cross-chain atomic transaction
-- `help` - Show available commands
-- `exit` or `quit` - Exit the shell
-
-Example usage:
-```bash
-# Start the shell
-cargo run --bin main
-
-# Add a chain
-> add-chain chain1
-[shell] Adding chain: chain1
-[shell] Chain chain1 registered successfully.
-
-# Send a regular transaction
-> send-tx chain1 "REGULAR.SIMULATION:Success"
-[shell] Sending tx to chain1: REGULAR.SIMULATION:Success
-
-# Send a cross-chain transaction (CAT)
-> send-cat chain1,chain2 "CAT.SIMULATION:Success.CAT_ID:cat123"
-[shell] Sending CAT to [chain1,chain2]: CAT.SIMULATION:Success.CAT_ID:cat123
-```
-
-Type `help` in the shell to see all available commands and valid transaction data formats.
 
 ## Contributing
 
