@@ -81,6 +81,19 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 - Production deployment setup
 - (optional) libp2p network backend, where necessary
 
+### Running the protocol
+
+The project includes an interactive shell for testing and development. To run it:
+
+```bash
+cargo run
+```
+
+Note that logs are enabled by default. The logs are written to `hyperplane.log` in the root directory. You can track the logs in real-time by running in a separate terminal:
+```bash
+tail -f hyperplane.log
+```
+
 ### Testing
 
 Run all tests:
@@ -88,9 +101,22 @@ Run all tests:
 cargo test
 ```
 
-Run a specific test with output
+By default, running `cargo test` will not show logs. To enable logging in tests, you can run:
+
 ```
-./run_tests.sh <1 or 2>
+HYPERPLANE_LOGGING=true cargo test -- --nocapture
+```
+
+We also provide a test runner script:
+```bash
+# Run all tests without logging
+./run_tests.sh 1 0
+
+# Run all tests with logging enabled
+./run_tests.sh 1 1
+
+# Run a specific integration test with logging
+./run_tests.sh 2 1
 ```
 
 ## Contributing
