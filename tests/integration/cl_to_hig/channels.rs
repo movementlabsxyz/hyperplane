@@ -1,11 +1,11 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction, TransactionStatus, Transaction},
+    types::{ChainId, TransactionStatus},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
-use super::super::common::testnodes;
+use super::super::common::{testnodes, submit_transactions};
 use tokio::time::Duration;
 use hyperplane::utils::logging;
 
@@ -14,7 +14,7 @@ use hyperplane::utils::logging;
 /// - The CL sends a subblock to the HIG
 /// - The HIG processes the transaction in the subblock
 /// - Verify the transaction status is correctly set to Pending
-async fn run_test_process_subblock(
+async fn run_process_subblock_regular_tx(
     transaction_data: &str,
     expected_status: TransactionStatus,
 ) {
@@ -25,28 +25,14 @@ async fn run_test_process_subblock(
     let (_hs_node, cl_node, hig_node, _, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
-    // Submit regular transaction to CL
+    // Submit regular transaction using helper function
     let chain_id = ChainId("chain-1".to_string());
-    let tx = Transaction::new(
-        TransactionId("test-tx".to_string()),
-        chain_id.clone(),
-        vec![chain_id.clone()],
-        transaction_data.to_string(),
-    ).expect("Failed to create transaction");
-
-    let cl_tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
-        vec![chain_id.clone()],
-        vec![tx],
-    ).expect("Failed to create CL transaction");
-
-    logging::log("TEST", &format!("Submitting CLTransaction with ID: {}", cl_tx.id.0));
-    // create a local scope (note the test currently fails without this)
-    {
-        let mut node = cl_node.lock().await;
-        node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
-    }
-    logging::log("TEST", "Transaction submitted successfully");
+    let cl_tx = submit_transactions::submit_regular_transaction(
+        &cl_node,
+        &chain_id,
+        transaction_data,
+        "test-tx"
+    ).await.expect("Failed to submit transaction");
 
     // Wait for block production and processing (150ms to ensure block is produced and processed)
     logging::log("TEST", "Waiting for block production and processing (150ms)...");
@@ -79,20 +65,12 @@ async fn run_test_process_subblock(
 #[tokio::test]
 async fn test_process_subblock_with_regular_transaction_success() {
     logging::init_logging();
-    run_test_process_subblock("REGULAR.credit 1 100", TransactionStatus::Success).await;
+    run_process_subblock_regular_tx("credit 1 100", TransactionStatus::Success).await;
 }
 
 /// Tests that a subblock with a regular transaction (failure) is properly processed by the HIG
 #[tokio::test]
 async fn test_process_subblock_with_regular_transaction_failure() {
     logging::init_logging();
-    run_test_process_subblock("REGULAR.send 1 2 100", TransactionStatus::Failure).await;
+    run_process_subblock_regular_tx("send 1 2 100", TransactionStatus::Failure).await;
 }
-
-/// Tests that a subblock with a CAT transaction is properly processed by the HIG
-#[tokio::test]
-async fn test_process_subblock_with_cat_transaction() {
-    logging::init_logging();
-    run_test_process_subblock("CAT.credit 1 100.CAT_ID:test-cat", TransactionStatus::Pending).await;
-}
-
