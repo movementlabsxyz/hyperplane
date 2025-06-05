@@ -74,16 +74,16 @@ async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStat
 /// # Arguments
 /// * `chain1_credit` - Credit amount for chain-1 (e.g. "credit 1 100")
 /// * `chain2_credit` - Credit amount for chain-2 (e.g. "credit 1 0")
-/// * `cat_transaction` - The CAT transaction to test
+/// * `transaction_data` - The transaction data to test
 /// * `expected_status` - Expected CAT status (Success or Failure)
 async fn run_two_chain_cat_test_with_credits(
     chain1_credit: &str,
     chain2_credit: &str,
-    cat_transaction: &str,
+    transaction_data: &str,
     expected_status: CATStatusLimited
 ) {
     logging::log("TEST", &format!("=== Starting CAT test with credits: chain1={}, chain2={}, cat={} ===", 
-        chain1_credit, chain2_credit, cat_transaction));
+        chain1_credit, chain2_credit, transaction_data));
     
     // Initialize components with 100ms block interval
     logging::log("TEST", "Setting up test nodes with 100ms block interval...");
@@ -98,14 +98,14 @@ async fn run_two_chain_cat_test_with_credits(
     submit_transactions::submit_regular_transaction(
         &cl_node,
         &chain_id_1,
-        "credit 1 100",
+        chain1_credit,
         "credit-tx-1"
     ).await.expect("Failed to submit credit transaction for chain-1");
 
     submit_transactions::submit_regular_transaction(
         &cl_node,
         &chain_id_2,
-        "credit 1 100",
+        chain2_credit,
         "credit-tx-2"
     ).await.expect("Failed to submit credit transaction for chain-2");
 
@@ -117,28 +117,28 @@ async fn run_two_chain_cat_test_with_credits(
         &cl_node,
         &chain_id_1,
         &chain_id_2,
-        cat_transaction,
+        transaction_data,
         "test-cat"
     ).await.expect("Failed to submit CAT transaction");
 
     // Wait for block production
     tokio::time::sleep(Duration::from_millis(500)).await;
 
-    // Verify that HIG has updated the status
+    // Verify that HIG of chain-1 has updated the status
     let status = {
         let node = hig_node_1.lock().await;
         node.get_transaction_status(cl_tx.id.clone())
             .await
             .expect("Failed to get transaction status")
     };
-    logging::log("TEST", &format!("Transaction status in HIG: {:?}", status));
+    logging::log("TEST", &format!("Transaction status in HIG of chain-1: {:?}", status));
     
     // The status should match the expected status from the CAT transaction
     let expected_tx_status = match expected_status {
         CATStatusLimited::Success => TransactionStatus::Success,
         CATStatusLimited::Failure => TransactionStatus::Failure,
     };
-    assert_eq!(status, expected_tx_status, "Transaction status should match the expected status from CAT transaction");
+    assert_eq!(status, expected_tx_status, "Transaction status should match the expected status from CAT transaction. Should: {:?}, Got: {:?}", expected_tx_status, status);
     
     logging::log("TEST", "=== Test completed successfully ===");
 }

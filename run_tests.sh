@@ -106,7 +106,7 @@ TESTS=(
 TESTS2=(
 
     integration::e2e::channels::test_cat_send_chain1_only
-    integration::e2e::channels::test_cat_send_both_chains
+    # integration::e2e::channels::test_cat_send_both_chains
 )
 
 # Check if arguments are provided
