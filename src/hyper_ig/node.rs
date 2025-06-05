@@ -9,6 +9,8 @@ use std::time::Duration;
 use crate::types::ChainId;
 use crate::types::communication::cl_to_hig::{STATUS_UPDATE_PATTERN, parse_cat_transaction};
 use crate::utils::logging::log;
+use crate::mock_vm::MockVM;
+use x_chain_vm::transaction::Transaction as VMTransaction;
 /// The internal state of the HyperIGNode
 struct HyperIGState {
     /// Map of transaction IDs to their current status
@@ -19,6 +21,8 @@ struct HyperIGState {
     cat_proposed_statuses: HashMap<TransactionId, CATStatusLimited>,
     /// my chain id
     my_chain_id: ChainId,
+    /// Mock VM for transaction execution
+    vm: MockVM,
 }
 
 /// Node implementation of the Hyper Information Gateway
@@ -40,6 +44,7 @@ impl HyperIGNode {
                 pending_transactions: HashSet::new(),
                 cat_proposed_statuses: HashMap::new(),
                 my_chain_id: my_chain_id,
+                vm: MockVM::new(),
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
@@ -189,36 +194,26 @@ impl HyperIGNode {
     async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         log("HIG", &format!("Executing regular transaction: {}", tx.id));
         
-        // Parse the transaction data
-        let parts: Vec<&str> = tx.data.split('.').collect();
-        if parts.len() != 2 {
-            return Err(anyhow::anyhow!("Invalid transaction data format: '{}'", tx.data));
-        }
+        // Extract the command part between the dots
+        let command = tx.data.split('.').nth(1)
+            .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
 
-        let command = parts[1];
-        if command.starts_with("credit") {
-            // Credit command: credit <receiver> <amount>
-            let args: Vec<&str> = command.split_whitespace().collect();
-            if args.len() != 3 {
-                return Err(anyhow::anyhow!("Invalid credit command format: '{}'", command));
-            }
-            // For now, all credit commands succeed
-            self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Success);
-            log("HIG", &format!("Set final status to Success for transaction: {}", tx.id.0));
-            Ok(TransactionStatus::Success)
-        } else if command.starts_with("send") {
-            // Send command: send <sender> <receiver> <amount>
-            let args: Vec<&str> = command.split_whitespace().collect();
-            if args.len() != 4 {
-                return Err(anyhow::anyhow!("Invalid send command format: '{}'", command));
-            }
-            // For now, all send commands fail (simulating insufficient balance)
-            self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
-            log("HIG", &format!("Set final status to Failure for transaction: {}", tx.id.0));
-            Ok(TransactionStatus::Failure)
+        // Parse and execute the transaction using x-chain-vm's parse_input
+        let vm_tx = x_chain_vm::parse_input(command)
+            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
+        
+        // Execute the transaction
+        let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
+
+        // Update transaction status based on execution result
+        let status = if execution.is_success() {
+            TransactionStatus::Success
         } else {
-            Err(anyhow::anyhow!("Invalid transaction command: '{}'", command))
-        }
+            TransactionStatus::Failure
+        };
+        self.state.lock().await.transaction_statuses.insert(tx.id.clone(), status.clone());
+        log("HIG", &format!("Set final status to {:?} for transaction: {}", status, tx.id.0));
+        Ok(status)
     }
 
     /// Handle a dependent regular transaction

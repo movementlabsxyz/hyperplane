@@ -2,6 +2,7 @@ use std::collections::HashMap;
 pub use x_chain_vm::transaction::{Transaction, TxSet1};
 pub use x_chain_vm::execution::{Execution, Status};
 pub use x_chain_vm::memtrace::MemTrace;
+use x_chain_vm::parse_input;
 
 /// A mock virtual machine that executes transactions using x-chain-vm
 pub struct MockVM {
@@ -22,23 +23,27 @@ impl MockVM {
     /// Execute a transaction and return the execution result
     /// 
     /// # Arguments
-    /// * `transaction` - A TxSet1 transaction to execute
+    /// * `transaction` - A string containing the transaction command
     /// 
     /// # Returns
     /// `Execution<u32, u32>` containing:
     /// * `change_set`: HashMap<u32, u32> - The changes that should be applied to the state
     /// * `status`: Status - Either Success or Failure
     /// * `memory_trace`: MemTrace<u32, u32> - A trace of all memory operations performed
-    pub fn execute_transaction(&mut self, transaction: TxSet1) -> Execution<u32, u32> {
+    pub fn execute_transaction(&mut self, transaction: &str) -> Result<Execution<u32, u32>, anyhow::Error> {
+        // Parse the transaction using x-chain-vm's parser
+        let tx = parse_input(transaction)
+            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
+        
         // Execute the transaction
-        let execution = transaction.execute(&self.state);
+        let execution = tx.execute(&self.state);
         
         // Update the state if successful
         if execution.is_success() {
             self.state.extend(execution.change_set.clone());
         }
 
-        execution
+        Ok(execution)
     }
 
     /// Get the current state
@@ -67,12 +72,12 @@ mod tests {
         let mut vm = MockVM::new();
         
         // Credit 100 to account 1
-        let execution = vm.execute_transaction(TxSet1::Credit { receiver: 1, amount: 100 });
+        let execution = vm.execute_transaction("credit 1 100").unwrap();
         assert!(execution.is_success());
         assert_eq!(vm.get_state().get(&1), Some(&100));
 
         // Credit 50 to account 2
-        let execution = vm.execute_transaction(TxSet1::Credit { receiver: 2, amount: 50 });
+        let execution = vm.execute_transaction("credit 2 50").unwrap();
         assert!(execution.is_success());
         assert_eq!(vm.get_state().get(&2), Some(&50));
     }
@@ -90,11 +95,11 @@ mod tests {
         let mut vm = MockVM::new();
         
         // First credit 100 to account 1
-        let execution = vm.execute_transaction(TxSet1::Credit { receiver: 1, amount: 100 });
+        let execution = vm.execute_transaction("credit 1 100").unwrap();
         assert!(execution.is_success());
         
         // Send 50 from account 1 to account 2
-        let execution = vm.execute_transaction(TxSet1::Send { sender: 1, receiver: 2, amount: 50 });
+        let execution = vm.execute_transaction("send 1 2 50").unwrap();
         assert!(execution.is_success());
         // Verify sender's balance is decreased by 50
         assert_eq!(vm.get_state().get(&1), Some(&50));
@@ -102,7 +107,7 @@ mod tests {
         assert_eq!(vm.get_state().get(&2), Some(&50));
 
         // Try to send 100 from account 1 (which now has 50)
-        let execution = vm.execute_transaction(TxSet1::Send { sender: 1, receiver: 2, amount: 100 });
+        let execution = vm.execute_transaction("send 1 2 100").unwrap();
         assert!(execution.is_failure());
         // Verify sender's balance is unchanged after failed transaction
         assert_eq!(vm.get_state().get(&1), Some(&50));
