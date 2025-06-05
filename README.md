@@ -86,6 +86,10 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 The project includes an interactive shell for testing and development. To run it:
 
 ```bash
+# First, initialize and update the git submodules
+git submodule update --init --recursive
+
+# Then run the project
 cargo run
 ```
 
