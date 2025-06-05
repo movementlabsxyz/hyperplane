@@ -140,16 +140,44 @@ impl HyperIGNode {
     /// Handle a CAT transaction
     async fn handle_cat_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         log("HIG", &format!("Handling CAT transaction: {}", tx.id.0));
+        
         // CAT transactions are always pending
         self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
         // Add to pending transactions set
         self.state.lock().await.pending_transactions.insert(tx.id.clone());
+
+        // Extract the command part between the dots
+        let command = tx.data.split('.').nth(1)
+            .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
+
+        // Check if transaction would succeed
+        let would_succeed = self.check_transaction_execution(command).await?;
+        log("HIG", &format!("CAT transaction would {} if executed", 
+            if would_succeed { "succeed" } else { "fail" }));
         
         // Store proposed status based on transaction data
         let (_, proposed_status) = parse_cat_transaction(&tx.data)?;
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
         
+        // Return Pending as CAT transactions are not executed immediately
         Ok(TransactionStatus::Pending)
+    }
+
+    /// Helper method to check if a transaction would succeed if executed
+    /// 
+    /// # Arguments
+    /// * `command` - The transaction command to check
+    /// 
+    /// # Returns
+    /// `Result<bool, anyhow::Error>` - Whether the transaction would succeed
+    async fn check_transaction_execution(&self, command: &str) -> Result<bool, anyhow::Error> {
+        // Parse and execute the transaction using x-chain-vm's parse_input
+        let vm_tx = x_chain_vm::parse_input(command)
+            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
+        
+        // Execute the transaction to check if it would succeed
+        let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
+        Ok(execution.is_success())
     }
 
     /// Handle a status update transaction
@@ -198,15 +226,11 @@ impl HyperIGNode {
         let command = tx.data.split('.').nth(1)
             .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
 
-        // Parse and execute the transaction using x-chain-vm's parse_input
-        let vm_tx = x_chain_vm::parse_input(command)
-            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
-        
-        // Execute the transaction
-        let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
+        // Check if transaction would succeed
+        let would_succeed = self.check_transaction_execution(command).await?;
 
         // Update transaction status based on execution result
-        let status = if execution.is_success() {
+        let status = if would_succeed {
             TransactionStatus::Success
         } else {
             TransactionStatus::Failure
