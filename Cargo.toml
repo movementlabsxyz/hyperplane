@@ -19,6 +19,7 @@ futures = "0.3.31"
 regex = "1.10.2"
 lazy_static = "1.4.0"
 x-chain-vm = { path = "./submodules/x-chain-vm" }
+once_cell = "1.19"
 
 [lib]
 path = "src/lib.rs"
@@ -26,10 +27,6 @@ path = "src/lib.rs"
 # [[bin]]
 # name = "node"
 # path = "src/bin/node.rs"
-
-[[bin]]
-name = "simulator"
-path = "src/bin/simulator.rs"
 
 [features]
 test = []

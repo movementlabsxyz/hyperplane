@@ -1,16 +1,31 @@
 #!/bin/bash
 
+# run_tests.sh - Test runner for Hyperplane
+#
+# This script runs tests in two different modes:
+#
+# 1. Test Set 1 (./run_tests.sh 1 <logging>):
+#    - Runs all unit tests and integration tests
+#    - Includes error checking to ensure tests are actually run
+#    - Automatically selects the correct test target (--lib or --test main)
+#
+# 2. Test Set 2 (./run_tests.sh 2 <logging>):
+#    - Runs a single integration test
+#    - Used for debugging with full log output
+#
+# Logging argument:
+#   - 0: Disable logging
+#   - 1: Enable logging
+#
+# Examples:
+#   ./run_tests.sh 1 0    # Run all tests without logging
+#   ./run_tests.sh 1 1    # Run all tests with logging
+#   ./run_tests.sh 2 1    # Run single test with logging
+
 set -e
 
-# Check if an argument is provided
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <test_set>"
-    echo "  test_set: 1 for first set of tests, 2 for second set"
-    exit 1
-fi
 
-# Running confirmation layer tests
-
+# All tests
 TESTS=(
     # Setup/Concurrency tests
     setup_with_mpsc::v1_to_v7::test_v1
@@ -73,25 +88,71 @@ TESTS=(
     integration::cl_to_cl::channels::test_two_chain_cat_failure
 
     # Integration tests: e2e
-    integration::e2e::channels::test_single_chain_cat_success
-    integration::e2e::channels::test_single_chain_cat_failure
+    integration::e2e::channels::test_two_chain_cat_success
+    integration::e2e::channels::test_two_chain_cat_failure
 )
 
+# Test specifit tests
 TESTS2=(
-integration::cl_to_hs::channels::test_cat_one_cat_success
+    integration::e2e::channels::test_two_chain_cat_success
 )
+
+# Check if arguments are provided
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <test_set> <logging>"
+    echo "  test_set: 1 for first set of tests, 2 for second set"
+    echo "  logging:  0 to disable logging, 1 to enable logging"
+    exit 1
+fi
+
+# Validate logging argument
+if [ "$2" != "0" ] && [ "$2" != "1" ]; then
+    echo "Error: logging must be 0 or 1"
+    exit 1
+fi
+
+# Set logging environment variables
+if [ "$2" = "1" ]; then
+    export HYPERPLANE_LOGGING=true           # Enable logging
+    export HYPERPLANE_LOG_TO_FILE=false      # Log to terminal for tests
+else
+    export HYPERPLANE_LOGGING=false          # Disable logging
+    export HYPERPLANE_LOG_TO_FILE=true       # Default to file when logging is enabled
+fi
+
+# Function to determine test target based on test path
+get_test_target() {
+    local test=$1
+    if [[ $test == integration::* ]] || [[ $test == setup_with_mpsc::* ]]; then
+        echo "--test main"
+    else
+        echo "--lib"
+    fi
+}
+
+# Function to run a test and check if it actually ran
+run_test() {
+    local test=$1
+    local test_target=$2
+    
+    echo -e "\nRunning $test..."
+    # Run the test and capture both stdout and stderr
+    if ! cargo test $test_target $test --features test -- --test-threads=1 --nocapture --exact; then
+        echo "Error: Test $test failed"
+        exit 1
+    fi
+}
 
 # Run the appropriate test set based on the input
 if [ "$1" = "1" ]; then
     for test in "${TESTS[@]}"; do
-        echo -e "\nRunning $test..."
-        cargo test $test -- --test-threads=1 --nocapture | grep "FAILED"
+        test_target=$(get_test_target "$test")
+        run_test "$test" "$test_target"
     done
 elif [ "$1" = "2" ]; then
     for test in "${TESTS2[@]}"; do
-        echo -e "\nRunning $test..."
-        cargo test $test -- --test-threads=1 --nocapture #| grep "FAILED"
-        # cargo test $test -- --test-threads=1 --nocapture --exact #| grep "FAILED"
+        test_target=$(get_test_target "$test")
+        run_test "$test" "$test_target"
     done
 else
     echo "Invalid test set. Use 1 or 2."

@@ -3,6 +3,7 @@ use crate::{
     hyper_scheduler::{node::HyperSchedulerNode, HyperScheduler, HyperSchedulerError},
 };
 use tokio::sync::mpsc;
+use hyperplane::utils::logging;
 
 // create a HyperSchedulerNode with empty channels
 fn setup_hs_node() -> HyperSchedulerNode {
@@ -13,7 +14,7 @@ fn setup_hs_node() -> HyperSchedulerNode {
 // create a HyperSchedulerNode with two registered chains
 async fn setup_hs_node_with_chains() -> (HyperSchedulerNode, mpsc::Sender<CATStatusUpdate>, mpsc::Sender<CATStatusUpdate>) {
     let mut hs_node = setup_hs_node();
-    println!("[TEST]   HyperSchedulerNode created");
+    logging::log("TEST", "HyperSchedulerNode created");
 
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
@@ -35,10 +36,10 @@ async fn setup_hs_node_with_chains() -> (HyperSchedulerNode, mpsc::Sender<CATSta
 /// Test that receiving a CAT for an unregistered chain returns an error
 #[tokio::test]
 async fn test_receive_cat_for_unregistered_chain() {
-    println!("\n=== Starting test_receive_cat_for_unregistered_chain ===");
+    logging::log("TEST", "=== Starting test_receive_cat_for_unregistered_chain ===");
     
     let mut hs_node = setup_hs_node();
-    println!("[TEST]   HyperSchedulerNode created");
+    logging::log("TEST", "HyperSchedulerNode created");
 
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
@@ -51,10 +52,10 @@ async fn test_receive_cat_for_unregistered_chain() {
     let cat_id = CATId("test-cat".to_string());
     let status_proposed = CATStatusLimited::Success;
     let constituent_chains = vec![chain_id_1.clone(), chain_id_2.clone()];
-    println!("[TEST]   Created cat-id='{}' with status: {:?}", cat_id.0, status_proposed);
+    logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status_proposed));
 
     // Try to process the status proposal directly
-    println!("[TEST]   Processing CAT status proposal...");
+    logging::log("TEST", "Processing CAT status proposal...");
     let result = hs_node.process_cat_status_proposal(
         cat_id.clone(),
         chain_id_1.clone(),
@@ -69,16 +70,16 @@ async fn test_receive_cat_for_unregistered_chain() {
     } else {
         panic!("Expected InvalidCATProposal error");
     }
-    println!("[TEST]   Verified error since chain-2 is not registered");
+    logging::log("TEST", "Verified error since chain-2 is not registered");
 
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===");
 }
 
 /// Test receiving a success proposal for a CAT
 /// - Verify CAT is stored with pending status
 #[tokio::test]
 async fn test_receive_success_proposal_first_message() {
-    println!("\n=== Starting test_receive_success_proposal_first_message ===");
+    logging::log("TEST", "\n=== Starting test_receive_success_proposal_first_message ===");
     
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
@@ -89,10 +90,10 @@ async fn test_receive_success_proposal_first_message() {
     let cat_id = CATId("test-cat".to_string());
     let status_proposal = CATStatusLimited::Success;
     let constituent_chains = vec![chain_id_1.clone(), chain_id_2.clone()];
-    println!("[TEST]   Created cat-id='{}' with status: {:?}", cat_id.0, status_proposal);
+    logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status_proposal));
 
     // Process the status proposal directly
-    println!("[TEST]   Processing CAT status proposal...");
+    logging::log("TEST", "Processing CAT status proposal...");
     hs_node.process_cat_status_proposal(
         cat_id.clone(),
         chain_id_1.clone(),
@@ -104,18 +105,18 @@ async fn test_receive_success_proposal_first_message() {
     let status_stored = hs_node.get_cat_status(cat_id.clone())
         .await
         .expect("Failed to get CAT status");
-    println!("[TEST]   Retrieved stored status: {:?}", status_stored);
+    logging::log("TEST", &format!("Retrieved stored status: {:?}", status_stored));
     assert_eq!(status_stored, CATStatus::Pending);
-    println!("[TEST]   Status verification successful");
+    logging::log("TEST", "Status verification successful");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===");
 }
 
 /// Test receiving a failure proposal for a two-chain CAT
 /// - Verify CAT is stored with failure status
 #[tokio::test]
 async fn test_receive_failure_proposal_first_message() {
-    println!("\n=== Starting test_receive_failure_proposal_first_message ===");
+    logging::log("TEST", "\n=== Starting test_receive_failure_proposal_first_message ===");
     
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
@@ -126,10 +127,10 @@ async fn test_receive_failure_proposal_first_message() {
     let cat_id = CATId("test-cat".to_string());
     let status_proposed = CATStatusLimited::Failure;
     let constituent_chains = vec![chain_id_1.clone(), chain_id_2.clone()];
-    println!("[TEST]   Created cat-id='{}' with status: {:?}", cat_id.0, status_proposed);
+    logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status_proposed));
 
     // Process the status proposal directly
-    println!("[TEST]   Processing CAT status proposal...");
+    logging::log("TEST", "Processing CAT status proposal...");
     hs_node.process_cat_status_proposal(
         cat_id.clone(),
         chain_id_1.clone(),
@@ -141,19 +142,19 @@ async fn test_receive_failure_proposal_first_message() {
     let stored_status = hs_node.get_cat_status(cat_id.clone())
         .await
         .expect("Failed to get CAT status");
-    println!("[TEST]   Retrieved stored status: {:?}", stored_status);
+    logging::log("TEST", &format!("Retrieved stored status: {:?}", stored_status));
     assert_eq!(stored_status, CATStatus::Failure);
-    println!("[TEST]   Status verification successful");
+    logging::log("TEST", "Status verification successful");
 
     // Verify CAT is in pending list
     let pending_cats = hs_node.get_pending_cats()
         .await
         .expect("Failed to get pending CATs");
-    println!("[TEST]   Retrieved pending CATs: {:?}", pending_cats);
+    logging::log("TEST", &format!("Retrieved pending CATs: {:?}", pending_cats));
     assert!(pending_cats.contains(&cat_id));
-    println!("[TEST]   Pending CAT verification successful");
+    logging::log("TEST", "Pending CAT verification successful");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===");
 }
 
 /// Test rejecting duplicate proposals
@@ -161,7 +162,7 @@ async fn test_receive_failure_proposal_first_message() {
 /// - Verify that duplicate proposals are rejected
 #[tokio::test]
 async fn test_duplicate_rejection() {
-    println!("\n=== Starting test_duplicate_rejection ===");
+    logging::log("TEST", "\n=== Starting test_duplicate_rejection ===");
     
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
@@ -189,9 +190,9 @@ async fn test_duplicate_rejection() {
         status.clone()
     ).await;
     assert!(result.is_err(), "Expected duplicate proposal to be rejected");
-    println!("[TEST]   Verified duplicate proposal was rejected");
+    logging::log("TEST", "Verified duplicate proposal was rejected");
     
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===");
 }
 
 /// Test processing proposals for a two-chain CAT
@@ -200,7 +201,7 @@ async fn test_duplicate_rejection() {
 /// - Verify that the CAT status is updated to success
 #[tokio::test]
 async fn test_process_proposals_for_two_chain_cat() {
-    println!("\n=== Starting test_process_proposals_for_two_chain_cat ===");
+    logging::log("TEST", "\n=== Starting test_process_proposals_for_two_chain_cat ===");
 
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
@@ -211,10 +212,10 @@ async fn test_process_proposals_for_two_chain_cat() {
     let cat_id = CATId("test-cat".to_string());
     let status = CATStatusLimited::Success;
     let constituent_chains = vec![chain_id_1.clone(), chain_id_2.clone()];
-    println!("[TEST]   Created cat-id='{}' with status: {:?}", cat_id.0, status);
+    logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status));
 
     // Process status proposal from first chain
-    println!("[TEST]   Processing CAT status proposal from first chain...");
+    logging::log("TEST", "Processing CAT status proposal from first chain...");
     hs_node.process_cat_status_proposal(
         cat_id.clone(),
         chain_id_1.clone(),
@@ -223,7 +224,7 @@ async fn test_process_proposals_for_two_chain_cat() {
     ).await.expect("Failed to process first proposal");
 
     // Process status proposal from second chain
-    println!("[TEST]   Processing CAT status proposal from second chain...");
+    logging::log("TEST", "Processing CAT status proposal from second chain...");
     hs_node.process_cat_status_proposal(
         cat_id.clone(),
         chain_id_2.clone(),
@@ -235,11 +236,11 @@ async fn test_process_proposals_for_two_chain_cat() {
     let stored_status = hs_node.get_cat_status(cat_id.clone())
         .await
         .expect("Failed to get CAT status");
-    println!("[TEST]   Retrieved stored status: {:?}", stored_status);
+    logging::log("TEST", &format!("Retrieved stored status: {:?}", stored_status));
     assert_eq!(stored_status, CATStatus::Success);
-    println!("[TEST]   Status verification successful");
+    logging::log("TEST", "Status verification successful");
 
-    println!("=== Test completed successfully ===\n");
+    logging::log("TEST", "=== Test completed successfully ===");
 }
 
 /// Test that a CAT cannot be set to Success if constituent chains don't match
@@ -248,7 +249,7 @@ async fn test_process_proposals_for_two_chain_cat() {
 /// - Verify that the CAT status is not changed
 #[tokio::test]
 async fn test_cannot_set_success_if_constituent_chains_dont_match() {
-    println!("\n=== Starting test_cannot_set_success_if_constituent_chains_dont_match ===");
+    logging::log("TEST", "\n=== Starting test_cannot_set_success_if_constituent_chains_dont_match ===");
     
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
     let chain_id_1 = ChainId("chain-1".to_string());

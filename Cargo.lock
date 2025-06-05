@@ -975,6 +975,7 @@ dependencies = [
  "hyperplane",
  "lazy_static",
  "libp2p",
+ "once_cell",
  "regex",
  "serde",
  "serde_json",
