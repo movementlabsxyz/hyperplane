@@ -98,13 +98,15 @@ TESTS=(
     # Integration tests: e2e
     integration::e2e::channels::test_two_chain_cat_success
     integration::e2e::channels::test_two_chain_cat_failure
+    integration::e2e::channels::test_cat_send_chain1_only
+    integration::e2e::channels::test_cat_send_both_chains
 )
 
 # Test specific tests
 TESTS2=(
-    hyper_ig::tests::basic::test_cat_send_no_funds
-    hyper_ig::tests::basic::test_cat_credit_pending
-    hyper_ig::tests::basic::test_cat_send_after_credit
+
+    integration::e2e::channels::test_cat_send_chain1_only
+    integration::e2e::channels::test_cat_send_both_chains
 )
 
 # Check if arguments are provided

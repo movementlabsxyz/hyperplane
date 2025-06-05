@@ -1,4 +1,4 @@
-use crate::types::{SubBlock, CATId, CATStatusLimited};
+use crate::types::{SubBlock, CATId};
 use serde::{Deserialize, Serialize};
 use regex::Regex;
 use lazy_static::lazy_static;
@@ -41,7 +41,7 @@ impl TransactionData {
 }
 
 /// Parse a CAT transaction and extract its ID and status
-pub fn parse_cat_transaction(data: &str) -> Result<(CATId, CATStatusLimited), anyhow::Error> {
+pub fn parse_cat_transaction(data: &str) -> Result<CATId, anyhow::Error> {
     println!("Parsing CAT transaction: {}", data);
     println!("CAT_PATTERN: {}", *CAT_PATTERN);
     println!("CAT_ID_SUFFIX: {}", *CAT_ID_SUFFIX);
@@ -68,20 +68,13 @@ pub fn parse_cat_transaction(data: &str) -> Result<(CATId, CATStatusLimited), an
             .ok_or_else(|| anyhow!("No command found in CAT transaction"))?;
         println!("Extracted command: {}", command);
         
-        // Credit commands succeed, send commands fail for now
-        let status = if command == "credit" {
-            CATStatusLimited::Success
-        } else {
-            CATStatusLimited::Failure
-        };
-        
         // Extract CAT ID directly from the captures
         let cat_id = captures.name("cat_id")
             .ok_or_else(|| anyhow!("Failed to extract CAT ID"))?;
         let cat_id = CATId(cat_id.as_str().to_string());
         println!("Extracted CAT ID: '{}'", cat_id.0);
 
-        Ok((cat_id, status))
+        Ok(cat_id)
     } else {
         println!("Failed to match CAT_PATTERN for data: {}", data);
         Err(anyhow!("Invalid CAT transaction format: {}", data))

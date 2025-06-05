@@ -1,12 +1,12 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction, CATId, CATStatus, Transaction},
+    types::{ChainId, CATId, CATStatus},
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
     utils::logging,
 };
-use super::super::common::testnodes;
+use super::super::common::{testnodes, submit_transactions};
 use tokio::time::Duration;
 
 /// Helper function: tests sending a CAT status proposal from CL to HS
@@ -21,35 +21,14 @@ async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
 
-    // Create a CAT transaction
-    let cat_id = CATId("test-cat".to_string());
-    let tx_chain_1 = Transaction::new(
-        TransactionId("test-tx".to_string()),
-        chain_id_1.clone(),
-        vec![chain_id_1.clone(), chain_id_2.clone()],
-        transaction_data.to_string(),
-    ).expect("Failed to create transaction");
-    let tx_chain_2 = Transaction::new(
-        TransactionId("test-tx".to_string()),
-        chain_id_2.clone(),
-        vec![chain_id_1.clone(), chain_id_2.clone()],
-        transaction_data.to_string(),
-    ).expect("Failed to create transaction");
-
-    let cl_tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
-        vec![chain_id_1.clone(), chain_id_2.clone()],
-        vec![tx_chain_1, tx_chain_2],
-    ).expect("Failed to create CLTransaction");
-
-    // Submit the transaction to CL
-    logging::log("TEST", "Submitting transaction to CL...");
-    // create a local scope (note the test fails without this)
-    {
-        let mut node = cl_node.lock().await;
-        node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
-    }
-    logging::log("TEST", "Transaction submitted successfully");
+    // Submit the CAT transaction
+    let _cl_tx = submit_transactions::submit_cat_transaction(
+        &cl_node,
+        &chain_id_1,
+        &chain_id_2,
+        transaction_data,
+        "test-tx"
+    ).await.expect("Failed to submit CAT transaction");
 
     // Wait for block production in CL (cat-tx), processing in HIG and HS, and then block production in CL (status-update-tx)
     logging::log("TEST", "Waiting for block production and processing (200ms)...");
@@ -71,7 +50,7 @@ async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
     logging::log("TEST", "Verifying CAT status in HS...");
     {
         let node = hs_node.lock().await;
-        let status = node.get_cat_status(cat_id).await.expect("Failed to get CAT status");
+        let status = node.get_cat_status(CATId("test-cat".to_string())).await.expect("Failed to get CAT status");
         logging::log("TEST", &format!("Retrieved status: {:?}", status));
         assert_eq!(status, expected_status, "CAT status should be {:?}", expected_status);
     }

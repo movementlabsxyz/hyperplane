@@ -381,7 +381,7 @@ impl HyperIG for HyperIGNode {
 
         // Send status proposal to Hyper Scheduler if it's a CAT transaction
         if tx.data.starts_with("CAT") {
-            let (cat_id, status) = parse_cat_transaction(&tx.data)?;
+            let cat_id = parse_cat_transaction(&tx.data)?;
             let constituent_chains = tx.constituent_chains.clone();
             
             // Validate constituent chains
@@ -398,9 +398,14 @@ impl HyperIG for HyperIGNode {
                 ).into());
             }
 
-            log("HIG", &format!("[process_transaction] Extracted cat-id='{}', status='{:?}', chains='{:?}'", cat_id.0, status, constituent_chains));
+            // Get the proposed status from cat_proposed_statuses
+            let proposed_status = self.state.lock().await.cat_proposed_statuses.get(&tx.id)
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No proposed status found for CAT transaction"))?;
+
+            log("HIG", &format!("[process_transaction] Extracted cat-id='{}', status='{:?}', chains='{:?}'", cat_id.0, proposed_status, constituent_chains));
             log("HIG", &format!("[process_transaction] Sending status proposal for cat-id='{}'", cat_id.0));
-            self.send_cat_status_proposal(cat_id, status, constituent_chains).await?;
+            self.send_cat_status_proposal(cat_id, proposed_status, constituent_chains).await?;
             log("HIG", "[process_transaction] Status proposal sent for CAT transaction.");
         }
 

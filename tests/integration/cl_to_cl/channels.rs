@@ -1,11 +1,11 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction, CATStatus, Transaction},
+    types::{ChainId, CATStatus},
     confirmation_layer::ConfirmationLayer,
     utils::logging,
 };
-use super::super::common::testnodes;
+use super::super::common::{testnodes, submit_transactions};
 use tokio::time::Duration;
 
 /// Helper function to run a two chain CAT test
@@ -25,33 +25,14 @@ async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStat
     let chain_id_2 = ChainId("chain-2".to_string());
     logging::log("TEST", &format!("Using chains: {} and {}", chain_id_1.0, chain_id_2.0));
 
-    // Create a transaction for each chain
-    let tx_chain_1 = Transaction::new(
-        TransactionId("test-cat".to_string()),
-        chain_id_1.clone(),
-        vec![chain_id_1.clone(), chain_id_2.clone()],
-        transaction_data.to_string(),
-    ).expect("Failed to create transaction");
-
-    let tx_chain_2 = Transaction::new(
-        TransactionId("test-cat".to_string()),
-        chain_id_2.clone(),
-        vec![chain_id_1.clone(), chain_id_2.clone()],
-        transaction_data.to_string(),
-    ).expect("Failed to create transaction");
-
-    let cl_tx = CLTransaction::new(
-        TransactionId("test-cat".to_string()),
-        vec![chain_id_1.clone(), chain_id_2.clone()],
-        vec![tx_chain_1, tx_chain_2],
-    ).expect("Failed to create CL transaction");
-
-    logging::log("TEST", &format!("Submitting CAT transaction with ID: {}", cl_tx.id.0));
-    {
-        let mut node = cl_node.lock().await;
-        node.submit_transaction(cl_tx.clone()).await.expect("Failed to submit transaction");
-    }
-    logging::log("TEST", "CAT transaction submitted successfully");
+    // Submit the CAT transaction
+    let _cl_tx = submit_transactions::submit_cat_transaction(
+        &cl_node,
+        &chain_id_1,
+        &chain_id_2,
+        transaction_data,
+        "test-cat"
+    ).await.expect("Failed to submit CAT transaction");
 
     // Wait for block production in CL (cat-tx), processing in HIG and HS, and then block production in CL (status-update-tx)
     logging::log("TEST", "Waiting for block production in CL and processing in HIG and HS (500ms)...");

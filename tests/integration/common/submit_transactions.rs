@@ -1,0 +1,95 @@
+use hyperplane::{
+    types::{TransactionId, ChainId, CLTransaction, Transaction},
+    confirmation_layer::node::ConfirmationLayerNode,
+    confirmation_layer::ConfirmationLayer,
+    utils::logging,
+};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+
+/// Helper function to submit a CAT transaction to a confirmation layer node
+/// 
+/// # Arguments
+/// * `cl_node` - The confirmation layer node to submit the transaction to
+/// * `chain_id_1` - The first chain ID involved in the CAT
+/// * `chain_id_2` - The second chain ID involved in the CAT
+/// * `cat_transaction` - The CAT transaction data (e.g. "CAT.send 1 2 50.CAT_ID:test-cat")
+/// * `tx_id` - The transaction ID to use for the CAT transaction
+/// 
+/// # Returns
+/// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
+pub async fn submit_cat_transaction(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    chain_id_1: &ChainId,
+    chain_id_2: &ChainId,
+    transaction_data: &str,
+    tx_id: &str,
+) -> Result<CLTransaction, anyhow::Error> {
+    // Create a transaction for each chain
+    let tx_chain_1 = Transaction::new(
+        TransactionId(tx_id.to_string()),
+        chain_id_1.clone(),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        transaction_data.to_string(),
+    ).expect("Failed to create transaction for chain-1");
+
+    let tx_chain_2 = Transaction::new(
+        TransactionId(tx_id.to_string()),
+        chain_id_2.clone(),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        transaction_data.to_string(),
+    ).expect("Failed to create transaction for chain-2");
+
+    let cl_tx = CLTransaction::new(
+        TransactionId(tx_id.to_string()),
+        vec![chain_id_1.clone(), chain_id_2.clone()],
+        vec![tx_chain_1, tx_chain_2],
+    ).expect("Failed to create CL transaction");
+
+    logging::log("TEST", "Submitting CAT transaction");
+    {
+        let mut node = cl_node.lock().await;
+        node.submit_transaction(cl_tx.clone()).await?;
+    }
+    logging::log("TEST", "CAT transaction submitted successfully");
+
+    Ok(cl_tx)
+}
+
+/// Helper function to submit a regular transaction to a confirmation layer node
+/// 
+/// # Arguments
+/// * `cl_node` - The confirmation layer node to submit the transaction to
+/// * `chain_id` - The chain ID for the transaction
+/// * `transaction_data` - The transaction data (e.g. "REGULAR.credit 1 100")
+/// * `tx_id` - The transaction ID to use for the transaction
+/// 
+/// # Returns
+/// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
+pub async fn submit_regular_transaction(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    chain_id: &ChainId,
+    transaction_data: &str,
+    tx_id: &str,
+) -> Result<CLTransaction, anyhow::Error> {
+    let tx = Transaction::new(
+        TransactionId(tx_id.to_string()),
+        chain_id.clone(),
+        vec![chain_id.clone()],
+        format!("REGULAR.{}", transaction_data),
+    ).expect("Failed to create transaction");
+
+    let cl_tx = CLTransaction::new(
+        TransactionId(tx_id.to_string()),
+        vec![chain_id.clone()],
+        vec![tx],
+    ).expect("Failed to create CL transaction");
+
+    logging::log("TEST", &format!("Submitting regular transaction for chain-{}", chain_id.0));
+    {
+        let mut node = cl_node.lock().await;
+        node.submit_transaction(cl_tx.clone()).await?;
+    }
+    logging::log("TEST", &format!("Regular transaction for chain-{} submitted successfully", chain_id.0));
+    Ok(cl_tx)
+} 
