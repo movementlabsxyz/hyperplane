@@ -195,20 +195,36 @@ impl HyperIGNode {
     /// Handle a regular transaction
     async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         log("HIG", &format!("Executing regular transaction: {}", tx.id));
-        // check the data if its "REGULAR.SIMULATION:<Status>"
-        if tx.data.starts_with("REGULAR.SIMULATION:Success") {
-            // Store Success status for regular transactions
+        
+        // Parse the transaction data
+        let parts: Vec<&str> = tx.data.split('.').collect();
+        if parts.len() != 2 {
+            return Err(anyhow::anyhow!("Invalid transaction data format: '{}'", tx.data));
+        }
+
+        let command = parts[1];
+        if command.starts_with("credit") {
+            // Credit command: credit <receiver> <amount>
+            let args: Vec<&str> = command.split_whitespace().collect();
+            if args.len() != 3 {
+                return Err(anyhow::anyhow!("Invalid credit command format: '{}'", command));
+            }
+            // For now, all credit commands succeed
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Success);
             log("HIG", &format!("Set final status to Success for transaction: {}", tx.id.0));
             Ok(TransactionStatus::Success)
-        } else if tx.data.starts_with("REGULAR.SIMULATION:Failure") {
-            // Store Failure status for regular transactions
+        } else if command.starts_with("send") {
+            // Send command: send <sender> <receiver> <amount>
+            let args: Vec<&str> = command.split_whitespace().collect();
+            if args.len() != 4 {
+                return Err(anyhow::anyhow!("Invalid send command format: '{}'", command));
+            }
+            // For now, all send commands fail (simulating insufficient balance)
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
             log("HIG", &format!("Set final status to Failure for transaction: {}", tx.id.0));
             Ok(TransactionStatus::Failure)
         } else {
-            // TODO we only handle correct data txs for now to have strict control over the transactions. We may get rid of this later.
-            return Err(anyhow::anyhow!("Invalid regular transaction data: '{}'", tx.data));
+            Err(anyhow::anyhow!("Invalid transaction command: '{}'", command))
         }
     }
 

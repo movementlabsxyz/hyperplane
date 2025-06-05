@@ -35,11 +35,19 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
 
     let tx_id = "test-tx";
     logging::log("TEST", &format!("\nProcessing transaction: {}", tx_id));
+    
+    // Use credit for success, send for failure (since account is empty)
+    let command = match expected_status {
+        TransactionStatus::Success => "REGULAR.credit 1 100",
+        TransactionStatus::Failure => "REGULAR.send 1 2 1000",
+        _ => panic!("Unexpected status for regular transaction test"),
+    };
+    
     let tx = Transaction::new(
         TransactionId(tx_id.to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
-        format!("REGULAR.SIMULATION:{:?}", expected_status),
+        command.to_string(),
     ).expect("Failed to create transaction");
     
     // Process transaction and verify initial status
@@ -89,10 +97,10 @@ async fn test_regular_transaction_pending() {
     // Create a regular transaction that depends on a CAT transaction
     logging::log("TEST", "Creating dependent transaction...");
     let tx = Transaction::new(
-        TransactionId("REGULAR.SIMULATION:Success".to_string()),
+        TransactionId("test-tx".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
-        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
+        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     logging::log("TEST", &format!("Transaction created with tx-id='{}'", tx.id));
     
@@ -237,7 +245,7 @@ async fn test_get_pending_transactions() {
         TransactionId("pending-tx".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
-        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
+        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     logging::log("TEST", "Executing transaction...");
     hig_node.lock().await.process_transaction(tx.clone())
