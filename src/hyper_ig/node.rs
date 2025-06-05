@@ -242,16 +242,19 @@ impl HyperIGNode {
         let command = tx.data.split('.').nth(1)
             .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
 
-        // Check if transaction would succeed
+        // Check if transaction would succeed (but don't execute it)
         let would_succeed = self.check_transaction_execution(command).await?;
         log("HIG", &format!("CAT transaction would {} if executed", 
             if would_succeed { "succeed" } else { "fail" }));
         
         // Store proposed status based on transaction data
-        let (_, proposed_status) = parse_cat_transaction(&tx.data)?;
+        let proposed_status = if would_succeed {
+            CATStatusLimited::Success
+        } else {
+            CATStatusLimited::Failure
+        };
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
         
-        // Return Pending as CAT transactions are not executed immediately
         Ok(TransactionStatus::Pending)
     }
 
