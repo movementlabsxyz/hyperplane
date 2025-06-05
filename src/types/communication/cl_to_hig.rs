@@ -43,13 +43,16 @@ lazy_static! {
     pub static ref CAT_ID_SUFFIX: &'static str = r"\.CAT_ID:(?P<cat_id>[a-zA-Z0-9_-]+)";
 
     // Expected formats of the data field of a transaction:
-    // REGULAR.SIMULATION:<StatusLimited>
-    // DEPENDENT.SIMULATION:<StatusLimited>.CAT_ID:<ID>
-    // CAT.SIMULATION:<StatusLimited>.CAT_ID:<ID>
+    // REGULAR.credit <receiver> <amount>
+    // REGULAR.send <sender> <receiver> <amount>
+    // DEPENDENT.credit <receiver> <amount>.CAT_ID:<ID>
+    // DEPENDENT.send <sender> <receiver> <amount>.CAT_ID:<ID>
+    // CAT.credit <receiver> <amount>.CAT_ID:<ID>
+    // CAT.send <sender> <receiver> <amount>.CAT_ID:<ID>
     // STATUS_UPDATE:<StatusLimited>.CAT_ID:<ID>
-    pub static ref REGULAR_PATTERN: Regex = Regex::new(r"^REGULAR\.SIMULATION:(Success|Failure)$").unwrap();
-    pub static ref DEPENDENT_PATTERN: Regex = Regex::new(&format!(r"^DEPENDENT\.SIMULATION:(Success|Failure){}$", *CAT_ID_SUFFIX)).unwrap();
-    pub static ref CAT_PATTERN: Regex = Regex::new(&format!(r"^CAT\.SIMULATION:(Success|Failure){}$", *CAT_ID_SUFFIX)).unwrap();
+    pub static ref REGULAR_PATTERN: Regex = Regex::new(r"^REGULAR\.(credit \d+ \d+|send \d+ \d+ \d+)$").unwrap();
+    pub static ref DEPENDENT_PATTERN: Regex = Regex::new(&format!(r"^DEPENDENT\.(credit \d+ \d+|send \d+ \d+ \d+){}$", *CAT_ID_SUFFIX)).unwrap();
+    pub static ref CAT_PATTERN: Regex = Regex::new(&format!(r"^CAT\.(credit \d+ \d+|send \d+ \d+ \d+){}$", *CAT_ID_SUFFIX)).unwrap();
     pub static ref STATUS_UPDATE_PATTERN: Regex = Regex::new(&format!(r"^STATUS_UPDATE:(Success|Failure){}$", *CAT_ID_SUFFIX)).unwrap();
 }
 
