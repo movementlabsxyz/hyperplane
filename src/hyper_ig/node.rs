@@ -36,7 +36,15 @@ pub struct HyperIGNode {
 }
 
 impl HyperIGNode {
-    /// Create a new HyperIGNode
+    /// Creates a new HyperIGNode instance.
+    /// 
+    /// # Arguments
+    /// * `receiver_cl_to_hig` - Channel receiver for messages from Confirmation Layer
+    /// * `sender_hig_to_hs` - Channel sender for messages to Hyper Scheduler
+    /// * `my_chain_id` - The chain ID this node is responsible for
+    /// 
+    /// # Returns
+    /// A new HyperIGNode instance
     pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId) -> Self {
         Self {
             state: Arc::new(Mutex::new(HyperIGState {
@@ -51,7 +59,28 @@ impl HyperIGNode {
         }
     }
 
-    /// Process messages
+    /// Starts the node's block processing loop.
+    /// 
+    /// This function spawns a new task that continuously processes incoming messages
+    /// from the Confirmation Layer.
+    /// 
+    /// # Arguments
+    /// * `node` - An Arc<Mutex<HyperIGNode>> containing the node instance
+    pub async fn start(node: Arc<Mutex<HyperIGNode>>) {
+        log("HIG", "Starting HyperIG node");
+        tokio::spawn(async move { HyperIGNode::process_messages(node).await.unwrap() });
+    }
+
+    /// Processes incoming messages from the Confirmation Layer.
+    /// 
+    /// This function runs in a loop, continuously checking for new messages
+    /// and processing them as they arrive.
+    /// 
+    /// # Arguments
+    /// * `hig_node` - An Arc<Mutex<HyperIGNode>> containing the node instance
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of the message processing loop
     pub async fn process_messages(hig_node: Arc<Mutex<HyperIGNode>>) -> Result<(), HyperIGError> {
         log("HIG", "[Message loop task] Starting message processing loop");
         loop {
@@ -89,7 +118,15 @@ impl HyperIGNode {
         Ok(())
     }
 
-    /// Process a subblock
+    /// Processes a subblock of transactions.
+    /// 
+    /// Validates the subblock's chain ID and processes each transaction within it.
+    /// 
+    /// # Arguments
+    /// * `subblock` - The SubBlock containing transactions to process
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of subblock processing
     pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
         // check if the received subblock matches our chain id. If not we have a bug.
         log("HIG", &format!("[process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
@@ -113,13 +150,12 @@ impl HyperIGNode {
         Ok(())
     }
 
-    /// Start the node's block processing loop
-    pub async fn start(node: Arc<Mutex<HyperIGNode>>) {
-        log("HIG", "Starting HyperIG node");
-        tokio::spawn(async move { HyperIGNode::process_messages(node).await.unwrap() });
-    }
-
-    /// Process incoming subblocks from the Confirmation Layer
+    /// Processes incoming subblocks from the Confirmation Layer.
+    /// 
+    /// Continuously processes subblocks as they arrive on the channel.
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of subblock processing
     pub async fn process_incoming_subblocks(&mut self) -> Result<(), HyperIGError> {
         if let Some(receiver) = self.receiver_cl_to_hig.take() {
             let mut receiver = receiver;
@@ -130,14 +166,65 @@ impl HyperIGNode {
         Ok(())
     }
 
-    /// Get the proposed status for a CAT transaction
-    pub async fn get_proposed_status(&self, tx_id: TransactionId) -> Result<CATStatusLimited, anyhow::Error> {
-        Ok(self.state.lock().await.cat_proposed_statuses.get(&tx_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No proposed status found for transaction"))?)
+    /// Handles a regular transaction.
+    /// 
+    /// Extracts the command from the transaction data, executes it using the mock VM,
+    /// and updates the transaction status based on the execution result.
+    /// 
+    /// # Arguments
+    /// * `tx` - The transaction to handle
+    /// 
+    /// # Returns
+    /// Result containing the final transaction status
+    async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+        log("HIG", &format!("Executing regular transaction: {}", tx.id));
+        
+        // Extract the command part between the dots
+        let command = tx.data.split('.').nth(1)
+            .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
+
+        // Check if transaction would succeed
+        let would_succeed = self.check_transaction_execution(command).await?;
+
+        // Update transaction status based on execution result
+        let status = if would_succeed {
+            TransactionStatus::Success
+        } else {
+            TransactionStatus::Failure
+        };
+        self.state.lock().await.transaction_statuses.insert(tx.id.clone(), status.clone());
+        log("HIG", &format!("Set final status to {:?} for transaction: {}", status, tx.id.0));
+        Ok(status)
     }
 
-    /// Handle a CAT transaction
+    /// Handles a dependent regular transaction.
+    /// 
+    /// Marks the transaction as pending and adds it to the pending transactions set.
+    /// These transactions remain pending until their dependent CAT is resolved.
+    /// 
+    /// # Arguments
+    /// * `transaction` - The dependent transaction to handle
+    /// 
+    /// # Returns
+    /// Result containing the transaction status (always Pending)
+    async fn handle_dependent_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+        log("HIG", &format!("Processing dependent transaction: {}", transaction.id));
+        // Add to pending transactions set
+        self.state.lock().await.pending_transactions.insert(transaction.id.clone());
+        // Transactions depending on CATs stay pending until the CAT is resolved
+        Ok(TransactionStatus::Pending)
+    }
+
+    /// Handles a CAT (Cross-Chain Atomic Transaction).
+    /// 
+    /// Marks the transaction as pending, checks if it would succeed if executed,
+    /// and stores its proposed status.
+    /// 
+    /// # Arguments
+    /// * `tx` - The CAT transaction to handle
+    /// 
+    /// # Returns
+    /// Result containing the transaction status (always Pending)
     async fn handle_cat_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         log("HIG", &format!("Handling CAT transaction: {}", tx.id.0));
         
@@ -163,24 +250,15 @@ impl HyperIGNode {
         Ok(TransactionStatus::Pending)
     }
 
-    /// Helper method to check if a transaction would succeed if executed
+    /// Handles a status update transaction.
+    /// 
+    /// Updates the status of a CAT transaction based on the status update message.
     /// 
     /// # Arguments
-    /// * `command` - The transaction command to check
+    /// * `tx` - The status update transaction to handle
     /// 
     /// # Returns
-    /// `Result<bool, anyhow::Error>` - Whether the transaction would succeed
-    async fn check_transaction_execution(&self, command: &str) -> Result<bool, anyhow::Error> {
-        // Parse and execute the transaction using x-chain-vm's parse_input
-        let vm_tx = x_chain_vm::parse_input(command)
-            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
-        
-        // Execute the transaction to check if it would succeed
-        let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
-        Ok(execution.is_success())
-    }
-
-    /// Handle a status update transaction
+    /// Result containing the updated transaction status
     async fn handle_status_update(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         log("HIG", &format!("Handling status update tx-id='{}' : data='{}'", tx.id.0, tx.data));
         
@@ -218,40 +296,52 @@ impl HyperIGNode {
         Ok(status)
     }
 
-    /// Handle a regular transaction
-    async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        log("HIG", &format!("Executing regular transaction: {}", tx.id));
-        
-        // Extract the command part between the dots
-        let command = tx.data.split('.').nth(1)
-            .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
-
-        // Check if transaction would succeed
-        let would_succeed = self.check_transaction_execution(command).await?;
-
-        // Update transaction status based on execution result
-        let status = if would_succeed {
-            TransactionStatus::Success
-        } else {
-            TransactionStatus::Failure
-        };
-        self.state.lock().await.transaction_statuses.insert(tx.id.clone(), status.clone());
-        log("HIG", &format!("Set final status to {:?} for transaction: {}", status, tx.id.0));
-        Ok(status)
+    /// Gets the proposed status for a CAT transaction.
+    /// 
+    /// # Arguments
+    /// * `tx_id` - The ID of the transaction to get the status for
+    /// 
+    /// # Returns
+    /// Result containing the proposed status or an error if not found
+    pub async fn get_proposed_status(&self, tx_id: TransactionId) -> Result<CATStatusLimited, anyhow::Error> {
+        Ok(self.state.lock().await.cat_proposed_statuses.get(&tx_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No proposed status found for transaction"))?)
     }
 
-    /// Handle a dependent regular transaction
-    async fn handle_dependent_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        log("HIG", &format!("Processing dependent transaction: {}", transaction.id));
-        // Add to pending transactions set
-        self.state.lock().await.pending_transactions.insert(transaction.id.clone());
-        // Transactions depending on CATs stay pending until the CAT is resolved
-        Ok(TransactionStatus::Pending)
+    /// Checks if a transaction would succeed if executed.
+    /// 
+    /// Parses and executes the transaction using the mock VM to determine
+    /// if it would succeed.
+    /// 
+    /// # Arguments
+    /// * `command` - The transaction command to check
+    /// 
+    /// # Returns
+    /// Result containing whether the transaction would succeed
+    async fn check_transaction_execution(&self, command: &str) -> Result<bool, anyhow::Error> {
+        // Parse and execute the transaction using x-chain-vm's parse_input
+        let vm_tx = x_chain_vm::parse_input(command)
+            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
+        
+        // Execute the transaction to check if it would succeed
+        let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
+        Ok(execution.is_success())
     }
 }
 
 #[async_trait]
 impl HyperIG for HyperIGNode {
+    /// Processes a transaction.
+    /// 
+    /// Handles different types of transactions (regular, CAT, dependent, status update)
+    /// and updates their status accordingly.
+    /// 
+    /// # Arguments
+    /// * `tx` - The transaction to process
+    /// 
+    /// # Returns
+    /// Result containing the final transaction status
     async fn process_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         log("HIG", &format!("[process_transaction] Processing tx-id='{}' : data='{}'", tx.id, tx.data));
 
@@ -308,6 +398,13 @@ impl HyperIG for HyperIGNode {
         Ok(status)
     }
 
+    /// Gets the current status of a transaction.
+    /// 
+    /// # Arguments
+    /// * `tx_id` - The ID of the transaction to get the status for
+    /// 
+    /// # Returns
+    /// Result containing the transaction status or an error if not found
     async fn get_transaction_status(&self, tx_id: TransactionId) -> Result<TransactionStatus, anyhow::Error> {
         log("HIG", &format!("[get_transaction_status] Getting status for tx-id='{}'", tx_id));
         let statuses = self.state.lock().await.transaction_statuses.get(&tx_id)
@@ -320,11 +417,23 @@ impl HyperIG for HyperIGNode {
         Ok(statuses)
     }
 
+    /// Gets the list of pending transactions.
+    /// 
+    /// # Returns
+    /// Result containing a vector of pending transaction IDs
     async fn get_pending_transactions(&self) -> Result<Vec<TransactionId>, anyhow::Error> {
         Ok(self.state.lock().await.pending_transactions.iter().cloned().collect())
     }
 
-    /// Send a CAT status proposal to the Hyper Scheduler
+    /// Sends a CAT status proposal to the Hyper Scheduler.
+    /// 
+    /// # Arguments
+    /// * `cat_id` - The ID of the CAT transaction
+    /// * `status` - The proposed status
+    /// * `constituent_chains` - The chains involved in the CAT
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of sending the proposal
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
         if let Some(sender) = &mut self.sender_hig_to_hs {
             let status_update = CATStatusUpdate {
@@ -338,6 +447,13 @@ impl HyperIG for HyperIGNode {
         Ok(())
     }
 
+    /// Resolves a CAT transaction.
+    /// 
+    /// # Arguments
+    /// * `tx` - The CAT transaction to resolve
+    /// 
+    /// # Returns
+    /// Result containing the final transaction status
     async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError> {
         let statuses = self.state.lock().await.transaction_statuses.get(&TransactionId(tx.id.0.clone()))
             .cloned()
@@ -345,6 +461,13 @@ impl HyperIG for HyperIGNode {
         Ok(statuses)
     }
 
+    /// Gets the resolution status of a transaction.
+    /// 
+    /// # Arguments
+    /// * `id` - The ID of the transaction to get the resolution status for
+    /// 
+    /// # Returns
+    /// Result containing the resolution status or an error if not found
     async fn get_resolution_status(&self, id: TransactionId) -> Result<TransactionStatus, HyperIGError> {
         let statuses = self.state.lock().await.transaction_statuses.get(&id)
             .cloned()
@@ -352,13 +475,31 @@ impl HyperIG for HyperIGNode {
         Ok(statuses)
     }
 
-    // this is a duplicate of the other process subblock function
-    // TODO remove one of them
+    /// Processes a subblock of transactions.
+    /// 
+    /// Validates the subblock's chain ID and processes each transaction within it.
+    /// 
+    /// # Arguments
+    /// * `subblock` - The SubBlock containing transactions to process
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of subblock processing
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
-        // println!("  [HIG]   Processing subblock: block_id={}, chain_id={}, tx_count={}", 
-        //     subblock.block_height, subblock.chain_id.0, subblock.transactions.len());
-        for _tx in &subblock.transactions {
-            // println!("  [HIG]   .......tx-id={} : data={}", tx.id.0, tx.data);
+        // check if the received subblock matches our chain id. If not we have a bug.
+        log("HIG", &format!("[process_subblock] Processing subblock: block_id={}, chain_id={}, tx_count={}", 
+        subblock.block_height, subblock.chain_id.0, subblock.transactions.len()));
+        
+        if subblock.chain_id.0 != self.state.lock().await.my_chain_id.0 {
+            log("HIG", &format!("[Message loop task] [ERROR] Received subblock with chain_id='{}', but should be '{}', ignoring", 
+                subblock.chain_id.0, self.state.lock().await.my_chain_id.0));
+            return Err(HyperIGError::WrongChainId { 
+                expected: self.state.lock().await.my_chain_id.clone(),
+                received: subblock.chain_id.clone(),
+            });
+        }
+
+        for tx in &subblock.transactions {
+            log("HIG", &format!("[process_subblock] tx-id={} : data={}", tx.id.0, tx.data));
         }
         for tx in subblock.transactions {
             HyperIG::process_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
@@ -369,36 +510,89 @@ impl HyperIG for HyperIGNode {
 
 #[async_trait]
 impl HyperIG for Arc<Mutex<HyperIGNode>> {
+    /// Processes a transaction.
+    /// 
+    /// Handles different types of transactions (regular, CAT, dependent, status update)
+    /// and updates their status accordingly.
+    /// 
+    /// # Arguments
+    /// * `tx` - The transaction to process
+    /// 
+    /// # Returns
+    /// Result containing the final transaction status
     async fn process_transaction(&mut self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         let mut node = self.lock().await;
         node.process_transaction(transaction).await
     }
 
+    /// Gets the current status of a transaction.
+    /// 
+    /// # Arguments
+    /// * `tx_id` - The ID of the transaction to get the status for
+    /// 
+    /// # Returns
+    /// Result containing the transaction status or an error if not found
     async fn get_transaction_status(&self, transaction_id: TransactionId) -> Result<TransactionStatus, anyhow::Error> {
         let node = self.lock().await;
         node.get_transaction_status(transaction_id).await
     }
 
+    /// Gets the list of pending transactions.
+    /// 
+    /// # Returns
+    /// Result containing a vector of pending transaction IDs
     async fn get_pending_transactions(&self) -> Result<Vec<TransactionId>, anyhow::Error> {
         let node = self.lock().await;
         node.get_pending_transactions().await
     }
 
+    /// Sends a CAT status proposal to the Hyper Scheduler.
+    /// 
+    /// # Arguments
+    /// * `cat_id` - The ID of the CAT transaction
+    /// * `status` - The proposed status
+    /// * `constituent_chains` - The chains involved in the CAT
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of sending the proposal
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
         let mut node = self.lock().await;
         node.send_cat_status_proposal(cat_id, status, constituent_chains).await
     }
 
+    /// Resolves a CAT transaction.
+    /// 
+    /// # Arguments
+    /// * `tx` - The CAT transaction to resolve
+    /// 
+    /// # Returns
+    /// Result containing the final transaction status
     async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError> {
         let mut node = self.lock().await;
         node.resolve_transaction(tx).await
     }
 
+    /// Gets the resolution status of a transaction.
+    /// 
+    /// # Arguments
+    /// * `id` - The ID of the transaction to get the resolution status for
+    /// 
+    /// # Returns
+    /// Result containing the resolution status or an error if not found
     async fn get_resolution_status(&self, id: TransactionId) -> Result<TransactionStatus, HyperIGError> {
         let node = self.lock().await;
         node.get_resolution_status(id).await
     }
 
+    /// Processes a subblock of transactions.
+    /// 
+    /// Validates the subblock's chain ID and processes each transaction within it.
+    /// 
+    /// # Arguments
+    /// * `subblock` - The SubBlock containing transactions to process
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of subblock processing
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
         let mut node = self.lock().await;
         node.process_subblock(subblock).await
