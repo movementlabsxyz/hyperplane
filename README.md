@@ -20,33 +20,42 @@ While CATs are pending resolution, their state changes (and the state changes of
 ## Components
 
 ### Hyper Information Gateway (HIG)
+
 The Hyper IG is responsible for:
+
 - Executing transactions and managing their status
 - Generating proposals for CAT transactions
 - Resolving CAT transactions based on hyper_scheduler and sequencer views
 - Managing transaction dependencies and state changes
 
 ### Hyper Scheduler (HS)
+
 The coordination layer that:
+
 - Manages transaction scheduling and conflict resolution
 - Maintains the global view of transaction dependencies
 - Ensures consistent ordering of transactions
 - Coordinates CAT resolution across chains
 
 ### Confirmation Layer (CL)
+
 Provides transaction finality through:
+
 - Centralized confirmation mechanism
 - BFT (Byzantine Fault Tolerant) confirmation mechanism (planned)
 - Ensures transactions are permanently recorded and cannot be reversed
 - Manages chain registration and block production
 
 ### Network
+
 Handles communication between nodes using:
+
 - Mock implementations for testing
 - libp2p backend (planned)
 - gRPC implementation (optional)
 
 ## Project Structure
+
 ```
 hyperplane/
 ├── documentation/       # Project documentation
@@ -56,14 +65,35 @@ hyperplane/
 │   ├── hyper_scheduler/ # Hyper Scheduler
 │   ├── confirmation/    # Confirmation Layer
 │   └── network/         # Network communication
-└── tests/               # Integration tests
+├── submodules/         # Git submodules
+│   └── x-chain-vm/     # Virtual Machine implementation
+└── tests/              # Integration tests
 ```
 
 ## Development Status
 
 The project is currently in active development. See [PLAN.md](PLAN.md) for the implementation roadmap and [RULES.md](RULES.md) for development guidelines.
 
+### Development Setup
+
+This project uses git submodules to manage dependencies that require active development. The main submodule is `x-chain-vm`, which contains the Virtual Machine implementation.
+
+#### Working with Submodules
+
+Clone the repository with submodules:
+
+```bash
+git clone --recursive https://github.com/movementlabsxyz/hyperplane.git
+```
+
+Or if you've already cloned the repository:
+
+```bash
+git submodule update --init --recursive
+```
+
 ### Current Features
+
 - Basic type definitions and core data structures
 - Communication model based on channels between components
 - Basic Confirmation Layer implementation that produces blocks per chain
@@ -73,6 +103,7 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 - Basic integration tests in `tests/integration`
 
 ### Planned Features
+
 - BFT confirmation engine
 - Mock VM
 - Full VM
@@ -86,14 +117,11 @@ The project is currently in active development. See [PLAN.md](PLAN.md) for the i
 The project includes an interactive shell for testing and development. To run it:
 
 ```bash
-# First, initialize and update the git submodules
-git submodule update --init --recursive
-
-# Then run the project
 cargo run
 ```
 
 Note that logs are enabled by default. The logs are written to `hyperplane.log` in the root directory. You can track the logs in real-time by running in a separate terminal:
+
 ```bash
 tail -f hyperplane.log
 ```
@@ -101,17 +129,19 @@ tail -f hyperplane.log
 ### Testing
 
 Run all tests:
-```
+
+```bash
 cargo test
 ```
 
 By default, running `cargo test` will not show logs. To enable logging in tests, you can run:
 
-```
+```bash
 HYPERPLANE_LOGGING=true cargo test -- --nocapture
 ```
 
 We also provide a test runner script:
+
 ```bash
 # Run all tests without logging
 ./run_tests.sh 1 0
