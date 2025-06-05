@@ -79,20 +79,20 @@ async fn run_test_process_subblock(
 #[tokio::test]
 async fn test_process_subblock_with_regular_transaction_success() {
     logging::init_logging();
-    run_test_process_subblock("REGULAR.SIMULATION:Success", TransactionStatus::Success).await;
+    run_test_process_subblock("REGULAR.credit 1 100", TransactionStatus::Success).await;
 }
 
 /// Tests that a subblock with a regular transaction (failure) is properly processed by the HIG
 #[tokio::test]
 async fn test_process_subblock_with_regular_transaction_failure() {
     logging::init_logging();
-    run_test_process_subblock("REGULAR.SIMULATION:Failure", TransactionStatus::Failure).await;
+    run_test_process_subblock("REGULAR.send 1 2 100", TransactionStatus::Failure).await;
 }
 
 /// Tests that a subblock with a CAT transaction is properly processed by the HIG
 #[tokio::test]
 async fn test_process_subblock_with_cat_transaction() {
     logging::init_logging();
-    run_test_process_subblock("CAT.SIMULATION:Success.CAT_ID:test-cat", TransactionStatus::Pending).await;
+    run_test_process_subblock("CAT.credit 1 100.CAT_ID:test-cat", TransactionStatus::Pending).await;
 }
 

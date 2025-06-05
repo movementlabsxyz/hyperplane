@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATId, CATStatus, Transaction},
+    types::{TransactionId, ChainId, CLTransaction, CATId, CATStatus, Transaction},
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
     utils::logging,
@@ -13,8 +13,8 @@ use tokio::time::Duration;
 /// - Submit a cat transaction to CL
 /// - Wait for the transaction to be processed by the HIGs
 /// - Check that the CAT status is set to the expected status in the HS
-async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CATStatus) {
-    logging::log("TEST", &format!("\n=== Starting test_one_cat ==="));
+async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
+    logging::log("TEST", &format!("\n=== Starting test_one_cat with transaction: {} ===", transaction_data));
     let (hs_node, cl_node, _hig_node_1, _hig_node_2, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
@@ -27,13 +27,13 @@ async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CA
         TransactionId("test-tx".to_string()),
         chain_id_1.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0),
+        transaction_data.to_string(),
     ).expect("Failed to create transaction");
     let tx_chain_2 = Transaction::new(
         TransactionId("test-tx".to_string()),
         chain_id_2.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", proposed_status, cat_id.0),
+        transaction_data.to_string(),
     ).expect("Failed to create transaction");
 
     let cl_tx = CLTransaction::new(
@@ -84,13 +84,14 @@ async fn run_test_one_cat(proposed_status: CATStatusLimited, expected_status: CA
 #[tokio::test]
 async fn test_cat_one_cat_success() {
     logging::init_logging();
-    run_test_one_cat(CATStatusLimited::Success, CATStatus::Success).await;
+    run_test_one_cat("CAT.credit 1 100.CAT_ID:test-cat", CATStatus::Success).await;
 }
 
 /// Tests cat (failure) 
 #[tokio::test]
 async fn test_cat_one_cat_failure() {
     logging::init_logging();
-    run_test_one_cat(CATStatusLimited::Failure, CATStatus::Failure).await;
+    // the cat should fail because the sender has no balance
+    run_test_one_cat("CAT.send 1 2 100.CAT_ID:test-cat", CATStatus::Failure).await;
 }
 

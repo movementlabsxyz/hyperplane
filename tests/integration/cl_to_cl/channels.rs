@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{TransactionId, CATStatusLimited, ChainId, CLTransaction, CATStatus, Transaction},
+    types::{TransactionId, ChainId, CLTransaction, CATStatus, Transaction},
     confirmation_layer::ConfirmationLayer,
     utils::logging,
 };
@@ -13,8 +13,8 @@ use tokio::time::Duration;
 /// - HIG: Process the CAT transaction (pending) and send a status update to the HS
 /// - HS: Process the status update and send a status update to the CL
 /// - CL: Verify the status update
-async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_status: CATStatus) {
-    logging::log("TEST", &format!("\n=== Starting CAT test with proposed status: {:?} ===", proposed_status));
+async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStatus) {
+    logging::log("TEST", &format!("\n=== Starting CAT test with transaction: {} ===", transaction_data));
     
     // Initialize components with 100ms block interval
     logging::log("TEST", "Setting up test nodes with 100ms block interval...");
@@ -26,19 +26,18 @@ async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_stat
     logging::log("TEST", &format!("Using chains: {} and {}", chain_id_1.0, chain_id_2.0));
 
     // Create a transaction for each chain
-    let cl_data = format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", proposed_status);
     let tx_chain_1 = Transaction::new(
         TransactionId("test-cat".to_string()),
         chain_id_1.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        cl_data.clone(),
+        transaction_data.to_string(),
     ).expect("Failed to create transaction");
 
     let tx_chain_2 = Transaction::new(
         TransactionId("test-cat".to_string()),
         chain_id_2.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        cl_data.clone(),
+        transaction_data.to_string(),
     ).expect("Failed to create transaction");
 
     let cl_tx = CLTransaction::new(
@@ -81,7 +80,7 @@ async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_stat
             }
         }
     }
-    assert!(found_tx, "Transaction with data '{}' not found in subblock", cl_data);
+    assert!(found_tx, "Transaction with data '{}' not found in subblock", transaction_data);
     
     logging::log("TEST", "=== Test completed successfully ===\n");
 }
@@ -90,12 +89,13 @@ async fn run_two_chain_cat_test(proposed_status: CATStatusLimited, expected_stat
 #[tokio::test]
 async fn test_two_chain_cat_success() {
     logging::init_logging();
-    run_two_chain_cat_test(CATStatusLimited::Success, CATStatus::Success).await;
+    run_two_chain_cat_test("CAT.credit 1 100.CAT_ID:test-cat", CATStatus::Success).await;
 }
 
 /// Tests single chain CAT failure
 #[tokio::test]
 async fn test_two_chain_cat_failure() {
     logging::init_logging();
-    run_two_chain_cat_test(CATStatusLimited::Failure, CATStatus::Failure).await;
+    // the cat should fail because the sender has no balance
+    run_two_chain_cat_test("CAT.send 1 2 100.CAT_ID:test-cat", CATStatus::Failure).await;
 }

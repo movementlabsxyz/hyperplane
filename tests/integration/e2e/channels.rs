@@ -15,8 +15,8 @@ use tokio::time::{Duration, timeout};
 /// - HS: Process the status update and send a status update to the CL
 /// - CL: Include the status update in a block
 /// - HIG: Process the status update and update the transaction status (success or failure)
-async fn run_two_chain_cat_test(expected_status: CATStatusLimited) {
-    logging::log("TEST", &format!("=== Starting CAT test with expected status: {:?} ===", expected_status));
+async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStatusLimited) {
+    logging::log("TEST", &format!("=== Starting CAT test with transaction: {} ===", transaction_data));
     
     // Initialize components with 100ms block interval
     logging::log("TEST", "Setting up test nodes with 100ms block interval...");
@@ -31,14 +31,14 @@ async fn run_two_chain_cat_test(expected_status: CATStatusLimited) {
         TransactionId("test-cat".to_string()),
         chain_id_1.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status),
+        transaction_data.to_string(),
     ).expect("Failed to create transaction");
 
     let tx_chain_2 = Transaction::new(
         TransactionId("test-cat".to_string()),
         chain_id_2.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:test-cat", expected_status),
+        transaction_data.to_string(),
     ).expect("Failed to create transaction");
 
     let cl_tx = CLTransaction::new(
@@ -91,7 +91,7 @@ async fn run_two_chain_cat_test(expected_status: CATStatusLimited) {
 /// Tests two chain CAT success
 #[tokio::test]
 async fn test_two_chain_cat_success() {
-    timeout(Duration::from_secs(2), run_two_chain_cat_test(CATStatusLimited::Success))
+    timeout(Duration::from_secs(2), run_two_chain_cat_test("CAT.credit 1 100.CAT_ID:test-cat", CATStatusLimited::Success))
         .await
         .expect("Test timed out after 2 seconds");
 }
@@ -99,7 +99,9 @@ async fn test_two_chain_cat_success() {
 /// Tests two chain CAT failure
 #[tokio::test]
 async fn test_two_chain_cat_failure() {
-    timeout(Duration::from_secs(2), run_two_chain_cat_test(CATStatusLimited::Failure))
+    // This test fails because we try to send 100 tokens from account 1 to account 2,
+    // but account 1 has no balance (it was never credited)
+    timeout(Duration::from_secs(2), run_two_chain_cat_test("CAT.send 1 2 100.CAT_ID:test-cat", CATStatusLimited::Failure))
         .await
         .expect("Test timed out after 2 seconds");
 }
