@@ -186,6 +186,11 @@ impl HyperIGNode {
         // Check if transaction would succeed
         let would_succeed = self.check_transaction_execution(command).await?;
 
+        // If it would succeed, execute it
+        if would_succeed {
+            self.state.lock().await.vm.execute_transaction(command)?;
+        }
+
         // Update transaction status based on execution result
         let status = if would_succeed {
             TransactionStatus::Success
@@ -312,7 +317,7 @@ impl HyperIGNode {
     /// Checks if a transaction would succeed if executed.
     /// 
     /// Parses and executes the transaction using the mock VM to determine
-    /// if it would succeed.
+    /// if it would succeed, without actually applying any changes.
     /// 
     /// # Arguments
     /// * `command` - The transaction command to check
@@ -326,6 +331,7 @@ impl HyperIGNode {
         
         // Execute the transaction to check if it would succeed
         let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
+        
         Ok(execution.is_success())
     }
 }

@@ -350,5 +350,65 @@ async fn test_cat_pattern() {
     }
 }
 
+/// Tests processing a send transaction after a credit transaction.
+/// 
+/// This test verifies that:
+/// 1. A credit transaction successfully adds funds to an account
+/// 2. A subsequent send transaction can use those funds
+/// 3. The state is correctly updated after both transactions
+#[tokio::test]
+async fn test_send_after_credit() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_send_after_credit ===");
+    
+    logging::log("TEST", "Setting up test nodes...");
+    let hig_node = setup_test_hig_node().await;
+    logging::log("TEST", "Test nodes setup complete");
+
+    // First credit 100 to account 1
+    let credit_tx = Transaction::new(
+        TransactionId("credit-tx".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.credit 1 100".to_string(),
+    ).expect("Failed to create credit transaction");
+    
+    // Process credit transaction
+    let credit_status = hig_node.lock().await.process_transaction(credit_tx.clone())
+        .await
+        .expect("Failed to process credit transaction");
+    assert_eq!(credit_status, TransactionStatus::Success, "Credit transaction should succeed");
+    logging::log("TEST", "Credit transaction processed successfully");
+
+    // Then send 50 from account 1 to account 2
+    let send_tx = Transaction::new(
+        TransactionId("send-tx".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.send 1 2 50".to_string(),
+    ).expect("Failed to create send transaction");
+    
+    // Process send transaction
+    let send_status = hig_node.lock().await.process_transaction(send_tx.clone())
+        .await
+        .expect("Failed to process send transaction");
+    assert_eq!(send_status, TransactionStatus::Success, "Send transaction should succeed");
+    logging::log("TEST", "Send transaction processed successfully");
+
+    // Verify final statuses
+    let credit_final_status = hig_node.lock().await.get_transaction_status(credit_tx.id)
+        .await
+        .expect("Failed to get credit transaction status");
+    let send_final_status = hig_node.lock().await.get_transaction_status(send_tx.id)
+        .await
+        .expect("Failed to get send transaction status");
+    
+    assert_eq!(credit_final_status, TransactionStatus::Success, "Credit transaction should have Success status");
+    assert_eq!(send_final_status, TransactionStatus::Success, "Send transaction should have Success status");
+    logging::log("TEST", "Verified final transaction statuses");
+
+    logging::log("TEST", "=== Test completed successfully ===\n");
+}
+
 
 

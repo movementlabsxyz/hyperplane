@@ -66,6 +66,7 @@ TESTS=(
     hyper_ig::tests::basic::test_cat_process_and_send_failure
     hyper_ig::tests::basic::test_get_pending_transactions
     hyper_ig::tests::basic::test_wrong_chain_subblock
+    hyper_ig::tests::basic::test_send_after_credit
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -99,8 +100,8 @@ TESTS=(
 # Test specific tests
 TESTS2=(
     # Mock VM tests
-    mock_vm::tests::test_credit_transaction
-    mock_vm::tests::test_send_transaction
+
+    hyper_ig::tests::basic::test_send_after_credit
 )
 
 # Check if arguments are provided
