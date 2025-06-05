@@ -27,6 +27,10 @@ set -e
 
 # All tests
 TESTS=(
+    # Mock VM tests
+    mock_vm::tests::test_credit_transaction
+    mock_vm::tests::test_send_transaction
+
     # Setup/Concurrency tests
     setup_with_mpsc::v1_to_v7::test_v1
     setup_with_mpsc::v1_to_v7::test_v2
@@ -92,9 +96,11 @@ TESTS=(
     integration::e2e::channels::test_two_chain_cat_failure
 )
 
-# Test specifit tests
+# Test specific tests
 TESTS2=(
-    integration::e2e::channels::test_two_chain_cat_success
+    # Mock VM tests
+    mock_vm::tests::test_credit_transaction
+    mock_vm::tests::test_send_transaction
 )
 
 # Check if arguments are provided
