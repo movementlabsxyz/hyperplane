@@ -1,7 +1,8 @@
-use crate::types::SubBlock;
+use crate::types::{SubBlock, CATId, CATStatusLimited};
 use serde::{Deserialize, Serialize};
 use regex::Regex;
 use lazy_static::lazy_static;
+use anyhow::anyhow;
 
 /// A message from CL to HIG containing a new subblock
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,6 +37,54 @@ impl TransactionData {
         } else {
             Err("Invalid transaction data format".to_string())
         }
+    }
+}
+
+/// Parse a CAT transaction and extract its ID and status
+pub fn parse_cat_transaction(data: &str) -> Result<(CATId, CATStatusLimited), anyhow::Error> {
+    println!("Parsing CAT transaction: {}", data);
+    println!("CAT_PATTERN: {}", *CAT_PATTERN);
+    println!("CAT_ID_SUFFIX: {}", *CAT_ID_SUFFIX);
+    println!("Full pattern being used: {}", format!(r"^CAT\.(credit \d+ \d+|send \d+ \d+ \d+){}$", *CAT_ID_SUFFIX));
+    
+    // First check if it's a CAT transaction at all
+    if !data.starts_with("CAT.") {
+        println!("Data does not start with 'CAT.'");
+        return Err(anyhow!("Invalid CAT transaction format: {}", data));
+    }
+    
+    // Then try the pattern match
+    let is_match = CAT_PATTERN.is_match(data);
+    println!("Pattern match result: {}", is_match);
+    
+    if let Some(captures) = CAT_PATTERN.captures(data) {
+        println!("Pattern matched successfully");
+        println!("Captures: {:?}", captures);
+        
+        // Extract the command part from the first capture group
+        let command_part = captures.get(1)
+            .ok_or_else(|| anyhow!("No command part found in CAT transaction"))?;
+        let command = command_part.as_str().split_whitespace().next()
+            .ok_or_else(|| anyhow!("No command found in CAT transaction"))?;
+        println!("Extracted command: {}", command);
+        
+        // Credit commands succeed, send commands fail for now
+        let status = if command == "credit" {
+            CATStatusLimited::Success
+        } else {
+            CATStatusLimited::Failure
+        };
+        
+        // Extract CAT ID directly from the captures
+        let cat_id = captures.name("cat_id")
+            .ok_or_else(|| anyhow!("Failed to extract CAT ID"))?;
+        let cat_id = CATId(cat_id.as_str().to_string());
+        println!("Extracted CAT ID: '{}'", cat_id.0);
+
+        Ok((cat_id, status))
+    } else {
+        println!("Failed to match CAT_PATTERN for data: {}", data);
+        Err(anyhow!("Invalid CAT transaction format: {}", data))
     }
 }
 

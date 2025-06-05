@@ -7,9 +7,7 @@ use tokio::sync::Mutex;
 use async_trait::async_trait;
 use std::time::Duration;
 use crate::types::ChainId;
-use regex::Regex;
-use crate::types::communication::cl_to_hig::{CAT_PATTERN, CAT_ID_SUFFIX};
-use crate::types::communication::cl_to_hig::STATUS_UPDATE_PATTERN;
+use crate::types::communication::cl_to_hig::{STATUS_UPDATE_PATTERN, parse_cat_transaction};
 use crate::utils::logging::log;
 /// The internal state of the HyperIGNode
 struct HyperIGState {
@@ -143,12 +141,7 @@ impl HyperIGNode {
         self.state.lock().await.pending_transactions.insert(tx.id.clone());
         
         // Store proposed status based on transaction data
-        let proposed_status = if tx.data.contains("Success") {
-            CATStatusLimited::Success
-        } else {
-            // Default to Failure for all other cases
-            CATStatusLimited::Failure
-        };
+        let (_, proposed_status) = parse_cat_transaction(&tx.data)?;
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
         
         Ok(TransactionStatus::Pending)
@@ -236,30 +229,6 @@ impl HyperIGNode {
         // Transactions depending on CATs stay pending until the CAT is resolved
         Ok(TransactionStatus::Pending)
     }
-
-    /// Parse a CAT transaction
-    fn parse_cat_transaction(data: &str) -> Result<(CATId, CATStatusLimited), anyhow::Error> {
-        log("HIG", &format!("Parsing CAT transaction: {}", data));
-        if let Some(_captures) = CAT_PATTERN.captures(data) {
-            let status = if data.contains("CAT.SIMULATION:Success") {
-                CATStatusLimited::Success
-            } else {
-                CATStatusLimited::Failure
-            };
-            
-            // Extract CAT ID using CAT_ID_SUFFIX pattern
-            log("HIG", &format!("Extracting CAT ID from data: {}", data));
-            let cat_id_match = Regex::new(&format!(r"{}", *CAT_ID_SUFFIX))?
-                .captures(data)
-                .ok_or_else(|| anyhow::anyhow!("Failed to extract CAT ID"))?;
-            let cat_id = CATId(cat_id_match[1].to_string());
-            log("HIG", &format!("Extracted CAT ID: '{}'", cat_id.0));
-
-            Ok((cat_id, status))
-        } else {
-            Err(anyhow::anyhow!("Invalid CAT transaction format: {}", data))
-        }
-    }
 }
 
 #[async_trait]
@@ -294,7 +263,7 @@ impl HyperIG for HyperIGNode {
 
         // Send status proposal to Hyper Scheduler if it's a CAT transaction
         if tx.data.starts_with("CAT") {
-            let (cat_id, status) = Self::parse_cat_transaction(&tx.data)?;
+            let (cat_id, status) = parse_cat_transaction(&tx.data)?;
             let constituent_chains = tx.constituent_chains.clone();
             
             // Validate constituent chains

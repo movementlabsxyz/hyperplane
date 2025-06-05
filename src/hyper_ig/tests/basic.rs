@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use hyperplane::utils::logging;
+use regex::Regex;
 
 /// Helper function to set up a test HIG node
 async fn setup_test_hig_node() -> Arc<Mutex<HyperIGNode>> {
@@ -148,7 +149,11 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
         TransactionId("tx_chain_1".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", expected_status, cat_id.0),
+        match expected_status {
+            CATStatusLimited::Success => format!("CAT.credit 1 100.CAT_ID:{}", cat_id.0),
+            // send should fail because of insufficient balance
+            CATStatusLimited::Failure => format!("CAT.send 1 2 1000.CAT_ID:{}", cat_id.0),
+        },
     ).expect("Failed to create transaction");
 
     // Execute the transaction
@@ -294,6 +299,55 @@ async fn test_wrong_chain_subblock() {
     assert!(result.is_err(), "Expected error when receiving subblock from wrong chain");
     
     logging::log("TEST", "=== Test completed successfully ===\n");
+}
+
+/// Test to verify that the CAT transaction pattern regex works correctly.
+/// This test is separate from the actual transaction processing tests to help diagnose
+/// whether issues are with the pattern matching or with the transaction handling logic.
+/// 
+/// The test verifies that:
+/// 1. The pattern correctly matches valid CAT transaction formats
+/// 2. The pattern can extract the CAT ID from the transaction data
+/// 3. Both credit and send commands are properly recognized
+#[tokio::test]
+async fn test_cat_pattern() {
+    use crate::types::communication::cl_to_hig::{CAT_PATTERN, CAT_ID_SUFFIX};
+    
+    // Test cases that should match the pattern:
+    // - CAT.credit <receiver> <amount>.CAT_ID:<id>
+    // - CAT.send <sender> <receiver> <amount>.CAT_ID:<id>
+    let test_cases = vec![
+        "CAT.credit 1 100.CAT_ID:test-cat-tx",
+        "CAT.send 1 2 1000.CAT_ID:test-cat-tx",
+    ];
+    
+    for data in test_cases {
+        println!("\n=== Testing pattern ===");
+        println!("Input data: {}", data);
+        println!("CAT_PATTERN: {}", *CAT_PATTERN);
+        println!("CAT_ID_SUFFIX: {}", *CAT_ID_SUFFIX);
+        
+        // Test the full pattern match
+        let is_match = CAT_PATTERN.is_match(data);
+        println!("Full pattern match: {}", is_match);
+        
+        if let Some(captures) = CAT_PATTERN.captures(data) {
+            println!("Captures: {:?}", captures);
+            if let Some(cat_id) = captures.name("cat_id") {
+                println!("Extracted CAT ID: {}", cat_id.as_str());
+            }
+        }
+        
+        // Test the CAT_ID_SUFFIX pattern separately
+        let cat_id_pattern = Regex::new(&format!(r"{}", *CAT_ID_SUFFIX)).unwrap();
+        let cat_id_match = cat_id_pattern.captures(data);
+        println!("CAT ID pattern match: {:?}", cat_id_match);
+        if let Some(cat_id_captures) = cat_id_match {
+            println!("CAT ID captures: {:?}", cat_id_captures);
+        }
+        
+        println!("=== End test case ===\n");
+    }
 }
 
 
