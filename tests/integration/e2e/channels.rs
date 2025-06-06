@@ -189,7 +189,7 @@ async fn test_cat_send_both_chains() {
 
 /// Tests a sequence of transactions:
 /// 1. CAT credit transaction
-/// 2. Regular send transaction (should be pending immediately)
+/// 2. Regular send transaction (should be pending after one block is produced)
 /// 3. After 500ms, the send should succeed
 #[tokio::test]
 async fn test_cat_credit_then_send() {
