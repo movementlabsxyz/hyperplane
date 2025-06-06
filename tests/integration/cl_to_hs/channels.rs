@@ -27,7 +27,7 @@ async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
         &chain_id_1,
         &chain_id_2,
         transaction_data,
-        "test-tx"
+        "test-cat"
     ).await.expect("Failed to submit CAT transaction");
 
     // Wait for block production in CL (cat-tx), processing in HIG and HS, and then block production in CL (status-update-tx)
@@ -63,7 +63,7 @@ async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
 #[tokio::test]
 async fn test_cat_one_cat_success() {
     logging::init_logging();
-    run_test_one_cat("CAT.credit 1 100.CAT_ID:test-cat", CATStatus::Success).await;
+    run_test_one_cat("credit 1 100", CATStatus::Success).await;
 }
 
 /// Tests cat (failure) 
@@ -71,6 +71,6 @@ async fn test_cat_one_cat_success() {
 async fn test_cat_one_cat_failure() {
     logging::init_logging();
     // the cat should fail because the sender has no balance
-    run_test_one_cat("CAT.send 1 2 100.CAT_ID:test-cat", CATStatus::Failure).await;
+    run_test_one_cat("send 1 2 100", CATStatus::Failure).await;
 }
 

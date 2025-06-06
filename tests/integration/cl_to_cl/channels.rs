@@ -70,7 +70,7 @@ async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStat
 #[tokio::test]
 async fn test_two_chain_cat_success() {
     logging::init_logging();
-    run_two_chain_cat_test("CAT.credit 1 100.CAT_ID:test-cat", CATStatus::Success).await;
+    run_two_chain_cat_test("credit 1 100", CATStatus::Success).await;
 }
 
 /// Tests single chain CAT failure
@@ -78,5 +78,5 @@ async fn test_two_chain_cat_success() {
 async fn test_two_chain_cat_failure() {
     logging::init_logging();
     // the cat should fail because the sender has no balance
-    run_two_chain_cat_test("CAT.send 1 2 100.CAT_ID:test-cat", CATStatus::Failure).await;
+    run_two_chain_cat_test("send 1 2 100", CATStatus::Failure).await;
 }

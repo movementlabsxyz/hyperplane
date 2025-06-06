@@ -13,8 +13,8 @@ use tokio::sync::Mutex;
 /// * `cl_node` - The confirmation layer node to submit the transaction to
 /// * `chain_id_1` - The first chain ID involved in the CAT
 /// * `chain_id_2` - The second chain ID involved in the CAT
-/// * `cat_transaction` - The CAT transaction data (e.g. "CAT.send 1 2 50.CAT_ID:test-cat")
-/// * `tx_id` - The transaction ID to use for the CAT transaction
+/// * `transaction_data` - The transaction data (e.g. "CAT.send 1 2 50")
+/// * `cat_id` - The CAT ID.
 /// 
 /// # Returns
 /// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
@@ -23,25 +23,25 @@ pub async fn submit_cat_transaction(
     chain_id_1: &ChainId,
     chain_id_2: &ChainId,
     transaction_data: &str,
-    tx_id: &str,
+    cat_id: &str,
 ) -> Result<CLTransaction, anyhow::Error> {
     // Create a transaction for each chain
     let tx_chain_1 = Transaction::new(
-        TransactionId(tx_id.to_string()),
+        TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
         chain_id_1.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        transaction_data.to_string(),
+        format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
     ).expect("Failed to create transaction for chain-1");
 
     let tx_chain_2 = Transaction::new(
-        TransactionId(tx_id.to_string()),
+        TransactionId(format!("{}.{}", cat_id, chain_id_2.0)),
         chain_id_2.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        transaction_data.to_string(),
+        format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
     ).expect("Failed to create transaction for chain-2");
 
     let cl_tx = CLTransaction::new(
-        TransactionId(tx_id.to_string()),
+        TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
         vec![chain_id_1.clone(), chain_id_2.clone()],
         vec![tx_chain_1, tx_chain_2],
     ).expect("Failed to create CL transaction");
@@ -85,11 +85,11 @@ pub async fn submit_regular_transaction(
         vec![tx],
     ).expect("Failed to create CL transaction");
 
-    logging::log("TEST", &format!("Submitting regular transaction for chain-{}", chain_id.0));
+    logging::log("TEST", &format!("Submitting regular transaction for chain '{}'", chain_id.0));
     {
         let mut node = cl_node.lock().await;
         node.submit_transaction(cl_tx.clone()).await?;
     }
-    logging::log("TEST", &format!("Regular transaction for chain-{} submitted successfully", chain_id.0));
+    logging::log("TEST", &format!("Regular transaction for chain '{}' submitted successfully", chain_id.0));
     Ok(cl_tx)
 } 

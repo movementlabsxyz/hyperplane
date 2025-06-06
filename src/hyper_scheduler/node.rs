@@ -156,7 +156,7 @@ impl HyperSchedulerNode {
 #[async_trait]
 impl HyperScheduler for HyperSchedulerNode {
     async fn get_cat_status(&self, id: CATId) -> Result<CATStatus, HyperSchedulerError> {
-        log("HS", &format!("get_cat_status called for tx-id='{}'", id.0));
+        log("HS", &format!("get_cat_status called for cat-id='{}'", id.0));
         let state = self.state.lock().await;
         let result = state.cat_statuses.get(&id).cloned();
         

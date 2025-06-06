@@ -72,7 +72,7 @@ hyperplane/
 
 ## Development Status
 
-The project is currently in active development. See [PLAN.md](PLAN.md) for the implementation roadmap and [RULES.md](RULES.md) for development guidelines.
+The project is currently in active development. See [PLAN](PLAN.md) for the implementation roadmap and [RULES.md](RULES.md) for development guidelines.
 
 ### Development Setup
 
@@ -143,19 +143,14 @@ HYPERPLANE_LOGGING=true cargo test -- --nocapture
 We also provide a test runner script:
 
 ```bash
-# Run all tests without logging
-./run_tests.sh 1 0
-
-# Run all tests with logging enabled
-./run_tests.sh 1 1
-
-# Run a specific integration test with logging
-./run_tests.sh 2 1
+#  test_set: 1 for first set of tests, 2 for second set
+#  logging:  0 to disable logging, 1 to enable logging
+./run_tests.sh <test_set> <logging>
 ```
 
 ## Contributing
 
-Please read [RULES.md](RULES.md) for development guidelines and contribution rules.
+Please read [RULES](RULES.md) for development guidelines and contribution rules.
 
 ## License
 

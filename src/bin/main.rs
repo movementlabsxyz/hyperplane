@@ -176,7 +176,7 @@ async fn main() {
                 }
             }
             Some("send-tx") => {
-                if let (Some(chain_id), Some(data)) = (parts.next(), parts.next()) {
+                if let (Some(chain_id), Some(_data)) = (parts.next(), parts.next()) {
                     // Get the rest of the input as the full data
                     let data = input.split_once("send-tx").unwrap().1
                         .split_once(chain_id).unwrap().1
@@ -215,7 +215,7 @@ async fn main() {
                 }
             }
             Some("send-cat") => {
-                if let (Some(chains), Some(data)) = (parts.next(), parts.next()) {
+                if let (Some(chains), Some(_data)) = (parts.next(), parts.next()) {
                     // Get the rest of the input as the full data
                     let data = input.split_once("send-cat").unwrap().1
                         .split_once(chains).unwrap().1

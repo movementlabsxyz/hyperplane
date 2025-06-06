@@ -100,13 +100,12 @@ TESTS=(
     integration::e2e::channels::test_two_chain_cat_failure
     integration::e2e::channels::test_cat_send_chain1_only
     integration::e2e::channels::test_cat_send_both_chains
+    integration::e2e::channels::test_cat_credit_then_send
 )
 
 # Test specific tests
 TESTS2=(
-
-    integration::e2e::channels::test_cat_send_chain1_only
-    # integration::e2e::channels::test_cat_send_both_chains
+integration::e2e::channels::test_cat_credit_then_send
 )
 
 # Check if arguments are provided
