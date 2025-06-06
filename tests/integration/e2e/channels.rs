@@ -204,6 +204,9 @@ async fn test_cat_credit_then_send() {
     let chain_id_1 = ChainId("chain-1".to_string());
     let chain_id_2 = ChainId("chain-2".to_string());
 
+    // wait for 50ms to have one block already produced
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
     // 1. Submit CAT credit transaction
     logging::log("TEST", "Submitting CAT credit transaction...");
     let _cat_tx = submit_transactions::submit_cat_transaction(
@@ -223,9 +226,9 @@ async fn test_cat_credit_then_send() {
         "send1"
     ).await.expect("Failed to submit regular send transaction");
 
-    // Wait for block production (100ms block interval) and processing
+    // Wait for block production (100ms block interval, we are now in the middle between blocks) and processing
     // Then check that send is pending after the block was produced 
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
 
     let initial_status = {
         let node = hig_node_1.lock().await;
