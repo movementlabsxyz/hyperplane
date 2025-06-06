@@ -12,6 +12,11 @@ use crate::utils::logging::log;
 use crate::mock_vm::MockVM;
 use x_chain_vm::transaction::Transaction as VMTransaction;
 use x_chain_vm::transaction::TxSet1;
+
+//==============================================================================
+// State Management
+//==============================================================================
+
 /// The internal state of the HyperIGNode
 struct HyperIGState {
     /// Map of transaction IDs to their original data
@@ -45,6 +50,10 @@ pub struct HyperIGNode {
     /// Sender for messages to Hyper Scheduler
     sender_hig_to_hs: Option<mpsc::Sender<CATStatusUpdate>>,
 }
+
+//==============================================================================
+// Node Initialization and Lifecycle
+//==============================================================================
 
 impl HyperIGNode {
     /// Creates a new HyperIGNode instance.
@@ -247,184 +256,33 @@ impl HyperIGNode {
         }
     }
 
-    /// Processes pending transactions that were waiting on a resolved CAT.
+    /// Checks if a transaction would succeed if executed.
+    /// 
+    /// Parses and executes the transaction using the mock VM to determine
+    /// if it would succeed, without actually applying any changes.
     /// 
     /// # Arguments
-    /// * `cat_tx_id` - The transaction ID of the resolved CAT
-    /// * `status` - The final status of the CAT
-    async fn process_pending_transactions(&mut self, cat_tx_id: TransactionId, _status: TransactionStatus) -> Result<(), anyhow::Error> {
-        let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Processing transactions pending on CAT tx-id='{}'", cat_tx_id.0));
-
-        // for now only one transaction can lock a key. TODO : this will change as we add deeper dependencies.
-        // Get all keys that were locked by this CAT
-        let locked_keys: Vec<String> = {
-            let state = self.state.lock().await;
-            state.key_locked_by_tx.iter()
-                .filter(|(_, tx_id)| **tx_id == cat_tx_id)
-                .map(|(key, _)| key.clone())
-                .collect()
-        };
-        log(&format!("HIG-{}", chain_id), &format!("Found locked keys: {:?}", locked_keys));
-
-        // Remove the locks
-        {
-            let mut state = self.state.lock().await;
-            for key in &locked_keys {
-                state.key_locked_by_tx.remove(key);
-            }
-        }
-        log(&format!("HIG-{}", chain_id), &format!("Removed locked keys '{:?}' by tx-id='{}' in key_locked_by_tx", locked_keys, cat_tx_id.0));
-
-        // Process all transactions that were waiting on these keys
-        for key in locked_keys {
-            log(&format!("HIG-{}", chain_id), &format!("Processing transactions waiting on key '{}'", key));
-            let pending_txs = {
-                let mut state = self.state.lock().await;
-                state.key_causes_dependencies_for_txs.remove(&key)
-                    .unwrap_or_default()
-            };
-            log(&format!("HIG-{}", chain_id), &format!("Found pending transactions: {:?}", pending_txs));
-
-            for tx_id in pending_txs {
-                log(&format!("HIG-{}", chain_id), &format!("Checking dependencies for tx-id='{}'", tx_id.0));
-                
-                // First check if we should process this transaction
-                let (should_process, remaining_deps) = {
-                    let mut state = self.state.lock().await;
-                    if let Some(dependencies) = state.tx_depends_on_txs.get_mut(&tx_id) {
-                        dependencies.remove(&cat_tx_id);
-                        let is_empty = dependencies.is_empty();
-                        let deps = dependencies.clone();
-                        if is_empty {
-                            state.tx_depends_on_txs.remove(&tx_id);
-                        }
-                        (is_empty, deps)
-                    } else {
-                        (false, HashSet::new())
-                    }
-                };
-
-                log(&format!("HIG-{}", chain_id), &format!("Dependencies after removal: {:?}", remaining_deps));
-
-                if should_process {
-                    log(&format!("HIG-{}", chain_id), &format!("Will process tx-id='{}'", tx_id.0));
-                    // Get transaction data and create transaction
-                    let tx = {
-                        let state = self.state.lock().await;
-                        let tx_data = state.transaction_data.get(&tx_id)
-                            .cloned()
-                            .ok_or_else(|| anyhow::anyhow!("Transaction data not found: {}", tx_id))?;
-                        log(&format!("HIG-{}", chain_id), &format!("Got transaction data for tx-id='{}': {}", tx_id.0, tx_data));
-                        
-                        Transaction {
-                            id: tx_id.clone(),
-                            data: tx_data,
-                            constituent_chains: vec![state.my_chain_id.clone()],
-                            target_chain_id: state.my_chain_id.clone(),
-                        }
-                    };
-
-                    log(&format!("HIG-{}", chain_id), &format!("Processing pending transaction tx-id='{}' (all dependencies resolved)", tx_id.0));
-                    self.process_transaction(tx).await?;
-                    log(&format!("HIG-{}", chain_id), &format!("Finished processing tx-id='{}'", tx_id.0));
-                } else {
-                    log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' still has remaining dependencies", tx_id.0));
-                }
-            }
-        }
-
-        log(&format!("HIG-{}", chain_id), "Finished processing all pending transactions");
-        Ok(())
-    }
-
-    /// Handles a regular transaction.
-    /// 
-    /// Extracts the command from the transaction data, executes it using the mock VM,
-    /// and updates the transaction status based on the execution result.
-    /// 
-    /// # Arguments
-    /// * `tx` - The transaction to handle
+    /// * `command` - The transaction command to check
     /// 
     /// # Returns
-    /// Result containing the final transaction status
-    async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Executing regular transaction: {}", tx.id));
+    /// Result containing whether the transaction would succeed
+    async fn check_transaction_execution(&self, command: &str) -> Result<bool, anyhow::Error> {
+        // Parse and execute the transaction using x-chain-vm's parse_input
+        let vm_tx = x_chain_vm::parse_input(command)
+            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
         
-        // Store the transaction data
-        self.state.lock().await.transaction_data.insert(tx.id.clone(), tx.data.clone());
+        // Execute the transaction to check if it would succeed
+        let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
         
-        // Extract the command part between the dots
-        let command = tx.data.split('.').nth(1)
-            .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
-        log(&format!("HIG-{}", chain_id), &format!("Extracted command: {}", command));
-
-        // Get keys accessed by this transaction
-        let keys = self.get_transaction_keys(command).await?;
-        log(&format!("HIG-{}", chain_id), &format!("Transaction accesses keys: {:?}", keys));
-
-        // Check if any keys are locked
-        if let Some(locking_tx_id) = self.check_locked_keys(&keys).await? {
-            log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is blocked by CAT tx-id='{}'", tx.id.0, locking_tx_id.0));
-            
-            // Add this transaction to the dependency list for each key
-            self.add_transaction_dependencies(tx.id.clone(), &keys).await;
-            
-            // Mark as pending
-            self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
-            self.state.lock().await.pending_transactions.insert(tx.id.clone());
-            
-            return Ok(TransactionStatus::Pending);
-        }
-
-        // Check if transaction would succeed
-        let would_succeed = self.check_transaction_execution(command).await?;
-        log(&format!("HIG-{}", chain_id), &format!("Transaction would {} if executed", 
-            if would_succeed { "succeed" } else { "fail" }));
-
-        // If it would succeed, execute it
-        if would_succeed {
-            let mut state = self.state.lock().await;
-            log(&format!("HIG-{}", chain_id), "Executing transaction...");
-            state.vm.execute_transaction(command)?;
-            log(&format!("HIG-{}", chain_id), "Transaction executed successfully");
-
-            // Get the balance for account 1 from the VM state, returns 0 if account doesn't exist
-            let balance = TxSet1::Skip.get_value(state.vm.get_state(), 1);
-            log(&format!("HIG-{}", chain_id), &format!("Balance of key 1: {}", balance));
-
-            // Update transaction status
-            state.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Success);
-            log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Success' for transaction: {}", tx.id.0));
-            Ok(TransactionStatus::Success)
-        } else {
-            // Update transaction status
-            self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
-            log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Failure' for transaction: {}", tx.id.0));
-            Ok(TransactionStatus::Failure)
-        }
+        Ok(execution.is_success())
     }
+}
 
-    /// Handles a dependent regular transaction.
-    /// 
-    /// Marks the transaction as pending and adds it to the pending transactions set.
-    /// These transactions remain pending until their dependent CAT is resolved.
-    /// 
-    /// # Arguments
-    /// * `transaction` - The dependent transaction to handle
-    /// 
-    /// # Returns
-    /// Result containing the transaction status (always Pending)
-    async fn handle_dependent_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Processing dependent transaction: {}", transaction.id));
-        // Add to pending transactions set
-        self.state.lock().await.pending_transactions.insert(transaction.id.clone());
-        // Transactions depending on CATs stay pending until the CAT is resolved
-        Ok(TransactionStatus::Pending)
-    }
+//==============================================================================
+// CAT Transaction Handling
+//==============================================================================
 
+impl HyperIGNode {
     /// Handles a CAT (Cross-Chain Atomic Transaction).
     /// 
     /// Marks the transaction as pending, checks if it would succeed if executed,
@@ -550,6 +408,97 @@ impl HyperIGNode {
         Ok(status)
     }
 
+    /// Processes pending transactions that were waiting on a resolved CAT.
+    /// 
+    /// # Arguments
+    /// * `cat_tx_id` - The transaction ID of the resolved CAT
+    /// * `status` - The final status of the CAT
+    async fn process_pending_transactions(&mut self, cat_tx_id: TransactionId, _status: TransactionStatus) -> Result<(), anyhow::Error> {
+        let chain_id = self.state.lock().await.my_chain_id.0.clone();
+        log(&format!("HIG-{}", chain_id), &format!("Processing transactions pending on CAT tx-id='{}'", cat_tx_id.0));
+
+        // for now only one transaction can lock a key. TODO : this will change as we add deeper dependencies.
+        // Get all keys that were locked by this CAT
+        let locked_keys: Vec<String> = {
+            let state = self.state.lock().await;
+            state.key_locked_by_tx.iter()
+                .filter(|(_, tx_id)| **tx_id == cat_tx_id)
+                .map(|(key, _)| key.clone())
+                .collect()
+        };
+        log(&format!("HIG-{}", chain_id), &format!("Found locked keys: {:?}", locked_keys));
+
+        // Remove the locks
+        {
+            let mut state = self.state.lock().await;
+            for key in &locked_keys {
+                state.key_locked_by_tx.remove(key);
+            }
+        }
+        log(&format!("HIG-{}", chain_id), &format!("Removed locked keys '{:?}' by tx-id='{}' in key_locked_by_tx", locked_keys, cat_tx_id.0));
+
+        // Process all transactions that were waiting on these keys
+        for key in locked_keys {
+            log(&format!("HIG-{}", chain_id), &format!("Processing transactions waiting on key '{}'", key));
+            let pending_txs = {
+                let mut state = self.state.lock().await;
+                state.key_causes_dependencies_for_txs.remove(&key)
+                    .unwrap_or_default()
+            };
+            log(&format!("HIG-{}", chain_id), &format!("Found pending transactions: {:?}", pending_txs));
+
+            for tx_id in pending_txs {
+                log(&format!("HIG-{}", chain_id), &format!("Checking dependencies for tx-id='{}'", tx_id.0));
+                
+                // First check if we should process this transaction
+                let (should_process, remaining_deps) = {
+                    let mut state = self.state.lock().await;
+                    if let Some(dependencies) = state.tx_depends_on_txs.get_mut(&tx_id) {
+                        dependencies.remove(&cat_tx_id);
+                        let is_empty = dependencies.is_empty();
+                        let deps = dependencies.clone();
+                        if is_empty {
+                            state.tx_depends_on_txs.remove(&tx_id);
+                        }
+                        (is_empty, deps)
+                    } else {
+                        (false, HashSet::new())
+                    }
+                };
+
+                log(&format!("HIG-{}", chain_id), &format!("Dependencies after removal: {:?}", remaining_deps));
+
+                if should_process {
+                    log(&format!("HIG-{}", chain_id), &format!("Will process tx-id='{}'", tx_id.0));
+                    // Get transaction data and create transaction
+                    let tx = {
+                        let state = self.state.lock().await;
+                        let tx_data = state.transaction_data.get(&tx_id)
+                            .cloned()
+                            .ok_or_else(|| anyhow::anyhow!("Transaction data not found: {}", tx_id))?;
+                        log(&format!("HIG-{}", chain_id), &format!("Got transaction data for tx-id='{}': {}", tx_id.0, tx_data));
+                        
+                        Transaction {
+                            id: tx_id.clone(),
+                            data: tx_data,
+                            constituent_chains: vec![state.my_chain_id.clone()],
+                            target_chain_id: state.my_chain_id.clone(),
+                        }
+                    };
+
+                    log(&format!("HIG-{}", chain_id), &format!("Processing pending transaction tx-id='{}' (all dependencies resolved)", tx_id.0));
+                    self.process_transaction(tx).await?;
+                    log(&format!("HIG-{}", chain_id), &format!("Finished processing tx-id='{}'", tx_id.0));
+                } else {
+                    log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' still has remaining dependencies", tx_id.0));
+                }
+            }
+        }
+
+        log(&format!("HIG-{}", chain_id), "Finished processing all pending transactions");
+        Ok(())
+    }
+
     /// Gets the proposed status for a CAT transaction.
     /// 
     /// # Arguments
@@ -562,28 +511,104 @@ impl HyperIGNode {
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("No proposed status found for transaction"))?)
     }
+}
 
-    /// Checks if a transaction would succeed if executed.
+//==============================================================================
+// Regular Transaction Handling
+//==============================================================================
+
+impl HyperIGNode {
+    /// Handles a regular transaction.
     /// 
-    /// Parses and executes the transaction using the mock VM to determine
-    /// if it would succeed, without actually applying any changes.
+    /// Extracts the command from the transaction data, executes it using the mock VM,
+    /// and updates the transaction status based on the execution result.
     /// 
     /// # Arguments
-    /// * `command` - The transaction command to check
+    /// * `tx` - The transaction to handle
     /// 
     /// # Returns
-    /// Result containing whether the transaction would succeed
-    async fn check_transaction_execution(&self, command: &str) -> Result<bool, anyhow::Error> {
-        // Parse and execute the transaction using x-chain-vm's parse_input
-        let vm_tx = x_chain_vm::parse_input(command)
-            .map_err(|e| anyhow::anyhow!("Failed to parse transaction: {}", e))?;
+    /// Result containing the final transaction status
+    async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+        let chain_id = self.state.lock().await.my_chain_id.0.clone();
+        log(&format!("HIG-{}", chain_id), &format!("Executing regular transaction: {}", tx.id));
         
-        // Execute the transaction to check if it would succeed
-        let execution = vm_tx.execute(&self.state.lock().await.vm.get_state());
+        // Store the transaction data
+        self.state.lock().await.transaction_data.insert(tx.id.clone(), tx.data.clone());
         
-        Ok(execution.is_success())
+        // Extract the command part between the dots
+        let command = tx.data.split('.').nth(1)
+            .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
+        log(&format!("HIG-{}", chain_id), &format!("Extracted command: {}", command));
+
+        // Get keys accessed by this transaction
+        let keys = self.get_transaction_keys(command).await?;
+        log(&format!("HIG-{}", chain_id), &format!("Transaction accesses keys: {:?}", keys));
+
+        // Check if any keys are locked
+        if let Some(locking_tx_id) = self.check_locked_keys(&keys).await? {
+            log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is blocked by CAT tx-id='{}'", tx.id.0, locking_tx_id.0));
+            
+            // Add this transaction to the dependency list for each key
+            self.add_transaction_dependencies(tx.id.clone(), &keys).await;
+            
+            // Mark as pending
+            self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
+            self.state.lock().await.pending_transactions.insert(tx.id.clone());
+            
+            return Ok(TransactionStatus::Pending);
+        }
+
+        // Check if transaction would succeed
+        let would_succeed = self.check_transaction_execution(command).await?;
+        log(&format!("HIG-{}", chain_id), &format!("Transaction would {} if executed", 
+            if would_succeed { "succeed" } else { "fail" }));
+
+        // If it would succeed, execute it
+        if would_succeed {
+            let mut state = self.state.lock().await;
+            log(&format!("HIG-{}", chain_id), "Executing transaction...");
+            state.vm.execute_transaction(command)?;
+            log(&format!("HIG-{}", chain_id), "Transaction executed successfully");
+
+            // Get the balance for account 1 from the VM state, returns 0 if account doesn't exist
+            let balance = TxSet1::Skip.get_value(state.vm.get_state(), 1);
+            log(&format!("HIG-{}", chain_id), &format!("Balance of key 1: {}", balance));
+
+            // Update transaction status
+            state.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Success);
+            log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Success' for transaction: {}", tx.id.0));
+            Ok(TransactionStatus::Success)
+        } else {
+            // Update transaction status
+            self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
+            log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Failure' for transaction: {}", tx.id.0));
+            Ok(TransactionStatus::Failure)
+        }
+    }
+
+    /// Handles a dependent regular transaction.
+    /// 
+    /// Marks the transaction as pending and adds it to the pending transactions set.
+    /// These transactions remain pending until their dependent CAT is resolved.
+    /// 
+    /// # Arguments
+    /// * `transaction` - The dependent transaction to handle
+    /// 
+    /// # Returns
+    /// Result containing the transaction status (always Pending)
+    async fn handle_dependent_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+        let chain_id = self.state.lock().await.my_chain_id.0.clone();
+        log(&format!("HIG-{}", chain_id), &format!("Processing dependent transaction: {}", transaction.id));
+        // Add to pending transactions set
+        self.state.lock().await.pending_transactions.insert(transaction.id.clone());
+        // Transactions depending on CATs stay pending until the CAT is resolved
+        Ok(TransactionStatus::Pending)
     }
 }
+
+//==============================================================================
+// HyperIG Trait Implementation
+//==============================================================================
 
 #[async_trait]
 impl HyperIG for HyperIGNode {
@@ -716,7 +741,7 @@ impl HyperIG for HyperIGNode {
     /// 
     /// # Returns
     /// Result containing the final transaction status
-    async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError> {
+    async fn resolve_cat(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError> {
         let statuses = self.state.lock().await.transaction_statuses.get(&TransactionId(tx.id.0.clone()))
             .cloned()
             .ok_or_else(|| HyperIGError::TransactionNotFound(TransactionId(tx.id.0.clone())))?;
@@ -792,6 +817,10 @@ impl HyperIG for HyperIGNode {
     }
 }
 
+//==============================================================================
+// Arc<Mutex<HyperIGNode>> Implementation
+//==============================================================================
+
 #[async_trait]
 impl HyperIG for Arc<Mutex<HyperIGNode>> {
     /// Processes a transaction.
@@ -844,16 +873,16 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
         node.send_cat_status_proposal(cat_id, status, constituent_chains).await
     }
 
-    /// Resolves a CAT transaction.
+    /// Resolves a CAT .
     /// 
     /// # Arguments
-    /// * `tx` - The CAT transaction to resolve
+    /// * `cat` - The CAT to resolve
     /// 
     /// # Returns
-    /// Result containing the final transaction status
-    async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError> {
+    /// Result containing the final CAT status
+    async fn resolve_cat(&mut self, cat: CAT) -> Result<TransactionStatus, HyperIGError> {
         let mut node = self.lock().await;
-        node.resolve_transaction(tx).await
+        node.resolve_cat(cat).await
     }
 
     /// Gets the resolution status of a transaction.
