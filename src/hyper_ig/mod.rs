@@ -1,4 +1,4 @@
-use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, CATStatusLimited, SubBlock, ChainId};
+use crate::types::{TransactionId, TransactionStatus, Transaction, CATId, CATStatusLimited, SubBlock, ChainId};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -37,9 +37,6 @@ pub trait HyperIG: Send + Sync {
     /// Submit a CAT status proposal to the Hyper Scheduler
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError>;
 
-    /// Resolve the status of a CAT transaction based on hyper_scheduler and sequencer views
-    async fn resolve_cat(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError>;
-    
     /// Get the current resolution status of a transaction
     async fn get_resolution_status(&self, id: TransactionId) -> Result<TransactionStatus, HyperIGError>;
 

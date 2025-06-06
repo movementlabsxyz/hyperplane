@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CAT, CATId, SubBlock, CATStatusUpdate};
+use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CATId, SubBlock, CATStatusUpdate};
 use super::{HyperIG, HyperIGError};
 use tokio::sync::mpsc;
 use std::sync::Arc;
@@ -734,19 +734,6 @@ impl HyperIG for HyperIGNode {
         Ok(())
     }
 
-    /// Resolves a CAT transaction.
-    /// 
-    /// # Arguments
-    /// * `tx` - The CAT transaction to resolve
-    /// 
-    /// # Returns
-    /// Result containing the final transaction status
-    async fn resolve_cat(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError> {
-        let statuses = self.state.lock().await.transaction_statuses.get(&TransactionId(tx.id.0.clone()))
-            .cloned()
-            .ok_or_else(|| HyperIGError::TransactionNotFound(TransactionId(tx.id.0.clone())))?;
-        Ok(statuses)
-    }
 
     /// Gets the resolution status of a transaction.
     /// 
@@ -871,18 +858,6 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
         let mut node = self.lock().await;
         node.send_cat_status_proposal(cat_id, status, constituent_chains).await
-    }
-
-    /// Resolves a CAT .
-    /// 
-    /// # Arguments
-    /// * `cat` - The CAT to resolve
-    /// 
-    /// # Returns
-    /// Result containing the final CAT status
-    async fn resolve_cat(&mut self, cat: CAT) -> Result<TransactionStatus, HyperIGError> {
-        let mut node = self.lock().await;
-        node.resolve_cat(cat).await
     }
 
     /// Gets the resolution status of a transaction.
