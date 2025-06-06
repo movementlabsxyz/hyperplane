@@ -109,10 +109,10 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
+    hyper_ig::tests::dependencies::test_success_dependency
+    hyper_ig::tests::dependencies::test_failed_dependency
     # hyper_ig::tests::dependencies::test_multiple_dependencies
-    # hyper_ig::tests::dependencies::test_failed_dependency
     # hyper_ig::tests::dependencies::test_multiple_transactions_same_key
-    hyper_ig::tests::dependencies::test_single_dependency
 
 )
 
