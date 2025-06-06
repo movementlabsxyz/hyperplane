@@ -69,23 +69,29 @@ async fn main() {
             break;
         }
         if input == "help" {
-            println!("Commands:\n  add-chain <chain_id>\n  default-chains <n>\n  send-tx <chain_id> <data>\n  send-cat <chain_id1,chain_id2,...> <data>\n  status\n  exit");
+            println!("Commands:");
+            println!("  add-chain <chain_id>");
+            println!("  add-default-chains <n>");
+            println!("  send-tx <chain_id> <data>");
+            println!("  send-cat <chain_id1,chain_id2,...> <data>");
+            println!("  status");
+            println!("  exit");
             println!("\nValid transaction data formats:");
-            println!("  Regular: REGULAR.SIMULATION:Success or REGULAR.SIMULATION:Failure");
-            println!("  Dependent: DEPENDENT.SIMULATION:Success.CAT_ID:<id> or DEPENDENT.SIMULATION:Failure.CAT_ID:<id>");
-            println!("  CAT: CAT.SIMULATION:Success.CAT_ID:<id> or CAT.SIMULATION:Failure.CAT_ID:<id>");
-            println!("  Status Update: STATUS_UPDATE:Success.CAT_ID:<id> or STATUS_UPDATE:Failure.CAT_ID:<id>");
+            println!("  Regular: credit <account> <amount>");
+            println!("  Regular: send <from> <to> <amount>");
+            println!("  CAT: CAT.send <from> <to> <amount>.CAT_ID:<id>");
+            println!("  CAT: CAT.credit <account> <amount>.CAT_ID:<id>");
             println!("\nExamples:");
-            println!("  default-chains 3  # Creates chain1, chain2, chain3");
-            println!("  send-tx chain1 REGULAR.SIMULATION:Success");
-            println!("  send-cat chain1,chain2 CAT.SIMULATION:Success.CAT_ID:cat123");
-            println!("  send-tx chain1 DEPENDENT.SIMULATION:Success.CAT_ID:cat123");
-            println!("  send-tx chain1 STATUS_UPDATE:Success.CAT_ID:cat123");
+            println!("  add-default-chains 3  # Creates chain1, chain2, chain3");
+            println!("  send-tx chain1 credit 1 100");
+            println!("  send-tx chain1 send 1 2 50");
+            println!("  send-cat chain1,chain2 CAT.send 1 2 50.CAT_ID:cat123");
+            println!("  send-cat chain1,chain2 CAT.credit 1 100.CAT_ID:cat123");
             continue;
         }
         let mut parts = input.split_whitespace();
         match parts.next() {
-            Some("default-chains") => {
+            Some("add-default-chains") => {
                 if let Some(n_str) = parts.next() {
                     match n_str.parse::<usize>() {
                         Ok(n) if n > 0 => {
@@ -118,7 +124,7 @@ async fn main() {
                         Err(_) => println!("[shell] Error: Invalid number of chains"),
                     }
                 } else {
-                    println!("Usage: default-chains <n>");
+                    println!("Usage: add-default-chains <n>");
                 }
             }
             Some("status") => {
@@ -170,7 +176,11 @@ async fn main() {
                 }
             }
             Some("send-tx") => {
-                if let (Some(chain_id), Some(data)) = (parts.next(), parts.next()) {
+                if let (Some(chain_id), Some(_data)) = (parts.next(), parts.next()) {
+                    // Get the rest of the input as the full data
+                    let data = input.split_once("send-tx").unwrap().1
+                        .split_once(chain_id).unwrap().1
+                        .trim_start();
                     let data = data.trim_matches('"');  // Remove quotes if present
                     let tx_id = TransactionId(format!("tx-{}", chain_id));
                     println!("[shell] Sending tx to {}: {}", chain_id, data);
@@ -178,7 +188,7 @@ async fn main() {
                         tx_id.clone(),
                         ChainId(chain_id.to_string()),
                         vec![ChainId(chain_id.to_string())],
-                        data.to_string(),
+                        format!("REGULAR.{}", data),  // Add REGULAR. prefix for regular transactions
                     ) {
                         Ok(tx) => {
                             match CLTransaction::new(
@@ -205,8 +215,13 @@ async fn main() {
                 }
             }
             Some("send-cat") => {
-                if let (Some(chains), Some(data)) = (parts.next(), parts.next()) {
+                if let (Some(chains), Some(_data)) = (parts.next(), parts.next()) {
+                    // Get the rest of the input as the full data
+                    let data = input.split_once("send-cat").unwrap().1
+                        .split_once(chains).unwrap().1
+                        .trim_start();
                     let data = data.trim_matches('"');  // Remove quotes if present
+                    
                     // Extract CAT ID from the data
                     let cat_id = if let Some(cat_id_start) = data.find("CAT_ID:") {
                         let cat_id = &data[cat_id_start + 7..];
@@ -216,31 +231,43 @@ async fn main() {
                     };
                     println!("[shell] Sending CAT to [{}]: {}", chains, data);
                     let chain_ids: Vec<ChainId> = chains.split(',').map(|c| ChainId(c.to_string())).collect();
-                    match Transaction::new(
-                        cat_id.clone(),
-                        chain_ids[0].clone(),
-                        chain_ids.clone(),
-                        data.to_string(),
-                    ) {
-                        Ok(tx) => {
-                            match CLTransaction::new(
-                                cat_id.clone(),
-                                chain_ids.clone(),
-                                vec![tx],
-                            ) {
-                                Ok(cl_tx) => {
-                                    let mut cl_node_guard = cl_node.lock().await;
-                                    if let Err(e) = cl_node_guard.submit_transaction(cl_tx).await {
-                                        println!("[shell] Error: Failed to submit CAT transaction: {}", e);
-                                    } else {
-                                        transaction_tracker.lock().await.add_transaction(cat_id.clone());
-                                        println!("[shell] CAT transaction sent successfully. ID: {}", cat_id.0);
-                                    }
-                                }
-                                Err(e) => println!("[shell] Error: Failed to create CL transaction: {}", e),
+                    
+                    // Create a transaction for each chain
+                    let mut transactions = Vec::new();
+                    for chain_id in &chain_ids {
+                        match Transaction::new(
+                            cat_id.clone(),
+                            chain_id.clone(),
+                            chain_ids.clone(),
+                            data.to_string(),  // Use the data as is, without adding REGULAR. prefix
+                        ) {
+                            Ok(tx) => transactions.push(tx),
+                            Err(e) => {
+                                println!("[shell] Error: Failed to create transaction for chain {}: {}", chain_id.0, e);
+                                continue;
                             }
                         }
-                        Err(e) => println!("[shell] Error: Failed to create transaction: {}", e),
+                    }
+
+                    if !transactions.is_empty() {
+                        match CLTransaction::new(
+                            cat_id.clone(),
+                            chain_ids.clone(),
+                            transactions,
+                        ) {
+                            Ok(cl_tx) => {
+                                let mut cl_node_guard = cl_node.lock().await;
+                                if let Err(e) = cl_node_guard.submit_transaction(cl_tx).await {
+                                    println!("[shell] Error: Failed to submit CAT transaction: {}", e);
+                                } else {
+                                    transaction_tracker.lock().await.add_transaction(cat_id.clone());
+                                    println!("[shell] CAT transaction sent successfully. ID: {}", cat_id.0);
+                                }
+                            }
+                            Err(e) => println!("[shell] Error: Failed to create CL transaction: {}", e),
+                        }
+                    } else {
+                        println!("[shell] Error: No valid transactions were created");
                     }
                 } else {
                     println!("Usage: send-cat <chain_id1,chain_id2,...> <data>");

@@ -83,7 +83,7 @@ async fn test_v13() {
             TransactionId("tx_chain_1".to_string()),
             ChainId("chain-1".to_string()),
             vec![ChainId("chain-1".to_string())],
-            "REGULAR.SIMULATION:Success".to_string(),
+            "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_1 = CLTransaction::new(
             TransactionId("tx_chain_1".to_string()),
@@ -97,7 +97,7 @@ async fn test_v13() {
             TransactionId("tx_chain_2".to_string()),
             ChainId("chain-2".to_string()),
             vec![ChainId("chain-2".to_string())],
-            "REGULAR.SIMULATION:Success".to_string(),
+            "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_2 = CLTransaction::new(
             TransactionId("tx_chain_2".to_string()),
@@ -111,7 +111,7 @@ async fn test_v13() {
             TransactionId("tx_chain_3".to_string()),
             ChainId("chain-3".to_string()),
             vec![ChainId("chain-3".to_string())],
-            "REGULAR.SIMULATION:Success".to_string(),
+            "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_3 = CLTransaction::new(
             TransactionId("tx_chain_3".to_string()),
@@ -195,7 +195,7 @@ async fn run_spammer(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
             TransactionId(format!("tx{}.{}", i, chain_id.0)),
             chain_id.clone(),
             vec![chain_id.clone()],
-            format!("REGULAR.SIMULATION:Success"),
+            "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx = CLTransaction::new(
             TransactionId(format!("tx{}.{}", i, chain_id.0)),

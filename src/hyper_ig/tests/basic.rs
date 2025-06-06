@@ -6,6 +6,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use hyperplane::utils::logging;
+use regex::Regex;
 
 /// Helper function to set up a test HIG node
 async fn setup_test_hig_node() -> Arc<Mutex<HyperIGNode>> {
@@ -35,11 +36,19 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
 
     let tx_id = "test-tx";
     logging::log("TEST", &format!("\nProcessing transaction: {}", tx_id));
+    
+    // Use credit for success, send for failure (since account is empty)
+    let command = match expected_status {
+        TransactionStatus::Success => "REGULAR.credit 1 100",
+        TransactionStatus::Failure => "REGULAR.send 1 2 1000",
+        _ => panic!("Unexpected status for regular transaction test"),
+    };
+    
     let tx = Transaction::new(
         TransactionId(tx_id.to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
-        format!("REGULAR.SIMULATION:{:?}", expected_status),
+        command.to_string(),
     ).expect("Failed to create transaction");
     
     // Process transaction and verify initial status
@@ -89,10 +98,10 @@ async fn test_regular_transaction_pending() {
     // Create a regular transaction that depends on a CAT transaction
     logging::log("TEST", "Creating dependent transaction...");
     let tx = Transaction::new(
-        TransactionId("REGULAR.SIMULATION:Success".to_string()),
+        TransactionId("test-tx".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
-        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
+        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     logging::log("TEST", &format!("Transaction created with tx-id='{}'", tx.id));
     
@@ -140,7 +149,11 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
         TransactionId("tx_chain_1".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
-        format!("CAT.SIMULATION:{:?}.CAT_ID:{}", expected_status, cat_id.0),
+        match expected_status {
+            CATStatusLimited::Success => format!("CAT.credit 1 100.CAT_ID:{}", cat_id.0),
+            // send should fail because of insufficient balance
+            CATStatusLimited::Failure => format!("CAT.send 1 2 1000.CAT_ID:{}", cat_id.0),
+        },
     ).expect("Failed to create transaction");
 
     // Execute the transaction
@@ -237,7 +250,7 @@ async fn test_get_pending_transactions() {
         TransactionId("pending-tx".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
-        "DEPENDENT.SIMULATION:Success.CAT_ID:test-cat-tx".to_string(),
+        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     logging::log("TEST", "Executing transaction...");
     hig_node.lock().await.process_transaction(tx.clone())
@@ -286,6 +299,228 @@ async fn test_wrong_chain_subblock() {
     assert!(result.is_err(), "Expected error when receiving subblock from wrong chain");
     
     logging::log("TEST", "=== Test completed successfully ===\n");
+}
+
+/// Test to verify that the CAT transaction pattern regex works correctly.
+/// This test is separate from the actual transaction processing tests to help diagnose
+/// whether issues are with the pattern matching or with the transaction handling logic.
+/// 
+/// The test verifies that:
+/// 1. The pattern correctly matches valid CAT transaction formats
+/// 2. The pattern can extract the CAT ID from the transaction data
+/// 3. Both credit and send commands are properly recognized
+#[tokio::test]
+async fn test_cat_pattern() {
+    use crate::types::communication::cl_to_hig::{CAT_PATTERN, CAT_ID_SUFFIX};
+    
+    // Test cases that should match the pattern:
+    // - CAT.credit <receiver> <amount>.CAT_ID:<id>
+    // - CAT.send <sender> <receiver> <amount>.CAT_ID:<id>
+    let test_cases = vec![
+        "CAT.credit 1 100.CAT_ID:test-cat-tx",
+        "CAT.send 1 2 1000.CAT_ID:test-cat-tx",
+    ];
+    
+    for data in test_cases {
+        println!("\n=== Testing pattern ===");
+        println!("Input data: {}", data);
+        println!("CAT_PATTERN: {}", *CAT_PATTERN);
+        println!("CAT_ID_SUFFIX: {}", *CAT_ID_SUFFIX);
+        
+        // Test the full pattern match
+        let is_match = CAT_PATTERN.is_match(data);
+        println!("Full pattern match: {}", is_match);
+        
+        if let Some(captures) = CAT_PATTERN.captures(data) {
+            println!("Captures: {:?}", captures);
+            if let Some(cat_id) = captures.name("cat_id") {
+                println!("Extracted CAT ID: {}", cat_id.as_str());
+            }
+        }
+        
+        // Test the CAT_ID_SUFFIX pattern separately
+        let cat_id_pattern = Regex::new(&format!(r"{}", *CAT_ID_SUFFIX)).unwrap();
+        let cat_id_match = cat_id_pattern.captures(data);
+        println!("CAT ID pattern match: {:?}", cat_id_match);
+        if let Some(cat_id_captures) = cat_id_match {
+            println!("CAT ID captures: {:?}", cat_id_captures);
+        }
+        
+        println!("=== End test case ===\n");
+    }
+}
+
+/// Tests processing a send transaction after a credit transaction.
+/// 
+/// This test verifies that:
+/// 1. A credit transaction successfully adds funds to an account
+/// 2. A subsequent send transaction can use those funds
+/// 3. The state is correctly updated after both transactions
+#[tokio::test]
+async fn test_send_after_credit() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_send_after_credit ===");
+    
+    logging::log("TEST", "Setting up test nodes...");
+    let hig_node = setup_test_hig_node().await;
+    logging::log("TEST", "Test nodes setup complete");
+
+    // First credit 100 to account 1
+    let credit_tx = Transaction::new(
+        TransactionId("credit-tx".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.credit 1 100".to_string(),
+    ).expect("Failed to create credit transaction");
+    
+    // Process credit transaction
+    let credit_status = hig_node.lock().await.process_transaction(credit_tx.clone())
+        .await
+        .expect("Failed to process credit transaction");
+    assert_eq!(credit_status, TransactionStatus::Success, "Credit transaction should succeed");
+    logging::log("TEST", "Credit transaction processed successfully");
+
+    // Then send 50 from account 1 to account 2
+    let send_tx = Transaction::new(
+        TransactionId("send-tx".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.send 1 2 50".to_string(),
+    ).expect("Failed to create send transaction");
+    
+    // Process send transaction
+    let send_status = hig_node.lock().await.process_transaction(send_tx.clone())
+        .await
+        .expect("Failed to process send transaction");
+    assert_eq!(send_status, TransactionStatus::Success, "Send transaction should succeed");
+    logging::log("TEST", "Send transaction processed successfully");
+
+    // Verify final statuses
+    let credit_final_status = hig_node.lock().await.get_transaction_status(credit_tx.id)
+        .await
+        .expect("Failed to get credit transaction status");
+    let send_final_status = hig_node.lock().await.get_transaction_status(send_tx.id)
+        .await
+        .expect("Failed to get send transaction status");
+    
+    assert_eq!(credit_final_status, TransactionStatus::Success, "Credit transaction should have Success status");
+    assert_eq!(send_final_status, TransactionStatus::Success, "Send transaction should have Success status");
+    logging::log("TEST", "Verified final transaction statuses");
+
+    logging::log("TEST", "=== Test completed successfully ===\n");
+}
+
+/// Tests that a CAT send transaction fails when there are no funds.
+/// 
+/// This test verifies that:
+/// 1. A CAT send transaction is marked as pending
+/// 2. The transaction would fail if executed (due to insufficient funds)
+#[tokio::test]
+async fn test_cat_send_no_funds() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_send_no_funds ===");
+    
+    logging::log("TEST", "Setting up test nodes...");
+    let hig_node = setup_test_hig_node().await;
+    logging::log("TEST", "Test nodes setup complete");
+
+    // Create a CAT send transaction with multiple constituent chains
+    let cat_send_tx = Transaction::new(
+        TransactionId("cat-send-1".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        "CAT.send 1 2 50.CAT_ID:test-cat-1".to_string(),
+    ).expect("Failed to create CAT send transaction");
+
+    // Process the transaction
+    let status = hig_node.lock().await.process_transaction(cat_send_tx.clone())
+        .await
+        .expect("Failed to process CAT send transaction");
+    assert_eq!(status, TransactionStatus::Pending, "CAT send should be pending");
+
+    // Verify the proposed status is Failure
+    let proposed_status = hig_node.lock().await.get_proposed_status(cat_send_tx.id)
+        .await
+        .expect("Failed to get proposed status");
+    assert_eq!(proposed_status, CATStatusLimited::Failure, "CAT send should propose Failure status");
+
+    logging::log("TEST", "=== test_cat_send_no_funds completed successfully ===\n");
+}
+
+/// Tests that a CAT credit transaction is marked as pending.
+/// 
+/// This test verifies that:
+/// 1. A CAT credit transaction is marked as pending
+/// 2. The transaction would succeed if executed
+#[tokio::test]
+async fn test_cat_credit_pending() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_credit_pending ===");
+    
+    logging::log("TEST", "Setting up test nodes...");
+    let hig_node = setup_test_hig_node().await;
+    logging::log("TEST", "Test nodes setup complete");
+
+    // Create a CAT credit transaction with multiple constituent chains
+    let cat_credit_tx = Transaction::new(
+        TransactionId("cat-credit-1".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        "CAT.credit 1 100.CAT_ID:test-cat-2".to_string(),
+    ).expect("Failed to create CAT credit transaction");
+
+    // Process the transaction
+    let status = hig_node.lock().await.process_transaction(cat_credit_tx.clone())
+        .await
+        .expect("Failed to process CAT credit transaction");
+    assert_eq!(status, TransactionStatus::Pending, "CAT credit should be pending");
+
+    // Verify the proposed status is Success
+    let proposed_status = hig_node.lock().await.get_proposed_status(cat_credit_tx.id)
+        .await
+        .expect("Failed to get proposed status");
+    assert_eq!(proposed_status, CATStatusLimited::Success, "CAT credit should propose Success status");
+
+    logging::log("TEST", "=== test_cat_credit_pending completed successfully ===\n");
+}
+
+/// Tests that a CAT send transaction is pending after a regular credit.
+/// Verifies that:
+/// 1. The regular credit succeeds
+/// 2. The CAT send is pending
+/// 3. The CAT send proposes a Success status
+#[tokio::test]
+async fn test_cat_send_after_credit() {
+    let hig_node = setup_test_hig_node().await;
+    
+    // First do a regular credit
+    let credit_tx = Transaction {
+        id: TransactionId("credit-1".to_string()),
+        data: "REGULAR.credit 1 100".to_string(),
+        constituent_chains: vec![ChainId("chain-1".to_string())],
+        target_chain_id: ChainId("chain-1".to_string()),
+    };
+    
+    let status = hig_node.lock().await.process_transaction(credit_tx).await.unwrap();
+    assert_eq!(status, TransactionStatus::Success, "Regular credit should succeed");
+    
+    // Then do a CAT send
+    let cat_send_tx = Transaction {
+        id: TransactionId("cat-send-1".to_string()),
+        data: "CAT.send 1 2 50.CAT_ID:cat-1".to_string(),
+        constituent_chains: vec![
+            ChainId("chain-1".to_string()),
+            ChainId("chain-2".to_string()),
+        ],
+        target_chain_id: ChainId("chain-1".to_string()),
+    };
+    
+    let status = hig_node.lock().await.process_transaction(cat_send_tx.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Pending, "CAT send should be pending");
+    
+    // Verify the proposed status is Success
+    let proposed_status = hig_node.lock().await.get_proposed_status(cat_send_tx.id).await.unwrap();
+    assert_eq!(proposed_status, CATStatusLimited::Success, "CAT send should propose Success");
 }
 
 

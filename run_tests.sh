@@ -27,6 +27,10 @@ set -e
 
 # All tests
 TESTS=(
+    # Mock VM tests
+    mock_vm::tests::test_credit_transaction
+    mock_vm::tests::test_send_transaction
+
     # Setup/Concurrency tests
     setup_with_mpsc::v1_to_v7::test_v1
     setup_with_mpsc::v1_to_v7::test_v2
@@ -62,6 +66,10 @@ TESTS=(
     hyper_ig::tests::basic::test_cat_process_and_send_failure
     hyper_ig::tests::basic::test_get_pending_transactions
     hyper_ig::tests::basic::test_wrong_chain_subblock
+    hyper_ig::tests::basic::test_send_after_credit
+    hyper_ig::tests::basic::test_cat_send_no_funds
+    hyper_ig::tests::basic::test_cat_credit_pending
+    hyper_ig::tests::basic::test_cat_send_after_credit
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -90,11 +98,14 @@ TESTS=(
     # Integration tests: e2e
     integration::e2e::channels::test_two_chain_cat_success
     integration::e2e::channels::test_two_chain_cat_failure
+    integration::e2e::channels::test_cat_send_chain1_only
+    integration::e2e::channels::test_cat_send_both_chains
+    integration::e2e::channels::test_cat_credit_then_send
 )
 
-# Test specifit tests
+# Test specific tests
 TESTS2=(
-    integration::e2e::channels::test_two_chain_cat_success
+integration::e2e::channels::test_cat_credit_then_send
 )
 
 # Check if arguments are provided

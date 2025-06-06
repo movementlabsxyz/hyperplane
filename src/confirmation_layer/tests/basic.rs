@@ -97,7 +97,7 @@ async fn test_transaction_submission() {
         TransactionId("regular-tx".to_string()),
         chain_id.clone(),
         vec![chain_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string(),
+        "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
         TransactionId("regular-tx".to_string()),
@@ -127,7 +127,7 @@ async fn test_transaction_submission() {
             .await
             .expect("Failed to get subblock");
         logging::log("TEST", &format!("  Subblock transactions for block {}: {:?}", block_id, subblock.transactions));
-        if subblock.transactions.iter().any(|tx| tx.data == "REGULAR.SIMULATION:Success") {
+        if subblock.transactions.iter().any(|tx| tx.data == "REGULAR.credit 1 100") {
             found = true;
             break;
         }
@@ -278,7 +278,7 @@ async fn test_submit_transaction_chain_not_registered() {
         TransactionId("test-tx".to_string()),
         chain_id.clone(),
         vec![chain_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string(),
+        "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
@@ -304,13 +304,13 @@ async fn test_submit_cl_transaction_for_two_chains() {
         TransactionId("multi-tx-1".to_string()),
         chain1_id.clone(),
         vec![chain1_id.clone(), chain2_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string(),
+        "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let tx2 = Transaction::new(
         TransactionId("multi-tx-2".to_string()),
         chain2_id.clone(),
         vec![chain1_id.clone(), chain2_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string(),
+        "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     
     let cl_tx = CLTransaction::new(
@@ -340,10 +340,10 @@ async fn test_submit_cl_transaction_for_two_chains() {
             .await
             .expect("Failed to get subblock for chain 2");
 
-        if subblock1.transactions.iter().any(|tx| tx.data == "REGULAR.SIMULATION:Success") {
+        if subblock1.transactions.iter().any(|tx| tx.data == "REGULAR.credit 1 100") {
             found_chain1 = true;
         }
-        if subblock2.transactions.iter().any(|tx| tx.data == "REGULAR.SIMULATION:Success") {
+        if subblock2.transactions.iter().any(|tx| tx.data == "REGULAR.credit 1 100") {
             found_chain2 = true;
         }
 
@@ -378,7 +378,7 @@ async fn test_dynamic_channel_registration() {
         TransactionId("test-tx".to_string()),
         dynamic_chain_id.clone(),
         vec![dynamic_chain_id.clone()],
-        "REGULAR.SIMULATION:Success".to_string(),
+        "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
@@ -401,7 +401,7 @@ async fn test_dynamic_channel_registration() {
             assert_eq!(subblock.chain_id, dynamic_chain_id);
             assert_eq!(subblock.block_height, 1);
             assert_eq!(subblock.transactions.len(), 1);
-            assert_eq!(subblock.transactions[0].data, "REGULAR.SIMULATION:Success");
+            assert_eq!(subblock.transactions[0].data, "REGULAR.credit 1 100");
             received = true;
             break;
         }
