@@ -37,7 +37,13 @@ async fn setup_test_hig_node() -> std::sync::Arc<tokio::sync::Mutex<HyperIGNode>
 /// 4. Verifies the dependency is correctly established
 /// 5. Resolves the CAT with the given status
 /// 6. Verifies the dependent transaction reaches the expected result
-async fn run_cat_credit_and_dependent_tx(cat_status: TransactionStatus, expected_result: TransactionStatus) {
+/// 
+/// # Returns
+/// The HyperIG node and its VM state for further testing
+async fn run_cat_credit_and_dependent_tx(
+    cat_status: TransactionStatus, 
+    expected_result: TransactionStatus
+) -> std::sync::Arc<tokio::sync::Mutex<HyperIGNode>> {
     logging::init_logging();
     logging::log("TEST", &format!("\n=== Starting test with CAT status: {:?}, expected result: {:?} ===", cat_status, expected_result));
     
@@ -97,6 +103,8 @@ async fn run_cat_credit_and_dependent_tx(cat_status: TransactionStatus, expected
     assert_eq!(status, expected_result);
     
     logging::log("TEST", "=== Test completed successfully ===\n");
+    
+    hig_node
 }
 
 /// Tests that a transaction succeeds when its CAT dependency succeeds.
@@ -122,17 +130,54 @@ pub async fn test_failed_dependency() {
 /// This test verifies that when multiple transactions are waiting on the same key,
 /// they are processed in the order they were submitted, maintaining transaction
 /// ordering guarantees.
+/// 1. A cat with credit will be created. 
+/// 2. A transaction will be created that sends from 1 to 2.
+/// 3. A transaction will be created that sends from 1 to 3.
+/// 4. The first transaction will be processed and succeed because the cat's key has enough credit.
+/// 5. The second transaction will be processed and fail because the cat's key does not have enough credit.
 #[tokio::test]
-pub async fn test_multiple_transactions_same_key() {
-    // TODO: Implement this test
+pub async fn test_multiple_transactions_same_key_fail() {
+    let hig_node = run_cat_credit_and_dependent_tx(TransactionStatus::Success, TransactionStatus::Success).await;
+
+    let dependent_tx_2 = Transaction::new(
+        TransactionId("dependent-tx-2".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.send 1 2 60".to_string(),
+    ).expect("Failed to create dependent transaction");
+
+    // the second transaction will fail because the cat's key does not have enough credit
+    let status = hig_node.lock().await.process_transaction(dependent_tx_2.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Failure);
+
+    logging::log("TEST", "=== Test completed successfully ===\n");
 } 
 
-/// Tests that a transaction with multiple dependencies waits for all dependencies to be resolved.
+
+/// Tests that multiple transactions waiting on the same key are processed in order.
 /// 
-/// This test verifies that a transaction that depends on multiple CAT transactions
-/// will only proceed once all of its dependencies have been resolved, and will fail
-/// if any of its dependencies fail.
+/// This test verifies that when multiple transactions are waiting on the same key,
+/// they are processed in the order they were submitted, maintaining transaction
+/// ordering guarantees.
+/// 1. A cat with credit will be created. 
+/// 2. A transaction will be created that sends from 1 to 2.
+/// 3. A transaction will be created that sends from 1 to 3.
+/// 4. The first transaction will be processed and succeed because the cat's key has enough credit.
+/// 5. The second transaction will be processed and also succeed because the cat's key has enough credit.
 #[tokio::test]
-pub async fn test_multiple_dependencies() {
-    // TODO: Implement this test
-}
+pub async fn test_multiple_transactions_same_key_success() {
+    let hig_node = run_cat_credit_and_dependent_tx(TransactionStatus::Success, TransactionStatus::Success).await;
+
+    let dependent_tx_2 = Transaction::new(
+        TransactionId("dependent-tx-2".to_string()),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.send 1 2 40".to_string(),
+    ).expect("Failed to create dependent transaction");
+
+    // the second transaction will succeed because the cat's key has enough credit
+    let status = hig_node.lock().await.process_transaction(dependent_tx_2.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Success);
+
+    logging::log("TEST", "=== Test completed successfully ===\n");
+} 

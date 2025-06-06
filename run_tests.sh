@@ -70,9 +70,9 @@ TESTS=(
     hyper_ig::tests::basic::test_cat_send_no_funds
     hyper_ig::tests::basic::test_cat_credit_pending
     hyper_ig::tests::basic::test_cat_send_after_credit
-    hyper_ig::tests::dependencies::test_multiple_dependencies
     hyper_ig::tests::dependencies::test_failed_dependency
-    hyper_ig::tests::dependencies::test_multiple_transactions_same_key
+    hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
+    hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
     hyper_ig::tests::dependencies::test_single_dependency
 
     # Hyper Scheduler tests
@@ -109,10 +109,10 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
-    hyper_ig::tests::dependencies::test_success_dependency
-    hyper_ig::tests::dependencies::test_failed_dependency
-    # hyper_ig::tests::dependencies::test_multiple_dependencies
-    # hyper_ig::tests::dependencies::test_multiple_transactions_same_key
+    # hyper_ig::tests::dependencies::test_success_dependency
+    # hyper_ig::tests::dependencies::test_failed_dependency
+    hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
+    hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
 
 )
 
