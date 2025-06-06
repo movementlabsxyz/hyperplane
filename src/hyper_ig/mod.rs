@@ -45,6 +45,9 @@ pub trait HyperIG: Send + Sync {
 
     /// Process a subblock of transactions
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError>;
+
+    /// Get the dependencies of a transaction
+    async fn get_transaction_dependencies(&self, transaction_id: TransactionId) -> Result<Vec<TransactionId>, HyperIGError>;
 }
 
 #[cfg(test)]
