@@ -45,6 +45,9 @@ pub trait HyperIG: Send + Sync {
 
     /// Get the dependencies of a transaction
     async fn get_transaction_dependencies(&self, transaction_id: TransactionId) -> Result<Vec<TransactionId>, HyperIGError>;
+
+    /// Gets the data of a transaction.
+    async fn get_transaction_data(&self, tx_id: TransactionId) -> Result<String, anyhow::Error>;
 }
 
 #[cfg(test)]

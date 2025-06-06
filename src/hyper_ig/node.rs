@@ -802,6 +802,26 @@ impl HyperIG for HyperIGNode {
         log(&format!("HIG-{}", chain_id), &format!("Found dependencies for tx-id='{}': {:?}", transaction_id.0, dependencies));
         Ok(dependencies.into_iter().collect())
     }
+
+    /// Gets the data of a transaction.
+    /// 
+    /// # Arguments
+    /// * `tx_id` - The ID of the transaction to get the data for
+    /// 
+    /// # Returns
+    /// Result containing the transaction data or an error if not found
+    async fn get_transaction_data(&self, tx_id: TransactionId) -> Result<String, anyhow::Error> {
+        let chain_id = self.state.lock().await.my_chain_id.0.clone();
+        log(&format!("HIG-{}", chain_id), &format!("Getting data for tx-id='{}'", tx_id));
+        let data = self.state.lock().await.transaction_data.get(&tx_id)
+            .cloned()
+            .ok_or_else(|| {
+                log(&format!("HIG-{}", chain_id), &format!("Transaction data not found tx-id='{}'", tx_id));
+                anyhow::anyhow!("Transaction data not found: {}", tx_id)
+            })?;
+        log(&format!("HIG-{}", chain_id), &format!("Found data for tx-id='{}': {}", tx_id, data));
+        Ok(data)
+    }
 }
 
 //==============================================================================
@@ -889,5 +909,10 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
     async fn get_transaction_dependencies(&self, transaction_id: TransactionId) -> Result<Vec<TransactionId>, HyperIGError> {
         let node = self.lock().await;
         node.get_transaction_dependencies(transaction_id).await
+    }
+
+    async fn get_transaction_data(&self, tx_id: TransactionId) -> Result<String, anyhow::Error> {
+        let node = self.lock().await;
+        node.get_transaction_data(tx_id).await
     }
 } 

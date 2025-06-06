@@ -131,18 +131,30 @@ async fn main() {
                 let chains = hig_nodes.lock().await;
                 let transactions = transaction_tracker.lock().await;
                 println!("=== System Status ===");
-                println!("Registered chains: {}", chains.len());
-                for (chain_id, _) in chains.iter() {
-                    println!("  - {}", chain_id.0);
-                }
+                let chain_list: Vec<String> = chains.keys().map(|c| c.0.clone()).collect();
+                println!("Registered chains: {}", chain_list.join(", "));
                 println!("\nTransaction Status:");
-                for (tx_id, _) in transactions.transactions.iter() {
+                
+                // Collect all chain nodes and transaction IDs first
+                let chain_nodes: Vec<(ChainId, Arc<Mutex<HyperIGNode>>)> = chains.iter()
+                    .map(|(id, node)| (id.clone(), node.clone()))
+                    .collect();
+                let tx_ids: Vec<TransactionId> = transactions.transactions.keys().cloned().collect();
+                
+                // Release the locks before making async calls
+                drop(chains);
+                drop(transactions);
+
+                // Process each transaction
+                for tx_id in tx_ids {
                     println!("  - {}:", tx_id.0);
-                    // Show status for each chain
-                    for (chain_id, hig_node) in chains.iter() {
-                        match hig_node.lock().await.get_resolution_status(tx_id.clone()).await {
-                            Ok(status) => println!("    {}: {:?}", chain_id.0, status),
-                            Err(_) => println!("    {}: Unknown", chain_id.0),
+                    // Process each chain
+                    for (chain_id, node) in &chain_nodes {
+                        let node = node.lock().await;
+                        if let Ok(status) = node.get_resolution_status(tx_id.clone()).await {
+                            if let Ok(data) = node.get_transaction_data(tx_id.clone()).await {
+                                println!("    {}: {:?} : {}", chain_id.0, status, data);
+                            }
                         }
                     }
                 }
