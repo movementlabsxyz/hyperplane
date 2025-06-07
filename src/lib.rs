@@ -7,5 +7,5 @@ pub mod mock_vm;
 
 pub use confirmation_layer::ConfirmationLayer;
 pub use hyper_scheduler::HyperScheduler;
-pub use hyper_ig::HyperIG;
+pub use hyper_ig::HyperIG; 
 pub use mock_vm::MockVM; 

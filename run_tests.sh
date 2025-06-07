@@ -57,6 +57,7 @@ TESTS=(
     confirmation_layer::tests::basic::test_get_block_interval
     confirmation_layer::tests::basic::test_submit_transaction_chain_not_registered
     confirmation_layer::tests::basic::test_submit_cl_transaction_for_two_chains
+    confirmation_layer::tests::basic::test_dynamic_channel_registration
 
     # Hyper IG tests
     hyper_ig::tests::basic::test_regular_transaction_success
@@ -66,10 +67,19 @@ TESTS=(
     hyper_ig::tests::basic::test_cat_process_and_send_failure
     hyper_ig::tests::basic::test_get_pending_transactions
     hyper_ig::tests::basic::test_wrong_chain_subblock
+    hyper_ig::tests::basic::test_cat_pattern
     hyper_ig::tests::basic::test_send_after_credit
     hyper_ig::tests::basic::test_cat_send_no_funds
     hyper_ig::tests::basic::test_cat_credit_pending
     hyper_ig::tests::basic::test_cat_send_after_credit
+    hyper_ig::tests::basic::test_get_chain_state_empty
+    hyper_ig::tests::basic::test_get_chain_state_after_transaction
+    hyper_ig::tests::basic::test_duplicate_transaction_id
+    hyper_ig::tests::dependencies::test_failed_dependency
+    hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
+    hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
+    hyper_ig::tests::dependencies::test_single_dependency
+    hyper_ig::tests::dependencies::test_success_dependency
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -77,35 +87,38 @@ TESTS=(
     hyper_scheduler::tests::basic::test_receive_failure_proposal_first_message
     hyper_scheduler::tests::basic::test_duplicate_rejection
     hyper_scheduler::tests::basic::test_process_proposals_for_two_chain_cat
+    hyper_scheduler::tests::basic::test_cannot_set_success_if_constituent_chains_dont_match
 
     # Integration tests: CL to HIG
-    integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_success
-    integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_failure
-    integration::cl_to_hig::channels::test_process_subblock_with_cat_transaction
+    integration::cl_to_hig::test_process_subblock_with_regular_transaction_success
+    integration::cl_to_hig::test_process_subblock_with_regular_transaction_failure
+
+    # Integration tests: HIG to CL
+    integration::hig_to_cl::test_hs_waits_for_all_proposals
 
     # Integration tests: HS to CL
-    integration::hs_to_cl::channels::test_single_chain_cat_status_update
-    integration::hs_to_cl::channels::test_several_single_chain_cat_status_updates
+    integration::hs_to_cl::test_single_chain_cat_status_update
+    integration::hs_to_cl::test_several_single_chain_cat_status_updates
 
     # Integration tests: CL to HS
-    integration::cl_to_hs::channels::test_cat_one_cat_success
-    integration::cl_to_hs::channels::test_cat_one_cat_failure
+    integration::cl_to_hs::test_cat_one_cat_success
+    integration::cl_to_hs::test_cat_one_cat_failure
 
     # Integration tests: CL to CL
-    integration::cl_to_cl::channels::test_two_chain_cat_success
-    integration::cl_to_cl::channels::test_two_chain_cat_failure
+    integration::cl_to_cl::test_two_chain_cat_success
+    integration::cl_to_cl::test_two_chain_cat_failure
 
     # Integration tests: e2e
-    integration::e2e::channels::test_two_chain_cat_success
-    integration::e2e::channels::test_two_chain_cat_failure
-    integration::e2e::channels::test_cat_send_chain1_only
-    integration::e2e::channels::test_cat_send_both_chains
-    integration::e2e::channels::test_cat_credit_then_send
+    integration::e2e::test_two_chain_cat_success
+    integration::e2e::test_two_chain_cat_failure
+    integration::e2e::test_cat_with_only_chain_1_credit
+    integration::e2e::test_cat_with_both_chains_credit
+    integration::e2e::test_cat_credit_then_send
 )
 
 # Test specific tests
 TESTS2=(
-integration::e2e::channels::test_cat_credit_then_send
+    integration::e2e::test_cat_with_only_chain_1_credit
 )
 
 # Check if arguments are provided
@@ -169,4 +182,5 @@ else
     echo "Invalid test set. Use 1 or 2."
     exit 1
 fi
+
  

@@ -51,7 +51,7 @@ pub fn parse_cat_transaction(data: &str) -> Result<CATId, anyhow::Error> {
     }
 
     let is_match = CAT_PATTERN.is_match(data);
-    logging::log("parse_cat_transaction", &format!("Pattern match result: {}", is_match));
+    // logging::log("parse_cat_transaction", &format!("Pattern match result: {}", is_match));
     // if not match, return error
     if !is_match {
         return Err(anyhow!("Invalid CAT transaction format: {}", data));
@@ -70,7 +70,7 @@ pub fn parse_cat_transaction(data: &str) -> Result<CATId, anyhow::Error> {
         let cat_id = captures.name("cat_id")
             .ok_or_else(|| anyhow!("Failed to extract CAT ID"))?;
         let cat_id = CATId(cat_id.as_str().to_string());
-        logging::log("parse_cat_transaction", &format!("Extracted CAT ID: '{}'", cat_id.0));
+        // logging::log("parse_cat_transaction", &format!("Extracted CAT ID: '{}'", cat_id.0));
 
         Ok(cat_id)
     } else {

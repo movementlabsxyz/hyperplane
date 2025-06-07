@@ -1,4 +1,4 @@
-use crate::types::{TransactionId, TransactionStatus, Transaction, CAT, CATId, CATStatusLimited, SubBlock, ChainId};
+use crate::types::{TransactionId, TransactionStatus, Transaction, CATId, CATStatusLimited, SubBlock, ChainId};
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -37,14 +37,21 @@ pub trait HyperIG: Send + Sync {
     /// Submit a CAT status proposal to the Hyper Scheduler
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError>;
 
-    /// Resolve the status of a CAT transaction based on hyper_scheduler and sequencer views
-    async fn resolve_transaction(&mut self, tx: CAT) -> Result<TransactionStatus, HyperIGError>;
-    
     /// Get the current resolution status of a transaction
     async fn get_resolution_status(&self, id: TransactionId) -> Result<TransactionStatus, HyperIGError>;
 
     /// Process a subblock of transactions
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError>;
+
+    /// Get the dependencies of a transaction
+    async fn get_transaction_dependencies(&self, transaction_id: TransactionId) -> Result<Vec<TransactionId>, HyperIGError>;
+
+    /// Gets the data of a transaction.
+    async fn get_transaction_data(&self, tx_id: TransactionId) -> Result<String, anyhow::Error>;
+
+    /// Gets the current state of the chain.
+    /// Returns a HashMap containing the current state of all accounts and their balances.
+    async fn get_chain_state(&self) -> Result<std::collections::HashMap<String, i64>, anyhow::Error>;
 }
 
 #[cfg(test)]

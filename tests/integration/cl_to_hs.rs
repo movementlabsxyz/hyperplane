@@ -1,12 +1,12 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{ChainId, CATId, CATStatus},
+    types::{CATId, CATStatus},
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
     utils::logging,
 };
-use super::super::common::{testnodes, submit_transactions};
+use crate::integration::common::{testnodes, submit_transactions};
 use tokio::time::Duration;
 
 /// Helper function: tests sending a CAT status proposal from CL to HS
@@ -18,14 +18,9 @@ async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
     let (hs_node, cl_node, _hig_node_1, _hig_node_2, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
-    let chain_id_1 = ChainId("chain-1".to_string());
-    let chain_id_2 = ChainId("chain-2".to_string());
-
     // Submit the CAT transaction
-    let _cl_tx = submit_transactions::submit_cat_transaction(
+    let _cl_tx = submit_transactions::create_and_submit_cat_transaction(
         &cl_node,
-        &chain_id_1,
-        &chain_id_2,
         transaction_data,
         "test-cat"
     ).await.expect("Failed to submit CAT transaction");

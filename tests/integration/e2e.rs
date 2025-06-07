@@ -1,12 +1,13 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{CATStatusLimited, ChainId, TransactionStatus},
+    types::{CATStatusLimited, TransactionStatus},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
     utils::logging,
 };
-use super::super::common::{testnodes, submit_transactions};
+use crate::integration::common::{testnodes, submit_transactions};
+use hyperplane::types::constants;
 use tokio::time::{Duration, timeout};
 
 // Helper function to run a two chain CAT test
@@ -23,14 +24,9 @@ async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStat
     let (_hs_node, cl_node, hig_node_1, _hig_node_2, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
-    let chain_id_1 = ChainId("chain-1".to_string());
-    let chain_id_2 = ChainId("chain-2".to_string());
-
     // Submit the CAT transaction
-    let cl_tx = submit_transactions::submit_cat_transaction(
+    let cl_tx = submit_transactions::create_and_submit_cat_transaction(
         &cl_node,
-        &chain_id_1,
-        &chain_id_2,
         transaction_data,
         "test-cat"
     ).await.expect("Failed to submit CAT transaction");
@@ -72,51 +68,39 @@ async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStat
 /// Helper function to run a two chain CAT test with credits
 /// 
 /// # Arguments
-/// * `chain1_credit` - Credit amount for chain-1 (e.g. "credit 1 100")
-/// * `chain2_credit` - Credit amount for chain-2 (e.g. "credit 1 0")
+/// * `chain_1_credit` - Whether to credit chain-1
+/// * `chain_2_credit` - Whether to credit chain-2
 /// * `transaction_data_in_cat` - The transaction data to test that is wrapped in a CAT transaction
 /// * `expected_status` - Expected CAT status (Success or Failure)
 async fn run_two_chain_cat_test_with_credits(
-    chain1_credit: &str,
-    chain2_credit: &str,
+    chain_1_credit: bool,
+    chain_2_credit: bool,
     transaction_data_in_cat: &str,
     expected_status: CATStatusLimited
 ) {
-    logging::log("TEST", &format!("=== Starting CAT test with txs: chain1={}, chain2={}, cat={} ===", 
-        chain1_credit, chain2_credit, transaction_data_in_cat));
+    logging::log("TEST", &format!("=== Starting CAT test with credits: chain1={}, chain2={}, cat={} ===", 
+        chain_1_credit, chain_2_credit, transaction_data_in_cat));
     
     // Initialize components with 100ms block interval
     logging::log("TEST", "Setting up test nodes with 100ms block interval...");
     let (_hs_node, cl_node, hig_node_1, _hig_node_2, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
-    let chain_id_1 = ChainId("chain-1".to_string());
-    let chain_id_2 = ChainId("chain-2".to_string());
-
-    // Credit both chains
-    logging::log("TEST", "Crediting both chains...");
-    submit_transactions::submit_regular_transaction(
-        &cl_node,
-        &chain_id_1,
-        chain1_credit,
-        "credit-tx-chain-1"
-    ).await.expect("Failed to submit credit transaction for chain-1");
-
-    submit_transactions::submit_regular_transaction(
-        &cl_node,
-        &chain_id_2,
-        chain2_credit,
-        "credit-tx-chain-2"
-    ).await.expect("Failed to submit credit transaction for chain-2");
+    // Credit chains if needed
+    logging::log("TEST", "Crediting chains...");
+    if chain_1_credit {
+        submit_transactions::credit_account(&cl_node, &constants::chain_1(), "1").await.expect("Failed to submit credit transaction for chain-1");
+    }
+    if chain_2_credit {
+        submit_transactions::credit_account(&cl_node, &constants::chain_2(), "1").await.expect("Failed to submit credit transaction for chain-2");
+    }
 
     // Wait for block production
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     // Submit the CAT transaction
-    let cl_tx = submit_transactions::submit_cat_transaction(
+    let cl_tx = submit_transactions::create_and_submit_cat_transaction(
         &cl_node,
-        &chain_id_1,
-        &chain_id_2,
         transaction_data_in_cat,
         "test-cat"
     ).await.expect("Failed to submit CAT transaction");
@@ -163,10 +147,10 @@ async fn test_two_chain_cat_failure() {
 
 /// Tests that a CAT send fails when only chain-1 has funds
 #[tokio::test]
-async fn test_cat_send_chain1_only() {
+async fn test_cat_with_only_chain_1_credit() {
     timeout(Duration::from_secs(4), run_two_chain_cat_test_with_credits(
-        "credit 1 100",  // chain-1 has funds
-        "credit 1 0",    // chain-2 has no funds
+        true,  // chain-1 has funds
+        false, // chain-2 has no funds
         "send 1 2 50",
         CATStatusLimited::Failure
     ))
@@ -176,10 +160,10 @@ async fn test_cat_send_chain1_only() {
 
 /// Tests that a CAT send succeeds when both chains have funds
 #[tokio::test]
-async fn test_cat_send_both_chains() {
+async fn test_cat_with_both_chains_credit() {
     timeout(Duration::from_secs(4), run_two_chain_cat_test_with_credits(
-        "credit 1 100",  // chain-1 has funds
-        "credit 1 100",  // chain-2 has funds
+        true,  // chain-1 has funds
+        true,  // chain-2 has funds
         "send 1 2 50",
         CATStatusLimited::Success
     ))
@@ -189,7 +173,7 @@ async fn test_cat_send_both_chains() {
 
 /// Tests a sequence of transactions:
 /// 1. CAT credit transaction
-/// 2. Regular send transaction (should be pending immediately)
+/// 2. Regular send transaction (should be pending after one block is produced)
 /// 3. After 500ms, the send should succeed
 #[tokio::test]
 async fn test_cat_credit_then_send() {
@@ -201,31 +185,29 @@ async fn test_cat_credit_then_send() {
     let (_hs_node, cl_node, hig_node_1, _hig_node_2, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
-    let chain_id_1 = ChainId("chain-1".to_string());
-    let chain_id_2 = ChainId("chain-2".to_string());
+    // wait for 50ms to have one block already produced
+    tokio::time::sleep(Duration::from_millis(50)).await;
 
     // 1. Submit CAT credit transaction
     logging::log("TEST", "Submitting CAT credit transaction...");
-    let _cat_tx = submit_transactions::submit_cat_transaction(
+    let _cat_tx = submit_transactions::create_and_submit_cat_transaction(
         &cl_node,
-        &chain_id_1,
-        &chain_id_2,
         "credit 1 100",
         "cat1"
     ).await.expect("Failed to submit CAT credit transaction");
 
     // 2. Immediately submit regular send transaction (in same block such that the CAT is still pending)
     logging::log("TEST", "Submitting regular send transaction...");
-    let send_tx = submit_transactions::submit_regular_transaction(
+    let send_tx = submit_transactions::create_and_submit_regular_transaction(
         &cl_node,
-        &chain_id_1,
+        &constants::chain_1(),
         "send 1 2 50",
         "send1"
     ).await.expect("Failed to submit regular send transaction");
 
-    // Wait for block production (100ms block interval) and processing
+    // Wait for block production (100ms block interval, we are now in the middle between blocks) and processing
     // Then check that send is pending after the block was produced 
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    tokio::time::sleep(Duration::from_millis(100)).await;
 
     let initial_status = {
         let node = hig_node_1.lock().await;

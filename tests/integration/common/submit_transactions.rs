@@ -3,6 +3,7 @@ use hyperplane::{
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
     utils::logging,
+    types::constants,
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -11,20 +12,19 @@ use tokio::sync::Mutex;
 /// 
 /// # Arguments
 /// * `cl_node` - The confirmation layer node to submit the transaction to
-/// * `chain_id_1` - The first chain ID involved in the CAT
-/// * `chain_id_2` - The second chain ID involved in the CAT
 /// * `transaction_data` - The transaction data (e.g. "CAT.send 1 2 50")
 /// * `cat_id` - The CAT ID.
 /// 
 /// # Returns
 /// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
-pub async fn submit_cat_transaction(
+pub async fn create_and_submit_cat_transaction(
     cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
-    chain_id_1: &ChainId,
-    chain_id_2: &ChainId,
     transaction_data: &str,
     cat_id: &str,
 ) -> Result<CLTransaction, anyhow::Error> {
+    let chain_id_1 = constants::chain_1();
+    let chain_id_2 = constants::chain_2();
+
     // Create a transaction for each chain
     let tx_chain_1 = Transaction::new(
         TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
@@ -66,7 +66,7 @@ pub async fn submit_cat_transaction(
 /// 
 /// # Returns
 /// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
-pub async fn submit_regular_transaction(
+pub async fn create_and_submit_regular_transaction(
     cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
     chain_id: &ChainId,
     transaction_data: &str,
@@ -92,4 +92,26 @@ pub async fn submit_regular_transaction(
     }
     logging::log("TEST", &format!("Regular transaction for chain '{}' submitted successfully", chain_id.0));
     Ok(cl_tx)
+}
+
+/// Helper function to credit an account with 100 tokens
+/// 
+/// # Arguments
+/// * `cl_node` - The confirmation layer node to submit the transaction to
+/// * `chain_id` - The chain ID to credit the account on
+/// * `account` - The account number to credit (e.g. "1" or "2")
+/// 
+/// # Returns
+/// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
+pub async fn credit_account(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    chain_id: &ChainId,
+    account: &str,
+) -> Result<CLTransaction, anyhow::Error> {
+    create_and_submit_regular_transaction(
+        cl_node,
+        chain_id,
+        &format!("credit {} 100", account),
+        &format!("credit-tx-chain-{}", account)
+    ).await
 } 

@@ -1,12 +1,13 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{CATStatusLimited, ChainId, CATId},
+    types::{CATStatusLimited, CATId},
     confirmation_layer::ConfirmationLayer,
     hyper_scheduler::HyperScheduler,
     utils::logging,
 };
-use super::super::common::testnodes;
+use crate::integration::common::testnodes;
+use hyperplane::types::constants;
 use tokio::time::Duration;
 
 /// Tests that a single-chain CAT status update is properly included in a block:
@@ -19,14 +20,12 @@ async fn test_single_chain_cat_status_update() {
     let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
-    let chain_id = ChainId("chain-1".to_string());
-
     // Send a CAT status update
     let cat_id = CATId("test-cat".to_string());
     logging::log("TEST", &format!("Sending CAT status update for '{}'...", cat_id.0));
     {
         let mut node = hs_node.lock().await;
-        node.send_cat_status_update(cat_id.clone(), vec![chain_id.clone()], CATStatusLimited::Success)
+        node.send_cat_status_update(cat_id.clone(), vec![constants::chain_1()], CATStatusLimited::Success)
             .await
             .expect("Failed to send status update");
     }
@@ -47,10 +46,10 @@ async fn test_single_chain_cat_status_update() {
     assert!(current_block >= start_block_height + 3 && current_block <= start_block_height + 6, "Current block not in correct range {}", current_block);
 
     // Get subblock and verify transaction
-    logging::log("TEST", &format!("Getting subblock for chain {}...", chain_id.0));
+    logging::log("TEST", &format!("Getting subblock for chain {}...", constants::CHAIN_1));
     let subblock = {
         let node = cl_node.lock().await;
-        node.get_subblock(chain_id, start_block_height + 1)
+        node.get_subblock(constants::chain_1(), start_block_height + 1)
             .await
             .expect("Failed to get subblock")
     };
@@ -72,8 +71,6 @@ async fn test_several_single_chain_cat_status_updates() {
     let (hs_node, cl_node, _hig_node, _, start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
     logging::log("TEST", "Test nodes initialized successfully");
 
-    let chain_id = ChainId("chain-1".to_string());
-
     // Create and send multiple CAT status updates
     let updates = vec![
         (CATId("cat-1".to_string()), CATStatusLimited::Success),
@@ -88,7 +85,7 @@ async fn test_several_single_chain_cat_status_updates() {
             i + 1, updates.len(), cat_id.0, status));
         {
             let mut node = hs_node.lock().await;
-            node.send_cat_status_update(cat_id.clone(), vec![chain_id.clone()], status.clone())
+            node.send_cat_status_update(cat_id.clone(), vec![constants::chain_1()], status.clone())
                 .await
                 .expect("Failed to send status update");
         }
@@ -105,7 +102,7 @@ async fn test_several_single_chain_cat_status_updates() {
         for block_id in start_block_height + 1..=start_block_height + 9 {
             let subblock = {
                 let node = cl_node.lock().await;
-                node.get_subblock(chain_id.clone(), block_id)
+                node.get_subblock(constants::chain_1(), block_id)
                     .await
                     .expect("Failed to get subblock")
             };
