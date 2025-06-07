@@ -18,7 +18,7 @@ use tokio::sync::Mutex;
 /// 
 /// # Returns
 /// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
-pub async fn submit_cat_transaction(
+pub async fn create_and_submit_cat_transaction(
     cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
     chain_id_1: &ChainId,
     chain_id_2: &ChainId,
@@ -66,7 +66,7 @@ pub async fn submit_cat_transaction(
 /// 
 /// # Returns
 /// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
-pub async fn submit_regular_transaction(
+pub async fn create_and_submit_regular_transaction(
     cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
     chain_id: &ChainId,
     transaction_data: &str,
@@ -92,4 +92,26 @@ pub async fn submit_regular_transaction(
     }
     logging::log("TEST", &format!("Regular transaction for chain '{}' submitted successfully", chain_id.0));
     Ok(cl_tx)
+}
+
+/// Helper function to credit an account with 100 tokens
+/// 
+/// # Arguments
+/// * `cl_node` - The confirmation layer node to submit the transaction to
+/// * `chain_id` - The chain ID to credit the account on
+/// * `account` - The account number to credit (e.g. "1" or "2")
+/// 
+/// # Returns
+/// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
+pub async fn credit_account(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    chain_id: &ChainId,
+    account: &str,
+) -> Result<CLTransaction, anyhow::Error> {
+    create_and_submit_regular_transaction(
+        cl_node,
+        chain_id,
+        &format!("credit {} 100", account),
+        &format!("credit-tx-chain-{}", account)
+    ).await
 } 

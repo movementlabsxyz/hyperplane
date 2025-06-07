@@ -26,7 +26,7 @@ async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStat
     logging::log("TEST", &format!("Using chains: {} and {}", chain_id_1.0, chain_id_2.0));
 
     // Submit the CAT transaction
-    let _cl_tx = submit_transactions::submit_cat_transaction(
+    let _cl_tx = submit_transactions::create_and_submit_cat_transaction(
         &cl_node,
         &chain_id_1,
         &chain_id_2,

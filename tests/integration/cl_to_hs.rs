@@ -22,7 +22,7 @@ async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
     let chain_id_2 = ChainId("chain-2".to_string());
 
     // Submit the CAT transaction
-    let _cl_tx = submit_transactions::submit_cat_transaction(
+    let _cl_tx = submit_transactions::create_and_submit_cat_transaction(
         &cl_node,
         &chain_id_1,
         &chain_id_2,

@@ -27,7 +27,7 @@ async fn run_process_subblock_regular_tx(
 
     // Submit regular transaction using helper function
     let chain_id = ChainId("chain-1".to_string());
-    let cl_tx = submit_transactions::submit_regular_transaction(
+    let cl_tx = submit_transactions::create_and_submit_regular_transaction(
         &cl_node,
         &chain_id,
         transaction_data,
