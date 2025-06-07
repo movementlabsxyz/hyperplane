@@ -1,6 +1,6 @@
 use tokio::time::{Duration, sleep};
 use crate::{
-    types::{TransactionId, ChainId, CLTransaction, Transaction},
+    types::{TransactionId, ChainId, CLTransaction, Transaction, constants},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError, node::ConfirmationLayerNode},
 };
 use std::sync::Arc;
@@ -23,16 +23,14 @@ async fn setup_cl_node(block_interval: Duration) -> Arc<Mutex<ConfirmationLayerN
 /// Helper function to set up a test CL node with a chain already registered
 async fn setup_cl_node_with_registration(block_interval: Duration) -> Arc<Mutex<ConfirmationLayerNode>> {
     let cl_node = setup_cl_node(block_interval).await;
-    let chain_id_1 = ChainId("chain-1".to_string());
-    let chain_id_2 = ChainId("chain-2".to_string());
 
     // Create mock channels for the chains
     let (sender_1, _receiver_1) = mpsc::channel(10);
     let (sender_2, _receiver_2) = mpsc::channel(10);
 
     // Register the chains with their channels
-    cl_node.lock().await.register_chain(chain_id_1.clone(), sender_1).await.expect("Failed to register chain-1");
-    cl_node.lock().await.register_chain(chain_id_2.clone(), sender_2).await.expect("Failed to register chain-2");
+    cl_node.lock().await.register_chain(constants::chain_1(), sender_1).await.expect("Failed to register chain-1");
+    cl_node.lock().await.register_chain(constants::chain_2(), sender_2).await.expect("Failed to register chain-2");
 
     cl_node
 }
@@ -92,16 +90,15 @@ async fn test_transaction_submission() {
 
     // Create and submit a transaction
     logging::log("TEST", "  Submitting transaction...");
-    let chain_id = ChainId("chain-1".to_string());
     let tx = Transaction::new(
         TransactionId("regular-tx".to_string()),
-        chain_id.clone(),
-        vec![chain_id.clone()],
+        constants::chain_1(),
+        vec![constants::chain_1()],
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
         TransactionId("regular-tx".to_string()),
-        vec![chain_id.clone()],
+        vec![constants::chain_1()],
         vec![tx],
     ).expect("Failed to create CL transaction");
     let result = cl_node.lock().await.submit_transaction(cl_tx).await;
@@ -123,7 +120,7 @@ async fn test_transaction_submission() {
     logging::log("TEST", "  Verifying transaction inclusion...");
     let mut found = false;
     for block_id in 1..=4 {
-        let subblock = cl_node.lock().await.get_subblock(chain_id.clone(), block_id)
+        let subblock = cl_node.lock().await.get_subblock(constants::chain_1(), block_id)
             .await
             .expect("Failed to get subblock");
         logging::log("TEST", &format!("  Subblock transactions for block {}: {:?}", block_id, subblock.transactions));
@@ -151,9 +148,8 @@ async fn test_chain_registration() {
 
     // Register a chain
     logging::log("TEST", "  Registering chain...");
-    let chain_id = ChainId("chain-1".to_string());
     let (sender, _receiver) = mpsc::channel(10);
-    let result = cl_node.lock().await.register_chain(chain_id.clone(), sender).await;
+    let result = cl_node.lock().await.register_chain(constants::chain_1(), sender).await;
     assert!(result.is_ok(), "Failed to register chain");
     logging::log("TEST", "  Chain registered successfully");
 
@@ -161,21 +157,21 @@ async fn test_chain_registration() {
     logging::log("TEST", "  Verifying chain registration...");
     let chains = cl_node.lock().await.get_registered_chains().await.unwrap();
     assert_eq!(chains.len(), 1, "Should have exactly 1 registered chain");
-    assert_eq!(chains[0], chain_id, "Registered chain should match");
+    assert_eq!(chains[0], constants::chain_1(), "Registered chain should match");
     logging::log("TEST", "  Chain verification successful");
 
     // Try to register the same chain again
     logging::log("TEST", "  Attempting duplicate registration...");
     let (sender_again, _receiver_again) = mpsc::channel(10);
-    let result = cl_node.lock().await.register_chain(chain_id.clone(),sender_again).await;
+    let result = cl_node.lock().await.register_chain(constants::chain_1(), sender_again).await;
     assert!(matches!(result, Err(ConfirmationLayerError::ChainAlreadyRegistered(_))), 
         "Should not be able to register chain twice");
     logging::log("TEST", "  Duplicate registration correctly rejected");
 
     // Get subblock for the chain
     logging::log("TEST", "  Verifying subblock retrieval...");
-    let subblock = cl_node.lock().await.get_subblock(chain_id.clone(), 0).await.unwrap();
-    assert_eq!(subblock.chain_id, chain_id, "Subblock should be for registered chain");
+    let subblock = cl_node.lock().await.get_subblock(constants::chain_1(), 0).await.unwrap();
+    assert_eq!(subblock.chain_id, constants::chain_1(), "Subblock should be for registered chain");
     assert_eq!(subblock.block_height, 0, "Subblock should be for block 0");
     assert!(subblock.transactions.is_empty(), "Initial subblock should be empty");
     logging::log("TEST", "  Subblock retrieval successful");
@@ -211,11 +207,10 @@ async fn test_get_subblock() {
     let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
     
     // Get subblock for non-existent block
-    let chain_id = ChainId("chain-1".to_string());
     let block_id = 999;
-    let subblock = cl_node.lock().await.get_subblock(chain_id.clone(), block_id).await.unwrap();
+    let subblock = cl_node.lock().await.get_subblock(constants::chain_1(), block_id).await.unwrap();
     assert_eq!(subblock.block_height, block_id);
-    assert_eq!(subblock.chain_id, chain_id);
+    assert_eq!(subblock.chain_id, constants::chain_1());
     assert!(subblock.transactions.is_empty());
 }
 
@@ -243,14 +238,13 @@ async fn test_get_registered_chains() {
     let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
 
     // Register a third chain
-    let chain_id = ChainId("chain-3".to_string());
     let (sender, _receiver) = mpsc::channel(10);
-    cl_node.lock().await.register_chain(chain_id.clone(), sender).await.expect("Failed to register chain-3");
+    cl_node.lock().await.register_chain(constants::chain_3(), sender).await.expect("Failed to register chain-3");
 
     // Verify registered chain is returned
     let chains = cl_node.lock().await.get_registered_chains().await.unwrap();
     assert_eq!(chains.len(), 3);
-    assert!(chains.contains(&chain_id.clone()), "Chain-3 should be registered");
+    assert!(chains.contains(&constants::chain_3()), "Chain-3 should be registered");
 }
 
 /// Tests get block interval functionality:
@@ -273,16 +267,15 @@ async fn test_submit_transaction_chain_not_registered() {
     let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
 
     // Attempt to submit a transaction for a chain not registered
-    let chain_id = ChainId("chain-3".to_string());
     let tx = Transaction::new(
         TransactionId("test-tx".to_string()),
-        chain_id.clone(),
-        vec![chain_id.clone()],
+        constants::chain_3(),
+        vec![constants::chain_3()],
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
         TransactionId("test-tx".to_string()),
-        vec![chain_id.clone()],
+        vec![constants::chain_3()],
         vec![tx],
     ).expect("Failed to create CL transaction");
     let result = cl_node.lock().await.submit_transaction(cl_tx).await;
@@ -297,25 +290,22 @@ async fn test_submit_cl_transaction_for_two_chains() {
 
     // Create and submit a transaction for both chains
     logging::log("TEST", "  Submitting transaction for both chains...");
-    let chain1_id = ChainId("chain-1".to_string());
-    let chain2_id = ChainId("chain-2".to_string());
-    
     let tx1 = Transaction::new(
         TransactionId("multi-tx-1".to_string()),
-        chain1_id.clone(),
-        vec![chain1_id.clone(), chain2_id.clone()],
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let tx2 = Transaction::new(
         TransactionId("multi-tx-2".to_string()),
-        chain2_id.clone(),
-        vec![chain1_id.clone(), chain2_id.clone()],
+        constants::chain_2(),
+        vec![constants::chain_1(), constants::chain_2()],
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     
     let cl_tx = CLTransaction::new(
         TransactionId("multi-tx".to_string()),
-        vec![chain1_id.clone(), chain2_id.clone()],
+        vec![constants::chain_1(), constants::chain_2()],
         vec![tx1, tx2],
     ).expect("Failed to create CL transaction");
     
@@ -333,10 +323,10 @@ async fn test_submit_cl_transaction_for_two_chains() {
     let mut found_chain2 = false;
 
     for block_id in 1..=4 {
-        let subblock1 = cl_node.lock().await.get_subblock(chain1_id.clone(), block_id)
+        let subblock1 = cl_node.lock().await.get_subblock(constants::chain_1(), block_id)
             .await
             .expect("Failed to get subblock for chain 1");
-        let subblock2 = cl_node.lock().await.get_subblock(chain2_id.clone(), block_id)
+        let subblock2 = cl_node.lock().await.get_subblock(constants::chain_2(), block_id)
             .await
             .expect("Failed to get subblock for chain 2");
 

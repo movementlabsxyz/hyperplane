@@ -3,6 +3,7 @@ pub mod cat;
 mod block;
 mod chain;
 pub mod communication;
+pub mod constants;
 
 use serde::{Deserialize, Serialize};
 

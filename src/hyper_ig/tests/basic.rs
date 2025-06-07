@@ -1,5 +1,5 @@
 use crate::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId, constants},
     hyper_ig::{HyperIG, node::HyperIGNode},
 };
 use std::sync::Arc;
@@ -20,7 +20,7 @@ async fn setup_test_hig_node() -> Arc<Mutex<HyperIGNode>> {
         }
     });
     
-    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, ChainId("chain-1".to_string()));
+    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1());
     Arc::new(Mutex::new(hig_node))
 }
 
@@ -46,8 +46,8 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
     
     let tx = Transaction::new(
         TransactionId(tx_id.to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1()],
         command.to_string(),
     ).expect("Failed to create transaction");
     
@@ -99,8 +99,8 @@ async fn test_regular_transaction_pending() {
     logging::log("TEST", "Creating dependent transaction...");
     let tx = Transaction::new(
         TransactionId("test-tx".to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1()],
         "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     logging::log("TEST", &format!("Transaction created with tx-id='{}'", tx.id));
@@ -147,8 +147,8 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     let cat_id = CATId("test-cat-tx".to_string());
     let tx_chain_1 = Transaction::new(
         TransactionId("tx_chain_1".to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
         match expected_status {
             CATStatusLimited::Success => format!("CAT.credit 1 100.CAT_ID:{}", cat_id.0),
             // send should fail because of insufficient balance
@@ -197,8 +197,7 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     // Send the status proposal to HS
     logging::log("TEST", "Sending status proposal to HS...");
     // we only have one chain for now, so we create a vector with one element
-    let chain_id = vec![ChainId("chain-1".to_string())];
-    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), expected_status, chain_id)
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), expected_status, vec![constants::chain_1()])
         .await
         .expect("Failed to send status proposal");
     logging::log("TEST", "Status proposal sent to HS");
@@ -248,8 +247,8 @@ async fn test_get_pending_transactions() {
     logging::log("TEST", "Creating dependent transaction...");
     let tx = Transaction::new(
         TransactionId("pending-tx".to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1()],
         "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
     ).expect("Failed to create transaction");
     logging::log("TEST", "Executing transaction...");
@@ -277,7 +276,7 @@ async fn test_wrong_chain_subblock() {
     let (sender_hig_to_hs, _receiver_hig_to_hs) = tokio::sync::mpsc::channel(100);
 
     // Create HIG node
-    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, ChainId("chain-1".to_string()))));
+    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1())));
 
     // Start the node
     HyperIGNode::start(hig_node.clone()).await;
@@ -368,8 +367,8 @@ async fn test_send_after_credit() {
     // First credit 100 to account 1
     let credit_tx = Transaction::new(
         TransactionId("credit-tx".to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1()],
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create credit transaction");
     
@@ -383,8 +382,8 @@ async fn test_send_after_credit() {
     // Then send 50 from account 1 to account 2
     let send_tx = Transaction::new(
         TransactionId("send-tx".to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1()],
         "REGULAR.send 1 2 50".to_string(),
     ).expect("Failed to create send transaction");
     
@@ -427,8 +426,8 @@ async fn test_cat_send_no_funds() {
     // Create a CAT send transaction with multiple constituent chains
     let cat_send_tx = Transaction::new(
         TransactionId("cat-send-1".to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
         "CAT.send 1 2 50.CAT_ID:test-cat-1".to_string(),
     ).expect("Failed to create CAT send transaction");
 
@@ -464,8 +463,8 @@ async fn test_cat_credit_pending() {
     // Create a CAT credit transaction with multiple constituent chains
     let cat_credit_tx = Transaction::new(
         TransactionId("cat-credit-1".to_string()),
-        ChainId("chain-1".to_string()),
-        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
         "CAT.credit 1 100.CAT_ID:test-cat-2".to_string(),
     ).expect("Failed to create CAT credit transaction");
 
@@ -497,8 +496,8 @@ async fn test_cat_send_after_credit() {
     let credit_tx = Transaction {
         id: TransactionId("credit-1".to_string()),
         data: "REGULAR.credit 1 100".to_string(),
-        constituent_chains: vec![ChainId("chain-1".to_string())],
-        target_chain_id: ChainId("chain-1".to_string()),
+        constituent_chains: vec![constants::chain_1()],
+        target_chain_id: constants::chain_1(),
     };
     
     let status = hig_node.lock().await.process_transaction(credit_tx).await.unwrap();
@@ -509,10 +508,10 @@ async fn test_cat_send_after_credit() {
         id: TransactionId("cat-send-1".to_string()),
         data: "CAT.send 1 2 50.CAT_ID:cat-1".to_string(),
         constituent_chains: vec![
-            ChainId("chain-1".to_string()),
-            ChainId("chain-2".to_string()),
+            constants::chain_1(),
+            constants::chain_2(),
         ],
-        target_chain_id: ChainId("chain-1".to_string()),
+        target_chain_id: constants::chain_1(),
     };
     
     let status = hig_node.lock().await.process_transaction(cat_send_tx.clone()).await.unwrap();
