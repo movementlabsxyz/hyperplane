@@ -558,5 +558,50 @@ async fn test_get_chain_state_after_transaction() {
     assert_eq!(state.get("1"), Some(&100), "Account 1 should have balance 100");
 }
 
+/// Tests that duplicate transaction IDs are skipped by the HyperIG node.
+/// This verifies that:
+/// 1. The first transaction with a unique ID is processed successfully
+/// 2. Any subsequent transaction with the same ID is skipped
+/// 3. The subblock processing continues successfully
+#[tokio::test]
+async fn test_duplicate_transaction_id() {
+    // Create a HIG node
+    let hig_node = setup_test_hig_node().await;
+    
+    // Create a transaction
+    let tx = Transaction {
+        id: TransactionId("test_tx_1".to_string()),
+        data: "CREDIT.credit 1 100".to_string(),
+        constituent_chains: vec![constants::chain_1()],
+        target_chain_id: constants::chain_1(),
+    };
+    
+    // Create a subblock with the transaction
+    let subblock = SubBlock {
+        chain_id: constants::chain_1(),
+        block_height: 1,
+        transactions: vec![tx.clone()],
+    };
+    
+    // Process the subblock
+    let result = hig_node.lock().await.process_subblock(subblock).await;
+    assert!(result.is_ok(), "First subblock should be processed successfully");
+    
+    // Create another subblock with the same transaction
+    let subblock2 = SubBlock {
+        chain_id: constants::chain_1(),
+        block_height: 2,
+        transactions: vec![tx],
+    };
+    
+    // Process the subblock with the duplicate transaction
+    let result = hig_node.lock().await.process_subblock(subblock2).await;
+    assert!(result.is_ok(), "Subblock with duplicate transaction ID should be processed successfully (skipping duplicate)");
+    
+    // Verify the chain state hasn't changed (no double credit)
+    let state = hig_node.lock().await.get_chain_state().await.unwrap();
+    assert_eq!(state.get("1"), Some(&100), "Account 1 should still have balance 100 (no double credit)");
+}
+
 
 

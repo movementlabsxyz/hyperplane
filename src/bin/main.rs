@@ -59,6 +59,32 @@ async fn main() {
     ConfirmationLayerNode::start(cl_node.clone()).await;
     HyperSchedulerNode::start(hs_node.clone()).await;
 
+    // Create 3 default chains
+    println!("[shell] Creating 3 default chains...");
+    for i in 1..=3 {
+        let chain_id = ChainId(format!("chain{}", i));
+        println!("[shell] Adding chain: {}", chain_id.0);
+        // Channels for CL <-> HIG
+        let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel::<SubBlock>(100);
+        // Channels for HIG <-> HS
+        let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
+        // Create HIG node
+        let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone())));
+        // Register chain with CL
+        let mut cl_node_guard = cl_node.lock().await;
+        cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");
+        drop(cl_node_guard);
+        // Register chain with HS
+        let mut hs_node_guard = hs_node.lock().await;
+        hs_node_guard.register_chain(chain_id.clone(), receiver_hig_to_hs).await.expect("Failed to register chain with HS");
+        drop(hs_node_guard);
+        // Store HIG node
+        hig_nodes.lock().await.insert(chain_id.clone(), hig_node.clone());
+        // Start HIG node
+        HyperIGNode::start(hig_node).await;
+        println!("[shell] Chain {} registered successfully.", chain_id.0);
+    }
+
     // Start REPL
     let stdin = BufReader::new(io::stdin());
     let mut lines = stdin.lines();
@@ -71,7 +97,6 @@ async fn main() {
         if input == "help" {
             println!("Commands:");
             println!("  add-chain <chain_id>");
-            println!("  add-default-chains <n>");
             println!("  send-tx <chain_id> <data>");
             println!("  send-cat <chain_id1,chain_id2,...> <data>");
             println!("  status");
@@ -82,7 +107,6 @@ async fn main() {
             println!("  CAT: CAT.send <from> <to> <amount>.CAT_ID:<id>");
             println!("  CAT: CAT.credit <account> <amount>.CAT_ID:<id>");
             println!("\nExamples:");
-            println!("  add-default-chains 3  # Creates chain1, chain2, chain3");
             println!("  send-tx chain1 credit 1 100");
             println!("  send-tx chain1 send 1 2 50");
             println!("  send-cat chain1,chain2 CAT.send 1 2 50.CAT_ID:cat123");
@@ -91,42 +115,6 @@ async fn main() {
         }
         let mut parts = input.split_whitespace();
         match parts.next() {
-            Some("add-default-chains") => {
-                if let Some(n_str) = parts.next() {
-                    match n_str.parse::<usize>() {
-                        Ok(n) if n > 0 => {
-                            println!("[shell] Creating {} default chains...", n);
-                            for i in 1..=n {
-                                let chain_id = ChainId(format!("chain{}", i));
-                                println!("[shell] Adding chain: {}", chain_id.0);
-                                // Channels for CL <-> HIG
-                                let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel::<SubBlock>(100);
-                                // Channels for HIG <-> HS
-                                let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
-                                // Create HIG node
-                                let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone())));
-                                // Register chain with CL
-                                let mut cl_node_guard = cl_node.lock().await;
-                                cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");
-                                drop(cl_node_guard);
-                                // Register chain with HS
-                                let mut hs_node_guard = hs_node.lock().await;
-                                hs_node_guard.register_chain(chain_id.clone(), receiver_hig_to_hs).await.expect("Failed to register chain with HS");
-                                drop(hs_node_guard);
-                                // Store HIG node
-                                hig_nodes.lock().await.insert(chain_id.clone(), hig_node.clone());
-                                // Start HIG node
-                                HyperIGNode::start(hig_node).await;
-                                println!("[shell] Chain {} registered successfully.", chain_id.0);
-                            }
-                        }
-                        Ok(_) => println!("[shell] Error: Number of chains must be positive"),
-                        Err(_) => println!("[shell] Error: Invalid number of chains"),
-                    }
-                } else {
-                    println!("Usage: add-default-chains <n>");
-                }
-            }
             Some("status") => {
                 let chains = hig_nodes.lock().await;
                 let transactions = transaction_tracker.lock().await;
@@ -202,7 +190,12 @@ async fn main() {
                         .split_once(chain_id).unwrap().1
                         .trim_start();
                     let data = data.trim_matches('"');  // Remove quotes if present
-                    let tx_id = TransactionId(format!("tx-{}", chain_id));
+                    // Generate unique transaction ID with timestamp
+                    let timestamp = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis();
+                    let tx_id = TransactionId(format!("tx-{}-{}", chain_id, timestamp));
                     println!("[shell] Sending tx to {}: {}", chain_id, data);
                     match Transaction::new(
                         tx_id.clone(),

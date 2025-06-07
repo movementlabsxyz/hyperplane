@@ -147,10 +147,10 @@ async fn test_two_chain_cat_failure() {
 
 /// Tests that a CAT send fails when only chain-1 has funds
 #[tokio::test]
-async fn test_cat_send_chain1_only() {
+async fn test_cat_with_only_chain_1_credit() {
     timeout(Duration::from_secs(4), run_two_chain_cat_test_with_credits(
         true,  // chain-1 has funds
-        false,    // chain-2 has no funds
+        false, // chain-2 has no funds
         "send 1 2 50",
         CATStatusLimited::Failure
     ))
@@ -160,7 +160,7 @@ async fn test_cat_send_chain1_only() {
 
 /// Tests that a CAT send succeeds when both chains have funds
 #[tokio::test]
-async fn test_cat_send_both_chains() {
+async fn test_cat_with_both_chains_credit() {
     timeout(Duration::from_secs(4), run_two_chain_cat_test_with_credits(
         true,  // chain-1 has funds
         true,  // chain-2 has funds

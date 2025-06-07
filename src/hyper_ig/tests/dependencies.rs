@@ -51,7 +51,7 @@ async fn run_cat_credit_and_dependent_tx(
 
     // Create a CAT that credits key "1"
     let cat_tx = Transaction::new(
-        TransactionId("cat-tx".to_string()),
+        TransactionId("cat-credit-tx".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
         "CAT.credit 1 100.CAT_ID:cat-1".to_string(),
@@ -59,7 +59,7 @@ async fn run_cat_credit_and_dependent_tx(
 
     // Create a transaction that depends on the CAT
     let dependent_tx = Transaction::new(
-        TransactionId("dependent-tx".to_string()),
+        TransactionId("dependent-send-tx".to_string()),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
         "REGULAR.send 1 2 50".to_string(),

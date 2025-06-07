@@ -145,39 +145,6 @@ impl HyperIGNode {
         Ok(())
     }
 
-    /// Processes a subblock of transactions.
-    /// 
-    /// Validates the subblock's chain ID and processes each transaction within it.
-    /// 
-    /// # Arguments
-    /// * `subblock` - The SubBlock containing transactions to process
-    /// 
-    /// # Returns
-    /// Result indicating success or failure of subblock processing
-    pub async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
-        // check if the received subblock matches our chain id. If not we have a bug.
-        let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Processing subblock: block_id={}, chain_id={}, tx_count={}", 
-        subblock.block_height, subblock.chain_id.0, subblock.transactions.len()));
-        
-        if subblock.chain_id.0 != self.state.lock().await.my_chain_id.0 {
-            log(&format!("HIG-{}", chain_id), &format!("[ERROR] Received subblock with chain_id='{}', but should be '{}', ignoring", 
-                subblock.chain_id.0, self.state.lock().await.my_chain_id.0));
-            return Err(HyperIGError::WrongChainId { 
-                expected: self.state.lock().await.my_chain_id.clone(),
-                received: subblock.chain_id.clone(),
-            });
-        }
-
-        for tx in &subblock.transactions {
-            log(&format!("HIG-{}", chain_id), &format!("tx-id={} : data={}", tx.id.0, tx.data));
-        }
-        for tx in subblock.transactions {
-            HyperIG::process_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
-        }
-        Ok(())
-    }
-
     /// Gets the keys accessed by a transaction.
     /// 
     /// # Arguments
@@ -734,7 +701,6 @@ impl HyperIG for HyperIGNode {
         Ok(())
     }
 
-
     /// Gets the resolution status of a transaction.
     /// 
     /// # Arguments
@@ -773,11 +739,26 @@ impl HyperIG for HyperIGNode {
             });
         }
 
+        // Track seen transaction IDs to skip duplicates
+        let mut seen_tx_ids = HashSet::new();
+        
         for tx in &subblock.transactions {
             log(&format!("HIG-{}", chain_id), &format!("tx-id={} : data={}", tx.id.0, tx.data));
-        }
-        for tx in subblock.transactions {
-            HyperIG::process_transaction(self, tx).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
+            
+            // Skip if we've seen this transaction ID before in this subblock
+            if !seen_tx_ids.insert(tx.id.clone()) {
+                log(&format!("HIG-{}", chain_id), &format!("Skipping duplicate transaction ID: {}", tx.id.0));
+                continue;
+            }
+            
+            // Skip if transaction ID already exists in our state
+            if self.state.lock().await.transaction_data.contains_key(&tx.id) {
+                log(&format!("HIG-{}", chain_id), &format!("Skipping transaction ID that already exists in state: {}", tx.id.0));
+                continue;
+            }
+            
+            // Process the transaction
+            HyperIG::process_transaction(self, tx.clone()).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
         }
         Ok(())
     }

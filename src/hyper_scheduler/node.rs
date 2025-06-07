@@ -103,13 +103,24 @@ impl HyperSchedulerNode {
                 continue;
             }
 
-            // Send status update to CL
-            if let Err(e) = node_guard.send_cat_status_update(
-                status_update.cat_id.clone(),
-                status_update.constituent_chains.clone(),
-                status_update.status.clone(),
-            ).await {
-                log("HS", &format!("Failed to send status update: {:?}", e));
+            // Get the current status of the CAT
+            let cat_status = node_guard.get_cat_status(status_update.cat_id.clone()).await;
+            if let Ok(status) = cat_status {
+                // Only send status update if we have a final status (Success or Failure)
+                if status != CATStatus::Pending {
+                    // Send status update to CL
+                    if let Err(e) = node_guard.send_cat_status_update(
+                        status_update.cat_id.clone(),
+                        status_update.constituent_chains.clone(),
+                        match status {
+                            CATStatus::Success => CATStatusLimited::Success,
+                            CATStatus::Failure => CATStatusLimited::Failure,
+                            _ => continue, // Skip if not a final status
+                        },
+                    ).await {
+                        log("HS", &format!("Failed to send status update: {:?}", e));
+                    }
+                }
             }
         }
         log("HS", &format!("Message processing loop exiting for chain {}", chain_id));
