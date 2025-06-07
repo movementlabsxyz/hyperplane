@@ -10,6 +10,7 @@ use hyperplane::{
     hyper_scheduler::node::HyperSchedulerNode,
     hyper_ig::node::HyperIGNode,
     hyper_ig::HyperIG,
+    types::constants::{chain_1, chain_2, chain_3},
 };
 
 // Store transaction statuses
@@ -61,8 +62,8 @@ async fn main() {
 
     // Create 3 default chains
     println!("[shell] Creating 3 default chains...");
-    for i in 1..=3 {
-        let chain_id = ChainId(format!("chain{}", i));
+    let default_chains = [chain_1(), chain_2(), chain_3()];
+    for chain_id in default_chains {
         println!("[shell] Adding chain: {}", chain_id.0);
         // Channels for CL <-> HIG
         let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel::<SubBlock>(100);
@@ -107,10 +108,10 @@ async fn main() {
             println!("  CAT: CAT.send <from> <to> <amount>.CAT_ID:<id>");
             println!("  CAT: CAT.credit <account> <amount>.CAT_ID:<id>");
             println!("\nExamples:");
-            println!("  send-tx chain1 credit 1 100");
-            println!("  send-tx chain1 send 1 2 50");
-            println!("  send-cat chain1,chain2 CAT.send 1 2 50.CAT_ID:cat123");
-            println!("  send-cat chain1,chain2 CAT.credit 1 100.CAT_ID:cat123");
+            println!("  send-tx chain-1 credit 1 100");
+            println!("  send-tx chain-1 send 1 2 50");
+            println!("  send-cat chain-1,chain-2 CAT.send 1 2 50.CAT_ID:cat123");
+            println!("  send-cat chain-1,chain-2 CAT.credit 1 100.CAT_ID:cat123");
             continue;
         }
         let mut parts = input.split_whitespace();
