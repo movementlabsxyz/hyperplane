@@ -5,7 +5,7 @@ use hyperplane::{
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
-use super::super::common::{testnodes, submit_transactions};
+use crate::integration::common::{testnodes, submit_transactions};
 use tokio::time::Duration;
 use hyperplane::utils::logging;
 

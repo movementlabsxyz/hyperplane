@@ -6,7 +6,7 @@ use hyperplane::{
     HyperScheduler,
     utils::logging,
 };
-use super::super::common::{testnodes, submit_transactions};
+use crate::integration::common::{testnodes, submit_transactions};
 use tokio::time::Duration;
 
 /// Helper function: tests sending a CAT status proposal from CL to HS

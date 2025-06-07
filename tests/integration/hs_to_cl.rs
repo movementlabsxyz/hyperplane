@@ -6,7 +6,7 @@ use hyperplane::{
     hyper_scheduler::HyperScheduler,
     utils::logging,
 };
-use super::super::common::testnodes;
+use crate::integration::common::testnodes;
 use tokio::time::Duration;
 
 /// Tests that a single-chain CAT status update is properly included in a block:

@@ -6,7 +6,7 @@ use hyperplane::{
     hyper_ig::HyperIG,
     utils::logging,
 };
-use super::super::common::{testnodes, submit_transactions};
+use crate::integration::common::{testnodes, submit_transactions};
 use tokio::time::{Duration, timeout};
 
 // Helper function to run a two chain CAT test
