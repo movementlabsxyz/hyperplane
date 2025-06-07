@@ -1,11 +1,11 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{ChainId, TransactionStatus},
+    types::{TransactionStatus},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
 };
-use crate::integration::common::{testnodes, submit_transactions};
+use crate::integration::common::{testnodes, submit_transactions, constants};
 use tokio::time::Duration;
 use hyperplane::utils::logging;
 
@@ -26,10 +26,9 @@ async fn run_process_subblock_regular_tx(
     logging::log("TEST", "Test nodes initialized successfully");
 
     // Submit regular transaction using helper function
-    let chain_id = ChainId("chain-1".to_string());
     let cl_tx = submit_transactions::create_and_submit_regular_transaction(
         &cl_node,
-        &chain_id,
+        &constants::chain_1(),
         transaction_data,
         "test-tx"
     ).await.expect("Failed to submit transaction");

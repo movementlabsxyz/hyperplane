@@ -83,34 +83,32 @@ TESTS=(
     hyper_scheduler::tests::basic::test_process_proposals_for_two_chain_cat
 
     # Integration tests: CL to HIG
-    integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_success
-    integration::cl_to_hig::channels::test_process_subblock_with_regular_transaction_failure
-    integration::cl_to_hig::channels::test_process_subblock_with_cat_transaction
+    integration::cl_to_hig::test_process_subblock_with_regular_transaction_success
+    integration::cl_to_hig::test_process_subblock_with_regular_transaction_failure
 
     # Integration tests: HS to CL
-    integration::hs_to_cl::channels::test_single_chain_cat_status_update
-    integration::hs_to_cl::channels::test_several_single_chain_cat_status_updates
+    integration::hs_to_cl::test_single_chain_cat_status_update
+    integration::hs_to_cl::test_several_single_chain_cat_status_updates
 
     # Integration tests: CL to HS
-    integration::cl_to_hs::channels::test_cat_one_cat_success
-    integration::cl_to_hs::channels::test_cat_one_cat_failure
+    integration::cl_to_hs::test_cat_one_cat_success
+    integration::cl_to_hs::test_cat_one_cat_failure
 
     # Integration tests: CL to CL
-    integration::cl_to_cl::channels::test_two_chain_cat_success
-    integration::cl_to_cl::channels::test_two_chain_cat_failure
+    integration::cl_to_cl::test_two_chain_cat_success
+    integration::cl_to_cl::test_two_chain_cat_failure
 
     # Integration tests: e2e
-    integration::e2e::channels::test_two_chain_cat_success
-    integration::e2e::channels::test_two_chain_cat_failure
-    integration::e2e::channels::test_cat_send_chain1_only
-    integration::e2e::channels::test_cat_send_both_chains
-    integration::e2e::channels::test_cat_credit_then_send
+    integration::e2e::test_two_chain_cat_success
+    integration::e2e::test_two_chain_cat_failure
+    integration::e2e::test_cat_send_chain1_only
+    integration::e2e::test_cat_send_both_chains
+    integration::e2e::test_cat_credit_then_send
 )
 
 # Test specific tests
 TESTS2=(
-integration::e2e::channels::test_cat_credit_then_send
-
+integration::e2e::test_cat_send_both_chains
 )
 
 # Check if arguments are provided

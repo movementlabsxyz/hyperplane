@@ -6,13 +6,12 @@ use hyperplane::{
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use crate::integration::common::constants;
 
 /// Helper function to submit a CAT transaction to a confirmation layer node
 /// 
 /// # Arguments
 /// * `cl_node` - The confirmation layer node to submit the transaction to
-/// * `chain_id_1` - The first chain ID involved in the CAT
-/// * `chain_id_2` - The second chain ID involved in the CAT
 /// * `transaction_data` - The transaction data (e.g. "CAT.send 1 2 50")
 /// * `cat_id` - The CAT ID.
 /// 
@@ -20,11 +19,12 @@ use tokio::sync::Mutex;
 /// * `Result<CLTransaction, anyhow::Error>` - Ok with the created CL transaction if successful, Err otherwise
 pub async fn create_and_submit_cat_transaction(
     cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
-    chain_id_1: &ChainId,
-    chain_id_2: &ChainId,
     transaction_data: &str,
     cat_id: &str,
 ) -> Result<CLTransaction, anyhow::Error> {
+    let chain_id_1 = constants::chain_1();
+    let chain_id_2 = constants::chain_2();
+
     // Create a transaction for each chain
     let tx_chain_1 = Transaction::new(
         TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
