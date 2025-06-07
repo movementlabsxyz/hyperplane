@@ -1,6 +1,7 @@
 # Hyperplane Implementation Plan
 
 ## Project Structure
+
 - [x] Initial `Cargo.toml` setup with basic dependencies
 - [x] Directory structure creation
   - [x] `src/types/` - Core type definitions
@@ -8,14 +9,16 @@
   - [x] `src/hyper_scheduler/` - Hyper Scheduler
   - [x] `src/confirmation_layer/` - Confirmation Layer
   - [x] `src/network/` - Network communication
-  - [x] `src/common/` - Shared utilities
+  - [x] `src/utils/` - Shared utilities
   - [x] `src/bin/` - Binary targets
+  - [x] `src/mock_vm/` - Mock Virtual Machine
 - [x] Main `lib.rs` with module declarations
 - [x] Basic component structure (HIG, HS, CL)
 
 ## Core Components
 
 ### Types Module (`src/types/`)
+
 - [x] Basic type definitions
   - [x] `TransactionId`, `Transaction`, `TransactionStatus`
   - [x] `CAT`, `CATId`, `CATStatus`
@@ -32,6 +35,7 @@
   - [ ] Performance metrics types
 
 ### Hyper Information Gateway (`src/hyper_ig/`)
+
 - [x] Basic implementation
 - [x] Transaction execution
 - [x] Status management
@@ -43,6 +47,7 @@
 - [ ] Performance optimizations
 
 ### Hyper Scheduler (`src/hyper_scheduler/`)
+
 - [x] Basic implementation
 - [x] Transaction scheduling
 - [x] Node implementation
@@ -53,6 +58,7 @@
 - [ ] Performance optimizations
 
 ### Confirmation Layer (`src/confirmation_layer/`)
+
 - [x] Basic implementation
 - [x] Block production per chain
 - [x] Chain registration
@@ -64,6 +70,7 @@
 - [ ] Performance optimizations
 
 ### Network Module (`src/network/`)
+
 - [x] Basic module structure
 - [x] Basic channel-based communication
 - [x] Mock implementations for testing
@@ -72,14 +79,15 @@
 - [ ] Comprehensive test coverage
 - [ ] Performance optimizations
 
-### Common Module (`src/common/`)
+### Common Module (`src/utils/`)
+
 - [x] Basic shared utilities
 - [x] Common test utilities
 - [ ] Extended shared functionality
 - [ ] Comprehensive test coverage
 
-
 ## Testing
+
 - [x] Basic tests per component
 - [x] Basic integration tests
 - [ ] End-to-end protocol tests
@@ -88,6 +96,7 @@
 - [ ] CI/CD setup
 
 ## Documentation
+
 - [x] Basic README
 - [x] Development guidelines
 - [ ] API documentation
@@ -96,7 +105,8 @@
 - [ ] Contribution guide
 
 ## Future Enhancements
-- [ ] Mock VM implementation
+
+- [x] Mock VM implementation
 - [ ] Full VM implementation
 - [ ] Metrics and observability
 - [ ] Performance profiling

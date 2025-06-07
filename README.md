@@ -60,11 +60,14 @@ Handles communication between nodes using:
 hyperplane/
 ├── documentation/       # Project documentation
 ├── src/
-│   ├── types/           # Core type definitions
-│   ├── hyper_ig/        # Hyper Information Gateway
-│   ├── hyper_scheduler/ # Hyper Scheduler
-│   ├── confirmation/    # Confirmation Layer
-│   └── network/         # Network communication
+│   ├── bin/            # Binary executables
+│   ├── types/          # Core type definitions
+│   ├── hyper_ig/       # Hyper Information Gateway
+│   ├── hyper_scheduler/# Hyper Scheduler
+│   ├── confirmation_layer/ # Confirmation Layer
+│   ├── mock_vm/        # Mock Virtual Machine implementation
+│   ├── network/        # Network communication
+│   └── utils/          # Utility functions and helpers
 ├── submodules/         # Git submodules
 │   └── x-chain-vm/     # Virtual Machine implementation
 └── tests/              # Integration tests
@@ -105,7 +108,6 @@ git submodule update --init --recursive
 ### Planned Features
 
 - BFT confirmation engine
-- Mock VM
 - Full VM
 - Metrics and observability
 - Performance profiling
@@ -151,7 +153,3 @@ We also provide a test runner script:
 ## Contributing
 
 Please read [RULES](RULES.md) for development guidelines and contribution rules.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
