@@ -70,6 +70,8 @@ TESTS=(
     hyper_ig::tests::basic::test_cat_send_no_funds
     hyper_ig::tests::basic::test_cat_credit_pending
     hyper_ig::tests::basic::test_cat_send_after_credit
+    hyper_ig::tests::basic::test_get_chain_state_empty
+    hyper_ig::tests::basic::test_get_chain_state_after_transaction
     hyper_ig::tests::dependencies::test_failed_dependency
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
@@ -108,7 +110,9 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
-integration::e2e::test_cat_send_both_chains
+    hyper_ig::tests::basic::test_get_chain_state_empty
+    hyper_ig::tests::basic::test_get_chain_state_after_transaction
+
 )
 
 # Check if arguments are provided
@@ -172,4 +176,5 @@ else
     echo "Invalid test set. Use 1 or 2."
     exit 1
 fi
+
  

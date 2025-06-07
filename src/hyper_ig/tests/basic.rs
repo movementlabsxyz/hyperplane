@@ -522,5 +522,41 @@ async fn test_cat_send_after_credit() {
     assert_eq!(proposed_status, CATStatusLimited::Success, "CAT send should propose Success");
 }
 
+/// Tests that a newly created HIG node starts with an empty chain state.
+/// This verifies that:
+/// 1. The initial state is empty
+/// 2. The get_chain_state method returns an empty HashMap
+#[tokio::test]
+async fn test_get_chain_state_empty() {
+    let hig_node = setup_test_hig_node().await;
+    let state = hig_node.lock().await.get_chain_state().await.unwrap();
+    assert!(state.is_empty(), "Initial chain state should be empty");
+}
+
+/// Tests that the chain state is correctly updated after processing a transaction.
+/// This verifies that:
+/// 1. A credit transaction successfully updates the chain state
+/// 2. The get_chain_state method returns the correct balance
+/// 3. The state is properly persisted after transaction execution
+#[tokio::test]
+async fn test_get_chain_state_after_transaction() {
+    let hig_node = setup_test_hig_node().await;
+    
+    // Create and process a credit transaction
+    let tx = Transaction {
+        id: TransactionId("test_tx_1".to_string()),
+        data: "CREDIT.credit 1 100".to_string(),
+        constituent_chains: vec![constants::chain_1()],
+        target_chain_id: constants::chain_1(),
+    };
+    
+    let status = hig_node.lock().await.process_transaction(tx).await.unwrap();
+    assert_eq!(status, TransactionStatus::Success);
+    
+    // Get the chain state and verify the balance
+    let state = hig_node.lock().await.get_chain_state().await.unwrap();
+    assert_eq!(state.get("1"), Some(&100), "Account 1 should have balance 100");
+}
+
 
 

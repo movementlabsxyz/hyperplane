@@ -822,6 +822,29 @@ impl HyperIG for HyperIGNode {
         log(&format!("HIG-{}", chain_id), &format!("Found data for tx-id='{}': {}", tx_id, data));
         Ok(data)
     }
+
+    /// Gets the current state of the chain.
+    /// Returns a HashMap containing the current state of all accounts and their balances.
+    async fn get_chain_state(&self) -> Result<std::collections::HashMap<String, i64>, anyhow::Error> {
+        let chain_id = self.state.lock().await.my_chain_id.0.clone();
+        log(&format!("HIG-{}", chain_id), "Getting chain state");
+        
+        // Get the state from the MockVM and convert it to the expected format
+        let vm_state = {
+            let state = self.state.lock().await;
+            state.vm.get_state().clone()
+        };
+        
+        let mut state = std::collections::HashMap::new();
+        
+        // Convert u32 keys and values to String and i64
+        for (key, value) in vm_state {
+            state.insert(key.to_string(), value as i64);
+        }
+        
+        log(&format!("HIG-{}", chain_id), &format!("Chain state: {:?}", state));
+        Ok(state)
+    }
 }
 
 //==============================================================================
@@ -914,5 +937,12 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
     async fn get_transaction_data(&self, tx_id: TransactionId) -> Result<String, anyhow::Error> {
         let node = self.lock().await;
         node.get_transaction_data(tx_id).await
+    }
+
+    /// Gets the current state of the chain.
+    /// Returns a HashMap containing the current state of all accounts and their balances.
+    async fn get_chain_state(&self) -> Result<std::collections::HashMap<String, i64>, anyhow::Error> {
+        let node = self.lock().await;
+        node.get_chain_state().await
     }
 } 

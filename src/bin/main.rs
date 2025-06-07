@@ -133,6 +133,14 @@ async fn main() {
                 println!("=== System Status ===");
                 let chain_list: Vec<String> = chains.keys().map(|c| c.0.clone()).collect();
                 println!("Registered chains: {}", chain_list.join(", "));
+                
+                // Show state for each chain
+                println!("\nChain States:");
+                for (chain_id, node) in chains.iter() {
+                    let state = node.lock().await.get_chain_state().await.unwrap_or_default();
+                    println!("  {}: {:?}", chain_id.0, state);
+                }
+                
                 println!("\nTransaction Status:");
                 
                 // Collect all chain nodes and transaction IDs first
