@@ -3,10 +3,10 @@ use hyperplane::{
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
     utils::logging,
+    types::constants,
 };
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::integration::common::constants;
 
 /// Helper function to submit a CAT transaction to a confirmation layer node
 /// 

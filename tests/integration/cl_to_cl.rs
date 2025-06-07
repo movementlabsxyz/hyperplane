@@ -5,7 +5,8 @@ use hyperplane::{
     confirmation_layer::ConfirmationLayer,
     utils::logging,
 };
-use crate::integration::common::{testnodes, submit_transactions, constants};
+use crate::integration::common::{testnodes, submit_transactions};
+use hyperplane::types::constants;
 use tokio::time::Duration;
 
 /// Helper function to run a two chain CAT test
