@@ -1,1 +1,1 @@
-mod channels;
+mod e2e;
