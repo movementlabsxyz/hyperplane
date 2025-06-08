@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use super::ChainId;
+use super::{ChainId, CLTransactionId};
 use crate::types::communication::cl_to_hig::TransactionData;
 
 /// Unique identifier for a transaction
@@ -39,6 +39,18 @@ impl Transaction {
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
         Ok(Transaction { id, target_chain_id, constituent_chains, data })
+    }
+
+    /// Creates a new Transaction from a CLTransaction, ensuring that the `data` string matches expected format
+    pub fn from_cl_transaction(cl_tx_id: CLTransactionId, target_chain_id: ChainId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
+        // Use TransactionData's validation logic
+        TransactionData::validate(&data)?;
+        Ok(Transaction { 
+            id: TransactionId(cl_tx_id.0), 
+            target_chain_id, 
+            constituent_chains, 
+            data 
+        })
     }
 }
 

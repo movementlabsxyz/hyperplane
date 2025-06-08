@@ -1,4 +1,4 @@
-use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus, Transaction};
+use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus, Transaction, CLTransactionId};
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
@@ -337,7 +337,7 @@ impl HyperScheduler for HyperSchedulerNode {
             }).collect();
 
             let cl_tx = CLTransaction::new(
-                TransactionId(cat_id.0.clone() + ".UPDATE"),
+                CLTransactionId(cat_id.0.clone() + ".UPDATE"),
                 constituent_chains.clone(),
                 transactions,
             ).expect("Failed to create CL transaction");

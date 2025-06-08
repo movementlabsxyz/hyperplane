@@ -5,7 +5,7 @@ use tokio::time::Duration;
 use tokio::io::{self, AsyncBufReadExt, BufReader};
 use std::io::Write;
 use hyperplane::{
-    types::{ChainId, TransactionId, Transaction, CLTransaction, CATStatusUpdate, SubBlock, TransactionStatus},
+    types::{ChainId, TransactionId, Transaction, CLTransaction, CATStatusUpdate, SubBlock, TransactionStatus, CLTransactionId},
     confirmation_layer::{ConfirmationLayerNode, ConfirmationLayer},
     hyper_scheduler::node::HyperSchedulerNode,
     hyper_ig::node::HyperIGNode,
@@ -196,7 +196,8 @@ async fn main() {
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_millis();
-                    let tx_id = TransactionId(format!("tx-{}-{}", chain_id, timestamp));
+                    let cl_id = CLTransactionId(format!("cl-tx:{}-{}", chain_id, timestamp));
+                    let tx_id = TransactionId(format!("cl-tx:tx:{}-{}", chain_id, timestamp));
                     println!("[shell] Sending tx to {}: {}", chain_id, data);
                     match Transaction::new(
                         tx_id.clone(),
@@ -206,7 +207,7 @@ async fn main() {
                     ) {
                         Ok(tx) => {
                             match CLTransaction::new(
-                                tx_id.clone(),
+                                cl_id.clone(),
                                 vec![ChainId(chain_id.to_string())],
                                 vec![tx],
                             ) {
@@ -239,10 +240,12 @@ async fn main() {
                     // Extract CAT ID from the data
                     let cat_id = if let Some(cat_id_start) = data.find("CAT_ID:") {
                         let cat_id = &data[cat_id_start + 7..];
-                        TransactionId(cat_id.to_string())
+                        CLTransactionId(cat_id.to_string())
                     } else {
-                        TransactionId("cat-tx".to_string())
+                        CLTransactionId("cat-tx".to_string())
                     };
+                    // construct the transaction id
+                    let tx_id = TransactionId(format!("{}:tx", cat_id.0));
                     println!("[shell] Sending CAT to [{}]: {}", chains, data);
                     let chain_ids: Vec<ChainId> = chains.split(',').map(|c| ChainId(c.to_string())).collect();
                     
@@ -250,7 +253,7 @@ async fn main() {
                     let mut transactions = Vec::new();
                     for chain_id in &chain_ids {
                         match Transaction::new(
-                            cat_id.clone(),
+                            tx_id.clone(),
                             chain_id.clone(),
                             chain_ids.clone(),
                             data.to_string(),  // Use the data as is, without adding REGULAR. prefix
@@ -263,6 +266,7 @@ async fn main() {
                         }
                     }
 
+                    // TODO check and explain the following again
                     if !transactions.is_empty() {
                         match CLTransaction::new(
                             cat_id.clone(),
@@ -274,7 +278,8 @@ async fn main() {
                                 if let Err(e) = cl_node_guard.submit_transaction(cl_tx).await {
                                     println!("[shell] Error: Failed to submit CAT transaction: {}", e);
                                 } else {
-                                    transaction_tracker.lock().await.add_transaction(cat_id.clone());
+                                    let tx_id = TransactionId(format!("{}:tx", cat_id.0));
+                                    transaction_tracker.lock().await.add_transaction(tx_id);
                                     println!("[shell] CAT transaction sent successfully. ID: {}", cat_id.0);
                                 }
                             }

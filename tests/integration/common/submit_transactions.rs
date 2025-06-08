@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction, Transaction},
+    types::{TransactionId, ChainId, CLTransaction, Transaction, CLTransactionId},
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
     utils::logging,
@@ -41,7 +41,7 @@ pub async fn create_and_submit_cat_transaction(
     ).expect("Failed to create transaction for chain-2");
 
     let cl_tx = CLTransaction::new(
-        TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
+        CLTransactionId(format!("{}", cat_id)),
         vec![chain_id_1.clone(), chain_id_2.clone()],
         vec![tx_chain_1, tx_chain_2],
     ).expect("Failed to create CL transaction");
@@ -80,7 +80,7 @@ pub async fn create_and_submit_regular_transaction(
     ).expect("Failed to create transaction");
 
     let cl_tx = CLTransaction::new(
-        TransactionId(tx_id.to_string()),
+        CLTransactionId(format!("cl-tx.{}", tx_id)),
         vec![chain_id.clone()],
         vec![tx],
     ).expect("Failed to create CL transaction");

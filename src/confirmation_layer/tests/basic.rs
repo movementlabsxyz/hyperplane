@@ -1,6 +1,6 @@
 use tokio::time::{Duration, sleep};
 use crate::{
-    types::{TransactionId, ChainId, CLTransaction, Transaction, constants},
+    types::{TransactionId, ChainId, CLTransaction, Transaction, constants, CLTransactionId},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError, node::ConfirmationLayerNode},
 };
 use std::sync::Arc;
@@ -97,7 +97,7 @@ async fn test_transaction_submission() {
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        TransactionId("regular-tx".to_string()),
+        CLTransactionId("regular-tx".to_string()),
         vec![constants::chain_1()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -274,7 +274,7 @@ async fn test_submit_transaction_chain_not_registered() {
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
+        CLTransactionId("test-tx".to_string()),
         vec![constants::chain_3()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -304,7 +304,7 @@ async fn test_submit_cl_transaction_for_two_chains() {
     ).expect("Failed to create transaction");
     
     let cl_tx = CLTransaction::new(
-        TransactionId("multi-tx".to_string()),
+        CLTransactionId("multi-tx".to_string()),
         vec![constants::chain_1(), constants::chain_2()],
         vec![tx1, tx2],
     ).expect("Failed to create CL transaction");
@@ -371,7 +371,7 @@ async fn test_dynamic_channel_registration() {
         "REGULAR.credit 1 100".to_string(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
+        CLTransactionId("test-tx".to_string()),
         vec![dynamic_chain_id.clone()],
         vec![tx],
     ).expect("Failed to create CL transaction");

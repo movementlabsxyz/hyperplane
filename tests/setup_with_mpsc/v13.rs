@@ -3,7 +3,7 @@
 use tokio::time::{Duration, sleep};
 use tokio::sync::mpsc;
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction, Transaction},
+    types::{TransactionId, ChainId, CLTransaction, Transaction, CLTransactionId},
     confirmation_layer::ConfirmationLayer,
     utils::logging,
 };
@@ -86,7 +86,7 @@ async fn test_v13() {
             "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_1 = CLTransaction::new(
-            TransactionId("tx_chain_1".to_string()),
+            CLTransactionId("tx_chain_1".to_string()),
             vec![ChainId("chain-1".to_string())],
             vec![tx_chain_1.clone()],
         ).expect("Failed to create CL transaction");
@@ -100,7 +100,7 @@ async fn test_v13() {
             "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_2 = CLTransaction::new(
-            TransactionId("tx_chain_2".to_string()),
+            CLTransactionId("tx_chain_2".to_string()),
             vec![ChainId("chain-2".to_string())],
             vec![tx_chain_2.clone()],
         ).expect("Failed to create CL transaction");
@@ -114,7 +114,7 @@ async fn test_v13() {
             "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_3 = CLTransaction::new(
-            TransactionId("tx_chain_3".to_string()),
+            CLTransactionId("tx_chain_3".to_string()),
             vec![ChainId("chain-3".to_string())],
             vec![tx_chain_3.clone()],
         ).expect("Failed to create CL transaction");
@@ -198,7 +198,7 @@ async fn run_spammer(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
             "REGULAR.credit 1 100".to_string(),
         ).expect("Failed to create transaction");
         let cl_tx = CLTransaction::new(
-            TransactionId(format!("tx{}.{}", i, chain_id.0)),
+            CLTransactionId(format!("tx{}.{}", i, chain_id.0)),
             vec![chain_id.clone()],
             vec![tx.clone()],
         ).expect("Failed to create CL transaction");
