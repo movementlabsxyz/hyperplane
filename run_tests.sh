@@ -118,7 +118,8 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
-    integration::e2e::test_cat_with_only_chain_1_credit
+    # integration::e2e::test_cat_with_only_chain_1_credit
+    confirmation_layer::tests::basic::test_cl_transaction_id_tracking
 )
 
 # Check if arguments are provided
