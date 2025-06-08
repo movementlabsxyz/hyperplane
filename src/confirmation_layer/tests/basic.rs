@@ -442,7 +442,7 @@ async fn test_cl_transaction_id_tracking() {
     // Try to submit the same transaction again
     logging::log("TEST", "  Attempting to submit duplicate transaction...");
     let result = cl_node.lock().await.submit_transaction(cl_tx.clone()).await;
-    assert!(matches!(result, Err(ConfirmationLayerError::Internal(_))), 
+    assert!(matches!(result, Err(ConfirmationLayerError::TransactionAlreadyProcessed(_))), 
         "Should not be able to submit duplicate transaction");
     logging::log("TEST", "  Duplicate transaction correctly rejected");
 

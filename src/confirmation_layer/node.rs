@@ -242,7 +242,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         }
         
         if state.processed_cltransaction_ids.contains(&transaction.id) {
-            return Err(ConfirmationLayerError::Internal("Transaction already processed".to_string()));
+            return Err(ConfirmationLayerError::TransactionAlreadyProcessed(transaction.id.clone()));
         }
         
         state.pending_transactions.push(transaction);

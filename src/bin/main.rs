@@ -6,7 +6,7 @@ use tokio::io::{self, AsyncBufReadExt, BufReader};
 use std::io::Write;
 use hyperplane::{
     types::{ChainId, TransactionId, Transaction, CLTransaction, CATStatusUpdate, SubBlock, TransactionStatus, CLTransactionId},
-    confirmation_layer::{ConfirmationLayerNode, ConfirmationLayer},
+    confirmation_layer::{ConfirmationLayerNode, ConfirmationLayer, ConfirmationLayerError},
     hyper_scheduler::node::HyperSchedulerNode,
     hyper_ig::node::HyperIGNode,
     hyper_ig::HyperIG,
@@ -214,7 +214,14 @@ async fn main() {
                                 Ok(cl_tx) => {
                                     let mut cl_node_guard = cl_node.lock().await;
                                     if let Err(e) = cl_node_guard.submit_transaction(cl_tx).await {
-                                        println!("[shell] Error: Failed to submit transaction: {}", e);
+                                        match e {
+                                            ConfirmationLayerError::TransactionAlreadyProcessed(id) => {
+                                                println!("[shell] Error: Transaction rejected - transaction {} has already been processed", id);
+                                            }
+                                            _ => {
+                                                println!("[shell] Error: Failed to submit transaction: {}", e);
+                                            }
+                                        }
                                     } else {
                                         transaction_tracker.lock().await.add_transaction(tx_id.clone());
                                         println!("[shell] Transaction sent successfully. ID: {}", tx_id.0);
