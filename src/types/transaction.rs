@@ -31,26 +31,30 @@ pub struct Transaction {
     pub constituent_chains: Vec<ChainId>,
     /// The actual transaction data (just a string for now)
     pub data: String,
+    /// The ID of the CL transaction this transaction belongs to
+    pub cl_id: CLTransactionId,
 }
 
 impl Transaction {
     /// Creates a new Transaction, ensuring that the `data` string matches expected format
-    pub fn new(id: TransactionId, target_chain_id: ChainId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The unique identifier for this transaction
+    /// * `target_chain_id` - The chain ID of the target chain
+    /// * `constituent_chains` - The chain IDs of the constituent chains
+    /// * `data` - The actual transaction data
+    /// * `cl_id` - The ID of the CL transaction this transaction belongs to
+    pub fn new(id: TransactionId,target_chain_id: ChainId,constituent_chains: Vec<ChainId>,data: String,cl_id: CLTransactionId) -> Result<Self, String> {
+        if constituent_chains.is_empty() {
+            return Err("Transaction must have at least one constituent chain".to_string());
+        }
+        if !constituent_chains.contains(&target_chain_id) {
+            return Err("Target chain must be in constituent chains".to_string());
+        }
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
-        Ok(Transaction { id, target_chain_id, constituent_chains, data })
-    }
-
-    /// Creates a new Transaction from a CLTransaction, ensuring that the `data` string matches expected format
-    pub fn from_cl_transaction(cl_tx_id: CLTransactionId, target_chain_id: ChainId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
-        // Use TransactionData's validation logic
-        TransactionData::validate(&data)?;
-        Ok(Transaction { 
-            id: TransactionId(cl_tx_id.0), 
-            target_chain_id, 
-            constituent_chains, 
-            data 
-        })
+        Ok(Self {id,target_chain_id,constituent_chains,data,cl_id})
     }
 }
 

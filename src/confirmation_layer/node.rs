@@ -265,6 +265,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
                     tx.target_chain_id.clone(),
                     tx.constituent_chains.clone(),
                     tx.data.clone(),
+                    tx.cl_id.clone(),
                 ).expect("Failed to create transaction"))
                 .collect())
             .unwrap_or_default();

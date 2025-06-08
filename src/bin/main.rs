@@ -204,6 +204,7 @@ async fn main() {
                         ChainId(chain_id.to_string()),
                         vec![ChainId(chain_id.to_string())],
                         format!("REGULAR.{}", data),  // Add REGULAR. prefix for regular transactions
+                        cl_id.clone(),
                     ) {
                         Ok(tx) => {
                             match CLTransaction::new(
@@ -264,6 +265,7 @@ async fn main() {
                             chain_id.clone(),
                             chain_ids.clone(),
                             data.to_string(),  // Use the data as is, without adding REGULAR. prefix
+                            cat_id.clone(),
                         ) {
                             Ok(tx) => transactions.push(tx),
                             Err(e) => {

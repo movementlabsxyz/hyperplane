@@ -1,5 +1,5 @@
 use crate::hyper_ig::node::HyperIGNode;
-use crate::types::{Transaction, TransactionId, TransactionStatus, ChainId};
+use crate::types::{Transaction, TransactionId, TransactionStatus, ChainId, CLTransactionId};
 use crate::utils::logging;
 use crate::hyper_ig::HyperIG;
 use tokio::sync::mpsc;
@@ -49,20 +49,24 @@ async fn run_cat_credit_and_dependent_tx(
     
     let hig_node = setup_test_hig_node().await;
 
-    // Create a CAT that credits key "1"
+    // Create a transaction that is part of a CAT that credits key "1"
+    let cl_id_1 = CLTransactionId("cl-tx_1".to_string());
     let cat_tx = Transaction::new(
-        TransactionId("cat-credit-tx".to_string()),
+        TransactionId(format!("{:?}:cat-credit-tx", cl_id_1)),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
         "CAT.credit 1 100.CAT_ID:cat-1".to_string(),
+        cl_id_1.clone(),
     ).expect("Failed to create CAT transaction");
 
-    // Create a transaction that depends on the CAT
+    // Create a regular transaction that depends on the CAT
+    let cl_id_2 = CLTransactionId("cl-tx_2".to_string());
     let dependent_tx = Transaction::new(
-        TransactionId("dependent-send-tx".to_string()),
+        TransactionId(format!("{:?}:dependent-send-tx", cl_id_2)),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
         "REGULAR.send 1 2 50".to_string(),
+        cl_id_2.clone(),
     ).expect("Failed to create dependent transaction");
     
     // Process the CAT first
@@ -86,10 +90,11 @@ async fn run_cat_credit_and_dependent_tx(
         _ => panic!("Invalid status for test"),
     };
     let status_update = Transaction::new(
-        TransactionId("status-1".to_string()),
+        TransactionId(format!("{:?}:status-1", cl_id_1)),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
         format!("STATUS_UPDATE:{}.CAT_ID:cat-1", status_str),
+        cl_id_1.clone(),
     ).expect("Failed to create transaction");
     hig_node.lock().await.process_transaction(status_update).await.unwrap();
 
@@ -139,11 +144,13 @@ pub async fn test_failed_dependency() {
 pub async fn test_multiple_transactions_same_key_fail() {
     let hig_node = run_cat_credit_and_dependent_tx(TransactionStatus::Success, TransactionStatus::Success).await;
 
+    let cl_id_2 = CLTransactionId("cl-tx_2".to_string());
     let dependent_tx_2 = Transaction::new(
-        TransactionId("dependent-tx-2".to_string()),
+        TransactionId(format!("{:?}:dependent-tx-2", cl_id_2)),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
         "REGULAR.send 1 2 60".to_string(),
+        cl_id_2.clone(),
     ).expect("Failed to create dependent transaction");
 
     // the second transaction will fail because the cat's key does not have enough credit
@@ -168,11 +175,13 @@ pub async fn test_multiple_transactions_same_key_fail() {
 pub async fn test_multiple_transactions_same_key_success() {
     let hig_node = run_cat_credit_and_dependent_tx(TransactionStatus::Success, TransactionStatus::Success).await;
 
+    let cl_id_2 = CLTransactionId("cl-tx_2".to_string());
     let dependent_tx_2 = Transaction::new(
-        TransactionId("dependent-tx-2".to_string()),
+        TransactionId(format!("{:?}:dependent-tx-2", cl_id_2)),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
         "REGULAR.send 1 2 40".to_string(),
+        cl_id_2.clone(),
     ).expect("Failed to create dependent transaction");
 
     // the second transaction will succeed because the cat's key has enough credit

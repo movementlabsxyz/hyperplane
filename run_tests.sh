@@ -119,7 +119,7 @@ TESTS=(
 # Test specific tests
 TESTS2=(
     # integration::e2e::test_cat_with_only_chain_1_credit
-    confirmation_layer::tests::basic::test_cl_transaction_id_tracking
+hyper_ig::tests::basic::test_wrong_chain_subblock
 )
 
 # Check if arguments are provided

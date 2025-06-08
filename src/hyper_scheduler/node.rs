@@ -329,10 +329,11 @@ impl HyperScheduler for HyperSchedulerNode {
             // Create a transaction for each constituent chain
             let transactions: Vec<Transaction> = constituent_chains.iter().map(|chain_id| {
                 Transaction::new(
-                    TransactionId(cat_id.0.clone() + ".UPDATE"),
+                    TransactionId(cat_id.0.clone() + ".UPDATE." + &chain_id.0),
                     chain_id.clone(),
                     constituent_chains.clone(),
                     data.clone(),
+                    CLTransactionId(cat_id.0.clone() + ".UPDATE"),
                 ).expect("Failed to create transaction")
             }).collect();
 

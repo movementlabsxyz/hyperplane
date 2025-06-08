@@ -90,14 +90,16 @@ async fn test_transaction_submission() {
 
     // Create and submit a transaction
     logging::log("TEST", "  Submitting transaction...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId("regular-tx".to_string()),
+        TransactionId(format!("{:?}:regular-tx", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        CLTransactionId("regular-tx".to_string()),
+        cl_id.clone(),
         vec![constants::chain_1()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -267,14 +269,16 @@ async fn test_submit_transaction_chain_not_registered() {
     let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
 
     // Attempt to submit a transaction for a chain not registered
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId("test-tx".to_string()),
+        TransactionId(format!("{:?}:test-tx", cl_id)),
         constants::chain_3(),
         vec![constants::chain_3()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        CLTransactionId("test-tx".to_string()),
+        cl_id.clone(),
         vec![constants::chain_3()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -290,21 +294,23 @@ async fn test_submit_cl_transaction_for_two_chains() {
 
     // Create and submit a transaction for both chains
     logging::log("TEST", "  Submitting transaction for both chains...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx1 = Transaction::new(
-        TransactionId("multi-tx-1".to_string()),
+        TransactionId(format!("{:?}:multi-tx-1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let tx2 = Transaction::new(
-        TransactionId("multi-tx-2".to_string()),
+        TransactionId(format!("{:?}:multi-tx-2", cl_id)),
         constants::chain_2(),
         vec![constants::chain_1(), constants::chain_2()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
-    
     let cl_tx = CLTransaction::new(
-        CLTransactionId("multi-tx".to_string()),
+        cl_id.clone(),
         vec![constants::chain_1(), constants::chain_2()],
         vec![tx1, tx2],
     ).expect("Failed to create CL transaction");
@@ -365,14 +371,16 @@ async fn test_dynamic_channel_registration() {
 
     // Create and submit a transaction for the dynamic chain
     logging::log("TEST", "  Submitting transaction for dynamic chain...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId("test-tx".to_string()),
+        TransactionId(format!("{:?}:test-tx", cl_id)),
         dynamic_chain_id.clone(),
         vec![dynamic_chain_id.clone()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        CLTransactionId("test-tx".to_string()),
+        cl_id.clone(),
         vec![dynamic_chain_id.clone()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -415,14 +423,16 @@ async fn test_cl_transaction_id_tracking() {
 
     // Create a test transaction
     logging::log("TEST", "  Creating initial test transaction...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId("test-tx".to_string()),
+        TransactionId(format!("{:?}:test-tx", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        CLTransactionId("cl-tx:test-tx".to_string()),
+        cl_id.clone(),
         vec![constants::chain_1()],
         vec![tx],
     ).expect("Failed to create CL transaction");

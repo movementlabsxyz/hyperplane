@@ -31,6 +31,7 @@ pub async fn create_and_submit_cat_transaction(
         chain_id_1.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
         format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
+        CLTransactionId(format!("{}", cat_id)),
     ).expect("Failed to create transaction for chain-1");
 
     let tx_chain_2 = Transaction::new(
@@ -38,6 +39,7 @@ pub async fn create_and_submit_cat_transaction(
         chain_id_2.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
         format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
+        CLTransactionId(format!("{}", cat_id)),
     ).expect("Failed to create transaction for chain-2");
 
     let cl_tx = CLTransaction::new(
@@ -72,15 +74,17 @@ pub async fn create_and_submit_regular_transaction(
     transaction_data: &str,
     tx_id: &str,
 ) -> Result<CLTransaction, anyhow::Error> {
+    let cl_id = CLTransactionId(format!("cl-tx"));
     let tx = Transaction::new(
-        TransactionId(tx_id.to_string()),
+        TransactionId(format!("{}.{}", cl_id.0, tx_id)),
         chain_id.clone(),
         vec![chain_id.clone()],
         format!("REGULAR.{}", transaction_data),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
 
     let cl_tx = CLTransaction::new(
-        CLTransactionId(format!("cl-tx.{}", tx_id)),
+        cl_id.clone(),
         vec![chain_id.clone()],
         vec![tx],
     ).expect("Failed to create CL transaction");

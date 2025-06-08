@@ -79,42 +79,48 @@ async fn test_v13() {
         let mut cl_node_with_lock_2 = cl_node.lock().await;
         
         // Submit a transaction for chain-1
+        let cl_id_1 = CLTransactionId("cl-tx_1".to_string());
         let tx_chain_1 = Transaction::new(
-            TransactionId("tx_chain_1".to_string()),
+            TransactionId(format!("{:?}:tx_chain_1", cl_id_1)),
             ChainId("chain-1".to_string()),
             vec![ChainId("chain-1".to_string())],
             "REGULAR.credit 1 100".to_string(),
+            cl_id_1.clone(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_1 = CLTransaction::new(
-            CLTransactionId("tx_chain_1".to_string()),
+            cl_id_1.clone(),
             vec![ChainId("chain-1".to_string())],
             vec![tx_chain_1.clone()],
         ).expect("Failed to create CL transaction");
         cl_node_with_lock_2.submit_transaction(cl_tx_chain_1).await.expect("Failed to submit transaction for chain-1");
         
         // Submit a transaction for chain-2
+        let cl_id_2 = CLTransactionId("cl-tx_2".to_string());
         let tx_chain_2 = Transaction::new(
-            TransactionId("tx_chain_2".to_string()),
+            TransactionId(format!("{:?}:tx_chain_2", cl_id_2)),
             ChainId("chain-2".to_string()),
             vec![ChainId("chain-2".to_string())],
             "REGULAR.credit 1 100".to_string(),
+            cl_id_2.clone(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_2 = CLTransaction::new(
-            CLTransactionId("tx_chain_2".to_string()),
+            cl_id_2.clone(),
             vec![ChainId("chain-2".to_string())],
             vec![tx_chain_2.clone()],
         ).expect("Failed to create CL transaction");
         cl_node_with_lock_2.submit_transaction(cl_tx_chain_2).await.expect("Failed to submit transaction for chain-2");
         
         // Try to submit a transaction for unregistered chain (should fail)
+        let cl_id_3 = CLTransactionId("cl-tx_3".to_string());
         let tx_chain_3 = Transaction::new(
-            TransactionId("tx_chain_3".to_string()),
+            TransactionId(format!("{:?}:tx_chain_3", cl_id_3)),
             ChainId("chain-3".to_string()),
             vec![ChainId("chain-3".to_string())],
             "REGULAR.credit 1 100".to_string(),
+            cl_id_3.clone(),
         ).expect("Failed to create transaction");
         let cl_tx_chain_3 = CLTransaction::new(
-            CLTransactionId("tx_chain_3".to_string()),
+            cl_id_3.clone(),
             vec![ChainId("chain-3".to_string())],
             vec![tx_chain_3.clone()],
         ).expect("Failed to create CL transaction");
@@ -191,14 +197,16 @@ async fn test_v13() {
 /// Helper function to run the adder task
 async fn run_spammer(sender: mpsc::Sender<CLTransaction>, chain_id: ChainId) {
     for i in 1..=10 {
+        let cl_id = CLTransactionId(format!("cl-tx_{}.{}", i, chain_id.0));
         let tx = Transaction::new(
-            TransactionId(format!("tx{}.{}", i, chain_id.0)),
+            TransactionId(format!("{:?}:tx", cl_id)),
             chain_id.clone(),
             vec![chain_id.clone()],
             "REGULAR.credit 1 100".to_string(),
+            cl_id.clone(),
         ).expect("Failed to create transaction");
         let cl_tx = CLTransaction::new(
-            CLTransactionId(format!("tx{}.{}", i, chain_id.0)),
+            cl_id.clone(),
             vec![chain_id.clone()],
             vec![tx.clone()],
         ).expect("Failed to create CL transaction");
