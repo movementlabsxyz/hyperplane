@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use super::{ChainId, TransactionId};
+use super::ChainId;
 use crate::types::communication::cl_to_hig::TransactionData;
+
+/// Unique identifier for a transaction
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TransactionId(pub String);
 
 /// Status of a transaction
 /// used in HIG to keep track of the status of a transaction

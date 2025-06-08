@@ -5,12 +5,6 @@ mod chain;
 pub mod communication;
 pub mod constants;
 
-use serde::{Deserialize, Serialize};
-
-/// Unique identifier for a transaction
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct TransactionId(pub String);
-
 // Re-export all types
 pub use transaction::*;
 pub use cat::*;
