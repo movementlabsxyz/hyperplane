@@ -75,6 +75,7 @@ TESTS=(
     hyper_ig::tests::basic::test_get_chain_state_empty
     hyper_ig::tests::basic::test_get_chain_state_after_transaction
     hyper_ig::tests::basic::test_duplicate_transaction_id
+    hyper_ig::tests::basic::test_hs_message_delay
     hyper_ig::tests::dependencies::test_failed_dependency
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
@@ -118,7 +119,8 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
-hyper_ig::tests::basic::test_get_pending_transactions
+    hyper_ig::tests::basic::test_hs_message_delay
+
 )
 
 # Check if arguments are provided

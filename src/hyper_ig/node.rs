@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CATId, SubBlock, CATStatusUpdate, CLTransactionId};
 use super::{HyperIG, HyperIGError};
 use tokio::sync::mpsc;
@@ -16,6 +16,13 @@ use x_chain_vm::transaction::TxSet1;
 //==============================================================================
 // State Management
 //==============================================================================
+
+/// Represents a queued CAT status proposal
+struct QueuedCATProposal {
+    cat_id: CATId,
+    status: CATStatusLimited,
+    constituent_chains: Vec<ChainId>,
+}
 
 /// The internal state of the HyperIGNode
 struct HyperIGState {
@@ -39,6 +46,8 @@ struct HyperIGState {
     my_chain_id: ChainId,
     /// Mock VM for transaction execution
     vm: MockVM,
+    /// Queue for pending CAT status proposals
+    pending_proposals: VecDeque<QueuedCATProposal>,
 }
 
 /// Node implementation of the Hyper Information Gateway
@@ -49,6 +58,10 @@ pub struct HyperIGNode {
     receiver_cl_to_hig: Option<mpsc::Receiver<SubBlock>>,
     /// Sender for messages to Hyper Scheduler
     sender_hig_to_hs: Option<mpsc::Sender<CATStatusUpdate>>,
+    /// Delay for sending messages to HS (in milliseconds)
+    hs_message_delay: Duration,
+    /// Flag to control the background queue processor
+    queue_processor_running: Arc<Mutex<bool>>,
 }
 
 //==============================================================================
@@ -78,23 +91,142 @@ impl HyperIGNode {
                 received_txs: HashMap::new(),
                 my_chain_id: my_chain_id.clone(),
                 vm: MockVM::new(),
+                pending_proposals: VecDeque::new(),
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
+            hs_message_delay: Duration::from_millis(0), // Default 0ms delay
+            queue_processor_running: Arc::new(Mutex::new(false)),
         }
     }
 
-    /// Starts the node's block processing loop.
+    /// Updates the delay for sending messages to Hyper Scheduler.
     /// 
-    /// This function spawns a new task that continuously processes incoming messages
-    /// from the Confirmation Layer.
+    /// # Arguments
+    /// * `delay` - The new delay duration
+    pub fn set_hs_message_delay(&mut self, delay: Duration) {
+        self.hs_message_delay = delay;
+    }
+
+    /// Starts the node's block processing loop and queue processor.
+    /// 
+    /// This function spawns two tasks:
+    /// 1. A task that continuously processes incoming messages from the Confirmation Layer
+    /// 2. A task that processes the queue of pending CAT status proposals
     /// 
     /// # Arguments
     /// * `node` - An Arc<Mutex<HyperIGNode>> containing the node instance
     pub async fn start(node: Arc<Mutex<HyperIGNode>>) {
         let chain_id = node.lock().await.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), "Starting HyperIG node");
-        tokio::spawn(async move { HyperIGNode::process_messages(node).await.unwrap() });
+        
+        // Clone the Arc for the message processing task
+        let node_for_messages = node.clone();
+        // Clone the Arc for the queue processing task
+        let node_for_queue = node.clone();
+        
+        // Start the message processing loop
+        tokio::spawn(async move { HyperIGNode::process_messages(node_for_messages).await.unwrap() });
+        
+        // Start the queue processor
+        tokio::spawn(async move { HyperIGNode::process_proposal_queue(node_for_queue).await.unwrap() });
+    }
+
+    /// Processes the queue of pending CAT status proposals.
+    /// 
+    /// This function runs in a loop, continuously checking for new proposals
+    /// and sending them to the Hyper Scheduler with the configured delay.
+    /// 
+    /// # Arguments
+    /// * `hig_node` - An Arc<Mutex<HyperIGNode>> containing the node instance
+    /// 
+    /// # Returns
+    /// Result indicating success or failure of the queue processing loop
+    async fn process_proposal_queue(hig_node: Arc<Mutex<HyperIGNode>>) -> Result<(), HyperIGError> {
+        // Get chain ID for logging
+        let chain_id = {
+            let node = hig_node.lock().await;
+            let state = node.state.lock().await;
+            state.my_chain_id.0.clone()
+        };
+        log(&format!("HIG-{}", chain_id), "Starting proposal queue processor");
+        
+        // Set the running flag
+        {
+            let node = hig_node.lock().await;
+            let mut running = node.queue_processor_running.lock().await;
+            *running = true;
+        }
+        
+        loop {
+            // Check if we should continue running
+            let should_continue = {
+                let node = hig_node.lock().await;
+                let running = node.queue_processor_running.lock().await;
+                *running
+            };
+            
+            if !should_continue {
+                break;
+            }
+            
+            // Get the next proposal from the queue
+            let proposal = {
+                let node = hig_node.lock().await;
+                let mut state = node.state.lock().await;
+                state.pending_proposals.pop_front()
+            };
+            
+            if let Some(proposal) = proposal {
+                // Get the delay duration
+                let delay = {
+                    let node = hig_node.lock().await;
+                    node.hs_message_delay
+                };
+                
+                // Get the chain ID for the status update
+                let chain_id = {
+                    let node = hig_node.lock().await;
+                    let state = node.state.lock().await;
+                    state.my_chain_id.clone()
+                };
+                
+                // Create and send the status update
+                let status_update = CATStatusUpdate {
+                    cat_id: proposal.cat_id.clone(),
+                    chain_id: chain_id.clone(),
+                    status: proposal.status.clone(),
+                    constituent_chains: proposal.constituent_chains.clone(),
+                };
+                
+                // Add delay before sending
+                tokio::time::sleep(delay).await;
+                
+                // Send the status update
+                let send_result = {
+                    let mut node = hig_node.lock().await;
+                    if let Some(sender) = &mut node.sender_hig_to_hs {
+                        sender.send(status_update).await
+                    } else {
+                        Err(tokio::sync::mpsc::error::SendError(status_update))
+                    }
+                };
+                
+                if let Err(e) = send_result {
+                    log(&format!("HIG-{}", chain_id), &format!("Error sending status update: {}", e));
+                    // Put the proposal back in the queue
+                    let node = hig_node.lock().await;
+                    let mut state = node.state.lock().await;
+                    state.pending_proposals.push_front(proposal);
+                }
+            } else {
+                // No proposals to process, wait a bit
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+        }
+        
+        log(&format!("HIG-{}", chain_id), "Proposal queue processor exiting");
+        Ok(())
     }
 
     /// Processes incoming messages from the Confirmation Layer.
@@ -661,15 +793,12 @@ impl HyperIG for HyperIGNode {
     /// # Returns
     /// Result indicating success or failure of sending the proposal
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
-        if let Some(sender) = &mut self.sender_hig_to_hs {
-            let status_update = CATStatusUpdate {
-                cat_id: cat_id.clone(),
-                chain_id: self.state.lock().await.my_chain_id.clone(),
-                status: status.clone(),
-                constituent_chains: constituent_chains.clone(),
-            };
-            sender.send(status_update).await.map_err(|e| HyperIGError::Communication(e.to_string()))?;
-        }
+        // Add the proposal to the queue
+        self.state.lock().await.pending_proposals.push_back(QueuedCATProposal {
+            cat_id,
+            status,
+            constituent_chains,
+        });
         Ok(())
     }
 

@@ -1,5 +1,5 @@
 use crate::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId, constants, CLTransactionId},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId, constants, CLTransactionId, CATStatusUpdate},
     hyper_ig::{HyperIG, node::HyperIGNode},
 };
 use std::sync::Arc;
@@ -7,21 +7,15 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use hyperplane::utils::logging;
 use regex::Regex;
+use std::time::Duration;
 
 /// Helper function to set up a test HIG node
-async fn setup_test_hig_node() -> Arc<Mutex<HyperIGNode>> {
+async fn setup_test_hig_node() -> (Arc<Mutex<HyperIGNode>>, mpsc::Receiver<CATStatusUpdate>) {
     let (_sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
-    let (sender_hig_to_hs, mut receiver_hig_to_hs) = mpsc::channel(100);
-    
-    // Spawn a task to keep the receiver alive
-    tokio::spawn(async move {
-        while let Some(_) = receiver_hig_to_hs.recv().await {
-            // Just consume the messages to keep the channel alive
-        }
-    });
+    let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
     
     let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1());
-    Arc::new(Mutex::new(hig_node))
+    (Arc::new(Mutex::new(hig_node)), receiver_hig_to_hs)
 }
 
 /// Helper function: Tests regular non-dependent transaction path in HyperIG
@@ -31,7 +25,7 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
     logging::log("TEST", &format!("\n=== Starting regular non-dependent transaction test with status {:?}===", expected_status));
     
     logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _rx) = setup_test_hig_node().await;
     logging::log("TEST", "Test nodes setup complete");
 
     let tx_id = "test-tx";
@@ -87,7 +81,7 @@ async fn test_regular_transaction_failure() {
 /// Helper function to test sending a CAT status proposal
 async fn run_process_and_send_cat(expected_status: CATStatusLimited) {    
     logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs  ) = setup_test_hig_node().await;
     logging::log("TEST", "Test nodes setup complete");
     
     // Create necessary parts of a CAT transaction
@@ -181,7 +175,7 @@ async fn test_get_pending_transactions() {
     logging::log("TEST", "\n=== Starting test_get_pending_transactions ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     logging::log("TEST", "Test nodes setup complete");
 
     // Get pending transactions when none exist
@@ -335,7 +329,7 @@ async fn test_send_after_credit() {
     logging::log("TEST", "\n=== Starting test_send_after_credit ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     logging::log("TEST", "Test nodes setup complete");
 
     // First credit 100 to account 1
@@ -398,7 +392,7 @@ async fn test_cat_send_no_funds() {
     logging::log("TEST", "\n=== Starting test_cat_send_no_funds ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     logging::log("TEST", "Test nodes setup complete");
 
     // Create a CAT send transaction with multiple constituent chains
@@ -437,7 +431,7 @@ async fn test_cat_credit_pending() {
     logging::log("TEST", "\n=== Starting test_cat_credit_pending ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     logging::log("TEST", "Test nodes setup complete");
 
     // Create a CAT credit transaction with multiple constituent chains
@@ -475,7 +469,7 @@ async fn test_cat_send_after_credit() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_cat_send_after_credit ===");
     
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     
     // First do a regular credit
     let cl_id_1 = CLTransactionId("cl-tx_1".to_string());
@@ -517,7 +511,7 @@ async fn test_get_chain_state_empty() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_get_chain_state_empty ===");
     
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     let state = hig_node.lock().await.get_chain_state().await.unwrap();
     assert!(state.is_empty(), "Initial chain state should be empty");
 }
@@ -532,7 +526,7 @@ async fn test_get_chain_state_after_transaction() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_get_chain_state_after_transaction ===");
     
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     
     // Create and process a credit transaction
     let cl_id = CLTransactionId("cl-tx".to_string());
@@ -560,7 +554,7 @@ async fn test_get_chain_state_after_transaction() {
 #[tokio::test]
 async fn test_duplicate_transaction_id() {
     // Create a HIG node
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
     
     // Create a transaction
     let cl_id = CLTransactionId("cl-tx".to_string());
@@ -597,6 +591,64 @@ async fn test_duplicate_transaction_id() {
     // Verify the chain state hasn't changed (no double credit)
     let state = hig_node.lock().await.get_chain_state().await.unwrap();
     assert_eq!(state.get("1"), Some(&100), "Account 1 should still have balance 100 (no double credit)");
+}
+
+/// Tests that the HS message delay works correctly:
+/// - Set a delay of 100ms
+/// - Send a CAT status proposal
+/// - Verify that the message is not received after 50ms
+/// - Verify that the message is received after 150ms
+#[tokio::test]
+async fn test_hs_message_delay() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_hs_message_delay ===");
+    
+    // Set up test node
+    let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node().await;
+    logging::log("TEST", "Test node setup complete");
+    
+    // Start the node to ensure queue processor is running
+    HyperIGNode::start(hig_node.clone()).await;
+    logging::log("TEST", "Node started, queue processor should be running");
+    
+    // Set delay to 100ms
+    hig_node.lock().await.set_hs_message_delay(Duration::from_millis(100));
+    logging::log("TEST", "Set message delay to 100ms");
+    
+    // Create a CAT transaction
+    let cl_id = CLTransactionId("cl-tx_test".to_string());
+    let tx = Transaction::new(
+        TransactionId(format!("{:?}:tx", cl_id)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id.clone(),
+    ).expect("Failed to create transaction");
+    logging::log("TEST", "Created test transaction");
+    
+    // Process the transaction (this will queue the proposal)
+    let _status = hig_node.lock().await.process_transaction(tx.clone())
+        .await
+        .expect("Failed to process transaction");
+    logging::log("TEST", "Transaction processed, proposal queued");
+    
+    // Wait 50ms and check that message is not received
+    logging::log("TEST", "Waiting 50ms...");
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let early_result = receiver_hig_to_hs.try_recv();
+    logging::log("TEST", &format!("Early check result: {:?}", early_result));
+    assert!(early_result.is_err(), "Message should not be received after 50ms");
+    logging::log("TEST", "Verified no message received at 50ms");
+    
+    // Wait another 150ms and check that message is received
+    logging::log("TEST", "Waiting another 150ms...");
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    let late_result = receiver_hig_to_hs.try_recv();
+    logging::log("TEST", &format!("Late check result: {:?}", late_result));
+    assert!(late_result.is_ok(), "Message should be received after 200ms");
+    logging::log("TEST", "Verified message received at 200ms");
+    
+    logging::log("TEST", "HS message delay test completed successfully");
 }
 
 
