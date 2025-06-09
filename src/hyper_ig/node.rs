@@ -108,6 +108,14 @@ impl HyperIGNode {
         self.hs_message_delay = delay;
     }
 
+    /// Gets the current delay for sending messages to Hyper Scheduler.
+    /// 
+    /// # Returns
+    /// The current delay duration
+    pub fn get_hs_message_delay(&self) -> Duration {
+        self.hs_message_delay
+    }
+
     /// Starts the node's block processing loop and queue processor.
     /// 
     /// This function spawns two tasks:
