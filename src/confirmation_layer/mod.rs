@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::time::Duration;
 use thiserror::Error;
-use crate::types::{ChainId, SubBlock, CLTransaction};
+use crate::types::{ChainId, SubBlock, CLTransaction, CLTransactionId};
 use tokio::sync::mpsc; // Import the correct mpsc module
 
 pub mod node;
@@ -24,6 +24,8 @@ pub enum ConfirmationLayerError {
     Communication(String),
     #[error("SubBlock not found for chain {0} and block {1}")]
     SubBlockNotFound(ChainId, u64),
+    #[error("Transaction already processed: {0}")]
+    TransactionAlreadyProcessed(CLTransactionId),
 }
 
 #[async_trait]

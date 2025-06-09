@@ -1,6 +1,6 @@
 use tokio::time::{Duration, sleep};
 use crate::{
-    types::{TransactionId, ChainId, CLTransaction, Transaction, constants},
+    types::{TransactionId, ChainId, CLTransaction, Transaction, constants, CLTransactionId},
     confirmation_layer::{ConfirmationLayer, ConfirmationLayerError, node::ConfirmationLayerNode},
 };
 use std::sync::Arc;
@@ -90,14 +90,16 @@ async fn test_transaction_submission() {
 
     // Create and submit a transaction
     logging::log("TEST", "  Submitting transaction...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId("regular-tx".to_string()),
+        TransactionId(format!("{:?}:regular-tx", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        TransactionId("regular-tx".to_string()),
+        cl_id.clone(),
         vec![constants::chain_1()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -267,14 +269,16 @@ async fn test_submit_transaction_chain_not_registered() {
     let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
 
     // Attempt to submit a transaction for a chain not registered
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId("test-tx".to_string()),
+        TransactionId(format!("{:?}:test-tx", cl_id)),
         constants::chain_3(),
         vec![constants::chain_3()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
+        cl_id.clone(),
         vec![constants::chain_3()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -290,21 +294,23 @@ async fn test_submit_cl_transaction_for_two_chains() {
 
     // Create and submit a transaction for both chains
     logging::log("TEST", "  Submitting transaction for both chains...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx1 = Transaction::new(
-        TransactionId("multi-tx-1".to_string()),
+        TransactionId(format!("{:?}:multi-tx-1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let tx2 = Transaction::new(
-        TransactionId("multi-tx-2".to_string()),
+        TransactionId(format!("{:?}:multi-tx-2", cl_id)),
         constants::chain_2(),
         vec![constants::chain_1(), constants::chain_2()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
-    
     let cl_tx = CLTransaction::new(
-        TransactionId("multi-tx".to_string()),
+        cl_id.clone(),
         vec![constants::chain_1(), constants::chain_2()],
         vec![tx1, tx2],
     ).expect("Failed to create CL transaction");
@@ -352,6 +358,7 @@ async fn test_submit_cl_transaction_for_two_chains() {
 /// Tests dynamic channel registration and message delivery to dynamically registered HIG nodes
 #[tokio::test]
 async fn test_dynamic_channel_registration() {
+    logging::init_logging();
     logging::log("TEST", "\n=== Starting test_dynamic_channel_registration ===");
     let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
 
@@ -364,14 +371,16 @@ async fn test_dynamic_channel_registration() {
 
     // Create and submit a transaction for the dynamic chain
     logging::log("TEST", "  Submitting transaction for dynamic chain...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId("test-tx".to_string()),
+        TransactionId(format!("{:?}:test-tx", cl_id)),
         dynamic_chain_id.clone(),
         vec![dynamic_chain_id.clone()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     let cl_tx = CLTransaction::new(
-        TransactionId("test-tx".to_string()),
+        cl_id.clone(),
         vec![dynamic_chain_id.clone()],
         vec![tx],
     ).expect("Failed to create CL transaction");
@@ -399,6 +408,53 @@ async fn test_dynamic_channel_registration() {
     }
     assert!(received, "Should receive subblock for dynamic chain");
     logging::log("TEST", "  Subblock received and verified");
+
+    logging::log("TEST", "=== Test completed successfully ===\n");
+}
+
+/// Tests CL transaction ID tracking and duplicate prevention:
+/// - Submit a transaction and verify it's processed
+/// - Submit the same transaction again and verify it's rejected
+#[tokio::test]
+async fn test_cl_transaction_id_tracking() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cl_transaction_id_tracking ===");
+    let cl_node = setup_cl_node_with_registration(Duration::from_millis(100)).await;
+
+    // Create a test transaction
+    logging::log("TEST", "  Creating initial test transaction...");
+    let cl_id = CLTransactionId("cl-tx".to_string());
+    let tx = Transaction::new(
+        TransactionId(format!("{:?}:test-tx", cl_id)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
+    ).expect("Failed to create transaction");
+    let cl_tx = CLTransaction::new(
+        cl_id.clone(),
+        vec![constants::chain_1()],
+        vec![tx],
+    ).expect("Failed to create CL transaction");
+    logging::log("TEST", &format!("  Created CL transaction with ID: {}", cl_tx.id.0));
+
+    // Submit the transaction
+    logging::log("TEST", "  Submitting initial transaction...");
+    let result = cl_node.lock().await.submit_transaction(cl_tx.clone()).await;
+    assert!(result.is_ok(), "Failed to submit initial transaction");
+    logging::log("TEST", "  Initial transaction submitted successfully");
+
+    // Wait for the transaction to be processed
+    logging::log("TEST", "  Waiting for transaction processing (200ms)...");
+    sleep(Duration::from_millis(200)).await;
+    logging::log("TEST", "  Processing wait complete");
+
+    // Try to submit the same transaction again
+    logging::log("TEST", "  Attempting to submit duplicate transaction...");
+    let result = cl_node.lock().await.submit_transaction(cl_tx.clone()).await;
+    assert!(matches!(result, Err(ConfirmationLayerError::TransactionAlreadyProcessed(_))), 
+        "Should not be able to submit duplicate transaction");
+    logging::log("TEST", "  Duplicate transaction correctly rejected");
 
     logging::log("TEST", "=== Test completed successfully ===\n");
 }

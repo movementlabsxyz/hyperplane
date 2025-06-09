@@ -1,4 +1,4 @@
-use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus, Transaction};
+use crate::types::{CATId, TransactionId, CATStatusLimited, CLTransaction, ChainId, CATStatusUpdate, CATStatus, Transaction, CLTransactionId};
 use super::{HyperScheduler, HyperSchedulerError};
 use std::collections::{HashMap, HashSet};
 use tokio::sync::mpsc;
@@ -320,24 +320,27 @@ impl HyperScheduler for HyperSchedulerNode {
         log("HS", &format!("send_cat_status_update called for CAT {}", cat_id.0));
 
         let data = match status {
-            CATStatusLimited::Success => "STATUS_UPDATE:Success.CAT_ID:".to_string() + &cat_id.0,
-            CATStatusLimited::Failure => "STATUS_UPDATE:Failure.CAT_ID:".to_string() + &cat_id.0,
+            CATStatusLimited::Success => format!("STATUS_UPDATE:Success.CAT_ID:{}", cat_id.0),
+            CATStatusLimited::Failure => format!("STATUS_UPDATE:Failure.CAT_ID:{}", cat_id.0),
         };
 
         // Send the status update to the confirmation layer
         if let Some(sender) = &self.sender_to_cl {
             // Create a transaction for each constituent chain
             let transactions: Vec<Transaction> = constituent_chains.iter().map(|chain_id| {
+                let cl_id = format!("{}.UPDATE", cat_id.0);
+                let tx_id = format!("{}.{}", cl_id, chain_id.0);
                 Transaction::new(
-                    TransactionId(cat_id.0.clone() + ".UPDATE"),
+                    TransactionId(tx_id),
                     chain_id.clone(),
                     constituent_chains.clone(),
                     data.clone(),
+                    CLTransactionId(cl_id),
                 ).expect("Failed to create transaction")
             }).collect();
 
             let cl_tx = CLTransaction::new(
-                TransactionId(cat_id.0.clone() + ".UPDATE"),
+                CLTransactionId(format!("{}.UPDATE", cat_id.0)),
                 constituent_chains.clone(),
                 transactions,
             ).expect("Failed to create CL transaction");

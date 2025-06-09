@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use super::{ChainId, TransactionId};
+use super::{ChainId, CLTransactionId};
 use crate::types::communication::cl_to_hig::TransactionData;
+
+/// Unique identifier for a transaction
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct TransactionId(pub String);
 
 /// Status of a transaction
 /// used in HIG to keep track of the status of a transaction
@@ -16,28 +20,6 @@ pub enum TransactionStatus {
     Failure,
 }
 
-/// A transaction in the confirmation layer destined to be included in one or more subblocks
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CLTransaction {
-    /// Unique identifier for this transaction
-    pub id: TransactionId,
-    /// The chain IDs to which this transaction is destined
-    pub constituent_chains: Vec<ChainId>,
-    /// The transactions to be included in the subblocks
-    pub transactions: Vec<Transaction>,
-}
-
-impl CLTransaction {
-    /// Creates a new CLTransaction, ensuring that all transaction data strings match expected format
-    pub fn new(id: TransactionId, constituent_chains: Vec<ChainId>, transactions: Vec<Transaction>) -> Result<Self, String> {
-        // Validate all transaction data strings
-        for tx in &transactions {
-            TransactionData::validate(&tx.data)?;
-        }
-        Ok(CLTransaction { id, constituent_chains, transactions })
-    }
-}
-
 /// A simple transaction type for testing destined to be included in a subblock and the respective chain
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Transaction {
@@ -49,14 +31,30 @@ pub struct Transaction {
     pub constituent_chains: Vec<ChainId>,
     /// The actual transaction data (just a string for now)
     pub data: String,
+    /// The ID of the CL transaction this transaction belongs to
+    pub cl_id: CLTransactionId,
 }
 
 impl Transaction {
     /// Creates a new Transaction, ensuring that the `data` string matches expected format
-    pub fn new(id: TransactionId, target_chain_id: ChainId, constituent_chains: Vec<ChainId>, data: String) -> Result<Self, String> {
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The unique identifier for this transaction
+    /// * `target_chain_id` - The chain ID of the target chain
+    /// * `constituent_chains` - The chain IDs of the constituent chains
+    /// * `data` - The actual transaction data
+    /// * `cl_id` - The ID of the CL transaction this transaction belongs to
+    pub fn new(id: TransactionId,target_chain_id: ChainId,constituent_chains: Vec<ChainId>,data: String,cl_id: CLTransactionId) -> Result<Self, String> {
+        if constituent_chains.is_empty() {
+            return Err("Transaction must have at least one constituent chain".to_string());
+        }
+        if !constituent_chains.contains(&target_chain_id) {
+            return Err("Target chain must be in constituent chains".to_string());
+        }
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
-        Ok(Transaction { id, target_chain_id, constituent_chains, data })
+        Ok(Self {id,target_chain_id,constituent_chains,data,cl_id})
     }
 }
 

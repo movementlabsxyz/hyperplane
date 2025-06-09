@@ -1,5 +1,5 @@
 use crate::{
-    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId, constants},
+    types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, SubBlock, ChainId, CATId, constants, CLTransactionId},
     hyper_ig::{HyperIG, node::HyperIGNode},
 };
 use std::sync::Arc;
@@ -43,12 +43,14 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
         TransactionStatus::Failure => "REGULAR.send 1 2 1000",
         _ => panic!("Unexpected status for regular transaction test"),
     };
-    
+
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
-        TransactionId(tx_id.to_string()),
+        TransactionId(format!("{:?}:{}", cl_id, tx_id)),
         constants::chain_1(),
         vec![constants::chain_1()],
         command.to_string(),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
     
     // Process transaction and verify initial status
@@ -82,61 +84,6 @@ async fn test_regular_transaction_failure() {
     run_test_regular_transaction_status(TransactionStatus::Failure).await;
 }
 
-/// Tests regular transaction pending path in HyperIG:
-/// - Regular transaction that depends on a CAT transaction
-/// - Pending status verification (stays pending until CAT is resolved)
-/// - Pending transaction list inclusion
-#[tokio::test]
-async fn test_regular_transaction_pending() {
-    logging::init_logging();
-    logging::log("TEST", "\n=== Starting test_regular_transaction_pending ===");
-    
-    logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
-    logging::log("TEST", "Test nodes setup complete");
-    
-    // Create a regular transaction that depends on a CAT transaction
-    logging::log("TEST", "Creating dependent transaction...");
-    let tx = Transaction::new(
-        TransactionId("test-tx".to_string()),
-        constants::chain_1(),
-        vec![constants::chain_1()],
-        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
-    ).expect("Failed to create transaction");
-    logging::log("TEST", &format!("Transaction created with tx-id='{}'", tx.id));
-    
-    // Execute the transaction
-    logging::log("TEST", "Executing transaction...");
-    let status = hig_node.lock().await.process_transaction(tx.clone())
-        .await
-        .expect("Failed to execute transaction");
-    logging::log("TEST", &format!("Transaction status: {:?}", status));
-    
-    // Verify it stays pending (transactions depending on unresolved CATs stay pending)
-    assert!(matches!(status, TransactionStatus::Pending));
-    logging::log("TEST", "Verified transaction is pending");
-    
-    // Verify we can retrieve the same status
-    logging::log("TEST", "Verifying transaction status persistence...");
-    let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    logging::log("TEST", &format!("Retrieved status: {:?}", retrieved_status));
-    assert!(matches!(retrieved_status, TransactionStatus::Pending));
-    logging::log("TEST", "Verified retrieved status is pending");
-    
-    // Verify it's in the pending transactions list
-    logging::log("TEST", "Verifying pending transactions list...");
-    let pending = hig_node.lock().await.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    logging::log("TEST", &format!("Pending transactions: {:?}", pending));
-    assert!(pending.contains(&tx.id));
-    logging::log("TEST", "Verified transaction is in pending list");
-    
-    logging::log("TEST", "=== Test completed successfully ===\n");
-}
-
 /// Helper function to test sending a CAT status proposal
 async fn run_process_and_send_cat(expected_status: CATStatusLimited) {    
     logging::log("TEST", "Setting up test nodes...");
@@ -144,16 +91,18 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     logging::log("TEST", "Test nodes setup complete");
     
     // Create necessary parts of a CAT transaction
-    let cat_id = CATId("test-cat-tx".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat-tx".to_string()));
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let tx_chain_1 = Transaction::new(
-        TransactionId("tx_chain_1".to_string()),
+        TransactionId(format!("{:?}:tx_chain_1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
         match expected_status {
-            CATStatusLimited::Success => format!("CAT.credit 1 100.CAT_ID:{}", cat_id.0),
+            CATStatusLimited::Success => format!("CAT.credit 1 100"),
             // send should fail because of insufficient balance
-            CATStatusLimited::Failure => format!("CAT.send 1 2 1000.CAT_ID:{}", cat_id.0),
+            CATStatusLimited::Failure => format!("CAT.send 1 2 1000"),
         },
+        cl_id.clone(),
     ).expect("Failed to create transaction");
 
     // Execute the transaction
@@ -243,26 +192,43 @@ async fn test_get_pending_transactions() {
     logging::log("TEST", &format!("Pending transactions: {:?}", pending));
     assert!(pending.is_empty());
 
-    // Create and execute a dependent transaction
-    logging::log("TEST", "Creating dependent transaction...");
-    let tx = Transaction::new(
-        TransactionId("pending-tx".to_string()),
+    // Create a CAT transaction on which we will make a dependent transaction
+    let cl_id_1 = CLTransactionId("cl-tx_cat".to_string());
+    let tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:tx_1", cl_id_1)),
         constants::chain_1(),
-        vec![constants::chain_1()],
-        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_1.clone(),
     ).expect("Failed to create transaction");
     logging::log("TEST", "Executing transaction...");
-    hig_node.lock().await.process_transaction(tx.clone())
+    let _status = hig_node.lock().await.process_transaction(tx_1.clone())
         .await
         .expect("Failed to execute transaction");
 
-    // Get pending transactions after adding one
+    // Create and execute a dependent transaction
+    logging::log("TEST", "Creating dependent transaction...");
+    let cl_id_2 = CLTransactionId("cl-tx_dependent".to_string());
+    let tx_2 = Transaction::new(
+        TransactionId(format!("{:?}:tx_2", cl_id_2)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.send 1 2 100".to_string(),
+        cl_id_2.clone(),
+    ).expect("Failed to create transaction");
+    logging::log("TEST", "Executing transaction...");
+    hig_node.lock().await.process_transaction(tx_2.clone())
+        .await
+        .expect("Failed to execute transaction");
+
+    // Ensure both transactions are pending
     logging::log("TEST", "Checking pending transactions (with one)...");
     let pending = hig_node.lock().await.get_pending_transactions()
         .await
         .expect("Failed to get pending transactions");
     logging::log("TEST", &format!("Pending transactions: {:?}", pending));
-    assert!(pending.contains(&tx.id));
+    assert!(pending.contains(&tx_1.id));
+    assert!(pending.contains(&tx_2.id));
     
     logging::log("TEST", "=== Test completed successfully ===\n");
 }
@@ -271,6 +237,9 @@ async fn test_get_pending_transactions() {
 /// - Only the subblock with the correct chain ID should be received.
 #[tokio::test]
 async fn test_wrong_chain_subblock() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_wrong_chain_subblock ===");
+    
     // Create channels
     let (_sender_cl_to_hig, receiver_cl_to_hig) = tokio::sync::mpsc::channel(100);
     let (sender_hig_to_hs, _receiver_hig_to_hs) = tokio::sync::mpsc::channel(100);
@@ -282,15 +251,17 @@ async fn test_wrong_chain_subblock() {
     HyperIGNode::start(hig_node.clone()).await;
 
     // Create a subblock with a different chain ID
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let wrong_chain_subblock = SubBlock {
         block_height: 1,
         chain_id: ChainId("wrong-chain".to_string()),
-        transactions: vec![Transaction {
-            id: TransactionId("test-tx".to_string()),
-            target_chain_id: ChainId("wrong-chain".to_string()),
-            data: "REGULAR.SIMULATION:Success".to_string(),
-            constituent_chains: vec![],
-        }],
+        transactions: vec![Transaction::new(
+            TransactionId(format!("{:?}:test-tx", cl_id)),
+            ChainId("wrong-chain".to_string()),
+            vec![ChainId("wrong-chain".to_string())],
+            "REGULAR.credit 1 100".to_string(),
+            cl_id.clone(),
+        ).expect("Failed to create transaction")],
     };
 
     // process the subblock and expect the error WrongChainId
@@ -310,14 +281,17 @@ async fn test_wrong_chain_subblock() {
 /// 3. Both credit and send commands are properly recognized
 #[tokio::test]
 async fn test_cat_pattern() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_pattern ===");
+    
     use crate::types::communication::cl_to_hig::{CAT_PATTERN, CAT_ID_SUFFIX};
     
     // Test cases that should match the pattern:
-    // - CAT.credit <receiver> <amount>.CAT_ID:<id>
-    // - CAT.send <sender> <receiver> <amount>.CAT_ID:<id>
+    // - CAT.credit <receiver> <amount>
+    // - CAT.send <sender> <receiver> <amount>
     let test_cases = vec![
-        "CAT.credit 1 100.CAT_ID:test-cat-tx",
-        "CAT.send 1 2 1000.CAT_ID:test-cat-tx",
+        "CAT.credit 1 100",
+        "CAT.send 1 2 1000",
     ];
     
     for data in test_cases {
@@ -365,11 +339,13 @@ async fn test_send_after_credit() {
     logging::log("TEST", "Test nodes setup complete");
 
     // First credit 100 to account 1
+    let cl_id_1 = CLTransactionId("cl-tx_1".to_string());
     let credit_tx = Transaction::new(
-        TransactionId("credit-tx".to_string()),
+        TransactionId(format!("{:?}:credit-tx", cl_id_1)),
         constants::chain_1(),
         vec![constants::chain_1()],
         "REGULAR.credit 1 100".to_string(),
+        cl_id_1.clone(),
     ).expect("Failed to create credit transaction");
     
     // Process credit transaction
@@ -380,11 +356,13 @@ async fn test_send_after_credit() {
     logging::log("TEST", "Credit transaction processed successfully");
 
     // Then send 50 from account 1 to account 2
+    let cl_id_2 = CLTransactionId("cl-tx_2".to_string());
     let send_tx = Transaction::new(
-        TransactionId("send-tx".to_string()),
+        TransactionId(format!("{:?}:send-tx", cl_id_2)),
         constants::chain_1(),
         vec![constants::chain_1()],
         "REGULAR.send 1 2 50".to_string(),
+        cl_id_2.clone(),
     ).expect("Failed to create send transaction");
     
     // Process send transaction
@@ -424,11 +402,13 @@ async fn test_cat_send_no_funds() {
     logging::log("TEST", "Test nodes setup complete");
 
     // Create a CAT send transaction with multiple constituent chains
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let cat_send_tx = Transaction::new(
-        TransactionId("cat-send-1".to_string()),
+        TransactionId(format!("{:?}:cat-send-1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
-        "CAT.send 1 2 50.CAT_ID:test-cat-1".to_string(),
+        "CAT.send 1 2 50".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create CAT send transaction");
 
     // Process the transaction
@@ -461,11 +441,13 @@ async fn test_cat_credit_pending() {
     logging::log("TEST", "Test nodes setup complete");
 
     // Create a CAT credit transaction with multiple constituent chains
+    let cl_id = CLTransactionId("cl-tx".to_string());
     let cat_credit_tx = Transaction::new(
-        TransactionId("cat-credit-1".to_string()),
+        TransactionId(format!("{:?}:cat-credit-1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
-        "CAT.credit 1 100.CAT_ID:test-cat-2".to_string(),
+        "CAT.credit 1 100".to_string(),
+        cl_id.clone(),
     ).expect("Failed to create CAT credit transaction");
 
     // Process the transaction
@@ -490,29 +472,33 @@ async fn test_cat_credit_pending() {
 /// 3. The CAT send proposes a Success status
 #[tokio::test]
 async fn test_cat_send_after_credit() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_send_after_credit ===");
+    
     let hig_node = setup_test_hig_node().await;
     
     // First do a regular credit
-    let credit_tx = Transaction {
-        id: TransactionId("credit-1".to_string()),
-        data: "REGULAR.credit 1 100".to_string(),
-        constituent_chains: vec![constants::chain_1()],
-        target_chain_id: constants::chain_1(),
-    };
+    let cl_id_1 = CLTransactionId("cl-tx_1".to_string());
+    let credit_tx = Transaction::new(
+        TransactionId(format!("{:?}:credit-1", cl_id_1)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.credit 1 100".to_string(),
+        cl_id_1.clone(),
+    ).expect("Failed to create credit transaction");
     
     let status = hig_node.lock().await.process_transaction(credit_tx).await.unwrap();
     assert_eq!(status, TransactionStatus::Success, "Regular credit should succeed");
     
     // Then do a CAT send
-    let cat_send_tx = Transaction {
-        id: TransactionId("cat-send-1".to_string()),
-        data: "CAT.send 1 2 50.CAT_ID:cat-1".to_string(),
-        constituent_chains: vec![
-            constants::chain_1(),
-            constants::chain_2(),
-        ],
-        target_chain_id: constants::chain_1(),
-    };
+    let cl_id_2 = CLTransactionId("cl-tx_2".to_string());
+    let cat_send_tx = Transaction::new(
+        TransactionId(format!("{:?}:cat-send-1", cl_id_2)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.send 1 2 50".to_string(),
+        cl_id_2.clone(),
+    ).expect("Failed to create CAT send transaction");
     
     let status = hig_node.lock().await.process_transaction(cat_send_tx.clone()).await.unwrap();
     assert_eq!(status, TransactionStatus::Pending, "CAT send should be pending");
@@ -528,6 +514,9 @@ async fn test_cat_send_after_credit() {
 /// 2. The get_chain_state method returns an empty HashMap
 #[tokio::test]
 async fn test_get_chain_state_empty() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_get_chain_state_empty ===");
+    
     let hig_node = setup_test_hig_node().await;
     let state = hig_node.lock().await.get_chain_state().await.unwrap();
     assert!(state.is_empty(), "Initial chain state should be empty");
@@ -540,15 +529,20 @@ async fn test_get_chain_state_empty() {
 /// 3. The state is properly persisted after transaction execution
 #[tokio::test]
 async fn test_get_chain_state_after_transaction() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_get_chain_state_after_transaction ===");
+    
     let hig_node = setup_test_hig_node().await;
     
     // Create and process a credit transaction
-    let tx = Transaction {
-        id: TransactionId("test_tx_1".to_string()),
-        data: "CREDIT.credit 1 100".to_string(),
-        constituent_chains: vec![constants::chain_1()],
-        target_chain_id: constants::chain_1(),
-    };
+    let cl_id = CLTransactionId("cl-tx".to_string());
+    let tx = Transaction::new(
+        TransactionId(format!("{:?}:test_tx", cl_id)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
+    ).expect("Failed to create transaction");
     
     let status = hig_node.lock().await.process_transaction(tx).await.unwrap();
     assert_eq!(status, TransactionStatus::Success);
@@ -569,12 +563,14 @@ async fn test_duplicate_transaction_id() {
     let hig_node = setup_test_hig_node().await;
     
     // Create a transaction
-    let tx = Transaction {
-        id: TransactionId("test_tx_1".to_string()),
-        data: "CREDIT.credit 1 100".to_string(),
-        constituent_chains: vec![constants::chain_1()],
-        target_chain_id: constants::chain_1(),
-    };
+    let cl_id = CLTransactionId("cl-tx".to_string());
+    let tx = Transaction::new(
+        TransactionId(format!("{:?}:test_tx", cl_id)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.credit 1 100".to_string(),
+        cl_id.clone(),
+    ).expect("Failed to create transaction");
     
     // Create a subblock with the transaction
     let subblock = SubBlock {

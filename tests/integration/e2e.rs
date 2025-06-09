@@ -39,21 +39,23 @@ async fn run_two_chain_cat_test(transaction_data: &str, expected_status: CATStat
 
     // Verify block was produced
     {
-        let node = cl_node.lock().await;
-        let current_block = node.get_current_block().await.expect("Failed to get current block");
+        let local_cl_node = cl_node.lock().await;
+        let current_block = local_cl_node.get_current_block().await.expect("Failed to get current block");
         logging::log("TEST", &format!("Current block height: {}", current_block));
         assert!(current_block >= start_block_height + 1, "No block was produced");
     }
 
-    // Verify that HIG has updated the status of the original CAT transaction
-    logging::log("TEST", &format!("Verifying transaction status in HIG for original tx-id='{}'...", cl_tx.id.clone()));
+    // Verify that HIG-chain-1 has updated the status of the original CAT transaction
+    logging::log("TEST", &format!("Verifying transaction status in HIG-chain-1 for original tx-id='{}'...", cl_tx.id.clone()));
+    // Get the transaction ID from the CL transaction
+    let tx_id = cl_tx.transactions[0].id.clone();
     let status = {
-        let node = hig_node_1.lock().await;
-        node.get_transaction_status(cl_tx.id.clone())
+        let local_hig_node = hig_node_1.lock().await;
+        local_hig_node.get_transaction_status(tx_id)
             .await
             .expect("Failed to get transaction status")
     };
-    logging::log("TEST", &format!("Transaction status in HIG: {:?}", status));
+    logging::log("TEST", &format!("Transaction status in HIG-chain-1: {:?}", status));
     
     // The status should match the expected status from the CAT transaction
     let expected_tx_status = match expected_status {
@@ -109,9 +111,10 @@ async fn run_two_chain_cat_test_with_credits(
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     // Verify that HIG of chain-1 has updated the status
+    let tx_id = cl_tx.transactions[0].id.clone();
     let status = {
-        let node = hig_node_1.lock().await;
-        node.get_transaction_status(cl_tx.id.clone())
+        let local_hig_node = hig_node_1.lock().await;
+        local_hig_node.get_transaction_status(tx_id)
             .await
             .expect("Failed to get transaction status")
     };
@@ -198,7 +201,7 @@ async fn test_cat_credit_then_send() {
 
     // 2. Immediately submit regular send transaction (in same block such that the CAT is still pending)
     logging::log("TEST", "Submitting regular send transaction...");
-    let send_tx = submit_transactions::create_and_submit_regular_transaction(
+    let cl_tx_send = submit_transactions::create_and_submit_regular_transaction(
         &cl_node,
         &constants::chain_1(),
         "send 1 2 50",
@@ -209,9 +212,10 @@ async fn test_cat_credit_then_send() {
     // Then check that send is pending after the block was produced 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
+    let tx_id = cl_tx_send.transactions[0].id.clone();
     let initial_status = {
-        let node = hig_node_1.lock().await;
-        node.get_transaction_status(send_tx.id.clone())
+        let local_hig_node = hig_node_1.lock().await;
+        local_hig_node.get_transaction_status(tx_id.clone())
             .await
             .expect("Failed to get transaction status")
     };
@@ -222,8 +226,8 @@ async fn test_cat_credit_then_send() {
 
     // Check that send succeeded after the cat has been resolved (requires status update going through CL)
     let final_status = {
-        let node = hig_node_1.lock().await;
-        node.get_transaction_status(send_tx.id.clone())
+        let local_hig_node = hig_node_1.lock().await;
+        local_hig_node.get_transaction_status(tx_id.clone())
             .await
             .expect("Failed to get transaction status")
     };

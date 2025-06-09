@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{CATStatusLimited, CATId},
+    types::{CATStatusLimited, CATId, CLTransactionId},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
     utils::logging,
@@ -23,7 +23,7 @@ async fn test_hs_waits_for_all_proposals() {
     logging::log("TEST", "Test nodes initialized successfully");
 
     // Create a CAT transaction
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
     let constituent_chains = vec![constants::chain_1(), constants::chain_2()];
     logging::log("TEST", &format!("Created CAT '{}' with chains {:?}", cat_id.0, constituent_chains));
 

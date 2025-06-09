@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::types::CLTransactionId;
+
 use super::{TransactionId, ChainId};
 
 /// Unique identifier for a Crosschain Atomic Transaction (CAT)
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct CATId(pub String);
+pub struct CATId(pub CLTransactionId);
 
 /// Status of a Crosschain Atomic Transaction (CAT)
 /// used in HS to keep track of the status of a CAT

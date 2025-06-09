@@ -1,5 +1,5 @@
 use hyperplane::{
-    types::{TransactionId, ChainId, CLTransaction, Transaction},
+    types::{TransactionId, ChainId, CLTransaction, Transaction, CLTransactionId},
     confirmation_layer::node::ConfirmationLayerNode,
     confirmation_layer::ConfirmationLayer,
     utils::logging,
@@ -30,18 +30,20 @@ pub async fn create_and_submit_cat_transaction(
         TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
         chain_id_1.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
+        format!("CAT.{}", transaction_data),
+        CLTransactionId(format!("{}", cat_id)),
     ).expect("Failed to create transaction for chain-1");
 
     let tx_chain_2 = Transaction::new(
         TransactionId(format!("{}.{}", cat_id, chain_id_2.0)),
         chain_id_2.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
+        format!("CAT.{}", transaction_data),
+        CLTransactionId(format!("{}", cat_id)),
     ).expect("Failed to create transaction for chain-2");
 
     let cl_tx = CLTransaction::new(
-        TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
+        CLTransactionId(format!("{}", cat_id)),
         vec![chain_id_1.clone(), chain_id_2.clone()],
         vec![tx_chain_1, tx_chain_2],
     ).expect("Failed to create CL transaction");
@@ -72,15 +74,17 @@ pub async fn create_and_submit_regular_transaction(
     transaction_data: &str,
     tx_id: &str,
 ) -> Result<CLTransaction, anyhow::Error> {
+    let cl_id = CLTransactionId(format!("cl-tx"));
     let tx = Transaction::new(
-        TransactionId(tx_id.to_string()),
+        TransactionId(format!("{}.{}", cl_id.0, tx_id)),
         chain_id.clone(),
         vec![chain_id.clone()],
         format!("REGULAR.{}", transaction_data),
+        cl_id.clone(),
     ).expect("Failed to create transaction");
 
     let cl_tx = CLTransaction::new(
-        TransactionId(tx_id.to_string()),
+        cl_id.clone(),
         vec![chain_id.clone()],
         vec![tx],
     ).expect("Failed to create CL transaction");

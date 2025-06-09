@@ -1,10 +1,10 @@
 use tokio::time::Duration;
 use tokio::sync::mpsc;
-use crate::types::{Transaction, ChainId, CLTransaction, SubBlock};
+use crate::types::{Transaction, ChainId, CLTransaction, SubBlock, CLTransactionId};
 use super::{ConfirmationLayer, ConfirmationLayerError};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::utils::logging::log;
 
 /// The internal state of the ConfirmationLayerNode
@@ -19,6 +19,8 @@ pub struct ConfirmationLayerState {
     pub pending_transactions: Vec<CLTransaction>,
     /// Processed CL transactions
     pub processed_cltransactions: Vec<CLTransaction>,
+    /// Set of processed CL transaction IDs
+    pub processed_cltransaction_ids: HashSet<CLTransactionId>,
     /// Processed individual transactions
     pub processed_transactions: Vec<(ChainId, Transaction)>,
     /// Block history
@@ -51,6 +53,7 @@ impl ConfirmationLayerNode {
                 block_interval: Duration::from_millis(100),
                 pending_transactions: Vec::new(),
                 processed_cltransactions: Vec::new(),
+                processed_cltransaction_ids: HashSet::new(),
                 processed_transactions: Vec::new(),
                 blocks: Vec::new(),
                 blocks_cltransactions: HashMap::new(),
@@ -77,6 +80,7 @@ impl ConfirmationLayerNode {
                 block_interval: interval,
                 pending_transactions: Vec::new(),
                 processed_cltransactions: Vec::new(),
+                processed_cltransaction_ids: HashSet::new(),
                 processed_transactions: Vec::new(),
                 blocks: Vec::new(),
                 blocks_cltransactions: HashMap::new(),
@@ -123,8 +127,12 @@ impl ConfirmationLayerNode {
                         transaction.constituent_chains.iter().map(|c| c.0.clone()).collect::<Vec<_>>(), 
                         transaction.transactions.iter().map(|tx| tx.data.clone()).collect::<Vec<_>>().join(", ")));
                     let mut inner_state = state.state.lock().await;
-                    // Check if all chains are registered
-                    if transaction.constituent_chains.iter().all(|c| inner_state.registered_chains.contains(c)) {
+                    // Check if all chains are registered and transaction hasn't been processed
+                    let registered_chains = inner_state.registered_chains.clone();
+                    let processed_ids = inner_state.processed_cltransaction_ids.clone();
+                    let is_valid = transaction.constituent_chains.iter().all(|c| registered_chains.contains(c)) 
+                        && !processed_ids.contains(&transaction.id);
+                    if is_valid {
                         inner_state.pending_transactions.push(transaction);
                     }
                 }
@@ -142,15 +150,20 @@ impl ConfirmationLayerNode {
                 let mut remaining = Vec::new();
                 let mut processed_cltransactions = Vec::new();
                 let registered_chains = inner_state.registered_chains.clone();
+                let processed_ids = inner_state.processed_cltransaction_ids.clone();
+                let pending_txs = inner_state.pending_transactions.drain(..).collect::<Vec<_>>();
                 
-                for cl_tx in inner_state.pending_transactions.drain(..) {
-                    // Check if all chains are registered
-                    if cl_tx.constituent_chains.iter().all(|c| registered_chains.contains(c)) {
+                for cl_tx in pending_txs {
+                    // Check if all chains are registered and transaction hasn't been processed
+                    let is_valid = cl_tx.constituent_chains.iter().all(|c| registered_chains.contains(c)) 
+                        && !processed_ids.contains(&cl_tx.id);
+                    if is_valid {
                         // Add to processed transactions for each transaction's this_chain_id
                         for tx in &cl_tx.transactions {
                             processed_this_block.push((tx.target_chain_id.clone(), tx.clone()));
                         }
                         processed_cltransactions.push(cl_tx.clone());
+                        inner_state.processed_cltransaction_ids.insert(cl_tx.id.clone());
                     } else {
                         remaining.push(cl_tx);
                     }
@@ -221,11 +234,15 @@ impl ConfirmationLayer for ConfirmationLayerNode {
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError> {
         let mut state = self.state.lock().await;
         
-        // Check if all chains are registered
+        // Check if all chains are registered and transaction hasn't been processed
         for chain_id in &transaction.constituent_chains {
             if !state.registered_chains.contains(chain_id) {
                 return Err(ConfirmationLayerError::ChainNotFound(chain_id.clone()));
             }
+        }
+        
+        if state.processed_cltransaction_ids.contains(&transaction.id) {
+            return Err(ConfirmationLayerError::TransactionAlreadyProcessed(transaction.id.clone()));
         }
         
         state.pending_transactions.push(transaction);
@@ -248,6 +265,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
                     tx.target_chain_id.clone(),
                     tx.constituent_chains.clone(),
                     tx.data.clone(),
+                    tx.cl_id.clone(),
                 ).expect("Failed to create transaction"))
                 .collect())
             .unwrap_or_default();

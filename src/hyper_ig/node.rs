@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CATId, SubBlock, CATStatusUpdate};
+use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CATId, SubBlock, CATStatusUpdate, CLTransactionId};
 use super::{HyperIG, HyperIGError};
 use tokio::sync::mpsc;
 use std::sync::Arc;
@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use async_trait::async_trait;
 use std::time::Duration;
 use crate::types::ChainId;
-use crate::types::communication::cl_to_hig::{STATUS_UPDATE_PATTERN, parse_cat_transaction};
+use crate::types::communication::cl_to_hig::{STATUS_UPDATE_PATTERN};
 use crate::utils::logging::log;
 use crate::mock_vm::MockVM;
 use x_chain_vm::transaction::Transaction as VMTransaction;
@@ -19,8 +19,8 @@ use x_chain_vm::transaction::TxSet1;
 
 /// The internal state of the HyperIGNode
 struct HyperIGState {
-    /// Map of transaction IDs to their original data
-    transaction_data: HashMap<TransactionId, String>,
+    /// Map of transaction IDs to their original transactions
+    received_txs: HashMap<TransactionId, Transaction>,
     /// Map of transaction IDs to their current status
     transaction_statuses: HashMap<TransactionId, TransactionStatus>,
     /// Set of pending transaction IDs
@@ -75,7 +75,7 @@ impl HyperIGNode {
                 key_locked_by_tx: HashMap::new(),
                 key_causes_dependencies_for_txs: HashMap::new(),
                 tx_depends_on_txs: HashMap::new(),
-                transaction_data: HashMap::new(),
+                received_txs: HashMap::new(),
                 my_chain_id: my_chain_id.clone(),
                 vm: MockVM::new(),
             })),
@@ -264,8 +264,8 @@ impl HyperIGNode {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Handling CAT transaction: {}", tx.id.0));
         
-        // Store the transaction data
-        self.state.lock().await.transaction_data.insert(tx.id.clone(), tx.data.clone());
+        // Store the transaction
+        self.state.lock().await.received_txs.insert(tx.id.clone(), tx.clone());
         
         // CAT transactions are always pending
         self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
@@ -301,7 +301,7 @@ impl HyperIGNode {
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
 
         // Store the mapping from CAT ID to transaction ID
-        let cat_id = parse_cat_transaction(&tx.data)?;
+        let cat_id = CATId(tx.cl_id.clone());
         self.state.lock().await.cat_to_tx_id.insert(cat_id, tx.id.clone());
         
         Ok(TransactionStatus::Pending)
@@ -327,7 +327,7 @@ impl HyperIGNode {
         let cat_id = STATUS_UPDATE_PATTERN.captures(&tx.data)
             .and_then(|caps| caps.name("cat_id"))
             .ok_or_else(|| anyhow::anyhow!("Failed to extract CAT ID from status update"))?;
-        let cat_id = CATId(cat_id.as_str().to_string());
+        let cat_id = CATId(CLTransactionId(cat_id.as_str().to_string()));
         
         // Get the transaction ID from the CAT ID mapping
         let tx_id = self.state.lock().await.cat_to_tx_id.get(&cat_id)
@@ -352,12 +352,12 @@ impl HyperIGNode {
         
         // If the CAT was successful, execute its transaction
         if status == TransactionStatus::Success {
-            let tx_data = self.state.lock().await.transaction_data.get(&tx_id)
+            let tx_data = self.state.lock().await.received_txs.get(&tx_id)
                 .cloned()
                 .ok_or_else(|| anyhow::anyhow!("Transaction data not found: {}", tx_id))?;
             
             // Extract the command part between the dots
-            let command = tx_data.split('.').nth(1)
+            let command = tx_data.data.split('.').nth(1)
                 .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
             
             // Execute the transaction
@@ -437,20 +437,12 @@ impl HyperIGNode {
 
                 if should_process {
                     log(&format!("HIG-{}", chain_id), &format!("Will process tx-id='{}'", tx_id.0));
-                    // Get transaction data and create transaction
+                    // Get transaction from state
                     let tx = {
                         let state = self.state.lock().await;
-                        let tx_data = state.transaction_data.get(&tx_id)
+                        state.received_txs.get(&tx_id)
                             .cloned()
-                            .ok_or_else(|| anyhow::anyhow!("Transaction data not found: {}", tx_id))?;
-                        log(&format!("HIG-{}", chain_id), &format!("Got transaction data for tx-id='{}': {}", tx_id.0, tx_data));
-                        
-                        Transaction {
-                            id: tx_id.clone(),
-                            data: tx_data,
-                            constituent_chains: vec![state.my_chain_id.clone()],
-                            target_chain_id: state.my_chain_id.clone(),
-                        }
+                            .ok_or_else(|| anyhow::anyhow!("Transaction not found: {}", tx_id))?
                     };
 
                     log(&format!("HIG-{}", chain_id), &format!("Processing pending transaction tx-id='{}' (all dependencies resolved)", tx_id.0));
@@ -499,8 +491,8 @@ impl HyperIGNode {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Executing regular transaction: {}", tx.id));
         
-        // Store the transaction data
-        self.state.lock().await.transaction_data.insert(tx.id.clone(), tx.data.clone());
+        // Store the transaction
+        self.state.lock().await.received_txs.insert(tx.id.clone(), tx.clone());
         
         // Extract the command part between the dots
         let command = tx.data.split('.').nth(1)
@@ -553,24 +545,6 @@ impl HyperIGNode {
         }
     }
 
-    /// Handles a dependent regular transaction.
-    /// 
-    /// Marks the transaction as pending and adds it to the pending transactions set.
-    /// These transactions remain pending until their dependent CAT is resolved.
-    /// 
-    /// # Arguments
-    /// * `transaction` - The dependent transaction to handle
-    /// 
-    /// # Returns
-    /// Result containing the transaction status (always Pending)
-    async fn handle_dependent_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Processing dependent transaction: {}", transaction.id));
-        // Add to pending transactions set
-        self.state.lock().await.pending_transactions.insert(transaction.id.clone());
-        // Transactions depending on CATs stay pending until the CAT is resolved
-        Ok(TransactionStatus::Pending)
-    }
 }
 
 //==============================================================================
@@ -605,8 +579,6 @@ impl HyperIG for HyperIGNode {
             
             let status = if tx.data.starts_with("CAT") {
                 self.handle_cat_transaction(tx.clone()).await?
-            } else if tx.data.starts_with("DEPENDENT") {
-                self.handle_dependent_regular_transaction(tx.clone()).await?
             } else {
                 self.handle_regular_transaction(tx.clone()).await?
             };
@@ -620,7 +592,7 @@ impl HyperIG for HyperIGNode {
 
         // Send status proposal to Hyper Scheduler if it's a CAT transaction
         if tx.data.starts_with("CAT") {
-            let cat_id = parse_cat_transaction(&tx.data)?;
+            let cat_id = CATId(tx.cl_id.clone());
             let constituent_chains = tx.constituent_chains.clone();
             
             // Validate constituent chains
@@ -752,7 +724,7 @@ impl HyperIG for HyperIGNode {
             }
             
             // Skip if transaction ID already exists in our state
-            if self.state.lock().await.transaction_data.contains_key(&tx.id) {
+            if self.state.lock().await.received_txs.contains_key(&tx.id) {
                 log(&format!("HIG-{}", chain_id), &format!("Skipping transaction ID that already exists in state: {}", tx.id.0));
                 continue;
             }
@@ -794,14 +766,14 @@ impl HyperIG for HyperIGNode {
     async fn get_transaction_data(&self, tx_id: TransactionId) -> Result<String, anyhow::Error> {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Getting data for tx-id='{}'", tx_id));
-        let data = self.state.lock().await.transaction_data.get(&tx_id)
+        let tx = self.state.lock().await.received_txs.get(&tx_id)
             .cloned()
             .ok_or_else(|| {
-                log(&format!("HIG-{}", chain_id), &format!("Transaction data not found tx-id='{}'", tx_id));
-                anyhow::anyhow!("Transaction data not found: {}", tx_id)
+                log(&format!("HIG-{}", chain_id), &format!("Transaction not found tx-id='{}'", tx_id));
+                anyhow::anyhow!("Transaction not found: {}", tx_id)
             })?;
-        log(&format!("HIG-{}", chain_id), &format!("Found data for tx-id='{}': {}", tx_id, data));
-        Ok(data)
+        log(&format!("HIG-{}", chain_id), &format!("Found data for tx-id='{}': {}", tx_id, tx.data));
+        Ok(tx.data)
     }
 
     /// Gets the current state of the chain.

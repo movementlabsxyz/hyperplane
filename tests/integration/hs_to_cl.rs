@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{CATStatusLimited, CATId},
+    types::{CATStatusLimited, CATId, CLTransactionId},
     confirmation_layer::ConfirmationLayer,
     hyper_scheduler::HyperScheduler,
     utils::logging,
@@ -21,7 +21,7 @@ async fn test_single_chain_cat_status_update() {
     logging::log("TEST", "Test nodes initialized successfully");
 
     // Send a CAT status update
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
     logging::log("TEST", &format!("Sending CAT status update for '{}'...", cat_id.0));
     {
         let mut node = hs_node.lock().await;
@@ -73,9 +73,9 @@ async fn test_several_single_chain_cat_status_updates() {
 
     // Create and send multiple CAT status updates
     let updates = vec![
-        (CATId("cat-1".to_string()), CATStatusLimited::Success),
-        (CATId("cat-2".to_string()), CATStatusLimited::Failure),
-        (CATId("cat-3".to_string()), CATStatusLimited::Success),
+        (CATId(CLTransactionId("cat-1".to_string())), CATStatusLimited::Success),
+        (CATId(CLTransactionId("cat-2".to_string())), CATStatusLimited::Failure),
+        (CATId(CLTransactionId("cat-3".to_string())), CATStatusLimited::Success),
     ];
     logging::log("TEST", &format!("Created {} CAT status updates", updates.len()));
 

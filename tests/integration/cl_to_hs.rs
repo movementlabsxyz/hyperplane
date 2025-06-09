@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{CATId, CATStatus},
+    types::{CATId, CATStatus, CLTransactionId},
     confirmation_layer::ConfirmationLayer,
     HyperScheduler,
     utils::logging,
@@ -45,7 +45,7 @@ async fn run_test_one_cat(transaction_data: &str, expected_status: CATStatus) {
     logging::log("TEST", "Verifying CAT status in HS...");
     {
         let node = hs_node.lock().await;
-        let status = node.get_cat_status(CATId("test-cat".to_string())).await.expect("Failed to get CAT status");
+        let status = node.get_cat_status(CATId(CLTransactionId("test-cat".to_string()))).await.expect("Failed to get CAT status");
         logging::log("TEST", &format!("Retrieved status: {:?}", status));
         assert_eq!(status, expected_status, "CAT status should be {:?}", expected_status);
     }

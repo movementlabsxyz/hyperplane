@@ -53,7 +53,7 @@ async fn run_process_subblock_regular_tx(
     // Verify transaction status
     logging::log("TEST", "Verifying transaction status...");
     let node = hig_node.lock().await;
-    let status = node.get_transaction_status(cl_tx.id).await.unwrap();
+    let status = node.get_transaction_status(cl_tx.transactions[0].id.clone()).await.unwrap();
     logging::log("TEST", &format!("Retrieved transaction status: {:?}", status));
     assert_eq!(status, expected_status, "Transaction status is not {:?}", expected_status);
     logging::log("TEST", "Transaction status verification successful");
