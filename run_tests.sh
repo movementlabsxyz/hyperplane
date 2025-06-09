@@ -104,6 +104,8 @@ TESTS=(
     # Integration tests: CL to HS
     integration::cl_to_hs::test_cat_one_cat_success
     integration::cl_to_hs::test_cat_one_cat_failure
+    integration::cl_to_hs::test_hig_delays
+
 
     # Integration tests: CL to CL
     integration::cl_to_cl::test_two_chain_cat_success
@@ -119,7 +121,7 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
-    hyper_ig::tests::basic::test_hs_message_delay
+    integration::cl_to_hs::test_hig_delays
 
 )
 

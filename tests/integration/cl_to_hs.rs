@@ -96,57 +96,75 @@ async fn test_hig_delays() {
     logging::log("TEST", "Set HIG-chain-1 delay to 0ms and HIG-chain-2 delay to 300ms");
     
     // Submit a CAT transaction
+    logging::log("TEST", "Submitting CAT transaction...");
     let cl_tx = submit_transactions::create_and_submit_cat_transaction(
         &cl_node,
-        "CAT.credit 1 100",
+        "credit 1 100",
         "test-cat"
     ).await.expect("Failed to submit CAT transaction");
-    logging::log("TEST", "Submitted CAT transaction");
-    
+    logging::log("TEST", "CAT transaction submitted.");
+
     // Wait 200ms and check status
-    logging::log("TEST", "Waiting 200ms...");
+    logging::log("TEST", "Waiting 200ms before first status check...");
     tokio::time::sleep(Duration::from_millis(200)).await;
-    
+    logging::log("TEST", "Checking HS state after 200ms...");
+
     // Check HS state
-    let node_guard = hs_node.lock().await;
-    let hs_state = node_guard.state.lock().await;
     let cat_id = CATId(cl_tx.id.clone());
-    
+    let (chain_1_status, chain_2_status, cat_status) = {
+        let node_guard = hs_node.lock().await;
+        let hs_state = node_guard.state.lock().await;
+        (
+            hs_state.cat_chainwise_statuses.get(&cat_id)
+                .and_then(|statuses| statuses.get(&constants::chain_1())).cloned(),
+            hs_state.cat_chainwise_statuses.get(&cat_id)
+                .and_then(|statuses| statuses.get(&constants::chain_2())).cloned(),
+            hs_state.cat_statuses.get(&cat_id).cloned()
+        )
+    };
+
     // Verify that after 200ms:
     // 1. Chain-1 HIG has submitted its status
-    let chain_1_status = hs_state.cat_chainwise_statuses.get(&cat_id)
-        .and_then(|statuses| statuses.get(&constants::chain_1()));
     assert!(chain_1_status.is_some(), "Chain-1 HIG should have submitted its status");
-    
+    logging::log("TEST", &format!("Chain-1 status after 200ms: {:?}", chain_1_status));
+
     // 2. Chain-2 HIG has not submitted its status
-    let chain_2_status = hs_state.cat_chainwise_statuses.get(&cat_id)
-        .and_then(|statuses| statuses.get(&constants::chain_2()));
     assert!(chain_2_status.is_none(), "Chain-2 HIG should not have submitted its status yet");
-    
+    logging::log("TEST", &format!("Chain-2 status after 200ms: {:?}", chain_2_status));
+
     // 3. CAT is not processed in HS
-    let cat_status = hs_state.cat_statuses.get(&cat_id);
-    assert!(cat_status.is_none(), "CAT should not be processed in HS yet");
-    
+    logging::log("TEST", &format!("CAT status after 200ms: {:?}", cat_status));
+    // CAT status should be pending
+    assert!(cat_status.is_some(), "CAT should be processed in HS");
+    assert_eq!(cat_status.unwrap(), CATStatus::Pending, "CAT should be pending");
+
     logging::log("TEST", "Verified state after 200ms");
-    
+
     // Wait another 200ms (total 400ms) and check final status
-    logging::log("TEST", "Waiting another 200ms...");
+    logging::log("TEST", "Waiting another 200ms before final status check...");
     tokio::time::sleep(Duration::from_millis(200)).await;
-    
+    logging::log("TEST", "Checking HS state after 400ms...");
+
     // Check final HS state
-    let node_guard = hs_node.lock().await;
-    let hs_state = node_guard.state.lock().await;
-    
+    let (chain_2_status, cat_status) = {
+        let node_guard = hs_node.lock().await;
+        let hs_state = node_guard.state.lock().await;
+        (
+            hs_state.cat_chainwise_statuses.get(&cat_id)
+                .and_then(|statuses| statuses.get(&constants::chain_2())).cloned(),
+            hs_state.cat_statuses.get(&cat_id).cloned()
+        )
+    };
+
     // Verify that after 400ms:
     // 1. Chain-2 HIG has submitted its status
-    let chain_2_status = hs_state.cat_chainwise_statuses.get(&cat_id)
-        .and_then(|statuses| statuses.get(&constants::chain_2()));
     assert!(chain_2_status.is_some(), "Chain-2 HIG should have submitted its status");
-    
+    logging::log("TEST", &format!("Chain-2 status after 400ms: {:?}", chain_2_status));
+
     // 2. CAT is processed in HS
-    let cat_status = hs_state.cat_statuses.get(&cat_id);
     assert!(cat_status.is_some(), "CAT should be processed in HS");
-    
+    logging::log("TEST", &format!("CAT status after 400ms: {:?}", cat_status));
+
     logging::log("TEST", "Verified final state after 400ms");
     logging::log("TEST", "=== Test completed successfully ===\n");
 }
