@@ -120,14 +120,24 @@ async fn main() {
                 let chains = hig_nodes.lock().await;
                 let transactions = transaction_tracker.lock().await;
                 println!("=== System Status ===");
-                let chain_list: Vec<String> = chains.keys().map(|c| c.0.clone()).collect();
+                let mut chain_list: Vec<String> = chains.keys().map(|c| c.0.clone()).collect();
+                chain_list.sort();  // Sort chains alphabetically
                 println!("Registered chains: {}", chain_list.join(", "));
                 
                 // Show state for each chain
                 println!("\nChain States:");
-                for (chain_id, node) in chains.iter() {
+                let mut chain_states: Vec<_> = chains.iter().collect();
+                chain_states.sort_by(|a, b| a.0.0.cmp(&b.0.0));  // Sort by chain ID
+                for (chain_id, node) in chain_states {
                     let state = node.lock().await.get_chain_state().await.unwrap_or_default();
-                    println!("  {}: {:?}", chain_id.0, state);
+                    // Convert state to sorted string representation
+                    let mut sorted_state: Vec<_> = state.iter().collect();
+                    sorted_state.sort_by(|a, b| a.0.cmp(b.0));  // Sort by account ID
+                    let state_str = format!("{{{}}}", sorted_state.iter()
+                        .map(|(k, v)| format!("\"{}\": {}", k, v))
+                        .collect::<Vec<_>>()
+                        .join(", "));
+                    println!("  {}: {}", chain_id.0, state_str);
                 }
                 
                 println!("\nTransaction Status:");
@@ -144,7 +154,13 @@ async fn main() {
 
                 // Process each transaction
                 for tx_id in tx_ids {
-                    println!("  - {}:", tx_id.0);
+                    // Extract CL ID from transaction ID by removing the ":tx" suffix
+                    let cl_id = if tx_id.0.ends_with(":tx") {
+                        &tx_id.0[..tx_id.0.len()-3]
+                    } else {
+                        &tx_id.0
+                    };
+                    println!("  - {}:", cl_id);
                     // Process each chain
                     for (chain_id, node) in &chain_nodes {
                         let node = node.lock().await;
@@ -196,8 +212,8 @@ async fn main() {
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_millis();
-                    let cl_id = CLTransactionId(format!("cl-tx:{}-{}", chain_id, timestamp));
-                    let tx_id = TransactionId(format!("cl-tx:tx:{}-{}", chain_id, timestamp));
+                    let cl_id = CLTransactionId(format!("cl-tx_{}", timestamp));
+                    let tx_id = TransactionId(format!("{}:tx", cl_id.0));
                     println!("[shell] Sending tx to {}: {}", chain_id, data);
                     match Transaction::new(
                         tx_id.clone(),
@@ -245,15 +261,14 @@ async fn main() {
                         .trim_start();
                     let data = data.trim_matches('"');  // Remove quotes if present
                     
-                    // Extract CAT ID from the data
-                    let cat_id = if let Some(cat_id_start) = data.find("CAT_ID:") {
-                        let cat_id = &data[cat_id_start + 7..];
-                        CLTransactionId(cat_id.to_string())
-                    } else {
-                        CLTransactionId("cat-tx".to_string())
-                    };
+                    // Generate unique CAT ID with timestamp
+                    let timestamp = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis();
+                    let cl_id = CLTransactionId(format!("cl-tx_cat_{}", timestamp));
                     // construct the transaction id
-                    let tx_id = TransactionId(format!("{}:tx", cat_id.0));
+                    let tx_id = TransactionId(format!("{}:tx", cl_id.0));
                     println!("[shell] Sending CAT to [{}]: {}", chains, data);
                     let chain_ids: Vec<ChainId> = chains.split(',').map(|c| ChainId(c.to_string())).collect();
                     
@@ -265,7 +280,7 @@ async fn main() {
                             chain_id.clone(),
                             chain_ids.clone(),
                             data.to_string(),  // Use the data as is, without adding REGULAR. prefix
-                            cat_id.clone(),
+                            cl_id.clone(),
                         ) {
                             Ok(tx) => transactions.push(tx),
                             Err(e) => {
@@ -278,7 +293,7 @@ async fn main() {
                     // TODO check and explain the following again
                     if !transactions.is_empty() {
                         match CLTransaction::new(
-                            cat_id.clone(),
+                            cl_id.clone(),
                             chain_ids.clone(),
                             transactions,
                         ) {
@@ -287,9 +302,9 @@ async fn main() {
                                 if let Err(e) = cl_node_guard.submit_transaction(cl_tx).await {
                                     println!("[shell] Error: Failed to submit CAT transaction: {}", e);
                                 } else {
-                                    let tx_id = TransactionId(format!("{}:tx", cat_id.0));
+                                    let tx_id = TransactionId(format!("{}:tx", cl_id.0));
                                     transaction_tracker.lock().await.add_transaction(tx_id);
-                                    println!("[shell] CAT transaction sent successfully. ID: {}", cat_id.0);
+                                    println!("[shell] CAT transaction sent successfully. CL-ID: '{}'", cl_id.0);
                                 }
                             }
                             Err(e) => println!("[shell] Error: Failed to create CL transaction: {}", e),
