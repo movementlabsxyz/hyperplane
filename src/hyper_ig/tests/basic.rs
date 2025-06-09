@@ -148,16 +148,16 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     logging::log("TEST", "Test nodes setup complete");
     
     // Create necessary parts of a CAT transaction
-    let cat_id = CATId("test-cat-tx".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat-tx".to_string()));
     let cl_id = CLTransactionId("cl-tx".to_string());
     let tx_chain_1 = Transaction::new(
         TransactionId(format!("{:?}:tx_chain_1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
         match expected_status {
-            CATStatusLimited::Success => format!("CAT.credit 1 100.CAT_ID:{}", cat_id.0),
+            CATStatusLimited::Success => format!("CAT.credit 1 100"),
             // send should fail because of insufficient balance
-            CATStatusLimited::Failure => format!("CAT.send 1 2 1000.CAT_ID:{}", cat_id.0),
+            CATStatusLimited::Failure => format!("CAT.send 1 2 1000"),
         },
         cl_id.clone(),
     ).expect("Failed to create transaction");
@@ -329,11 +329,11 @@ async fn test_cat_pattern() {
     use crate::types::communication::cl_to_hig::{CAT_PATTERN, CAT_ID_SUFFIX};
     
     // Test cases that should match the pattern:
-    // - CAT.credit <receiver> <amount>.CAT_ID:<id>
-    // - CAT.send <sender> <receiver> <amount>.CAT_ID:<id>
+    // - CAT.credit <receiver> <amount>
+    // - CAT.send <sender> <receiver> <amount>
     let test_cases = vec![
-        "CAT.credit 1 100.CAT_ID:test-cat-tx",
-        "CAT.send 1 2 1000.CAT_ID:test-cat-tx",
+        "CAT.credit 1 100",
+        "CAT.send 1 2 1000",
     ];
     
     for data in test_cases {
@@ -449,7 +449,7 @@ async fn test_cat_send_no_funds() {
         TransactionId(format!("{:?}:cat-send-1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
-        "CAT.send 1 2 50.CAT_ID:test-cat-1".to_string(),
+        "CAT.send 1 2 50".to_string(),
         cl_id.clone(),
     ).expect("Failed to create CAT send transaction");
 
@@ -488,7 +488,7 @@ async fn test_cat_credit_pending() {
         TransactionId(format!("{:?}:cat-credit-1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
-        "CAT.credit 1 100.CAT_ID:test-cat-2".to_string(),
+        "CAT.credit 1 100".to_string(),
         cl_id.clone(),
     ).expect("Failed to create CAT credit transaction");
 
@@ -538,7 +538,7 @@ async fn test_cat_send_after_credit() {
         TransactionId(format!("{:?}:cat-send-1", cl_id_2)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
-        "CAT.send 1 2 50.CAT_ID:cat-1".to_string(),
+        "CAT.send 1 2 50".to_string(),
         cl_id_2.clone(),
     ).expect("Failed to create CAT send transaction");
     

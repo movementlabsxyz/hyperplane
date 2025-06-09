@@ -1,6 +1,5 @@
 use crate::{
-    types::{CATId, CATStatusLimited, CATStatus, CATStatusUpdate, constants},
-    hyper_scheduler::{node::HyperSchedulerNode, HyperScheduler, HyperSchedulerError},
+    hyper_scheduler::{node::HyperSchedulerNode, HyperScheduler, HyperSchedulerError}, types::{constants, CATId, CATStatus, CATStatusLimited, CATStatusUpdate, CLTransactionId}
 };
 use tokio::sync::mpsc;
 use hyperplane::utils::logging;
@@ -43,7 +42,7 @@ async fn test_receive_cat_for_unregistered_chain() {
     hs_node.register_chain(constants::chain_1(), receiver_1).await.expect("Failed to register chain-1");
 
     // Create a CAT ID and status update
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
     let status_proposed = CATStatusLimited::Success;
     let constituent_chains = vec![constants::chain_1(), constants::chain_2()];
     logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status_proposed));
@@ -78,7 +77,7 @@ async fn test_receive_success_proposal_first_message() {
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
     // Create a CAT ID and status update
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
     let status_proposal = CATStatusLimited::Success;
     let constituent_chains = vec![constants::chain_1(), constants::chain_2()];
     logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status_proposal));
@@ -112,7 +111,7 @@ async fn test_receive_failure_proposal_first_message() {
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
     // Create a CAT ID and status update
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
     let status_proposed = CATStatusLimited::Failure;
     let constituent_chains = vec![constants::chain_1(), constants::chain_2()];
     logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status_proposed));
@@ -155,7 +154,7 @@ async fn test_duplicate_rejection() {
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
     // Test proposal behavior
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
     let status = CATStatusLimited::Success;
     let constituent_chains = vec![constants::chain_1(), constants::chain_2()];
     
@@ -191,7 +190,7 @@ async fn test_process_proposals_for_two_chain_cat() {
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
 
     // Create a CAT ID and status update
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
     let status = CATStatusLimited::Success;
     let constituent_chains = vec![constants::chain_1(), constants::chain_2()];
     logging::log("TEST", &format!("Created cat-id='{}' with status: {:?}", cat_id.0, status));
@@ -235,7 +234,7 @@ async fn test_cannot_set_success_if_constituent_chains_dont_match() {
     
     let (mut hs_node, _sender_1, _sender_2) = setup_hs_node_with_chains().await;
     let chain_id_3 = constants::chain_3();
-    let cat_id = CATId("test-cat".to_string());
+    let cat_id = CATId(CLTransactionId("test-cat".to_string()));
 
     // register also chain-3
     let (_sender_3, receiver_3) = mpsc::channel(1);

@@ -105,13 +105,13 @@ async fn main() {
             println!("\nValid transaction data formats:");
             println!("  Regular: credit <account> <amount>");
             println!("  Regular: send <from> <to> <amount>");
-            println!("  CAT: CAT.send <from> <to> <amount>.CAT_ID:<id>");
-            println!("  CAT: CAT.credit <account> <amount>.CAT_ID:<id>");
+            println!("  CAT: CAT.send <from> <to> <amount>");
+            println!("  CAT: CAT.credit <account> <amount>");
             println!("\nExamples:");
             println!("  send-tx chain-1 credit 1 100");
             println!("  send-tx chain-1 send 1 2 50");
-            println!("  send-cat chain-1,chain-2 CAT.send 1 2 50.CAT_ID:cat123");
-            println!("  send-cat chain-1,chain-2 CAT.credit 1 100.CAT_ID:cat123");
+            println!("  send-cat chain-1,chain-2 CAT.send 1 2 50");
+            println!("  send-cat chain-1,chain-2 CAT.credit 1 100");
             continue;
         }
         let mut parts = input.split_whitespace();

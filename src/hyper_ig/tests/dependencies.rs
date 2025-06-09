@@ -55,7 +55,7 @@ async fn run_cat_credit_and_dependent_tx(
         TransactionId(format!("{:?}:cat-credit-tx", cl_id_1)),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
-        "CAT.credit 1 100.CAT_ID:cat-1".to_string(),
+        "CAT.credit 1 100".to_string(),
         cl_id_1.clone(),
     ).expect("Failed to create CAT transaction");
 
@@ -93,7 +93,7 @@ async fn run_cat_credit_and_dependent_tx(
         TransactionId(format!("{:?}:status-1", cl_id_1)),
         ChainId("chain-1".to_string()),
         vec![ChainId("chain-1".to_string())],
-        format!("STATUS_UPDATE:{}.CAT_ID:cat-1", status_str),
+        format!("STATUS_UPDATE:{}.CAT_ID:{}", status_str, cl_id_1.0),
         cl_id_1.clone(),
     ).expect("Failed to create transaction");
     hig_node.lock().await.process_transaction(status_update).await.unwrap();

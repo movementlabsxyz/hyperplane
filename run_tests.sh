@@ -119,7 +119,7 @@ TESTS=(
 # Test specific tests
 TESTS2=(
     # integration::e2e::test_cat_with_only_chain_1_credit
-hyper_ig::tests::basic::test_wrong_chain_subblock
+hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
 )
 
 # Check if arguments are provided

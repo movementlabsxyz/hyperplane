@@ -30,7 +30,7 @@ pub async fn create_and_submit_cat_transaction(
         TransactionId(format!("{}.{}", cat_id, chain_id_1.0)),
         chain_id_1.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
+        format!("CAT.{}", transaction_data),
         CLTransactionId(format!("{}", cat_id)),
     ).expect("Failed to create transaction for chain-1");
 
@@ -38,7 +38,7 @@ pub async fn create_and_submit_cat_transaction(
         TransactionId(format!("{}.{}", cat_id, chain_id_2.0)),
         chain_id_2.clone(),
         vec![chain_id_1.clone(), chain_id_2.clone()],
-        format!("CAT.{}.CAT_ID:{}", transaction_data, cat_id),
+        format!("CAT.{}", transaction_data),
         CLTransactionId(format!("{}", cat_id)),
     ).expect("Failed to create transaction for chain-2");
 

@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CATId, SubBlock, CATStatusUpdate};
+use crate::types::{Transaction, TransactionId, TransactionStatus, CATStatusLimited, CATId, SubBlock, CATStatusUpdate, CLTransactionId};
 use super::{HyperIG, HyperIGError};
 use tokio::sync::mpsc;
 use std::sync::Arc;
@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use async_trait::async_trait;
 use std::time::Duration;
 use crate::types::ChainId;
-use crate::types::communication::cl_to_hig::{STATUS_UPDATE_PATTERN, parse_cat_transaction};
+use crate::types::communication::cl_to_hig::{STATUS_UPDATE_PATTERN};
 use crate::utils::logging::log;
 use crate::mock_vm::MockVM;
 use x_chain_vm::transaction::Transaction as VMTransaction;
@@ -301,7 +301,7 @@ impl HyperIGNode {
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
 
         // Store the mapping from CAT ID to transaction ID
-        let cat_id = parse_cat_transaction(&tx.data)?;
+        let cat_id = CATId(tx.cl_id.clone());
         self.state.lock().await.cat_to_tx_id.insert(cat_id, tx.id.clone());
         
         Ok(TransactionStatus::Pending)
@@ -327,7 +327,7 @@ impl HyperIGNode {
         let cat_id = STATUS_UPDATE_PATTERN.captures(&tx.data)
             .and_then(|caps| caps.name("cat_id"))
             .ok_or_else(|| anyhow::anyhow!("Failed to extract CAT ID from status update"))?;
-        let cat_id = CATId(cat_id.as_str().to_string());
+        let cat_id = CATId(CLTransactionId(cat_id.as_str().to_string()));
         
         // Get the transaction ID from the CAT ID mapping
         let tx_id = self.state.lock().await.cat_to_tx_id.get(&cat_id)
@@ -612,7 +612,7 @@ impl HyperIG for HyperIGNode {
 
         // Send status proposal to Hyper Scheduler if it's a CAT transaction
         if tx.data.starts_with("CAT") {
-            let cat_id = parse_cat_transaction(&tx.data)?;
+            let cat_id = CATId(tx.cl_id.clone());
             let constituent_chains = tx.constituent_chains.clone();
             
             // Validate constituent chains
