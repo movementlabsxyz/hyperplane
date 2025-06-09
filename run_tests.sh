@@ -75,6 +75,7 @@ TESTS=(
     hyper_ig::tests::basic::test_get_chain_state_empty
     hyper_ig::tests::basic::test_get_chain_state_after_transaction
     hyper_ig::tests::basic::test_duplicate_transaction_id
+    hyper_ig::tests::basic::test_hs_message_delay
     hyper_ig::tests::dependencies::test_failed_dependency
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
@@ -103,6 +104,8 @@ TESTS=(
     # Integration tests: CL to HS
     integration::cl_to_hs::test_cat_one_cat_success
     integration::cl_to_hs::test_cat_one_cat_failure
+    integration::cl_to_hs::test_hig_delays
+
 
     # Integration tests: CL to CL
     integration::cl_to_cl::test_two_chain_cat_success
@@ -114,11 +117,12 @@ TESTS=(
     integration::e2e::test_cat_with_only_chain_1_credit
     integration::e2e::test_cat_with_both_chains_credit
     integration::e2e::test_cat_credit_then_send
+    integration::e2e::test_hig_delays
 )
 
 # Test specific tests
 TESTS2=(
-hyper_ig::tests::basic::test_get_pending_transactions
+    integration::e2e::test_hig_delays
 )
 
 # Check if arguments are provided

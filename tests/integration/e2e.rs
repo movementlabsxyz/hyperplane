@@ -1,7 +1,7 @@
 #![cfg(feature = "test")]
 
 use hyperplane::{
-    types::{CATStatusLimited, TransactionStatus},
+    types::{CATStatusLimited, TransactionStatus, CATId, CATStatus},
     confirmation_layer::ConfirmationLayer,
     hyper_ig::HyperIG,
     utils::logging,
@@ -233,6 +233,104 @@ async fn test_cat_credit_then_send() {
     };
     assert_eq!(final_status, TransactionStatus::Success, "Send transaction should succeed after credit");
 
+    logging::log("TEST", "=== Test completed successfully ===\n");
+}
+
+/// Tests that HIG delays work correctly across multiple chains in an e2e scenario:
+/// - Set chain-1 HIG delay to 200ms (slow)
+/// - Set chain-2 HIG delay to 0ms (fast)
+/// - Submit a CAT transaction
+/// - Verify that after 200ms: (100ms block)
+///   - Chain-2 HIG has submitted its status
+///   - Chain-1 HIG has not submitted its status
+///   - CAT is pending in HS
+/// - Verify that after 500ms: (100ms block + 200ms delay + 100ms block)
+///   - Chain-1 HIG has submitted its status
+///   - CAT is processed in HS
+#[tokio::test]
+async fn test_hig_delays() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting e2e test_hig_delays ===");
+    
+    // Set up test nodes
+    let (hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = testnodes::setup_test_nodes(Duration::from_millis(100)).await;
+    logging::log("TEST", "Test nodes initialized successfully");
+    
+    // Set delays for both HIGs - chain-1 is slow, chain-2 is fast
+    hig_node_1.lock().await.set_hs_message_delay(Duration::from_millis(200));
+    hig_node_2.lock().await.set_hs_message_delay(Duration::from_millis(0));
+    logging::log("TEST", "Set HIG-chain-1 delay to 200ms and HIG-chain-2 delay to 0ms");
+    
+    // Submit a CAT transaction
+    logging::log("TEST", "Submitting CAT transaction...");
+    let cl_tx = submit_transactions::create_and_submit_cat_transaction(
+        &cl_node,
+        "credit 1 100",
+        "test-cat"
+    ).await.expect("Failed to submit CAT transaction");
+    logging::log("TEST", "CAT transaction submitted.");
+
+    // Wait 200ms and check status
+    logging::log("TEST", "Waiting 200ms before first status check...");
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    logging::log("TEST", "Checking HS state after 200ms...");
+
+    // Check HS state
+    let cat_id = CATId(cl_tx.id.clone());
+    let (chain_1_status, chain_2_status, cat_status) = {
+        let node_guard = hs_node.lock().await;
+        let hs_state = node_guard.state.lock().await;
+        (
+            hs_state.cat_chainwise_statuses.get(&cat_id)
+                .and_then(|statuses| statuses.get(&constants::chain_1())).cloned(),
+            hs_state.cat_chainwise_statuses.get(&cat_id)
+                .and_then(|statuses| statuses.get(&constants::chain_2())).cloned(),
+            hs_state.cat_statuses.get(&cat_id).cloned()
+        )
+    };
+
+    // Verify that after 200ms:
+    // 1. Chain-1 HIG has not submitted its status
+    assert!(chain_1_status.is_none(), "Chain-1 HIG should not have submitted its status yet");
+    logging::log("TEST", &format!("Chain-1 status after 200ms: {:?}", chain_1_status));
+
+    // 2. Chain-2 HIG has submitted its status
+    assert!(chain_2_status.is_some(), "Chain-2 HIG should have submitted its status");
+    logging::log("TEST", &format!("Chain-2 status after 200ms: {:?}", chain_2_status));
+
+    // 3. CAT is pending in HS
+    logging::log("TEST", &format!("CAT status after 200ms: {:?}", cat_status));
+    assert!(cat_status.is_some(), "CAT should be processed in HS");
+    assert_eq!(cat_status.unwrap(), CATStatus::Pending, "CAT should be pending");
+
+    logging::log("TEST", "Verified state after 200ms");
+
+    // Wait another 300ms (total 500ms) and check final status
+    logging::log("TEST", "Waiting another 300ms before final status check...");
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    logging::log("TEST", "Checking HS state after 500ms...");
+
+    // Check final HS state
+    let (chain_1_status, cat_status) = {
+        let node_guard = hs_node.lock().await;
+        let hs_state = node_guard.state.lock().await;
+        (
+            hs_state.cat_chainwise_statuses.get(&cat_id)
+                .and_then(|statuses| statuses.get(&constants::chain_1())).cloned(),
+            hs_state.cat_statuses.get(&cat_id).cloned()
+        )
+    };
+
+    // Verify that after 300ms:
+    // 1. Chain-1 HIG has submitted its status
+    assert!(chain_1_status.is_some(), "Chain-1 HIG should have submitted its status");
+    logging::log("TEST", &format!("Chain-1 status after 300ms: {:?}", chain_1_status));
+
+    // 2. CAT is processed in HS
+    assert!(cat_status.is_some(), "CAT should be processed in HS");
+    logging::log("TEST", &format!("CAT status after 300ms: {:?}", cat_status));
+
+    logging::log("TEST", "Verified final state after 300ms");
     logging::log("TEST", "=== Test completed successfully ===\n");
 }
 

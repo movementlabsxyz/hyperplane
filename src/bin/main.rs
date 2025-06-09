@@ -100,6 +100,7 @@ async fn main() {
             println!("  add-chain <chain_id>");
             println!("  send-tx <chain_id> <data>");
             println!("  send-cat <chain_id1,chain_id2,...> <data>");
+            println!("  set-interval <chain_id> <milliseconds>");
             println!("  status");
             println!("  exit");
             println!("\nValid transaction data formats:");
@@ -112,10 +113,29 @@ async fn main() {
             println!("  send-tx chain-1 send 1 2 50");
             println!("  send-cat chain-1,chain-2 CAT.send 1 2 50");
             println!("  send-cat chain-1,chain-2 CAT.credit 1 100");
+            println!("  set-interval chain-1 200");
             continue;
         }
         let mut parts = input.split_whitespace();
         match parts.next() {
+            Some("set-interval") => {
+                if let (Some(chain_id_str), Some(ms_str)) = (parts.next(), parts.next()) {
+                    if let Ok(ms) = ms_str.parse::<u64>() {
+                        let chain_id = ChainId(chain_id_str.to_string());
+                        let hig_nodes_guard = hig_nodes.lock().await;
+                        if let Some(node) = hig_nodes_guard.get(&chain_id) {
+                            node.lock().await.set_hs_message_delay(Duration::from_millis(ms));
+                            println!("[shell] Set message delay for chain {} to {}ms", chain_id.0, ms);
+                        } else {
+                            println!("[shell] Error: Chain {} not found", chain_id.0);
+                        }
+                    } else {
+                        println!("[shell] Error: Invalid milliseconds value");
+                    }
+                } else {
+                    println!("Usage: set-interval <chain_id> <milliseconds>");
+                }
+            }
             Some("status") => {
                 let chains = hig_nodes.lock().await;
                 let transactions = transaction_tracker.lock().await;
@@ -130,6 +150,7 @@ async fn main() {
                 chain_states.sort_by(|a, b| a.0.0.cmp(&b.0.0));  // Sort by chain ID
                 for (chain_id, node) in chain_states {
                     let state = node.lock().await.get_chain_state().await.unwrap_or_default();
+                    let delay = node.lock().await.get_hs_message_delay().as_millis();
                     // Convert state to sorted string representation
                     let mut sorted_state: Vec<_> = state.iter().collect();
                     sorted_state.sort_by(|a, b| a.0.cmp(b.0));  // Sort by account ID
@@ -137,7 +158,7 @@ async fn main() {
                         .map(|(k, v)| format!("\"{}\": {}", k, v))
                         .collect::<Vec<_>>()
                         .join(", "));
-                    println!("  {}: {}", chain_id.0, state_str);
+                    println!("  {}: {} (delay: {}ms)", chain_id.0, state_str, delay);
                 }
                 
                 println!("\nTransaction Status:");
