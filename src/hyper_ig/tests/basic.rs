@@ -84,63 +84,6 @@ async fn test_regular_transaction_failure() {
     run_test_regular_transaction_status(TransactionStatus::Failure).await;
 }
 
-/// Tests regular transaction pending path in HyperIG:
-/// - Regular transaction that depends on a CAT transaction
-/// - Pending status verification (stays pending until CAT is resolved)
-/// - Pending transaction list inclusion
-#[tokio::test]
-async fn test_regular_transaction_pending() {
-    logging::init_logging();
-    logging::log("TEST", "\n=== Starting test_regular_transaction_pending ===");
-    
-    logging::log("TEST", "Setting up test nodes...");
-    let hig_node = setup_test_hig_node().await;
-    logging::log("TEST", "Test nodes setup complete");
-    
-    // Create a regular transaction that depends on a CAT transaction
-    logging::log("TEST", "Creating dependent transaction...");
-    let cl_id = CLTransactionId("cl-tx".to_string());
-    let tx = Transaction::new(
-        TransactionId(format!("{:?}:test-tx", cl_id)),
-        constants::chain_1(),
-        vec![constants::chain_1()],
-        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
-        cl_id.clone(),
-    ).expect("Failed to create transaction");
-    logging::log("TEST", &format!("Transaction created with tx-id='{}'", tx.id));
-    
-    // Execute the transaction
-    logging::log("TEST", "Executing transaction...");
-    let status = hig_node.lock().await.process_transaction(tx.clone())
-        .await
-        .expect("Failed to execute transaction");
-    logging::log("TEST", &format!("Transaction status: {:?}", status));
-    
-    // Verify it stays pending (transactions depending on unresolved CATs stay pending)
-    assert!(matches!(status, TransactionStatus::Pending));
-    logging::log("TEST", "Verified transaction is pending");
-    
-    // Verify we can retrieve the same status
-    logging::log("TEST", "Verifying transaction status persistence...");
-    let retrieved_status = hig_node.lock().await.get_transaction_status(tx.id.clone())
-        .await
-        .expect("Failed to get transaction status");
-    logging::log("TEST", &format!("Retrieved status: {:?}", retrieved_status));
-    assert!(matches!(retrieved_status, TransactionStatus::Pending));
-    logging::log("TEST", "Verified retrieved status is pending");
-    
-    // Verify it's in the pending transactions list
-    logging::log("TEST", "Verifying pending transactions list...");
-    let pending = hig_node.lock().await.get_pending_transactions()
-        .await
-        .expect("Failed to get pending transactions");
-    logging::log("TEST", &format!("Pending transactions: {:?}", pending));
-    assert!(pending.contains(&tx.id));
-    logging::log("TEST", "Verified transaction is in pending list");
-    
-    logging::log("TEST", "=== Test completed successfully ===\n");
-}
-
 /// Helper function to test sending a CAT status proposal
 async fn run_process_and_send_cat(expected_status: CATStatusLimited) {    
     logging::log("TEST", "Setting up test nodes...");
@@ -249,28 +192,43 @@ async fn test_get_pending_transactions() {
     logging::log("TEST", &format!("Pending transactions: {:?}", pending));
     assert!(pending.is_empty());
 
-    // Create and execute a dependent transaction
-    logging::log("TEST", "Creating dependent transaction...");
-    let cl_id = CLTransactionId("cl-tx".to_string());
-    let tx = Transaction::new(
-        TransactionId(format!("{:?}:pending-tx", cl_id)),
+    // Create a CAT transaction on which we will make a dependent transaction
+    let cl_id_1 = CLTransactionId("cl-tx_cat".to_string());
+    let tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:tx_1", cl_id_1)),
         constants::chain_1(),
-        vec![constants::chain_1()],
-        "DEPENDENT.credit 1 100.CAT_ID:test-cat-tx".to_string(),
-        cl_id.clone(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_1.clone(),
     ).expect("Failed to create transaction");
     logging::log("TEST", "Executing transaction...");
-    hig_node.lock().await.process_transaction(tx.clone())
+    let _status = hig_node.lock().await.process_transaction(tx_1.clone())
         .await
         .expect("Failed to execute transaction");
 
-    // Get pending transactions after adding one
+    // Create and execute a dependent transaction
+    logging::log("TEST", "Creating dependent transaction...");
+    let cl_id_2 = CLTransactionId("cl-tx_dependent".to_string());
+    let tx_2 = Transaction::new(
+        TransactionId(format!("{:?}:tx_2", cl_id_2)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.send 1 2 100".to_string(),
+        cl_id_2.clone(),
+    ).expect("Failed to create transaction");
+    logging::log("TEST", "Executing transaction...");
+    hig_node.lock().await.process_transaction(tx_2.clone())
+        .await
+        .expect("Failed to execute transaction");
+
+    // Ensure both transactions are pending
     logging::log("TEST", "Checking pending transactions (with one)...");
     let pending = hig_node.lock().await.get_pending_transactions()
         .await
         .expect("Failed to get pending transactions");
     logging::log("TEST", &format!("Pending transactions: {:?}", pending));
-    assert!(pending.contains(&tx.id));
+    assert!(pending.contains(&tx_1.id));
+    assert!(pending.contains(&tx_2.id));
     
     logging::log("TEST", "=== Test completed successfully ===\n");
 }

@@ -545,24 +545,6 @@ impl HyperIGNode {
         }
     }
 
-    /// Handles a dependent regular transaction.
-    /// 
-    /// Marks the transaction as pending and adds it to the pending transactions set.
-    /// These transactions remain pending until their dependent CAT is resolved.
-    /// 
-    /// # Arguments
-    /// * `transaction` - The dependent transaction to handle
-    /// 
-    /// # Returns
-    /// Result containing the transaction status (always Pending)
-    async fn handle_dependent_regular_transaction(&self, transaction: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Processing dependent transaction: {}", transaction.id));
-        // Add to pending transactions set
-        self.state.lock().await.pending_transactions.insert(transaction.id.clone());
-        // Transactions depending on CATs stay pending until the CAT is resolved
-        Ok(TransactionStatus::Pending)
-    }
 }
 
 //==============================================================================
@@ -597,8 +579,6 @@ impl HyperIG for HyperIGNode {
             
             let status = if tx.data.starts_with("CAT") {
                 self.handle_cat_transaction(tx.clone()).await?
-            } else if tx.data.starts_with("DEPENDENT") {
-                self.handle_dependent_regular_transaction(tx.clone()).await?
             } else {
                 self.handle_regular_transaction(tx.clone()).await?
             };
