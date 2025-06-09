@@ -117,12 +117,12 @@ TESTS=(
     integration::e2e::test_cat_with_only_chain_1_credit
     integration::e2e::test_cat_with_both_chains_credit
     integration::e2e::test_cat_credit_then_send
+    integration::e2e::test_hig_delays
 )
 
 # Test specific tests
 TESTS2=(
-    integration::cl_to_hs::test_hig_delays
-
+    integration::e2e::test_hig_delays
 )
 
 # Check if arguments are provided
