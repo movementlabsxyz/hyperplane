@@ -7,13 +7,20 @@ from scipy.stats import zipf
 import os
 
 def load_simulation_data():
-    with open('simulator/results/simulation_stats.json', 'r') as f:
+    with open('simulator/results/data/simulation_stats.json', 'r') as f:
         return json.load(f)
 
 def plot_account_selection_distribution():
-    data = load_simulation_data()
-    distribution = data['results']['account_selection_distribution']
-    params = data['parameters']
+    # Load account distribution data
+    with open('simulator/results/data/account_selection_distribution.json', 'r') as f:
+        account_data = json.load(f)
+    
+    # Load simulation parameters
+    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+        sim_data = json.load(f)
+    
+    distribution = account_data['distribution']
+    params = account_data['parameters']
     
     # Extract the distribution data
     keys = [entry['account'] for entry in distribution]
@@ -21,16 +28,17 @@ def plot_account_selection_distribution():
     
     # Calculate theoretical Zipf distribution
     zipf_param = params['zipf_parameter']
-    num_accounts = max(keys)
+    num_accounts = params['num_accounts']
+    total_transactions = params['total_transactions']
     x = np.arange(1, num_accounts + 1)  # Start from 1
     
     # Calculate theoretical distribution
     # Zipf PMF is proportional to 1/k^s where s is the parameter
     theoretical = np.array([1.0 / (k ** zipf_param) for k in x])
     # Normalize to match total transactions
-    theoretical = theoretical * data['results']['total_transactions'] / theoretical.sum()
+    theoretical = theoretical * total_transactions / theoretical.sum()
     
-    # Create the plot
+    # Create the log-log plot
     plt.figure(figsize=(12, 6))
     
     # Plot actual distribution as scatter points
@@ -54,11 +62,70 @@ def plot_account_selection_distribution():
     plt.legend()
     
     # Add total transactions to the plot
-    plt.text(0.02, 0.98, f'Total Transactions: {data["results"]["total_transactions"]}', 
+    plt.text(0.02, 0.98, f'Total Transactions: {total_transactions}', 
              transform=plt.gca().transAxes, verticalalignment='top')
     
-    # Save the plot
-    plt.savefig('simulator/results/figs/account_distribution.png', dpi=300, bbox_inches='tight')
+    # Save the log-log plot
+    plt.savefig('simulator/results/figs/account_distribution_log_log.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Create the linear-log plot
+    plt.figure(figsize=(12, 6))
+    
+    # Plot actual distribution as scatter points
+    plt.scatter(keys, counts, alpha=0.7, label='Actual Distribution', s=50)
+    
+    # Plot theoretical distribution
+    plt.plot(x, theoretical, 'r-', label='Theoretical Zipf Distribution')
+    
+    # Customize the plot
+    plt.title(f'Account Selection Distribution (Zipf parameter: {zipf_param})')
+    plt.xlabel('Account Index')
+    plt.ylabel('Selection Count')
+    plt.grid(True, alpha=0.3)
+    plt.yscale('log')  # Only y-axis is log scale
+    
+    # Set axis limits
+    plt.xlim(0, max(keys) + 1)  # Linear x-axis
+    plt.ylim(1, max(counts) * 1.1)  # Start at 1, end slightly above max count
+    
+    plt.legend()
+    
+    # Add total transactions to the plot
+    plt.text(0.02, 0.98, f'Total Transactions: {total_transactions}', 
+             transform=plt.gca().transAxes, verticalalignment='top')
+    
+    # Save the linear-log plot
+    plt.savefig('simulator/results/figs/account_distribution_lin_log.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Create the linear-linear plot
+    plt.figure(figsize=(12, 6))
+    
+    # Plot actual distribution as scatter points
+    plt.scatter(keys, counts, alpha=0.7, label='Actual Distribution', s=50)
+    
+    # Plot theoretical distribution
+    plt.plot(x, theoretical, 'r-', label='Theoretical Zipf Distribution')
+    
+    # Customize the plot
+    plt.title(f'Account Selection Distribution (Zipf parameter: {zipf_param})')
+    plt.xlabel('Account Index')
+    plt.ylabel('Selection Count')
+    plt.grid(True, alpha=0.3)
+    
+    # Set axis limits
+    plt.xlim(0, max(keys) + 1)  # Linear x-axis
+    plt.ylim(0, max(counts) * 1.1)  # Linear y-axis
+    
+    plt.legend()
+    
+    # Add total transactions to the plot
+    plt.text(0.02, 0.98, f'Total Transactions: {total_transactions}', 
+             transform=plt.gca().transAxes, verticalalignment='top')
+    
+    # Save the linear-linear plot
+    plt.savefig('simulator/results/figs/account_distribution_lin_lin.png', dpi=300, bbox_inches='tight')
     plt.close()
 
 def plot_transaction_types():
@@ -94,6 +161,37 @@ def plot_success_rate():
     plt.savefig('simulator/results/figs/success_rate.png')
     plt.close()
 
+def plot_pending_transactions():
+    # Load pending transactions data
+    with open('simulator/results/data/pending_transactions_per_block.json', 'r') as f:
+        pending_data = json.load(f)
+    
+    # Load simulation parameters
+    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+        sim_data = json.load(f)
+    
+    # Extract data
+    blocks = [entry['block'] for entry in pending_data['data']]
+    pending_counts = [entry['pending_count'] for entry in pending_data['data']]
+    
+    # Create the plot
+    plt.figure(figsize=(12, 6))
+    plt.plot(blocks, pending_counts, 'b-', alpha=0.7)
+    plt.title('Pending Transactions per Block')
+    plt.xlabel('Block Number')
+    plt.ylabel('Number of Pending Transactions')
+    plt.grid(True, alpha=0.3)
+    
+    # Add statistics
+    avg_pending = sum(pending_counts) / len(pending_counts)
+    max_pending = max(pending_counts)
+    plt.text(0.02, 0.98, f'Average Pending: {avg_pending:.1f}\nMax Pending: {max_pending}', 
+             transform=plt.gca().transAxes, verticalalignment='top')
+    
+    # Save the plot
+    plt.savefig('simulator/results/figs/pending_transactions.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
 def plot_parameters():
     data = load_simulation_data()
     params = data['parameters']
@@ -119,6 +217,7 @@ def main():
     plot_account_selection_distribution()
     plot_transaction_types()
     plot_success_rate()
+    plot_pending_transactions()
     plot_parameters()
     
     print("Plots generated in simulator/results/figs/")

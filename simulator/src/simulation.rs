@@ -58,6 +58,9 @@ pub async fn run_simulation(
     let mut key_selection_counts = HashMap::new();
     let mut cat_transactions = 0;
     let mut regular_transactions = 0;
+    let mut pending_transactions_per_block = Vec::new();
+    let mut current_block = 0;
+    let mut last_pending_count = 0;
     
     // Create progress bar
     let pb = ProgressBar::new(duration_seconds);
@@ -171,8 +174,26 @@ pub async fn run_simulation(
         transactions_sent += 1;
         pb.set_position((Instant::now() - start_time).as_secs());
         
+        // Get current block height and pending transactions
+        let new_block = nodes[0].lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+        let pending_txs = nodes[0].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
+        
+        // Only record pending count if we've moved to a new block
+        if new_block != current_block {
+            if current_block > 0 {  // Don't record for block 0
+                pending_transactions_per_block.push((current_block, last_pending_count));
+            }
+            current_block = new_block;
+        }
+        last_pending_count = pending_txs;
+        
         // Sleep for a short duration to prevent busy waiting
         sleep(transaction_interval).await;
+    }
+    
+    // Add the final pending count for the last block
+    if current_block > 0 {
+        pending_transactions_per_block.push((current_block, last_pending_count));
     }
     
     // Print final statistics
@@ -191,13 +212,57 @@ pub async fn run_simulation(
     
     // Print account selection distribution
     logging::log("SIMULATOR", "\nAccount Selection Distribution:");
-    let mut sorted_counts: Vec<_> = key_selection_counts.into_iter().collect();
-    sorted_counts.sort_by(|a, b| b.1.cmp(&a.1));
+    let mut sorted_counts: Vec<_> = key_selection_counts.clone().into_iter().collect();
+    sorted_counts.sort_by(|a, b| a.0.cmp(&b.0));
     for (account, count) in sorted_counts.iter().take(10) {
         logging::log("SIMULATOR", &format!("Account {}: {} transactions", account, count));
     }
 
-    // Save statistics to JSON file
+    // Create results directories if they don't exist
+    fs::create_dir_all("simulator/results").expect("Failed to create results directory");
+    fs::create_dir_all("simulator/results/data").expect("Failed to create data directory");
+    
+    // Save account selection distribution to separate file
+    let account_distribution = serde_json::json!({
+        "parameters": {
+            "num_accounts": num_accounts,
+            "zipf_parameter": zipf_parameter,
+            "total_transactions": transactions_sent
+        },
+        "distribution": sorted_counts.iter().map(|(account, transactions)| {
+            serde_json::json!({
+                "account": account,
+                "transactions": transactions
+            })
+        }).collect::<Vec<_>>()
+    });
+    
+    fs::write(
+        "simulator/results/data/account_selection_distribution.json",
+        serde_json::to_string_pretty(&account_distribution).expect("Failed to serialize account distribution")
+    ).expect("Failed to write account distribution file");
+
+    // Save pending transactions per block to separate file
+    let pending_transactions = serde_json::json!({
+        "parameters": {
+            "block_interval": block_interval,
+            "duration_seconds": duration_seconds,
+            "total_blocks": pending_transactions_per_block.len()
+        },
+        "data": pending_transactions_per_block.iter().map(|(block, pending)| {
+            serde_json::json!({
+                "block": block,
+                "pending_count": pending
+            })
+        }).collect::<Vec<_>>()
+    });
+    
+    fs::write(
+        "simulator/results/data/pending_transactions_per_block.json",
+        serde_json::to_string_pretty(&pending_transactions).expect("Failed to serialize pending transactions")
+    ).expect("Failed to write pending transactions file");
+    
+    // Save main stats to file
     let stats = serde_json::json!({
         "parameters": {
             "initial_balance": _initial_balance,
@@ -221,22 +286,12 @@ pub async fn run_simulation(
             "regular_transactions": {
                 "count": regular_transactions,
                 "percentage": (regular_transactions as f64 / transactions_sent as f64) * 100.0
-            },
-            "account_selection_distribution": sorted_counts.iter().take(10).map(|(account, count)| {
-                serde_json::json!({
-                    "account": account,
-                    "transactions": count
-                })
-            }).collect::<Vec<_>>()
+            }
         }
     });
-
-    // Create results directory if it doesn't exist
-    fs::create_dir_all("simulator/results").expect("Failed to create results directory");
     
-    // Write stats to file
     fs::write(
-        "simulator/results/simulation_stats.json",
+        "simulator/results/data/simulation_stats.json",
         serde_json::to_string_pretty(&stats).expect("Failed to serialize stats")
     ).expect("Failed to write stats file");
     

@@ -64,8 +64,8 @@ impl Config {
         if self.duration_seconds == 0 {
             return Err(ConfigError::ValidationError("Duration must be positive".into()));
         }
-        if self.zipf_parameter <= 0.0 {
-            return Err(ConfigError::ValidationError("Zipf parameter must be positive".into()));
+        if self.zipf_parameter < 0.0 {
+            return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
         }
         if self.ratio_cats <= 0.0 {
             return Err(ConfigError::ValidationError("Ratio cats must be positive".into()));
