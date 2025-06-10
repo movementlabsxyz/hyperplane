@@ -9,10 +9,10 @@ use hyperplane::{
     utils::logging,
 };
 use crate::account_selector::AccountSelector;
-use std::collections::HashMap;
 use rand::Rng;
 use serde_json;
 use std::fs;
+use crate::account_selection::AccountSelectionStats;
 
 /// Runs the simulation for the specified duration
 ///
@@ -55,7 +55,7 @@ pub async fn run_simulation(
     let mut transactions_sent = 0;
     let mut successful_transactions = 0;
     let mut failed_transactions = 0;
-    let mut key_selection_counts = HashMap::new();
+    let mut account_stats = AccountSelectionStats::new();
     let mut cat_transactions = 0;
     let mut regular_transactions = 0;
     let mut pending_transactions_per_block = Vec::new();
@@ -74,9 +74,17 @@ pub async fn run_simulation(
     
     // Main simulation loop
     while (Instant::now() - start_time).as_secs() < duration_seconds {
-        // Select account for transaction using Zipf distribution
-        let from_account = account_selector.select_account();
-        *key_selection_counts.entry(from_account).or_insert(0) += 1;
+        // Select accounts independently - first random, second using Zipf
+        let from_account = rng.gen_range(1..=num_accounts);  // Random selection for sender
+        let to_account = account_selector.select_account();  // Zipf selection for receiver
+        
+        // Skip if same account
+        if from_account == to_account {
+            continue;
+        }
+        
+        // Record account selection
+        account_stats.record_transaction(from_account as u64, to_account as u64);
         
         // Get registered chains for the first node (they should be the same for all nodes)
         let chains = nodes[0].lock().await.get_registered_chains().await.map_err(|e| e.to_string())?;
@@ -100,15 +108,15 @@ pub async fn run_simulation(
         };
         
         let tx_data = if is_cat {
-            format!("CAT.send {} {} 1", from_account, (from_account % num_accounts) + 1)
+            format!("CAT.send {} {} 1", from_account, to_account)
         } else {
-            format!("REGULAR.send {} {} 1", from_account, (from_account % num_accounts) + 1)
+            format!("REGULAR.send {} {} 1", from_account, to_account)
         };
         
         logging::log("SIMULATOR", &format!("Creating {} transaction from account {} to account {} on chain {}", 
             if is_cat { "CAT" } else { "REGULAR" },
             from_account, 
-            (from_account % num_accounts) + 1,
+            to_account,
             chain_id.0
         ));
         logging::log("SIMULATOR", &format!("Transaction data: '{}'", tx_data));
@@ -125,7 +133,7 @@ pub async fn run_simulation(
             logging::log("SIMULATOR", &format!("Failed to create transaction: {}", e));
             logging::log("SIMULATOR", &format!("Transaction details: from={}, to={}, amount=1, chain={}, is_cat={}, target_chain={}", 
                 from_account,
-                (from_account % num_accounts) + 1,
+                to_account,
                 chain_id.0,
                 is_cat,
                 target_chain_id.0
@@ -196,73 +204,30 @@ pub async fn run_simulation(
         pending_transactions_per_block.push((current_block, last_pending_count));
     }
     
+    // Get sorted account selection counts
+    let (sorted_sender_counts, sorted_receiver_counts) = account_stats.get_sorted_counts();
+    
     // Print final statistics
-    logging::log("SIMULATOR", "\n=== Simulation Results ===");
-    logging::log("SIMULATOR", &format!("Total Transactions Sent: {}", transactions_sent));
+    logging::log("SIMULATOR", "\nSimulation Statistics:");
+    logging::log("SIMULATOR", &format!("Total Transactions: {}", transactions_sent));
     logging::log("SIMULATOR", &format!("Successful Transactions: {}", successful_transactions));
     logging::log("SIMULATOR", &format!("Failed Transactions: {}", failed_transactions));
-    logging::log("SIMULATOR", &format!("Success Rate: {:.2}%", 
-        (successful_transactions as f64 / transactions_sent as f64) * 100.0));
-    logging::log("SIMULATOR", &format!("CAT Transactions: {} ({:.2}%)", 
-        cat_transactions,
-        (cat_transactions as f64 / transactions_sent as f64) * 100.0));
-    logging::log("SIMULATOR", &format!("Regular Transactions: {} ({:.2}%)", 
-        regular_transactions,
-        (regular_transactions as f64 / transactions_sent as f64) * 100.0));
+    logging::log("SIMULATOR", &format!("Success Rate: {:.2}%", (successful_transactions as f64 / transactions_sent as f64) * 100.0));
+    logging::log("SIMULATOR", &format!("CAT Transactions: {} ({:.2}%)", cat_transactions, (cat_transactions as f64 / transactions_sent as f64) * 100.0));
+    logging::log("SIMULATOR", &format!("Regular Transactions: {} ({:.2}%)", regular_transactions, (regular_transactions as f64 / transactions_sent as f64) * 100.0));
     
     // Print account selection distribution
-    logging::log("SIMULATOR", "\nAccount Selection Distribution:");
-    let mut sorted_counts: Vec<_> = key_selection_counts.clone().into_iter().collect();
-    sorted_counts.sort_by(|a, b| a.0.cmp(&b.0));
-    for (account, count) in sorted_counts.iter().take(10) {
+    logging::log("SIMULATOR", "\nAccount Sender Selection Distribution (Random):");
+    for (account, count) in sorted_sender_counts.iter().take(10) {
         logging::log("SIMULATOR", &format!("Account {}: {} transactions", account, count));
     }
-
-    // Create results directories if they don't exist
-    fs::create_dir_all("simulator/results").expect("Failed to create results directory");
-    fs::create_dir_all("simulator/results/data").expect("Failed to create data directory");
     
-    // Save account selection distribution to separate file
-    let account_distribution = serde_json::json!({
-        "parameters": {
-            "num_accounts": num_accounts,
-            "zipf_parameter": zipf_parameter,
-            "total_transactions": transactions_sent
-        },
-        "distribution": sorted_counts.iter().map(|(account, transactions)| {
-            serde_json::json!({
-                "account": account,
-                "transactions": transactions
-            })
-        }).collect::<Vec<_>>()
-    });
+    logging::log("SIMULATOR", "\nAccount Receiver Selection Distribution (Zipf):");
+    for (account, count) in sorted_receiver_counts.iter().take(10) {
+        logging::log("SIMULATOR", &format!("Account {}: {} transactions", account, count));
+    }
     
-    fs::write(
-        "simulator/results/data/account_selection_distribution.json",
-        serde_json::to_string_pretty(&account_distribution).expect("Failed to serialize account distribution")
-    ).expect("Failed to write account distribution file");
-
-    // Save pending transactions per block to separate file
-    let pending_transactions = serde_json::json!({
-        "parameters": {
-            "block_interval": block_interval,
-            "duration_seconds": duration_seconds,
-            "total_blocks": pending_transactions_per_block.len()
-        },
-        "data": pending_transactions_per_block.iter().map(|(block, pending)| {
-            serde_json::json!({
-                "block": block,
-                "pending_count": pending
-            })
-        }).collect::<Vec<_>>()
-    });
-    
-    fs::write(
-        "simulator/results/data/pending_transactions_per_block.json",
-        serde_json::to_string_pretty(&pending_transactions).expect("Failed to serialize pending transactions")
-    ).expect("Failed to write pending transactions file");
-    
-    // Save main stats to file
+    // Save statistics to JSON file
     let stats = serde_json::json!({
         "parameters": {
             "initial_balance": _initial_balance,
@@ -286,14 +251,34 @@ pub async fn run_simulation(
             "regular_transactions": {
                 "count": regular_transactions,
                 "percentage": (regular_transactions as f64 / transactions_sent as f64) * 100.0
-            }
+            },
+            "pending_transactions_per_block": pending_transactions_per_block.iter().map(|(block, pending)| {
+                serde_json::json!({
+                    "block": block,
+                    "pending_count": pending
+                })
+            }).collect::<Vec<_>>()
         }
     });
+
+    // Create results directories if they don't exist
+    fs::create_dir_all("simulator/results/data").expect("Failed to create results directory");
+
+    // Save simulation stats
+    let stats_file = "simulator/results/data/simulation_stats.json";
+    fs::write(stats_file, serde_json::to_string_pretty(&stats).expect("Failed to serialize stats")).map_err(|e| e.to_string())?;
+    logging::log("SIMULATOR", &format!("Saved simulation statistics to {}", stats_file));
+
+    // Save account selection data to separate files
+    let (sender_json, receiver_json) = account_stats.to_json();
     
-    fs::write(
-        "simulator/results/data/simulation_stats.json",
-        serde_json::to_string_pretty(&stats).expect("Failed to serialize stats")
-    ).expect("Failed to write stats file");
+    let sender_file = "simulator/results/data/account_sender_selection.json";
+    fs::write(sender_file, serde_json::to_string_pretty(&sender_json).expect("Failed to serialize sender stats")).map_err(|e| e.to_string())?;
+    logging::log("SIMULATOR", &format!("Saved sender selection data to {}", sender_file));
+
+    let receiver_file = "simulator/results/data/account_receiver_selection.json";
+    fs::write(receiver_file, serde_json::to_string_pretty(&receiver_json).expect("Failed to serialize receiver stats")).map_err(|e| e.to_string())?;
+    logging::log("SIMULATOR", &format!("Saved receiver selection data to {}", receiver_file));
     
     Ok(())
 } 

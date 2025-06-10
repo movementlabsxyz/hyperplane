@@ -1,6 +1,6 @@
 # Hyperplane Simulator
 
-A performance testing tool for the Hyperplane system.
+This simulator is designed to test the Hyperplane protocol under various conditions and configurations.
 
 ## Overview
 
@@ -12,6 +12,24 @@ The simulator creates a test environment with multiple chains and accounts, then
 - Initializes accounts with configurable balances
 - Generates transactions using a Zipf distribution
 - Measures and reports performance metrics
+- Configurable number of accounts and chains
+- Adjustable transaction rates and types (CAT vs REGULAR)
+- Detailed statistics and visualization
+
+## Account Selection Model
+
+The simulator uses a realistic account selection model where:
+
+- **Senders** are selected randomly (uniform distribution)
+- **Receivers** are selected using Zipf distribution
+
+This models real-world scenarios where:
+
+- Any account can initiate a transaction (random senders)
+- Some accounts are more popular destinations than others (Zipf receivers)
+- The popularity of receiving accounts follows a power law distribution
+
+The Zipf parameter controls how skewed the distribution is - higher values mean more concentration of transactions to popular accounts.
 
 ## Usage
 
@@ -70,11 +88,17 @@ The simulator is organized into several modules:
 The simulator generates results in the `simulator/results` directory. To visualize these results:
 
 1. Install Python dependencies:
+
 ```bash
 pip3 install -r simulator/scripts/requirements.txt
 ```
 
 2. Run the visualization script:
+
 ```bash
 python3 simulator/scripts/plot_results.py
 ```
+
+## Configuration
+
+The simulator can be configured through the `config.toml` file. Here are the available parameters:

@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import zipf
 import os
+from plot_account_selection import plot_account_selection
 
 def load_simulation_data():
     with open('simulator/results/data/simulation_stats.json', 'r') as f:
@@ -128,68 +129,74 @@ def plot_account_selection_distribution():
     plt.savefig('simulator/results/figs/account_distribution_lin_lin.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-def plot_transaction_types():
-    data = load_simulation_data()
-    results = data['results']
+def plot_transaction_success():
+    # Load simulation stats
+    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+        stats = json.load(f)
     
-    # Get transaction counts
-    cat_count = results['cat_transactions']['count']
-    regular_count = results['regular_transactions']['count']
+    # Extract data
+    successful_txs = stats['results']['successful_transactions']
+    failed_txs = stats['results']['failed_transactions']
     
     # Create pie chart
     plt.figure(figsize=(8, 8))
-    plt.pie([cat_count, regular_count], 
-            labels=['CAT', 'Regular'],
-            autopct='%1.1f%%',
-            colors=['#ff9999','#66b3ff'])
-    plt.title('Transaction Types Distribution')
+    plt.pie([successful_txs, failed_txs], labels=['Successful', 'Failed'], autopct='%1.1f%%')
+    plt.title('Transaction Success Rate')
+    plt.savefig('simulator/results/figs/transaction_success.png')
+    plt.close()
+
+def plot_transaction_types():
+    # Load simulation stats
+    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+        stats = json.load(f)
+    
+    # Extract data
+    cat_txs = stats['results']['cat_transactions']['count']
+    regular_txs = stats['results']['regular_transactions']['count']
+    
+    # Create pie chart
+    plt.figure(figsize=(8, 8))
+    plt.pie([cat_txs, regular_txs], labels=['CAT', 'Regular'], autopct='%1.1f%%')
+    plt.title('Transaction Types')
     plt.savefig('simulator/results/figs/transaction_types.png')
     plt.close()
 
-def plot_success_rate():
-    data = load_simulation_data()
-    results = data['results']
-    
-    success_rate = results['success_rate']
-    
-    plt.figure(figsize=(8, 6))
-    plt.bar(['Success Rate'], [success_rate], color='green')
-    plt.title('Transaction Success Rate')
-    plt.ylabel('Percentage')
-    plt.ylim(0, 100)
-    plt.grid(True, alpha=0.3)
-    plt.savefig('simulator/results/figs/success_rate.png')
-    plt.close()
-
 def plot_pending_transactions():
-    # Load pending transactions data
-    with open('simulator/results/data/pending_transactions_per_block.json', 'r') as f:
-        pending_data = json.load(f)
-    
-    # Load simulation parameters
+    # Load simulation stats
     with open('simulator/results/data/simulation_stats.json', 'r') as f:
-        sim_data = json.load(f)
+        stats = json.load(f)
     
     # Extract data
-    blocks = [entry['block'] for entry in pending_data['data']]
-    pending_counts = [entry['pending_count'] for entry in pending_data['data']]
+    blocks = [entry['block'] for entry in stats['results']['pending_transactions_per_block']]
+    pending = [entry['pending_count'] for entry in stats['results']['pending_transactions_per_block']]
     
-    # Create the plot
-    plt.figure(figsize=(12, 6))
-    plt.plot(blocks, pending_counts, 'b-', alpha=0.7)
-    plt.title('Pending Transactions per Block')
+    # Create line plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(blocks, pending)
+    plt.title('Pending Transactions Over Time')
     plt.xlabel('Block Number')
-    plt.ylabel('Number of Pending Transactions')
-    plt.grid(True, alpha=0.3)
+    plt.ylabel('Pending Transactions')
+    plt.grid(True)
+    plt.savefig('simulator/results/figs/pending_transactions.png')
+    plt.close()
+
+def plot_cumulative_transactions():
+    # Load simulation stats
+    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+        stats = json.load(f)
     
-    # Add statistics
-    avg_pending = sum(pending_counts) / len(pending_counts)
-    max_pending = max(pending_counts)
-    plt.text(0.02, 0.98, f'Average Pending: {avg_pending:.1f}\nMax Pending: {max_pending}', 
-             transform=plt.gca().transAxes, verticalalignment='top')
+    # Extract data
+    blocks = [entry['block'] for entry in stats['results']['pending_transactions_per_block']]
+    pending = [entry['pending_count'] for entry in stats['results']['pending_transactions_per_block']]
     
-    # Save the plot
-    plt.savefig('simulator/results/figs/pending_transactions.png', dpi=300, bbox_inches='tight')
+    # Create line plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(blocks, np.cumsum(pending))
+    plt.title('Cumulative Transactions')
+    plt.xlabel('Block Number')
+    plt.ylabel('Total Transactions')
+    plt.grid(True)
+    plt.savefig('simulator/results/figs/cumulative_transactions.png')
     plt.close()
 
 def plot_parameters():
@@ -209,18 +216,60 @@ def plot_parameters():
         f.write(f"Block Interval: {params['block_interval']}\n")
         f.write(f"Chain Delays: {params['chain_delays']}\n")
 
+def plot_simulation_results():
+    # Load simulation stats
+    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+        stats = json.load(f)
+    
+    # Extract data
+    total_txs = stats['results']['total_transactions']
+    successful_txs = stats['results']['successful_transactions']
+    failed_txs = stats['results']['failed_transactions']
+    cat_txs = stats['results']['cat_transactions']['count']
+    regular_txs = stats['results']['regular_transactions']['count']
+    
+    # Create figure with subplots
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+    
+    # Plot transaction success/failure
+    ax1.pie([successful_txs, failed_txs], labels=['Successful', 'Failed'], autopct='%1.1f%%')
+    ax1.set_title('Transaction Success Rate')
+    
+    # Plot transaction types
+    ax2.pie([cat_txs, regular_txs], labels=['CAT', 'Regular'], autopct='%1.1f%%')
+    ax2.set_title('Transaction Types')
+    
+    # Plot pending transactions over time
+    blocks = [entry['block'] for entry in stats['results']['pending_transactions_per_block']]
+    pending = [entry['pending_count'] for entry in stats['results']['pending_transactions_per_block']]
+    ax3.plot(blocks, pending)
+    ax3.set_title('Pending Transactions Over Time')
+    ax3.set_xlabel('Block Number')
+    ax3.set_ylabel('Pending Transactions')
+    
+    # Plot cumulative transactions
+    ax4.plot(blocks, np.cumsum(pending))
+    ax4.set_title('Cumulative Transactions')
+    ax4.set_xlabel('Block Number')
+    ax4.set_ylabel('Total Transactions')
+    
+    # Adjust layout and save
+    plt.tight_layout()
+    plt.savefig('simulator/results/figs/simulation_results.png')
+    plt.close()
+
 def main():
-    # Create figs directory if it doesn't exist
+    # Create results and figs directories if they don't exist
     os.makedirs('simulator/results/figs', exist_ok=True)
     
     # Generate all plots
-    plot_account_selection_distribution()
+    plot_transaction_success()
     plot_transaction_types()
-    plot_success_rate()
     plot_pending_transactions()
-    plot_parameters()
+    plot_cumulative_transactions()
+    plot_account_selection()
     
-    print("Plots generated in simulator/results/figs/")
+    print("All plots have been generated in the simulator/results/figs directory")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 

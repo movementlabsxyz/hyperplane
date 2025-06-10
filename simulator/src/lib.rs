@@ -3,6 +3,8 @@ pub mod account_selector;
 pub mod network;
 pub mod simulation;
 pub mod config;
+pub mod logging;
+pub mod account_selection;
 
 pub use stats::SimulatorStats;
 pub use account_selector::AccountSelector;

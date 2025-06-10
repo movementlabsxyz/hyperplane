@@ -3,3 +3,22 @@ hyperplane.log
 
 # Simulator results
 simulator/results/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Rust build artifacts
+**/*.rs.bk
+Cargo.lock
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -19,7 +19,7 @@ duration_seconds = 6
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
 # Must be greater than 0
-zipf_parameter = 0.0
+zipf_parameter = 1.0
 
 # Ratio of transactions that will be CATs
 ratio_cats = 0.1
