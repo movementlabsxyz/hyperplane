@@ -21,6 +21,9 @@ async fn main() -> Result<(), ConfigError> {
     
     // Enable logging if ENABLE_LOGS is set
     if env::var("ENABLE_LOGS").is_ok() {
+        // Create results directory if it doesn't exist
+        fs::create_dir_all("simulator/results").expect("Failed to create results directory");
+        
         // Delete existing log file if it exists
         let log_path = "simulator/results/simulation.log";
         if let Err(e) = fs::remove_file(log_path) {
