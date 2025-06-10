@@ -29,10 +29,10 @@ impl AccountSelector {
     /// Selects a random account using the Zipf distribution
     pub fn select_account(&self) -> usize {
         let mut rng = thread_rng();
-        let selected = self.zipf.sample(&mut rng) as usize - 1; // Convert from 1-based to 0-based
+        let selected = self.zipf.sample(&mut rng) as usize;
         logging::log("ACCOUNT_SELECTOR", &format!(
-            "Selected account {} (index {})",
-            selected, selected
+            "Selected account {}",
+            selected
         ));
         selected
     }

@@ -8,8 +8,6 @@ use tokio::time::{sleep, Duration};
 use tokio::sync::Mutex;
 use crate::account_selector::AccountSelector;
 use rand;
-use serde_json;
-use std::io::{self, Write};
 
 /// Runs the simulation for the specified duration
 ///
@@ -63,7 +61,7 @@ pub async fn run_simulation(
 
         // Select random node and account
         let node_idx = rand::random::<usize>() % cl_nodes.len();
-        let account = account_selector.select_account();
+        let account = account_selector.select_account();  // This is now 1-based
         
         // Track key selection
         *key_selection_counts.entry(account).or_insert(0) += 1;
@@ -73,7 +71,7 @@ pub async fn run_simulation(
             TransactionId(format!("sim-tx-{}", transactions_sent)),
             ChainId("chain-1".to_string()),
             vec![ChainId("chain-1".to_string())],
-            format!("REGULAR.send {} {} 1", account, (account + 1) % 100),
+            format!("REGULAR.send {} {} 1", account - 1, account % 100),  // Convert to 0-based for the transaction
             CLTransactionId(format!("cl-sim-tx-{}", transactions_sent)),
         ).expect("Failed to create transaction");
 

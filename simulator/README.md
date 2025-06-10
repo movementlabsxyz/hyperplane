@@ -64,3 +64,17 @@ The simulator is organized into several modules:
 - `account_selector.rs`: Manages account selection using Zipf distribution
 - `simulation.rs`: Core simulation logic and statistics tracking
 - `bin/simulator.rs`: Main entry point and configuration
+
+## Visualizing Results
+
+The simulator generates results in the `simulator/results` directory. To visualize these results:
+
+1. Install Python dependencies:
+```bash
+pip3 install -r simulator/scripts/requirements.txt
+```
+
+2. Run the visualization script:
+```bash
+python3 simulator/scripts/plot_results.py
+```
