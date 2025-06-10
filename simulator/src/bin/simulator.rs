@@ -47,6 +47,7 @@ async fn main() -> Result<(), ConfigError> {
         logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", config.simulation.duration_seconds));
         logging::log("SIMULATOR", &format!("Block Interval: {} seconds", config.simulation.block_interval_seconds));
         logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
+        logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.simulation.zipf_parameter));
         logging::log("SIMULATOR", "=============================");
     }
     
@@ -57,7 +58,7 @@ async fn main() -> Result<(), ConfigError> {
     initialize_accounts(&cl_nodes, config.simulation.initial_balance).await;
     
     // Create account selector
-    let account_selector = AccountSelector::new(config.simulation.num_accounts);
+    let account_selector = AccountSelector::new(config.simulation.num_accounts, config.simulation.zipf_parameter);
     
     // Run simulation
     run_simulation(

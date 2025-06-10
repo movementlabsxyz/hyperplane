@@ -21,6 +21,7 @@ pub struct SimulationConfig {
     pub target_tps: f64,
     pub duration_seconds: u64,
     pub block_interval_seconds: f64,
+    pub zipf_parameter: f64,
 }
 
 #[derive(Error, Debug)]
@@ -59,6 +60,9 @@ impl Config {
         }
         if self.simulation.block_interval_seconds <= 0.0 {
             return Err(ConfigError::ValidationError("Block interval must be positive".into()));
+        }
+        if self.simulation.zipf_parameter <= 0.0 {
+            return Err(ConfigError::ValidationError("Zipf parameter must be positive".into()));
         }
         Ok(())
     }

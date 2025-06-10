@@ -1,37 +1,43 @@
-use rand_distr::{Distribution, Zipf};
-use rand::rngs::ThreadRng;
 use hyperplane::utils::logging;
+use rand::distributions::Distribution;
+use rand_distr::Zipf;
+use rand::thread_rng;
 
 // ------------------------------------------------------------------------------------------------
 // Account Selection
 // ------------------------------------------------------------------------------------------------
 
-/// Handles account selection using a Zipf distribution
+/// Selects accounts according to a Zipf distribution
 pub struct AccountSelector {
-    rng: ThreadRng,
     zipf: Zipf<f64>,
-    accounts: Vec<String>,
+    zipf_parameter: f64,
 }
 
 impl AccountSelector {
     /// Creates a new account selector
-    pub fn new(num_accounts: usize) -> Self {
-        logging::log("SIMULATOR", &format!("Creating account selector with {} accounts", num_accounts));
-        let rng = ThreadRng::default();
-        let zipf = Zipf::new(num_accounts as u64, 1.0).expect("Failed to create Zipf distribution");
-        let accounts = (0..num_accounts)
-            .map(|i| i.to_string())
-            .collect();
-        logging::log("SIMULATOR", "Account selector initialized");
-        Self { rng, zipf, accounts }
+    pub fn new(num_accounts: usize, zipf_parameter: f64) -> Self {
+        logging::log("ACCOUNT_SELECTOR", &format!(
+            "Creating account selector with {} accounts and Zipf parameter {}",
+            num_accounts, zipf_parameter
+        ));
+        Self {
+            zipf: Zipf::new(num_accounts as u64, zipf_parameter).unwrap(),
+            zipf_parameter,
+        }
     }
 
     /// Selects a random account using the Zipf distribution
-    pub fn select_account(&mut self) -> String {
-        let sample = self.zipf.sample(&mut self.rng);
-        let idx = (sample as usize) - 1;
-        let account = self.accounts[idx].clone();
-        logging::log("SIMULATOR", &format!("Selected account: {} (index: {})", account, idx));
-        account
+    pub fn select_account(&self) -> usize {
+        let mut rng = thread_rng();
+        let selected = self.zipf.sample(&mut rng) as usize - 1; // Convert from 1-based to 0-based
+        logging::log("ACCOUNT_SELECTOR", &format!(
+            "Selected account {} (index {})",
+            selected, selected
+        ));
+        selected
+    }
+
+    pub fn get_zipf_parameter(&self) -> f64 {
+        self.zipf_parameter
     }
 } 
