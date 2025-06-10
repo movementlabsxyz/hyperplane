@@ -11,6 +11,8 @@ use hyperplane::{
 use crate::account_selector::AccountSelector;
 use std::collections::HashMap;
 use rand::Rng;
+use serde_json;
+use std::fs;
 
 /// Runs the simulation for the specified duration
 ///
@@ -194,6 +196,49 @@ pub async fn run_simulation(
     for (account, count) in sorted_counts.iter().take(10) {
         logging::log("SIMULATOR", &format!("Account {}: {} transactions", account, count));
     }
+
+    // Save statistics to JSON file
+    let stats = serde_json::json!({
+        "parameters": {
+            "initial_balance": _initial_balance,
+            "num_accounts": num_accounts,
+            "target_tps": target_tps,
+            "duration_seconds": duration_seconds,
+            "zipf_parameter": zipf_parameter,
+            "ratio_cats": ratio_cats,
+            "block_interval": block_interval,
+            "chain_delays": _chain_delays
+        },
+        "results": {
+            "total_transactions": transactions_sent,
+            "successful_transactions": successful_transactions,
+            "failed_transactions": failed_transactions,
+            "success_rate": (successful_transactions as f64 / transactions_sent as f64) * 100.0,
+            "cat_transactions": {
+                "count": cat_transactions,
+                "percentage": (cat_transactions as f64 / transactions_sent as f64) * 100.0
+            },
+            "regular_transactions": {
+                "count": regular_transactions,
+                "percentage": (regular_transactions as f64 / transactions_sent as f64) * 100.0
+            },
+            "account_selection_distribution": sorted_counts.iter().take(10).map(|(account, count)| {
+                serde_json::json!({
+                    "account": account,
+                    "transactions": count
+                })
+            }).collect::<Vec<_>>()
+        }
+    });
+
+    // Create results directory if it doesn't exist
+    fs::create_dir_all("simulator/results").expect("Failed to create results directory");
+    
+    // Write stats to file
+    fs::write(
+        "simulator/results/simulation_stats.json",
+        serde_json::to_string_pretty(&stats).expect("Failed to serialize stats")
+    ).expect("Failed to write stats file");
     
     Ok(())
 } 
