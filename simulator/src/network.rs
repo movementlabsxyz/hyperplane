@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
-use tokio::time::Duration;
 use hyperplane::{
     types::{ChainId, TransactionId, Transaction, CLTransaction, CLTransactionId, SubBlock},
     confirmation_layer::{ConfirmationLayerNode, ConfirmationLayer},
@@ -11,52 +10,6 @@ use hyperplane::{
 // Network Setup
 // ------------------------------------------------------------------------------------------------
 
-/// Sets up the network nodes (CL, HS, HIG) with appropriate channels and configurations
-pub async fn setup_nodes(chain_ids: &[String], chain_delays: &[f64], block_interval: f64) -> Vec<Arc<Mutex<ConfirmationLayerNode>>> {
-    logging::log("SIMULATOR", "Setting up network nodes...");
-
-    // Create channels for communication
-    let (_sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
-    
-    // Create CL node with configured block interval
-    let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(
-        receiver_hs_to_cl,
-        Duration::from_secs_f64(block_interval)
-    ).expect("Failed to create CL node")));
-    
-    // Start the CL node
-    ConfirmationLayerNode::start(cl_node.clone()).await;
-    
-    // Register each chain with its delay
-    for (i, (chain_id, delay)) in chain_ids.iter().zip(chain_delays.iter()).enumerate() {
-        logging::log("NETWORK", &format!("Registering chain {} with delay {} seconds", i + 1, delay));
-        
-        // Create channel for this chain
-        let (sender_cl_to_hig, mut receiver_cl_to_hig) = mpsc::channel(100);
-        
-        // Register the chain with the CL node
-        let chain_id = ChainId(chain_id.clone());
-        cl_node.lock().await.register_chain(chain_id.clone(), sender_cl_to_hig).await
-            .expect(&format!("Failed to register chain {}", i + 1));
-            
-        // Spawn a task to process subblocks for this chain
-        let chain_id_clone = chain_id.clone();
-        let delay = *delay; // Copy the delay value
-        tokio::spawn(async move {
-            while let Some(subblock) = receiver_cl_to_hig.recv().await {
-                logging::log("CHAIN", &format!("Chain {} received subblock at height {}", chain_id_clone.0, subblock.block_height));
-                // Simulate chain processing delay
-                tokio::time::sleep(Duration::from_secs_f64(delay)).await;
-                logging::log("CHAIN", &format!("Chain {} processed subblock at height {}", chain_id_clone.0, subblock.block_height));
-            }
-        });
-            
-        logging::log("NETWORK", &format!("Chain {} registered successfully", i + 1));
-    }
-    
-    logging::log("SIMULATOR", "Network setup complete");
-    vec![cl_node]
-}
 
 /// Creates a network of nodes with the specified number of nodes and chains
 pub async fn create_network(num_nodes: usize, num_chains: usize) -> Vec<Arc<Mutex<ConfirmationLayerNode>>> {

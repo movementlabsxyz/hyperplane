@@ -3,11 +3,12 @@ use std::fs;
 use chrono::Local;
 use hyperplane::utils::logging;
 use simulator::{
-    setup_nodes,
+    config::{Config, ConfigError},
     initialize_accounts,
     run_simulation,
-    config::{Config, ConfigError},
+    testnodes::setup_test_nodes,
 };
+use std::time::Duration;
 
 // ------------------------------------------------------------------------------------------------
 // Main
@@ -60,14 +61,18 @@ async fn main() -> Result<(), ConfigError> {
     let chain_delays: Vec<f64> = (0..config.chains.num_chains)
         .map(|i| config.chains.get_chain_delay(i).as_secs_f64())
         .collect();
-    let cl_nodes = setup_nodes(&config.chains.get_chain_ids(), &chain_delays, config.block_interval).await;
+    let (_hs_node, cl_node, hig_node_1, hig_node_2, _current_block) = setup_test_nodes(
+        Duration::from_secs_f64(config.block_interval),
+        &chain_delays
+    ).await;
     
     // Initialize accounts with initial balance
-    initialize_accounts(&cl_nodes, config.initial_balance.try_into().unwrap(), config.num_accounts.try_into().unwrap()).await;
+    initialize_accounts(&[cl_node.clone()], config.initial_balance.try_into().unwrap(), config.num_accounts.try_into().unwrap()).await;
     
     // Run simulation
     run_simulation(
-        cl_nodes,
+        cl_node,
+        vec![hig_node_1, hig_node_2],
         config.duration_seconds.try_into().unwrap(),
         config.initial_balance.try_into().unwrap(),
         config.num_accounts.try_into().unwrap(),

@@ -1,7 +1,7 @@
 use hyperplane::utils::logging;
 use rand::distributions::Distribution;
 use rand_distr::Zipf;
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 // ------------------------------------------------------------------------------------------------
 // Account Selection
@@ -29,18 +29,13 @@ impl AccountSelector {
     }
 
     /// Selects a random account using the Zipf distribution
-    pub fn select_account(&self) -> usize {
-        let mut rng = thread_rng();
+    pub fn select_account<R: Rng>(&self, rng: &mut R) -> usize {
         let selected = if self.zipf_parameter == 0.0 {
             // Use uniform distribution when zipf_parameter is 0
             rng.gen_range(1..=self.num_accounts)
         } else {
-            self.zipf.sample(&mut rng) as usize
+            self.zipf.sample(rng) as usize
         };
-        logging::log("ACCOUNT_SELECTOR", &format!(
-            "Selected account {}",
-            selected
-        ));
         selected
     }
 

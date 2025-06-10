@@ -25,8 +25,8 @@ pub enum TransactionStatus {
 pub struct Transaction {
     /// Unique identifier for this transaction
     pub id: TransactionId,
-    /// The target chain ID of this transaction
-    pub target_chain_id: ChainId,
+    /// The chain ID of this transaction
+    pub chain_id: ChainId,
     /// The chain IDs to which this transaction is destined
     pub constituent_chains: Vec<ChainId>,
     /// The actual transaction data (just a string for now)
@@ -41,20 +41,20 @@ impl Transaction {
     /// # Arguments
     ///
     /// * `id` - The unique identifier for this transaction
-    /// * `target_chain_id` - The chain ID of the target chain
+    /// * `chain_id` - The chain ID of the target chain
     /// * `constituent_chains` - The chain IDs of the constituent chains
     /// * `data` - The actual transaction data
     /// * `cl_id` - The ID of the CL transaction this transaction belongs to
-    pub fn new(id: TransactionId,target_chain_id: ChainId,constituent_chains: Vec<ChainId>,data: String,cl_id: CLTransactionId) -> Result<Self, String> {
+    pub fn new(id: TransactionId,chain_id: ChainId,constituent_chains: Vec<ChainId>,data: String,cl_id: CLTransactionId) -> Result<Self, String> {
         if constituent_chains.is_empty() {
             return Err("Transaction must have at least one constituent chain".to_string());
         }
-        if !constituent_chains.contains(&target_chain_id) {
+        if !constituent_chains.contains(&chain_id) {
             return Err("Target chain must be in constituent chains".to_string());
         }
         // Use TransactionData's validation logic
         TransactionData::validate(&data)?;
-        Ok(Self {id,target_chain_id,constituent_chains,data,cl_id})
+        Ok(Self {id,chain_id,constituent_chains,data,cl_id})
     }
 }
 

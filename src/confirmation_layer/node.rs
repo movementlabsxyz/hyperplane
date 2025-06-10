@@ -160,7 +160,7 @@ impl ConfirmationLayerNode {
                     if is_valid {
                         // Add to processed transactions for each transaction's this_chain_id
                         for tx in &cl_tx.transactions {
-                            processed_this_block.push((tx.target_chain_id.clone(), tx.clone()));
+                            processed_this_block.push((tx.chain_id.clone(), tx.clone()));
                         }
                         processed_cltransactions.push(cl_tx.clone());
                         inner_state.processed_cltransaction_ids.insert(cl_tx.id.clone());
@@ -267,7 +267,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction::new(
                     tx.id.clone(),
-                    tx.target_chain_id.clone(),
+                    tx.chain_id.clone(),
                     tx.constituent_chains.clone(),
                     tx.data.clone(),
                     tx.cl_id.clone(),

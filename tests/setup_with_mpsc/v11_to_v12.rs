@@ -233,7 +233,7 @@ impl TestNodeStateV11 {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, cl_tx)| Transaction::new(
                     cl_tx.transactions[0].id.clone(),
-                    cl_tx.transactions[0].target_chain_id.clone(),
+                    cl_tx.transactions[0].chain_id.clone(),
                     cl_tx.transactions[0].constituent_chains.clone(),
                     cl_tx.transactions[0].data.clone(),
                     cl_tx.transactions[0].cl_id.clone(),
@@ -288,7 +288,7 @@ async fn run_processor_v11(state: Arc<Mutex<TestNodeStateV11>>) {
                     .filter(|(cid, _)| cid == chain_id)
                     .map(|(_, cl_tx)| Transaction::new(
                         cl_tx.transactions[0].id.clone(),
-                        cl_tx.transactions[0].target_chain_id.clone(),
+                        cl_tx.transactions[0].chain_id.clone(),
                         cl_tx.transactions[0].constituent_chains.clone(),
                         cl_tx.transactions[0].data.clone(),
                         cl_tx.transactions[0].cl_id.clone(),
@@ -580,7 +580,7 @@ impl TestConfirmationLayerNode {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, cl_tx)| Transaction::new(
                     cl_tx.transactions[0].id.clone(),
-                    cl_tx.transactions[0].target_chain_id.clone(),
+                    cl_tx.transactions[0].chain_id.clone(),
                     cl_tx.transactions[0].constituent_chains.clone(),
                     cl_tx.transactions[0].data.clone(),
                     cl_tx.transactions[0].cl_id.clone(),
@@ -709,7 +709,7 @@ async fn run_transaction_processor_v12(cl_node: Arc<Mutex<TestConfirmationLayerN
                     .filter(|(cid, _)| cid == chain_id)
                     .map(|(_, cl_tx)| Transaction::new(
                         cl_tx.transactions[0].id.clone(),
-                        cl_tx.transactions[0].target_chain_id.clone(),
+                        cl_tx.transactions[0].chain_id.clone(),
                         cl_tx.transactions[0].constituent_chains.clone(),
                         cl_tx.transactions[0].data.clone(),
                         cl_tx.transactions[0].cl_id.clone(),
@@ -801,7 +801,7 @@ impl TestConfirmationLayer {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction::new(
                     tx.id.clone(),
-                    tx.target_chain_id.clone(),
+                    tx.chain_id.clone(),
                     tx.constituent_chains.clone(),
                     tx.data.clone(),
                     tx.cl_id.clone(),

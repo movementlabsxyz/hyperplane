@@ -31,6 +31,15 @@ This models real-world scenarios where:
 
 The Zipf parameter controls how skewed the distribution is - higher values mean more concentration of transactions to popular accounts.
 
+## Transaction Symmetry
+
+The simulator enforces transaction symmetry across chains:
+
+- For regular transactions: The same transaction is submitted to both chains (chain-1 and chain-2) as separate CL transactions
+- For CAT transactions: A single CL transaction is created with two constituent transactions (one for each chain)
+
+This symmetry ensures that both chains process the same workload, making it easier to analyze performance and behavior.
+
 ## Usage
 
 ```bash

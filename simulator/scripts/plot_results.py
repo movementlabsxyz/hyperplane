@@ -151,8 +151,8 @@ def plot_transaction_types():
         stats = json.load(f)
     
     # Extract data
-    cat_txs = stats['results']['cat_transactions']['count']
-    regular_txs = stats['results']['regular_transactions']['count']
+    cat_txs = stats['results']['cat_transactions']
+    regular_txs = stats['results']['regular_transactions']
     
     # Create pie chart
     plt.figure(figsize=(8, 8))
@@ -162,21 +162,22 @@ def plot_transaction_types():
     plt.close()
 
 def plot_pending_transactions():
-    # Load simulation stats
-    with open('simulator/results/data/simulation_stats.json', 'r') as f:
-        stats = json.load(f)
+    # Load pending transactions data
+    with open('simulator/results/data/pending_transactions.json', 'r') as f:
+        data = json.load(f)
     
     # Extract data
-    blocks = [entry['block'] for entry in stats['results']['pending_transactions_per_block']]
-    pending = [entry['pending_count'] for entry in stats['results']['pending_transactions_per_block']]
+    blocks = [entry['block'] for entry in data['pending_transactions_by_height']]
+    pending_counts = [entry['pending_count'] for entry in data['pending_transactions_by_height']]
     
-    # Create line plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(blocks, pending)
-    plt.title('Pending Transactions Over Time')
+    # Create plot
+    plt.figure(figsize=(12, 6))
+    plt.plot(blocks, pending_counts, 'b-', label='Pending Transactions')
+    plt.title('Pending Transactions by height')
     plt.xlabel('Block Number')
-    plt.ylabel('Pending Transactions')
+    plt.ylabel('Number of Pending Transactions')
     plt.grid(True)
+    plt.legend()
     plt.savefig('simulator/results/figs/pending_transactions.png')
     plt.close()
 
@@ -185,17 +186,30 @@ def plot_cumulative_transactions():
     with open('simulator/results/data/simulation_stats.json', 'r') as f:
         stats = json.load(f)
     
+    # Load pending transactions data
+    with open('simulator/results/data/pending_transactions.json', 'r') as f:
+        pending_data = json.load(f)
+    
     # Extract data
-    blocks = [entry['block'] for entry in stats['results']['pending_transactions_per_block']]
-    pending = [entry['pending_count'] for entry in stats['results']['pending_transactions_per_block']]
+    blocks = [entry['block'] for entry in pending_data['pending_transactions_by_height']]
+    pending = [entry['pending_count'] for entry in pending_data['pending_transactions_by_height']]
+    
+    # Calculate cumulative transactions
+    total_txs = stats['results']['total_transactions']
+    successful_txs = stats['results']['successful_transactions']
+    failed_txs = stats['results']['failed_transactions']
     
     # Create line plot
     plt.figure(figsize=(10, 6))
-    plt.plot(blocks, np.cumsum(pending))
-    plt.title('Cumulative Transactions')
+    plt.plot(blocks, pending, label='Pending')
+    plt.axhline(y=total_txs, color='g', linestyle='--', label='Total')
+    plt.axhline(y=successful_txs, color='b', linestyle='--', label='Successful')
+    plt.axhline(y=failed_txs, color='r', linestyle='--', label='Failed')
+    plt.title('Cumulative Transactions Over Time')
     plt.xlabel('Block Number')
-    plt.ylabel('Total Transactions')
+    plt.ylabel('Number of Transactions')
     plt.grid(True)
+    plt.legend()
     plt.savefig('simulator/results/figs/cumulative_transactions.png')
     plt.close()
 
@@ -225,8 +239,8 @@ def plot_simulation_results():
     total_txs = stats['results']['total_transactions']
     successful_txs = stats['results']['successful_transactions']
     failed_txs = stats['results']['failed_transactions']
-    cat_txs = stats['results']['cat_transactions']['count']
-    regular_txs = stats['results']['regular_transactions']['count']
+    cat_txs = stats['results']['cat_transactions']
+    regular_txs = stats['results']['regular_transactions']
     
     # Create figure with subplots
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
@@ -240,8 +254,8 @@ def plot_simulation_results():
     ax2.set_title('Transaction Types')
     
     # Plot pending transactions over time
-    blocks = [entry['block'] for entry in stats['results']['pending_transactions_per_block']]
-    pending = [entry['pending_count'] for entry in stats['results']['pending_transactions_per_block']]
+    blocks = [entry['block'] for entry in stats['results']['pending_transactions_by_height']]
+    pending = [entry['pending_count'] for entry in stats['results']['pending_transactions_by_height']]
     ax3.plot(blocks, pending)
     ax3.set_title('Pending Transactions Over Time')
     ax3.set_xlabel('Block Number')
