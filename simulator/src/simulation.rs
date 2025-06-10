@@ -47,6 +47,7 @@ pub async fn run_simulation(
     let mut successful_transactions = 0;
     let mut failed_transactions = 0;
     let mut key_selection_counts = std::collections::HashMap::new();
+    let mut pending_txs_per_height = std::collections::HashMap::new();
     
     while Instant::now() < end_time {
         // Select random account
@@ -78,6 +79,13 @@ pub async fn run_simulation(
             failed_transactions += 1;
             logging::log("SIMULATOR", &format!("Transaction {} failed to submit", transactions_sent));
         }
+
+        // Get current block height and pending transactions
+        let node = cl_nodes[0].lock().await;
+        let current_height = node.get_current_block().await.unwrap();
+        let state = node.state.lock().await;
+        let pending_txs = state.pending_transactions.len();
+        *pending_txs_per_height.entry(current_height).or_insert(0) = pending_txs;
 
         // Update progress bar
         let elapsed = start_time.elapsed();
@@ -148,6 +156,30 @@ pub async fn run_simulation(
         }
     } else {
         eprintln!("Error creating key stats file");
+    }
+
+    // Create pending transactions stats
+    let mut pending_stats: Vec<_> = pending_txs_per_height.into_iter().collect();
+    pending_stats.sort_by_key(|(height, _)| *height);
+
+    let pending_stats_json = json!({
+        "pending_transactions_per_height": pending_stats.iter().map(|(height, count)| {
+            json!({
+                "height": height,
+                "pending_transactions": count
+            })
+        }).collect::<Vec<_>>(),
+        "timestamp": chrono::Local::now().to_rfc3339()
+    });
+
+    // Write pending transactions stats to file
+    let pending_stats_file = "simulator/results/pending_transactions_stats.json";
+    if let Ok(mut file) = File::create(pending_stats_file) {
+        if let Err(e) = writeln!(file, "{}", serde_json::to_string_pretty(&pending_stats_json).unwrap()) {
+            eprintln!("Error writing pending stats file: {}", e);
+        }
+    } else {
+        eprintln!("Error creating pending stats file");
     }
     
     // Log final statistics

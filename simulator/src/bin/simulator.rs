@@ -1,22 +1,14 @@
 use std::env;
-use std::time::Duration;
 use std::fs;
 use chrono::Local;
 use hyperplane::utils::logging;
 use simulator::{
-    network::{setup_nodes, initialize_accounts},
-    simulation::run_simulation,
-    account_selector::AccountSelector,
+    setup_nodes,
+    initialize_accounts,
+    run_simulation,
+    AccountSelector,
+    config::{Config, ConfigError},
 };
-
-// ------------------------------------------------------------------------------------------------
-// Constants
-// ------------------------------------------------------------------------------------------------
-
-const INITIAL_BALANCE: i64 = 1000;
-const NUM_ACCOUNTS: usize = 100;
-const TARGET_TPS: f64 = 10.0;
-const SIMULATION_DURATION: Duration = Duration::from_secs(6); // 6 seconds
 
 // ------------------------------------------------------------------------------------------------
 // Main
@@ -24,7 +16,10 @@ const SIMULATION_DURATION: Duration = Duration::from_secs(6); // 6 seconds
 
 /// Main function that orchestrates the simulation setup and execution
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), ConfigError> {
+    // Load configuration
+    let config = Config::load()?;
+    
     // Enable logging if ENABLE_LOGS is set
     if env::var("ENABLE_LOGS").is_ok() {
         // Delete existing log file if it exists
@@ -46,27 +41,31 @@ async fn main() {
         let start_time = Local::now();
         logging::log("SIMULATOR", "=== Simulation Configuration ===");
         logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
-        logging::log("SIMULATOR", &format!("Initial Balance: {}", INITIAL_BALANCE));
-        logging::log("SIMULATOR", &format!("Number of Accounts: {}", NUM_ACCOUNTS));
-        logging::log("SIMULATOR", &format!("Target TPS: {}", TARGET_TPS));
-        logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", SIMULATION_DURATION.as_secs()));
+        logging::log("SIMULATOR", &format!("Initial Balance: {}", config.simulation.initial_balance));
+        logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.simulation.num_accounts));
+        logging::log("SIMULATOR", &format!("Target TPS: {}", config.simulation.target_tps));
+        logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", config.simulation.duration_seconds));
+        logging::log("SIMULATOR", &format!("Block Interval: {} seconds", config.simulation.block_interval_seconds));
+        logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
         logging::log("SIMULATOR", "=============================");
     }
-
+    
     // Setup nodes
     let cl_nodes = setup_nodes().await;
-
+    
     // Initialize accounts
-    initialize_accounts(&cl_nodes, INITIAL_BALANCE).await;
-
+    initialize_accounts(&cl_nodes, config.simulation.initial_balance).await;
+    
     // Create account selector
-    let account_selector = AccountSelector::new(NUM_ACCOUNTS);
-
+    let account_selector = AccountSelector::new(config.simulation.num_accounts);
+    
     // Run simulation
     run_simulation(
         &cl_nodes,
         account_selector,
-        TARGET_TPS,
-        SIMULATION_DURATION,
+        config.simulation.target_tps,
+        config.get_duration(),
     ).await;
+
+    Ok(())
 } 

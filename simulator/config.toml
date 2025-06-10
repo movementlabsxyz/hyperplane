@@ -1,0 +1,27 @@
+# Network configuration
+[network]
+# Number of confirmation layer nodes to create
+# Each node represents a separate chain in the network
+num_chains = 1
+
+# Simulation configuration
+[simulation]
+# Initial balance for each account in the simulation
+# This is the amount of tokens each account starts with
+initial_balance = 1000
+
+# Number of accounts to create in the simulation
+# These accounts will be used to send transactions between
+num_accounts = 100
+
+# Target transactions per second to maintain during simulation
+# The simulator will try to maintain this rate by adjusting delays
+target_tps = 10.0
+
+# Duration of the simulation in seconds
+# The simulation will run for this many seconds
+duration_seconds = 6
+
+# Block interval in seconds
+# This determines how often new blocks are created
+block_interval_seconds = 1.0 
