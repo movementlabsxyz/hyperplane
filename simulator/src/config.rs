@@ -5,23 +5,32 @@ use thiserror::Error;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub network: NetworkConfig,
-    pub simulation: SimulationConfig,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct NetworkConfig {
-    pub num_chains: usize,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct SimulationConfig {
     pub initial_balance: i64,
     pub num_accounts: usize,
     pub target_tps: f64,
     pub duration_seconds: u64,
-    pub block_interval_seconds: f64,
     pub zipf_parameter: f64,
+    pub ratio_cats: f64,
+    pub block_interval: f64,  // Block interval in seconds
+    pub chains: ChainConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ChainConfig {
+    pub num_chains: usize,
+    pub delays: Vec<f64>,  // Delay in seconds for each chain
+}
+
+impl ChainConfig {
+    pub fn get_chain_ids(&self) -> Vec<String> {
+        (1..=self.num_chains)
+            .map(|i| format!("chain-{}", i))
+            .collect()
+    }
+
+    pub fn get_chain_delay(&self, chain_index: usize) -> Duration {
+        Duration::from_secs_f64(self.delays[chain_index])
+    }
 }
 
 #[derive(Error, Debug)]
@@ -43,31 +52,42 @@ impl Config {
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
-        if self.network.num_chains == 0 {
-            return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
-        }
-        if self.simulation.initial_balance <= 0 {
+        if self.initial_balance <= 0 {
             return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
         }
-        if self.simulation.num_accounts == 0 {
+        if self.num_accounts == 0 {
             return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
         }
-        if self.simulation.target_tps <= 0.0 {
+        if self.target_tps <= 0.0 {
             return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
         }
-        if self.simulation.duration_seconds == 0 {
+        if self.duration_seconds == 0 {
             return Err(ConfigError::ValidationError("Duration must be positive".into()));
         }
-        if self.simulation.block_interval_seconds <= 0.0 {
+        if self.zipf_parameter <= 0.0 {
+            return Err(ConfigError::ValidationError("Zipf parameter must be positive".into()));
+        }
+        if self.ratio_cats <= 0.0 {
+            return Err(ConfigError::ValidationError("Ratio cats must be positive".into()));
+        }
+        if self.block_interval <= 0.0 {
             return Err(ConfigError::ValidationError("Block interval must be positive".into()));
         }
-        if self.simulation.zipf_parameter <= 0.0 {
-            return Err(ConfigError::ValidationError("Zipf parameter must be positive".into()));
+        if self.chains.num_chains == 0 {
+            return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
+        }
+        if self.chains.delays.len() != self.chains.num_chains {
+            return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
+        }
+        for (i, delay) in self.chains.delays.iter().enumerate() {
+            if *delay < 0.0 {
+                return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
+            }
         }
         Ok(())
     }
 
     pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.simulation.duration_seconds)
+        Duration::from_secs(self.duration_seconds)
     }
 } 

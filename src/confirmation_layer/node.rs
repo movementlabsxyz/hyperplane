@@ -227,6 +227,11 @@ impl ConfirmationLayerNode {
         log("CL", "Starting block production");
         tokio::spawn(async move { Self::process_messages_and_create_blocks(node).await });
     }
+
+    async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError> {
+        let state = self.state.lock().await;
+        Ok(state.pending_transactions.len())
+    }
 }
 
 #[async_trait::async_trait]
@@ -320,6 +325,10 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         Ok(state.current_block_height)
     }
 
+    async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError> {
+        let state = self.state.lock().await;
+        Ok(state.pending_transactions.len())
+    }
 }
 
 #[async_trait::async_trait]
@@ -359,4 +368,8 @@ impl ConfirmationLayer for Arc<Mutex<ConfirmationLayerNode>> {
         node.register_chain(chain_id, sender).await
     }
 
+    async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError> {
+        let node = self.lock().await;
+        node.get_pending_transactions().await
+    }
 }

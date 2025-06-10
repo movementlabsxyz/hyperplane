@@ -6,7 +6,6 @@ use simulator::{
     setup_nodes,
     initialize_accounts,
     run_simulation,
-    AccountSelector,
     config::{Config, ConfigError},
 };
 
@@ -41,32 +40,40 @@ async fn main() -> Result<(), ConfigError> {
         let start_time = Local::now();
         logging::log("SIMULATOR", "=== Simulation Configuration ===");
         logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
-        logging::log("SIMULATOR", &format!("Initial Balance: {}", config.simulation.initial_balance));
-        logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.simulation.num_accounts));
-        logging::log("SIMULATOR", &format!("Target TPS: {}", config.simulation.target_tps));
-        logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", config.simulation.duration_seconds));
-        logging::log("SIMULATOR", &format!("Block Interval: {} seconds", config.simulation.block_interval_seconds));
-        logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
-        logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.simulation.zipf_parameter));
+        logging::log("SIMULATOR", &format!("Initial Balance: {}", config.initial_balance));
+        logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.num_accounts));
+        logging::log("SIMULATOR", &format!("Target TPS: {}", config.target_tps));
+        logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", config.duration_seconds));
+        logging::log("SIMULATOR", &format!("Number of Chains: {}", config.chains.num_chains));
+        logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.zipf_parameter));
+        logging::log("SIMULATOR", &format!("Ratio CATs: {}", config.ratio_cats));
+        for (i, delay) in config.chains.delays.iter().enumerate() {
+            logging::log("SIMULATOR", &format!("Chain {} Delay: {} seconds", i + 1, delay));
+        }
         logging::log("SIMULATOR", "=============================");
     }
     
-    // Setup nodes
-    let cl_nodes = setup_nodes().await;
+    // Setup nodes with chain-specific delays
+    let chain_delays: Vec<f64> = (0..config.chains.num_chains)
+        .map(|i| config.chains.get_chain_delay(i).as_secs_f64())
+        .collect();
+    let cl_nodes = setup_nodes(&config.chains.get_chain_ids(), &chain_delays, config.block_interval).await;
     
-    // Initialize accounts
-    initialize_accounts(&cl_nodes, config.simulation.initial_balance).await;
-    
-    // Create account selector
-    let account_selector = AccountSelector::new(config.simulation.num_accounts, config.simulation.zipf_parameter);
+    // Initialize accounts with initial balance
+    initialize_accounts(&cl_nodes, config.initial_balance.try_into().unwrap(), config.num_accounts.try_into().unwrap()).await;
     
     // Run simulation
     run_simulation(
-        &cl_nodes,
-        account_selector,
-        config.simulation.target_tps,
-        config.get_duration(),
-    ).await;
+        cl_nodes,
+        config.duration_seconds.try_into().unwrap(),
+        config.initial_balance.try_into().unwrap(),
+        config.num_accounts.try_into().unwrap(),
+        config.target_tps as u64,
+        config.zipf_parameter,
+        chain_delays,
+        config.block_interval,
+        config.ratio_cats,
+    ).await.map_err(|e| ConfigError::ValidationError(e))?;
 
     Ok(())
 } 
