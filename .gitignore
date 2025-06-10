@@ -1,2 +1,5 @@
 target/
 hyperplane.log
+
+# Simulator results
+simulator/results/
