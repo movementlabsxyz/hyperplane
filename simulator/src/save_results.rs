@@ -9,8 +9,7 @@ use hyperplane::utils::logging;
 /// # Arguments
 ///
 /// * `transactions_sent` - Total number of transactions sent
-/// * `successful_transactions` - Number of successful transactions
-/// * `failed_transactions` - Number of failed transactions
+
 /// * `cat_transactions` - Number of CAT transactions
 /// * `regular_transactions` - Number of regular transactions
 /// * `initial_balance` - Initial balance for transactions
@@ -27,8 +26,6 @@ use hyperplane::utils::logging;
 /// * `start_time` - Start time of simulation
 pub async fn save_results(
     transactions_sent: u64,
-    successful_transactions: u64,
-    failed_transactions: u64,
     cat_transactions: u64,
     regular_transactions: u64,
     initial_balance: u64,
@@ -48,8 +45,6 @@ pub async fn save_results(
     // Print final statistics
     logging::log("SIMULATOR", "\n=== Simulation Statistics ===");
     logging::log("SIMULATOR", &format!("Total Transactions: {}", transactions_sent));
-    logging::log("SIMULATOR", &format!("Successful Transactions: {}", successful_transactions));
-    logging::log("SIMULATOR", &format!("Failed Transactions: {}", failed_transactions));
     logging::log("SIMULATOR", &format!("CAT Transactions: {}", cat_transactions));
     logging::log("SIMULATOR", &format!("Regular Transactions: {}", regular_transactions));
     logging::log("SIMULATOR", &format!("Actual TPS: {:.2}", transactions_sent as f64 / start_time.elapsed().as_secs_f64()));
@@ -69,8 +64,6 @@ pub async fn save_results(
         },
         "results": {
             "total_transactions": transactions_sent,
-            "successful_transactions": successful_transactions,
-            "failed_transactions": failed_transactions,
             "cat_transactions": cat_transactions,
             "regular_transactions": regular_transactions
         }

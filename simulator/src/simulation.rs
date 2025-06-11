@@ -78,10 +78,8 @@ pub async fn run_simulation(
     
     // Initialize counters
     let mut transactions_sent = 0;
-    let mut successful_transactions = 0;
-    let mut failed_transactions = 0;
-    let mut cat_transactions = 0;
-    let mut regular_transactions = 0;
+    let cat_transactions = 0;
+    let regular_transactions = 0;
     
     // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.
     let mut chain_1_pending: Vec<(u64, u64)> = Vec::new();
@@ -178,8 +176,6 @@ pub async fn run_simulation(
  
     save_results::save_results(
         transactions_sent,
-        successful_transactions,
-        failed_transactions,
         cat_transactions,
         regular_transactions,
         initial_balance,
