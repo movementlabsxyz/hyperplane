@@ -526,6 +526,16 @@ impl HyperIGNode {
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("No transaction ID found for CAT ID: {}", cat_id.0))?;
         
+        // Check if the CAT has already timed out
+        let current_status = self.state.lock().await.transaction_statuses.get(&tx_id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No status found for transaction: {}", tx_id))?;
+        
+        if current_status == TransactionStatus::Failure {
+            log(&format!("HIG-{}", chain_id), &format!("Ignoring status update for timed out CAT tx-id='{}'", tx_id.0));
+            return Ok(current_status);
+        }
+        
         // Has format STATUS_UPDATE:<Status>.CAT_ID:<cat_id>
         let status_part = tx.data.split(".").collect::<Vec<&str>>()[0];
         let status_part = status_part.split(":").collect::<Vec<&str>>()[1];
