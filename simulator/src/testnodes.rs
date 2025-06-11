@@ -11,6 +11,10 @@ use tokio::sync::mpsc;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+// ------------------------------------------------------------------------------------------------
+// Test Node Setup
+// ------------------------------------------------------------------------------------------------
+
 /// Helper function to create test nodes with basic setup
 /// Returns a tuple of the nodes and the current block number at the end of the setup
 ///
@@ -27,7 +31,7 @@ use tokio::sync::Mutex;
 /// * `hig_node_2` - The hyperig node for chain-2
 /// * `current_block` - The current block number at the end of the setup
 ///
-pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[f64]) 
+pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration]) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Initialize logging
     logging::init_logging();
@@ -89,9 +93,9 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[f64])
     logging::log("NODES SETUP", &format!("Nodes setup complete, current block: {}", current_block));
 
     // set the chain delays
-    hig_node_1.lock().await.set_hs_message_delay(Duration::from_secs_f64(chain_delays[0]));
-    hig_node_2.lock().await.set_hs_message_delay(Duration::from_secs_f64(chain_delays[1]));
-    logging::log("TEST", &format!("Set HIG-chain-1 delay to {}s and HIG-chain-2 delay to {}s", chain_delays[0], chain_delays[1]));
+    hig_node_1.lock().await.set_hs_message_delay(chain_delays[0]);
+    hig_node_2.lock().await.set_hs_message_delay(chain_delays[1]);
+    logging::log("TEST", &format!("Set HIG-chain-1 delay to {:?} and HIG-chain-2 delay to {:?}", chain_delays[0], chain_delays[1]));
 
     (hs_node, cl_node, hig_node_1, hig_node_2, current_block)
 } 

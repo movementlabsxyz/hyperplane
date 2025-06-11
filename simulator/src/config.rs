@@ -18,7 +18,23 @@ pub struct Config {
 #[derive(Debug, Deserialize)]
 pub struct ChainConfig {
     pub num_chains: usize,
-    pub delays: Vec<f64>,  // Delay in seconds for each chain
+    #[serde(deserialize_with = "deserialize_durations")]
+    pub delays: Vec<Duration>,  // Delay for each chain
+}
+
+/// Deserialize durations from a vector of f64 values
+/// 
+/// # Arguments
+/// 
+/// * `deserializer` - The deserializer to use
+/// 
+/// # Returns
+fn deserialize_durations<'de, D>(deserializer: D) -> Result<Vec<Duration>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let delays: Vec<f64> = Vec::deserialize(deserializer)?;
+    Ok(delays.into_iter().map(Duration::from_secs_f64).collect())
 }
 
 impl ChainConfig {
@@ -26,10 +42,6 @@ impl ChainConfig {
         (1..=self.num_chains)
             .map(|i| format!("chain-{}", i))
             .collect()
-    }
-
-    pub fn get_chain_delay(&self, chain_index: usize) -> Duration {
-        Duration::from_secs_f64(self.delays[chain_index])
     }
 }
 
@@ -80,7 +92,7 @@ impl Config {
             return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
         }
         for (i, delay) in self.chains.delays.iter().enumerate() {
-            if *delay < 0.0 {
+            if delay.as_secs_f64() < 0.0 {
                 return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
             }
         }

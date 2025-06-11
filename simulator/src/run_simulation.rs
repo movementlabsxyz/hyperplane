@@ -14,6 +14,10 @@ use crate::account_selector::AccountSelector;
 use rand::Rng;
 use crate::SimulationResults;
 
+// ------------------------------------------------------------------------------------------------
+// Main Simulation Function
+// ------------------------------------------------------------------------------------------------
+
 /// Runs the simulation for the specified duration
 ///
 /// # Arguments
@@ -62,7 +66,7 @@ pub async fn run_simulation(
 
     // Set HIG delays
     for (i, delay) in results.chain_delays.iter().enumerate() {
-        hig_nodes[i].lock().await.set_hs_message_delay(Duration::from_secs_f64(*delay));
+        hig_nodes[i].lock().await.set_hs_message_delay(*delay);
     }
     
     // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.
@@ -156,6 +160,10 @@ pub async fn run_simulation(
     
     Ok(())
 }
+
+// ------------------------------------------------------------------------------------------------
+// Transaction Creation and Submission
+// ------------------------------------------------------------------------------------------------
 
 /// Creates and submits a CAT transaction
 /// 
