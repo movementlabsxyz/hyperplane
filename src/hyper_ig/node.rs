@@ -144,7 +144,7 @@ impl HyperIGNode {
 
         // Update status for timed out CATs
         for (cat_id, tx_id) in timed_out_cats {
-            log(&format!("HIG-{}", chain_id), &format!("CAT {} timed out at block height {}", cat_id.0, current_block_height));
+            log(&format!("HIG-{}", chain_id), &format!("CAT '{}' timed out at block height {}", cat_id.0, current_block_height));
             
             // Update transaction status to Failure
             state.transaction_statuses.insert(tx_id.clone(), TransactionStatus::Failure);
