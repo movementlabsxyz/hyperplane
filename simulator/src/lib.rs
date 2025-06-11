@@ -6,6 +6,7 @@ pub mod config;
 pub mod logging;
 pub mod account_selection;
 pub mod testnodes;
+pub mod save_results;
 
 pub use stats::SimulatorStats;
 pub use account_selector::AccountSelector;

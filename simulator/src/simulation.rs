@@ -7,13 +7,13 @@ use hyperplane::{
     types::{TransactionId, Transaction, CLTransaction, CLTransactionId, ChainId},
     confirmation_layer::{ConfirmationLayerNode, ConfirmationLayer},
     hyper_ig::node::HyperIGNode,
+    hyper_ig::HyperIG,
     utils::logging,
 };
 use crate::account_selector::AccountSelector;
 use rand::Rng;
-use serde_json;
-use std::fs;
 use crate::account_selection::AccountSelectionStats;
+use crate::save_results;
 
 /// Runs the simulation for the specified duration
 ///
@@ -65,8 +65,8 @@ pub async fn run_simulation(
     let total_transactions = target_tps * duration_seconds;
     
     // Create progress bar
-    let pb = ProgressBar::new(total_transactions);
-    pb.set_style(ProgressStyle::default_bar()
+    let progress_bar = ProgressBar::new(total_transactions);
+    progress_bar.set_style(ProgressStyle::default_bar()
         .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} transactions ({eta})")
         .unwrap()
         .progress_chars("##-"));
@@ -82,9 +82,21 @@ pub async fn run_simulation(
     let mut failed_transactions = 0;
     let mut cat_transactions = 0;
     let mut regular_transactions = 0;
-    let mut pending_transactions_by_height = Vec::new();
+    
+    // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.
+    let mut chain_1_pending: Vec<(u64, u64)> = Vec::new();
+    let mut _chain_1_success: Vec<(u64, u64)> = Vec::new();
+    let mut _chain_1_failure: Vec<(u64, u64)> = Vec::new();
+    let mut chain_2_pending: Vec<(u64, u64)> = Vec::new();
+    let mut _chain_2_success: Vec<(u64, u64)> = Vec::new();
+    let mut _chain_2_failure: Vec<(u64, u64)> = Vec::new();
+    
     let mut current_block = 0;
-    let mut last_pending_count = 0;
+    
+    // Get registered chains
+    let chains = cl_node.lock().await.get_registered_chains().await.map_err(|e| e.to_string())?;
+    let chain_id_1 = chains[0].clone();
+    let chain_id_2 = chains[1].clone();
     
     // Main simulation loop
     let start_time = std::time::Instant::now();
@@ -96,10 +108,6 @@ pub async fn run_simulation(
         // Record transaction in account statistics
         account_stats.record_transaction(from_account as u64, to_account as u64);
         
-        // Get registered chains
-        let chains = cl_node.lock().await.get_registered_chains().await.map_err(|e| e.to_string())?;
-        let chain_id_1 = chains[0].clone();
-        let chain_id_2 = chains[1].clone();
         
         // Determine if this should be a CAT transaction based on configured ratio
         let is_cat = rng.gen_bool(ratio_cats);
@@ -120,46 +128,44 @@ pub async fn run_simulation(
             create_and_submit_cat_transaction(
                 &cl_node,
                 cl_id,
-                chain_id_1,
-                chain_id_2,
-                tx_data,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+                tx_data.clone(),
             ).await?
         } else {
             create_and_submit_regular_transaction(
                 &cl_node,
                 cl_id,
-                chain_id_1,
-                chain_id_2,
-                tx_data,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+                tx_data.clone(),
             ).await?
         };
 
         if success {
-            successful_transactions += 1;
-            if is_cat {
-                cat_transactions += 1;
-            } else {
-                regular_transactions += 1;
-            }
+            logging::log("SIMULATOR", &format!("Transaction successful submitted to CL  : {}", tx_data));
         } else {
-            failed_transactions += 1;
+            logging::log("SIMULATOR", &format!("Transaction failed submitted to CL  : {}", tx_data));
+            // we should crash
+            panic!("Transaction failed submitted to CL");
         }
         
         transactions_sent += 1;
-        pb.inc(1);
+        progress_bar.inc(1);
         
         // Get current block height and pending transactions
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
-        let pending_txs = cl_node.lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
+        let chain_1_pending_txs = hig_nodes[0].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
+        let chain_2_pending_txs = hig_nodes[1].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
         
         // Only record pending count if we've moved to a new block
         if new_block != current_block {
             if current_block > 0 {  // Don't record for block 0
-                pending_transactions_by_height.push((current_block, last_pending_count));
+                chain_1_pending.push((current_block, chain_1_pending_txs.len() as u64));    
+                chain_2_pending.push((current_block, chain_2_pending_txs.len() as u64));
             }
             current_block = new_block;
         }
-        last_pending_count = pending_txs;
         
         // Calculate sleep time to maintain target TPS
         let elapsed = start_time.elapsed();
@@ -169,77 +175,26 @@ pub async fn run_simulation(
             tokio::time::sleep(target_elapsed - elapsed).await;
         }
     }
-    
-    // Add the final pending count for the last block
-    if current_block > 0 {
-        pending_transactions_by_height.push((current_block, last_pending_count));
-    }
-    
-    // Get sorted account selection counts
-    let (_sorted_sender_counts, _sorted_receiver_counts) = account_stats.get_sorted_counts();
-    
-    // Print final statistics
-    logging::log("SIMULATOR", "\n=== Simulation Statistics ===");
-    logging::log("SIMULATOR", &format!("Total Transactions: {}", transactions_sent));
-    logging::log("SIMULATOR", &format!("Successful Transactions: {}", successful_transactions));
-    logging::log("SIMULATOR", &format!("Failed Transactions: {}", failed_transactions));
-    logging::log("SIMULATOR", &format!("CAT Transactions: {}", cat_transactions));
-    logging::log("SIMULATOR", &format!("Regular Transactions: {}", regular_transactions));
-    logging::log("SIMULATOR", &format!("Actual TPS: {:.2}", transactions_sent as f64 / start_time.elapsed().as_secs_f64()));
-    logging::log("SIMULATOR", "===========================");
-    
-    // Save statistics to JSON file
-    let stats = serde_json::json!({
-        "parameters": {
-            "initial_balance": initial_balance,
-            "num_accounts": num_accounts,
-            "target_tps": target_tps,
-            "duration_seconds": duration_seconds,
-            "zipf_parameter": zipf_parameter,
-            "ratio_cats": ratio_cats,
-            "block_interval": block_interval,
-            "chain_delays": chain_delays
-        },
-        "results": {
-            "total_transactions": transactions_sent,
-            "successful_transactions": successful_transactions,
-            "failed_transactions": failed_transactions,
-            "cat_transactions": cat_transactions,
-            "regular_transactions": regular_transactions
-        }
-    });
-
-    // Create results directories if they don't exist
-    fs::create_dir_all("simulator/results/data").expect("Failed to create results directory");
-
-    // Save simulation stats
-    let stats_file = "simulator/results/data/simulation_stats.json";
-    fs::write(stats_file, serde_json::to_string_pretty(&stats).expect("Failed to serialize stats")).map_err(|e| e.to_string())?;
-    logging::log("SIMULATOR", &format!("Saved simulation statistics to {}", stats_file));
-
-    // Save pending transactions data
-    let pending_txs = serde_json::json!({
-        "pending_transactions_by_height": pending_transactions_by_height.iter().map(|(block, pending)| {
-            serde_json::json!({
-                "block": block,
-                "pending_count": pending
-            })
-        }).collect::<Vec<_>>()
-    });
-    let pending_file = "simulator/results/data/pending_transactions.json";
-    fs::write(pending_file, serde_json::to_string_pretty(&pending_txs).expect("Failed to serialize pending transactions")).map_err(|e| e.to_string())?;
-    logging::log("SIMULATOR", &format!("Saved pending transactions data to {}", pending_file));
-
-    // Save account selection data to separate files
-    let (sender_json, receiver_json) = account_stats.to_json();
-    
-    let sender_file = "simulator/results/data/account_sender_selection.json";
-    fs::write(sender_file, serde_json::to_string_pretty(&sender_json).expect("Failed to serialize sender stats")).map_err(|e| e.to_string())?;
-    logging::log("SIMULATOR", &format!("Saved sender selection data to {}", sender_file));
-
-    let receiver_file = "simulator/results/data/account_receiver_selection.json";
-    fs::write(receiver_file, serde_json::to_string_pretty(&receiver_json).expect("Failed to serialize receiver stats")).map_err(|e| e.to_string())?;
-    logging::log("SIMULATOR", &format!("Saved receiver selection data to {}", receiver_file));
+ 
+    save_results::save_results(
+        transactions_sent,
+        successful_transactions,
+        failed_transactions,
+        cat_transactions,
+        regular_transactions,
+        initial_balance,
+        num_accounts,
+        target_tps,
+        duration_seconds,
+        zipf_parameter,
+        ratio_cats,
+        block_interval,
+        chain_delays,
+        chain_1_pending,
+        chain_2_pending,
+        account_stats,
+        start_time,
+    ).await?;
     
     Ok(())
 }
