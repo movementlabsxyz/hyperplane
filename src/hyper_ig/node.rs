@@ -48,6 +48,12 @@ struct HyperIGState {
     vm: MockVM,
     /// Queue for pending CAT status proposals
     pending_proposals: VecDeque<QueuedCATProposal>,
+    /// Map of CAT IDs to their maximum lifetime block height
+    cat_max_lifetime: HashMap<CATId, u64>,
+    /// Default lifetime for CATs in blocks
+    cat_lifetime: u64,
+    /// Current block height
+    current_block_height: u64,
 }
 
 /// Node implementation of the Hyper Information Gateway
@@ -92,6 +98,9 @@ impl HyperIGNode {
                 my_chain_id: my_chain_id.clone(),
                 vm: MockVM::new(),
                 pending_proposals: VecDeque::new(),
+                cat_max_lifetime: HashMap::new(),
+                cat_lifetime: 4, // Default lifetime of 4 blocks
+                current_block_height: 0,
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
@@ -114,6 +123,44 @@ impl HyperIGNode {
     /// The current delay duration
     pub fn get_hs_message_delay(&self) -> Duration {
         self.hs_message_delay
+    }
+
+    /// Checks for timed out CATs and updates their status to Failure.
+    /// 
+    /// # Arguments
+    /// * `current_block_height` - The current block height
+    async fn check_cat_timeouts(&mut self, current_block_height: u64) {
+        let mut state = self.state.lock().await;
+        let chain_id = state.my_chain_id.0.clone();
+
+        // Find timed out CATs
+        let timed_out_cats: Vec<(CATId, TransactionId)> = state.cat_max_lifetime.iter()
+            .filter(|(_, max_lifetime)| current_block_height > **max_lifetime)
+            .filter_map(|(cat_id, _)| {
+                state.cat_to_tx_id.get(cat_id)
+                    .map(|tx_id| (cat_id.clone(), tx_id.clone()))
+            })
+            .collect();
+
+        // Update status for timed out CATs
+        for (cat_id, tx_id) in timed_out_cats {
+            log(&format!("HIG-{}", chain_id), &format!("CAT {} timed out at block height {}", cat_id.0, current_block_height));
+            
+            // Update transaction status to Failure
+            state.transaction_statuses.insert(tx_id.clone(), TransactionStatus::Failure);
+            
+            // Remove from pending transactions
+            state.pending_transactions.remove(&tx_id);
+            
+            // Remove from last update tracking
+            state.cat_max_lifetime.remove(&cat_id);
+            
+            // Process any transactions that were waiting on this CAT
+            drop(state); // Release lock before async call
+            self.process_pending_transactions(tx_id, TransactionStatus::Failure).await
+                .unwrap_or_else(|e| log(&format!("HIG-{}", chain_id), &format!("Error processing pending transactions: {}", e)));
+            state = self.state.lock().await;
+        }
     }
 
     /// Starts the node's block processing loop and queue processor.
@@ -263,7 +310,7 @@ impl HyperIGNode {
 
             // Try to receive a message
             match receiver.try_recv() {
-                Ok(subblock) => {
+                Ok(subblock) => {                    
                     // Process the subblock
                     if let Err(e) = node.process_subblock(subblock).await {
                         log(&format!("HIG-{}", chain_id), &format!("Error processing subblock: {}", e));
@@ -442,7 +489,12 @@ impl HyperIGNode {
 
         // Store the mapping from CAT ID to transaction ID
         let cat_id = CATId(tx.cl_id.clone());
-        self.state.lock().await.cat_to_tx_id.insert(cat_id, tx.id.clone());
+        self.state.lock().await.cat_to_tx_id.insert(cat_id.clone(), tx.id.clone());
+        
+        // Set max lifetime for this CAT (current block height + lifetime)
+        let current_height = self.state.lock().await.current_block_height;
+        let cat_lifetime = self.state.lock().await.cat_lifetime;
+        self.state.lock().await.cat_max_lifetime.insert(cat_id.clone(), current_height + cat_lifetime);
         
         Ok(TransactionStatus::Pending)
     }
@@ -704,6 +756,7 @@ impl HyperIG for HyperIGNode {
     /// # Returns
     /// Result containing the final transaction status
     async fn process_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+        log("HIG", &format!("Processing tx-id='{}' : data='{}'", tx.id, tx.data));
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Processing tx-id='{}' : data='{}'", tx.id, tx.data));
 
@@ -836,7 +889,7 @@ impl HyperIG for HyperIGNode {
     async fn process_subblock(&mut self, subblock: SubBlock) -> Result<(), HyperIGError> {
         // check if the received subblock matches our chain id. If not we have a bug.
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Processing subblock: block_id={}, chain_id={}, tx_count={}", 
+        log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Starting process_subblock: block_id={}, chain_id={}, tx_count={}", 
         subblock.block_height, subblock.chain_id.0, subblock.transactions.len()));
         
         if subblock.chain_id.0 != self.state.lock().await.my_chain_id.0 {
@@ -848,27 +901,42 @@ impl HyperIG for HyperIGNode {
             });
         }
 
+        // Update current block height
+        log(&format!("HIG-{}", chain_id), "[DEBUG] Updating current block height");
+        self.state.lock().await.current_block_height = subblock.block_height;
+        log(&format!("HIG-{}", chain_id), "[DEBUG] Current block height updated");
+
         // Track seen transaction IDs to skip duplicates
         let mut seen_tx_ids = HashSet::new();
         
         for tx in &subblock.transactions {
-            log(&format!("HIG-{}", chain_id), &format!("tx-id={} : data={}", tx.id.0, tx.data));
+            log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Processing tx-id='{}' : data='{}'", tx.id.0, tx.data));
             
             // Skip if we've seen this transaction ID before in this subblock
             if !seen_tx_ids.insert(tx.id.clone()) {
-                log(&format!("HIG-{}", chain_id), &format!("Skipping duplicate transaction ID: {}", tx.id.0));
+                log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Skipping duplicate transaction ID: {}", tx.id.0));
                 continue;
             }
             
             // Skip if transaction ID already exists in our state
+            log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Checking if tx-id='{}' exists in state", tx.id.0));
             if self.state.lock().await.received_txs.contains_key(&tx.id) {
-                log(&format!("HIG-{}", chain_id), &format!("Skipping transaction ID that already exists in state: {}", tx.id.0));
+                log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Skipping tx-id='{}' that already exists in state", tx.id.0));
                 continue;
             }
             
             // Process the transaction
+            log(&format!("HIG-{}", chain_id), &format!("[DEBUG] About to process tx-id='{}'", tx.id.0));
             HyperIG::process_transaction(self, tx.clone()).await.map_err(|e| HyperIGError::Internal(e.to_string()))?;
+            log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Finished processing tx-id='{}'", tx.id.0));
         }
+
+        // Check for expired CATs at the end of subblock processing
+        log(&format!("HIG-{}", chain_id), "[DEBUG] Checking for expired CATs at end of subblock");
+        self.check_cat_timeouts(subblock.block_height).await;
+        log(&format!("HIG-{}", chain_id), "[DEBUG] Finished checking expired CATs");
+        
+        log(&format!("HIG-{}", chain_id), "[DEBUG] Finished processing subblock");
         Ok(())
     }
 
@@ -934,6 +1002,24 @@ impl HyperIG for HyperIGNode {
         
         log(&format!("HIG-{}", chain_id), &format!("Chain state: {:?}", state));
         Ok(state)
+    }
+
+    async fn get_cat_max_lifetime(&self, cat_id: CATId) -> Result<u64, HyperIGError> {
+        let state = self.state.lock().await;
+        state.cat_max_lifetime.get(&cat_id)
+            .copied()
+            .ok_or_else(|| {
+                // Get the transaction ID from cat_to_tx_id mapping
+                match state.cat_to_tx_id.get(&cat_id) {
+                    Some(tx_id) => HyperIGError::TransactionNotFound(tx_id.clone()),
+                    None => HyperIGError::TransactionNotFound(TransactionId(format!("{:?}", cat_id.0))),
+                }
+            })
+    }
+
+    async fn get_current_block_height(&self) -> Result<u64, HyperIGError> {
+        let state = self.state.lock().await;
+        Ok(state.current_block_height)
     }
 }
 
@@ -1034,5 +1120,15 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
     async fn get_chain_state(&self) -> Result<std::collections::HashMap<String, i64>, anyhow::Error> {
         let node = self.lock().await;
         node.get_chain_state().await
+    }
+
+    async fn get_cat_max_lifetime(&self, cat_id: CATId) -> Result<u64, HyperIGError> {
+        let node = self.lock().await;
+        node.get_cat_max_lifetime(cat_id).await
+    }
+
+    async fn get_current_block_height(&self) -> Result<u64, HyperIGError> {
+        let node = self.lock().await;
+        node.get_current_block_height().await
     }
 } 
