@@ -13,7 +13,7 @@ use hyperplane::{
 use crate::account_selector::AccountSelector;
 use rand::Rng;
 use crate::account_selection::AccountSelectionStats;
-use crate::save_results;
+use crate::SimulationResults;
 
 /// Runs the simulation for the specified duration
 ///
@@ -58,8 +58,17 @@ pub async fn run_simulation(
     // Initialize receiver account selector with Zipf distribution
     let account_selector_receiver = AccountSelector::new(num_accounts, zipf_parameter);
     
-    // Initialize account statistics
-    let mut account_stats = AccountSelectionStats::new();
+    // Initialize simulation results
+    let mut results = SimulationResults::default();
+    results.initial_balance = initial_balance;
+    results.num_accounts = num_accounts;
+    results.target_tps = target_tps;
+    results.duration_seconds = duration_seconds;
+    results.zipf_parameter = zipf_parameter;
+    results.ratio_cats = ratio_cats;
+    results.block_interval = block_interval;
+    results.chain_delays = chain_delays;
+    results.start_time = std::time::Instant::now();
     
     // Calculate total number of transactions to send
     let total_transactions = target_tps * duration_seconds;
@@ -72,23 +81,11 @@ pub async fn run_simulation(
         .progress_chars("##-"));
 
     // Set HIG delays
-    for (i, delay) in chain_delays.iter().enumerate() {
+    for (i, delay) in results.chain_delays.iter().enumerate() {
         hig_nodes[i].lock().await.set_hs_message_delay(Duration::from_secs_f64(*delay));
     }
     
-    // Initialize counters
-    let mut transactions_sent = 0;
-    let cat_transactions = 0;
-    let regular_transactions = 0;
-    
     // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.
-    let mut chain_1_pending: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_1_success: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_1_failure: Vec<(u64, u64)> = Vec::new();
-    let mut chain_2_pending: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_2_success: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_2_failure: Vec<(u64, u64)> = Vec::new();
-    
     let mut current_block = 0;
     
     // Get registered chains
@@ -97,15 +94,13 @@ pub async fn run_simulation(
     let chain_id_2 = chains[1].clone();
     
     // Main simulation loop
-    let start_time = std::time::Instant::now();
-    while transactions_sent < total_transactions {
+    while results.transactions_sent < total_transactions {
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(&mut rng);
         let to_account = account_selector_receiver.select_account(&mut rng);
         
         // Record transaction in account statistics
-        account_stats.record_transaction(from_account as u64, to_account as u64);
-        
+        results.account_stats.record_transaction(from_account as u64, to_account as u64);
         
         // Determine if this should be a CAT transaction based on configured ratio
         let is_cat = rng.gen_bool(ratio_cats);
@@ -120,9 +115,10 @@ pub async fn run_simulation(
         logging::log("SIMULATOR", &format!("Transaction data: '{}'", tx_data));
 
         // Create and submit transaction
-        let cl_id = CLTransactionId(format!("cl-tx_{}", transactions_sent));
+        let cl_id = CLTransactionId(format!("cl-tx_{}", results.transactions_sent));
         
         let (success, _) = if is_cat {
+            results.cat_transactions += 1;
             create_and_submit_cat_transaction(
                 &cl_node,
                 cl_id,
@@ -131,6 +127,7 @@ pub async fn run_simulation(
                 tx_data.clone(),
             ).await?
         } else {
+            results.regular_transactions += 1;
             create_and_submit_regular_transaction(
                 &cl_node,
                 cl_id,
@@ -148,7 +145,7 @@ pub async fn run_simulation(
             panic!("Transaction failed submitted to CL");
         }
         
-        transactions_sent += 1;
+        results.transactions_sent += 1;
         progress_bar.inc(1);
         
         // Get current block height and pending transactions
@@ -159,38 +156,23 @@ pub async fn run_simulation(
         // Only record pending count if we've moved to a new block
         if new_block != current_block {
             if current_block > 0 {  // Don't record for block 0
-                chain_1_pending.push((current_block, chain_1_pending_txs.len() as u64));    
-                chain_2_pending.push((current_block, chain_2_pending_txs.len() as u64));
+                results.chain_1_pending.push((current_block, chain_1_pending_txs.len() as u64));    
+                results.chain_2_pending.push((current_block, chain_2_pending_txs.len() as u64));
             }
             current_block = new_block;
         }
         
         // Calculate sleep time to maintain target TPS
-        let elapsed = start_time.elapsed();
-        let target_milliseconds = (transactions_sent as f64 / target_tps as f64) * 1000.0;
+        let elapsed = results.start_time.elapsed();
+        let target_milliseconds = (results.transactions_sent as f64 / target_tps as f64) * 1000.0;
         let target_elapsed = Duration::from_millis(target_milliseconds as u64);
         if elapsed < target_elapsed {
             tokio::time::sleep(target_elapsed - elapsed).await;
         }
     }
  
-    save_results::save_results(
-        transactions_sent,
-        cat_transactions,
-        regular_transactions,
-        initial_balance,
-        num_accounts,
-        target_tps,
-        duration_seconds,
-        zipf_parameter,
-        ratio_cats,
-        block_interval,
-        chain_delays,
-        chain_1_pending,
-        chain_2_pending,
-        account_stats,
-        start_time,
-    ).await?;
+    // Save results
+    results.save().await?;
     
     Ok(())
 }

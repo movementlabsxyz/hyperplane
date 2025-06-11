@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use serde_json;
 
+#[derive(Clone, Debug)]
 pub struct AccountSelectionStats {
     sender_counts: HashMap<u64, u64>,
     receiver_counts: HashMap<u64, u64>,
