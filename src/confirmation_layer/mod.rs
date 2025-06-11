@@ -50,4 +50,7 @@ pub trait ConfirmationLayer: Send + Sync {
 
     /// Submit a subblock transaction to be included in the next block
     async fn submit_transaction(&mut self, transaction: CLTransaction) -> Result<(), ConfirmationLayerError>;
+
+    /// Get the number of pending transactions
+    async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError>;
 }

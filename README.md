@@ -114,19 +114,35 @@ git submodule update --init --recursive
 - Production deployment setup
 - (optional) libp2p network backend, where necessary
 
-### Running the protocol
+### Running the interactive shell
 
 The project includes an interactive shell for testing and development. To run it:
 
 ```bash
-cargo run
+cargo run --bin main
 ```
 
-Note that logs are enabled by default. The logs are written to `hyperplane.log` in the root directory. You can track the logs in real-time by running in a separate terminal:
+Logs are enabled by default. The logs are written to `hyperplane.log` in the root directory. You can track the logs in real-time by running in a separate terminal:
 
 ```bash
 tail -f hyperplane.log
 ```
+
+### Performance Testing
+
+A simulator tool is available for performance testing. To run it:
+
+```bash
+cargo run -p simulator
+```
+
+Run with detailed logging
+
+```bash
+ENABLE_LOGS=1 cargo run -p simulator
+```
+
+See [simulator/README](simulator/README.md) for details.
 
 ### Testing
 

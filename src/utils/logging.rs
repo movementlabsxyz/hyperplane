@@ -31,10 +31,11 @@ pub fn init_logging() {
     *LOG_TO_FILE.lock().unwrap() = log_to_file;
 
     if enable_logging && log_to_file {
+        let log_file = env::var("HYPERPLANE_LOG_FILE").unwrap_or_else(|_| "hyperplane.log".to_string());
         let file = OpenOptions::new()
             .create(true)
             .append(true)
-            .open("hyperplane.log")
+            .open(log_file)
             .expect("Failed to open log file");
         *LOG_FILE.lock().unwrap() = Some(file);
     }

@@ -160,7 +160,7 @@ impl ConfirmationLayerNode {
                     if is_valid {
                         // Add to processed transactions for each transaction's this_chain_id
                         for tx in &cl_tx.transactions {
-                            processed_this_block.push((tx.target_chain_id.clone(), tx.clone()));
+                            processed_this_block.push((tx.chain_id.clone(), tx.clone()));
                         }
                         processed_cltransactions.push(cl_tx.clone());
                         inner_state.processed_cltransaction_ids.insert(cl_tx.id.clone());
@@ -227,6 +227,11 @@ impl ConfirmationLayerNode {
         log("CL", "Starting block production");
         tokio::spawn(async move { Self::process_messages_and_create_blocks(node).await });
     }
+
+    async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError> {
+        let state = self.state.lock().await;
+        Ok(state.pending_transactions.len())
+    }
 }
 
 #[async_trait::async_trait]
@@ -262,7 +267,7 @@ impl ConfirmationLayer for ConfirmationLayerNode {
                 .filter(|(cid, _)| cid == &chain_id)
                 .map(|(_, tx)| Transaction::new(
                     tx.id.clone(),
-                    tx.target_chain_id.clone(),
+                    tx.chain_id.clone(),
                     tx.constituent_chains.clone(),
                     tx.data.clone(),
                     tx.cl_id.clone(),
@@ -320,6 +325,10 @@ impl ConfirmationLayer for ConfirmationLayerNode {
         Ok(state.current_block_height)
     }
 
+    async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError> {
+        let state = self.state.lock().await;
+        Ok(state.pending_transactions.len())
+    }
 }
 
 #[async_trait::async_trait]
@@ -359,4 +368,8 @@ impl ConfirmationLayer for Arc<Mutex<ConfirmationLayerNode>> {
         node.register_chain(chain_id, sender).await
     }
 
+    async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError> {
+        let node = self.lock().await;
+        node.get_pending_transactions().await
+    }
 }
