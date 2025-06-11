@@ -133,13 +133,7 @@ tail -f hyperplane.log
 A simulator tool is available for performance testing. To run it:
 
 ```bash
-cargo run -p simulator
-```
-
-Run with detailed logging
-
-```bash
-ENABLE_LOGS=1 cargo run -p simulator
+./simulator/run.sh
 ```
 
 See [simulator/README](simulator/README.md) for details.

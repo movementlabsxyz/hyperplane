@@ -79,6 +79,7 @@ fn initialize_simulation_results(config: &Config) -> SimulationResults {
     results.zipf_parameter = config.zipf_parameter;
     results.ratio_cats = config.ratio_cats;
     results.block_interval = config.block_interval;
+    results.cat_lifetime = config.cat_lifetime;
     results.chain_delays = config.chains.delays.clone();
     results.start_time = Instant::now();
 
@@ -93,6 +94,7 @@ fn initialize_simulation_results(config: &Config) -> SimulationResults {
     logging::log("SIMULATOR", &format!("Number of Chains: {}", config.chains.num_chains));
     logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.zipf_parameter));
     logging::log("SIMULATOR", &format!("Ratio CATs: {}", config.ratio_cats));
+    logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", config.cat_lifetime));
     for (i, delay) in config.chains.delays.iter().enumerate() {
         logging::log("SIMULATOR", &format!("Chain {} Delay: {:?}", i + 1, delay));
     }

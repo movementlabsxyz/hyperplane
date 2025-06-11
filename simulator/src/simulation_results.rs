@@ -20,6 +20,7 @@ pub struct SimulationResults {
     pub zipf_parameter: f64,
     pub ratio_cats: f64,
     pub block_interval: f64,
+    pub cat_lifetime: u64,
     pub chain_delays: Vec<Duration>,
     
     // Chain data
@@ -45,6 +46,7 @@ impl Default for SimulationResults {
             zipf_parameter: 0.0,
             ratio_cats: 0.0,
             block_interval: 0.0,
+            cat_lifetime: 0,
             chain_delays: Vec::new(),
             chain_1_pending: Vec::new(),
             chain_2_pending: Vec::new(),

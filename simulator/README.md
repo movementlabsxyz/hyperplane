@@ -43,11 +43,7 @@ This symmetry ensures that both chains process the same workload, making it easi
 ## Usage
 
 ```bash
-# Run without logs
-cargo run -p simulator
-
-# Run with detailed logging
-ENABLE_LOGS=1 cargo run -p simulator
+./simulator/run.sh
 ```
 
 When running with logs enabled, the simulator will write detailed logs to `simulation.log` in the project root directory. The logs include:

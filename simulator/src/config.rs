@@ -12,6 +12,7 @@ pub struct Config {
     pub zipf_parameter: f64,
     pub ratio_cats: f64,
     pub block_interval: f64,  // Block interval in seconds
+    pub cat_lifetime: u64,    // Number of blocks a CAT can be pending, before timing out
     pub chains: ChainConfig,
 }
 
@@ -84,6 +85,9 @@ impl Config {
         }
         if self.block_interval <= 0.0 {
             return Err(ConfigError::ValidationError("Block interval must be positive".into()));
+        }
+        if self.cat_lifetime == 0 {
+            return Err(ConfigError::ValidationError("CAT lifetime must be positive".into()));
         }
         if self.chains.num_chains == 0 {
             return Err(ConfigError::ValidationError("Number of chains must be positive".into()));

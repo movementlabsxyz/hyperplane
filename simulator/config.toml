@@ -27,6 +27,9 @@ ratio_cats = 0.1
 # Block interval in seconds
 block_interval = 0.1
 
+# Number of blocks a CAT can be pending, before timing out
+cat_lifetime = 5
+
 # Chain configuration
 [chains]
 num_chains = 2
