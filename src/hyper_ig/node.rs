@@ -84,7 +84,7 @@ impl HyperIGNode {
     /// 
     /// # Returns
     /// A new HyperIGNode instance
-    pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId) -> Self {
+    pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId, cat_lifetime: u64) -> Self {
         Self {
             state: Arc::new(Mutex::new(HyperIGState {
                 transaction_statuses: HashMap::new(),
@@ -99,7 +99,7 @@ impl HyperIGNode {
                 vm: MockVM::new(),
                 pending_proposals: VecDeque::new(),
                 cat_max_lifetime: HashMap::new(),
-                cat_lifetime: 4, // Default lifetime of 4 blocks
+                cat_lifetime: cat_lifetime,
                 current_block_height: 0,
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),

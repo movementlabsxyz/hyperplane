@@ -14,8 +14,13 @@ pub async fn setup_test_hig_node() -> (Arc<Mutex<HyperIGNode>>, mpsc::Receiver<C
     let (_sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
     
-    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1());
-    (Arc::new(Mutex::new(hig_node)), receiver_hig_to_hs)
+    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1(), 4);
+    let hig_node = Arc::new(Mutex::new(hig_node));
+    
+    // Start the node
+    HyperIGNode::start(hig_node.clone()).await;
+
+    (hig_node, receiver_hig_to_hs)
 }
 
 /// Helper function: Tests regular non-dependent transaction path in HyperIG
@@ -228,15 +233,11 @@ async fn test_wrong_chain_subblock() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_wrong_chain_subblock ===");
     
-    // Create channels
-    let (_sender_cl_to_hig, receiver_cl_to_hig) = tokio::sync::mpsc::channel(100);
-    let (sender_hig_to_hs, _receiver_hig_to_hs) = tokio::sync::mpsc::channel(100);
+    // setup using the helper function
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
 
-    // Create HIG node
-    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1())));
-
-    // Start the node
-    HyperIGNode::start(hig_node.clone()).await;
+    // // Start the node
+    // HyperIGNode::start(hig_node.clone()).await;
 
     // Create a subblock with a different chain ID
     let cl_id = CLTransactionId("cl-tx".to_string());
@@ -599,11 +600,6 @@ async fn test_hs_message_delay() {
     
     // Set up test node
     let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node().await;
-    logging::log("TEST", "Test node setup complete");
-    
-    // Start the node to ensure queue processor is running
-    HyperIGNode::start(hig_node.clone()).await;
-    logging::log("TEST", "Node started, queue processor should be running");
     
     // Set delay to 100ms
     hig_node.lock().await.set_hs_message_delay(Duration::from_millis(100));

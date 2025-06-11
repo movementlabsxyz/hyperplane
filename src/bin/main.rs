@@ -70,7 +70,7 @@ async fn main() {
         // Channels for HIG <-> HS
         let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
         // Create HIG node
-        let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone())));
+        let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), 4)));
         // Register chain with CL
         let mut cl_node_guard = cl_node.lock().await;
         cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");
@@ -218,7 +218,7 @@ async fn main() {
                     // Channels for HIG <-> HS
                     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
                     // Create HIG node
-                    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone())));
+                    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), 4)));
                     // Register chain with CL
                     let mut cl_node_guard = cl_node.lock().await;
                     cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");
