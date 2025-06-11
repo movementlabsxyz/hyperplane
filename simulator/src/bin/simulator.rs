@@ -11,6 +11,7 @@ use simulator::{
 };
 use std::time::{Duration, Instant};
 
+
 // ------------------------------------------------------------------------------------------------
 // Main
 // ------------------------------------------------------------------------------------------------
@@ -21,12 +22,36 @@ async fn main() -> Result<(), ConfigError> {
     // Create results directory if it doesn't exist
     fs::create_dir_all("simulator/results").expect("Failed to create results directory");
     
+    // Setup logging
+    setup_logging();
+
     // Load configuration
     let config = Config::load()?;
+    
+    // Initialize simulation results from configuration
+    let mut results = initialize_simulation_results(&config);
 
-    // Enable logging if ENABLE_LOGS is set
+    // Setup test nodes
+    let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = setup_test_nodes(
+        Duration::from_secs_f64(config.block_interval),
+        &config.chains.delays,
+    ).await;
+    // Initialize accounts with initial balance
+    initialize_accounts(&[cl_node.clone()], config.initial_balance.try_into().unwrap(), config.num_accounts.try_into().unwrap()).await;
+
+    // Run simulation
+    run_simulation(
+        cl_node,
+        vec![hig_node_1, hig_node_2],
+        &mut results,
+    ).await.map_err(|e| ConfigError::ValidationError(e))?;
+
+    Ok(())
+} 
+
+/// Sets up logging if ENABLE_LOGS environment variable is set
+fn setup_logging() {
     if env::var("ENABLE_LOGS").is_ok() {
-        
         // Delete existing log file if it exists
         let log_path = "simulator/results/simulation.log";
         if let Err(e) = fs::remove_file(log_path) {
@@ -42,8 +67,10 @@ async fn main() -> Result<(), ConfigError> {
         env::set_var("HYPERPLANE_LOG_FILE", log_path);
         logging::init_logging();
     }
-    
-    // Initialize simulation results
+}
+
+/// Initializes simulation results from configuration
+fn initialize_simulation_results(config: &Config) -> SimulationResults {
     let mut results = SimulationResults::default();
     results.initial_balance = config.initial_balance.try_into().unwrap();
     results.num_accounts = config.num_accounts.try_into().unwrap();
@@ -55,7 +82,7 @@ async fn main() -> Result<(), ConfigError> {
     results.chain_delays = config.chains.delays.clone();
     results.start_time = Instant::now();
 
-    // Log simulation header with configuration
+    // Log configuration
     let start_time = Local::now();
     logging::log("SIMULATOR", "=== Simulation Configuration ===");
     logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
@@ -71,21 +98,5 @@ async fn main() -> Result<(), ConfigError> {
     }
     logging::log("SIMULATOR", "=============================");
 
-    // Setup test nodes
-    let (hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = setup_test_nodes(
-        Duration::from_secs_f64(config.block_interval),
-        &config.chains.delays,
-    ).await;
-    // Initialize accounts with initial balance
-    initialize_accounts(&[cl_node.clone()], config.initial_balance.try_into().unwrap(), config.num_accounts.try_into().unwrap()).await;
-    
-
-    // Run simulation
-    run_simulation(
-        cl_node,
-        vec![hig_node_1, hig_node_2],
-        &mut results,
-    ).await.map_err(|e| ConfigError::ValidationError(e))?;
-
-    Ok(())
-} 
+    results
+}
