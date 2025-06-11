@@ -12,7 +12,6 @@ use hyperplane::{
 };
 use crate::account_selector::AccountSelector;
 use rand::Rng;
-use crate::account_selection::AccountSelectionStats;
 use crate::SimulationResults;
 
 /// Runs the simulation for the specified duration
@@ -34,19 +33,12 @@ use crate::SimulationResults;
 pub async fn run_simulation(
     cl_node: Arc<Mutex<ConfirmationLayerNode>>,
     hig_nodes: Vec<Arc<Mutex<HyperIGNode>>>,
-    duration_seconds: u64,
-    initial_balance: u64,
-    num_accounts: usize,
-    target_tps: u64,
-    zipf_parameter: f64,
-    chain_delays: Vec<f64>,
-    block_interval: f64,
-    ratio_cats: f64,
+    results: &mut SimulationResults,
 ) -> Result<(), String> {
     
     // Wait for initialization transactions to be processed
     logging::log("SIMULATOR", "Waiting 5 block for initialization transactions to be processed...");
-    let wait = Duration::from_secs_f64(block_interval * 5.0);
+    let wait = Duration::from_secs_f64(results.block_interval * 5.0);
     sleep(wait).await;
     logging::log("SIMULATOR", "Initialization complete, starting simulation");
 
@@ -54,24 +46,12 @@ pub async fn run_simulation(
     let mut rng = rand::thread_rng();
     
     // Initialize sender account selector with uniform distribution
-    let account_selector_sender = AccountSelector::new(num_accounts, 0.0);    
+    let account_selector_sender = AccountSelector::new(results.num_accounts, 0.0);    
     // Initialize receiver account selector with Zipf distribution
-    let account_selector_receiver = AccountSelector::new(num_accounts, zipf_parameter);
-    
-    // Initialize simulation results
-    let mut results = SimulationResults::default();
-    results.initial_balance = initial_balance;
-    results.num_accounts = num_accounts;
-    results.target_tps = target_tps;
-    results.duration_seconds = duration_seconds;
-    results.zipf_parameter = zipf_parameter;
-    results.ratio_cats = ratio_cats;
-    results.block_interval = block_interval;
-    results.chain_delays = chain_delays;
-    results.start_time = std::time::Instant::now();
+    let account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
     
     // Calculate total number of transactions to send
-    let total_transactions = target_tps * duration_seconds;
+    let total_transactions = results.target_tps * results.duration_seconds;
     
     // Create progress bar
     let progress_bar = ProgressBar::new(total_transactions);
@@ -103,7 +83,7 @@ pub async fn run_simulation(
         results.account_stats.record_transaction(from_account as u64, to_account as u64);
         
         // Determine if this should be a CAT transaction based on configured ratio
-        let is_cat = rng.gen_bool(ratio_cats);
+        let is_cat = rng.gen_bool(results.ratio_cats);
         
         // Create transaction data
         let tx_data = format!("{}.send {} {} 1", 
@@ -164,7 +144,7 @@ pub async fn run_simulation(
         
         // Calculate sleep time to maintain target TPS
         let elapsed = results.start_time.elapsed();
-        let target_milliseconds = (results.transactions_sent as f64 / target_tps as f64) * 1000.0;
+        let target_milliseconds = (results.transactions_sent as f64 / results.target_tps as f64) * 1000.0;
         let target_elapsed = Duration::from_millis(target_milliseconds as u64);
         if elapsed < target_elapsed {
             tokio::time::sleep(target_elapsed - elapsed).await;

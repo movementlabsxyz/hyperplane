@@ -7,8 +7,9 @@ use simulator::{
     initialize_accounts,
     run_simulation,
     testnodes::setup_test_nodes,
+    SimulationResults,
 };
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 // ------------------------------------------------------------------------------------------------
 // Main
@@ -69,18 +70,23 @@ async fn main() -> Result<(), ConfigError> {
     // Initialize accounts with initial balance
     initialize_accounts(&[cl_node.clone()], config.initial_balance.try_into().unwrap(), config.num_accounts.try_into().unwrap()).await;
     
+    // Initialize simulation results
+    let mut results = SimulationResults::default();
+    results.initial_balance = config.initial_balance.try_into().unwrap();
+    results.num_accounts = config.num_accounts.try_into().unwrap();
+    results.target_tps = config.target_tps as u64;
+    results.duration_seconds = config.duration_seconds.try_into().unwrap();
+    results.zipf_parameter = config.zipf_parameter;
+    results.ratio_cats = config.ratio_cats;
+    results.block_interval = config.block_interval;
+    results.chain_delays = chain_delays.clone();
+    results.start_time = Instant::now();
+    
     // Run simulation
     run_simulation(
         cl_node,
         vec![hig_node_1, hig_node_2],
-        config.duration_seconds.try_into().unwrap(),
-        config.initial_balance.try_into().unwrap(),
-        config.num_accounts.try_into().unwrap(),
-        config.target_tps as u64,
-        config.zipf_parameter,
-        chain_delays,
-        config.block_interval,
-        config.ratio_cats,
+        &mut results,
     ).await.map_err(|e| ConfigError::ValidationError(e))?;
 
     Ok(())
