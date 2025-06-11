@@ -144,6 +144,12 @@ async fn main() {
                 chain_list.sort();  // Sort chains alphabetically
                 println!("Registered chains: {}", chain_list.join(", "));
                 
+                // Get CL block time and interval
+                let cl_block = cl_node.lock().await.get_current_block().await.unwrap();
+                let cl_interval = cl_node.lock().await.get_block_interval().await.unwrap();
+                println!("\nCL Block Height: {} (Interval: {}ms)", cl_block, cl_interval.as_millis());
+                println!("CAT Timeout: 5 blocks ({}ms)", 5 * cl_interval.as_millis());
+                
                 // Show state for each chain
                 println!("\nChain States:");
                 let mut chain_states: Vec<_> = chains.iter().collect();
@@ -167,29 +173,19 @@ async fn main() {
                 let chain_nodes: Vec<(ChainId, Arc<Mutex<HyperIGNode>>)> = chains.iter()
                     .map(|(id, node)| (id.clone(), node.clone()))
                     .collect();
-                let mut tx_ids: Vec<(TransactionId, u64)> = transactions.transactions.keys()
-                    .map(|id| {
-                        let cl_id = if id.0.ends_with(":tx") {
-                            &id.0[..id.0.len()-3]
-                        } else {
-                            &id.0
-                        };
-                        let timestamp = cl_id.split('_').last()
-                            .and_then(|s| s.parse::<u64>().ok())
-                            .unwrap_or(0);
-                        (id.clone(), timestamp)
-                    })
+                let mut tx_ids: Vec<TransactionId> = transactions.transactions.keys()
+                    .cloned()
                     .collect();
                 
-                // Sort by timestamp (oldest first)
-                tx_ids.sort_by(|a, b| a.1.cmp(&b.1));
+                // Sort by transaction ID string for consistent display
+                tx_ids.sort_by(|a, b| a.0.cmp(&b.0));
                 
                 // Release the locks before making async calls
                 drop(chains);
                 drop(transactions);
 
                 // Process each transaction
-                for (tx_id, _) in tx_ids {
+                for tx_id in tx_ids {
                     // Extract CL ID from transaction ID by removing the ":tx" suffix
                     let cl_id = if tx_id.0.ends_with(":tx") {
                         &tx_id.0[..tx_id.0.len()-3]
