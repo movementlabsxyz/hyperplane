@@ -10,3 +10,4 @@ pub const CAT_MAX_LIFETIME_BLOCKS: u64 = 5;
 // Dummy main function to satisfy Rust compiler for bin directory
 #[allow(dead_code)]
 fn main() {}
+ 

@@ -8,6 +8,7 @@ pub mod logging;
 pub mod testnodes;
 pub mod interface;
 pub mod scenarios;
+pub mod stats;
 
 pub use account_selection::AccountSelectionStats;
 pub use zipf_account_selection::AccountSelector;
@@ -18,4 +19,5 @@ pub use testnodes::*;
 pub use interface::{SimulatorInterface, SimulationType};
 pub use scenarios::sim_simple::run_simple_simulation;
 pub use scenarios::sim_sweep_cat_rate::run_sweep_cat_rate_simulation;
-pub use scenarios::sim_sweep_zipf::run_sweep_zipf_simulation; 
+pub use scenarios::sim_sweep_zipf::run_sweep_zipf_simulation;
+pub use scenarios::sim_sweep_chain_delay::run_sweep_chain_delay; 
