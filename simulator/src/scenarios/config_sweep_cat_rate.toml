@@ -24,7 +24,7 @@ num_accounts = 1000
 target_tps = 100.0
 # Duration of the simulation in seconds
 # The simulation will run for this many seconds
-duration_seconds = 5
+duration_seconds = 20
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -40,5 +40,5 @@ block_interval = 0.1
 
 # Sweep parameters
 [sweep]
-num_simulations = 3 # Number of simulations to run
-cat_rate_step = 0.01 # Step size for CAT ratio 
+num_simulations = 6 # Number of simulations to run
+cat_rate_step = 0.02 # Step size for CAT ratio 

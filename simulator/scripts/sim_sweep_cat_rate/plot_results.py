@@ -159,6 +159,49 @@ def plot_failure_transactions_overlay():
         print(f"Warning: Error processing failure transactions data: {e}")
         return
 
+def plot_transaction_status_chart(ax, data):
+    """Create a line chart showing failed/success/pending data vs CAT ratio"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            return
+        
+        # Extract data for the chart
+        cat_ratios = []
+        success_counts = []
+        failure_counts = []
+        pending_counts = []
+        
+        for result in individual_results:
+            cat_ratios.append(result['cat_ratio'])
+            
+            # Calculate total success, failure, and pending from chain_1 data
+            success_total = sum(count for _, count in result['chain_1_success'])
+            failure_total = sum(count for _, count in result['chain_1_failure'])
+            pending_total = sum(count for _, count in result['chain_1_pending'])
+            
+            success_counts.append(success_total)
+            failure_counts.append(failure_total)
+            pending_counts.append(pending_total)
+        
+        # Create the line chart
+        ax.plot(cat_ratios, success_counts, 'go-', linewidth=2, markersize=6, label='Success')
+        ax.plot(cat_ratios, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
+        ax.plot(cat_ratios, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
+        
+        ax.set_title('Transaction Status vs CAT Ratio')
+        ax.set_xlabel('CAT Ratio')
+        ax.set_ylabel('Number of Transactions')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(bottom=0)
+        
+    except (KeyError, IndexError) as e:
+        print(f"Warning: Error creating transaction status chart: {e}")
+        ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
+        ax.axis('off')
+
 def plot_sweep_summary():
     """Plot summary statistics across all CAT ratios"""
     try:
@@ -190,27 +233,20 @@ def plot_sweep_summary():
         ax2.set_xlabel('CAT Ratio')
         ax2.set_ylabel('CAT Transactions')
         ax2.grid(True, alpha=0.3)
+        ax2.set_ylim(bottom=0)
         
-        # Plot 3: Regular transactions
-        ax3.plot(cat_ratios, regular_transactions, 'go-', linewidth=2, markersize=6)
-        ax3.set_title('Regular Transactions vs CAT Ratio')
-        ax3.set_xlabel('CAT Ratio')
-        ax3.set_ylabel('Regular Transactions')
-        ax3.grid(True, alpha=0.3)
+        # Plot 3: Transaction status chart
+        plot_transaction_status_chart(ax3, data)
         
-        # Plot 4: Transaction type distribution
-        x = np.arange(len(cat_ratios))
-        width = 0.35
-        
-        ax4.bar(x - width/2, cat_transactions, width, label='CAT Transactions', alpha=0.8)
-        ax4.bar(x + width/2, regular_transactions, width, label='Regular Transactions', alpha=0.8)
+        # Plot 4: Transaction type distribution (line chart)
+        ax4.plot(cat_ratios, cat_transactions, 'ro-', linewidth=2, markersize=6, label='CAT Transactions')
+        ax4.plot(cat_ratios, regular_transactions, 'go-', linewidth=2, markersize=6, label='Regular Transactions')
         ax4.set_title('Transaction Distribution by CAT Ratio')
         ax4.set_xlabel('CAT Ratio')
         ax4.set_ylabel('Number of Transactions')
-        ax4.set_xticks(x)
-        ax4.set_xticklabels([f'{ratio:.2f}' for ratio in cat_ratios], rotation=45)
         ax4.legend()
         ax4.grid(True, alpha=0.3)
+        ax4.set_ylim(bottom=0)
         
         plt.tight_layout()
         plt.savefig('simulator/results/sim_sweep_cat_rate/figs/sweep_summary.png', 
