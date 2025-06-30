@@ -68,6 +68,9 @@ hyperplane/
 │   ├── mock_vm/        # Mock Virtual Machine implementation
 │   ├── network/        # Network communication
 │   └── utils/          # Utility functions and helpers
+├── simulator/          # Simulation framework and performance testing
+│   ├── src/            # Simulator core logic
+│   └── scripts/        # Plotting and analysis scripts
 ├── submodules/         # Git submodules
 │   └── x-chain-vm/     # Virtual Machine implementation
 └── tests/              # Integration tests
@@ -75,7 +78,7 @@ hyperplane/
 
 ## Development Status
 
-The project is currently in active development. See [PLAN](PLAN.md) for the implementation roadmap and [RULES.md](RULES.md) for development guidelines.
+The project is currently in active development. See [PLAN](PLAN.md) for the implementation roadmap and [RULES](RULES.md) for development guidelines.
 
 ### Development Setup
 
@@ -102,8 +105,9 @@ git submodule update --init --recursive
 - Basic Confirmation Layer implementation that produces blocks per chain
 - Basic HyperIG implementation with transaction execution and status management
 - Basic HyperScheduler implementation that schedules transactions
-- Basic tests per component in `tests/`
+- Basic tests per component in their respective module directories (e.g., `src/hyper_ig/tests/`)
 - Basic integration tests in `tests/integration`
+- Channel-based mock network for testing (no libp2p/gRPC implementation yet)
 
 ### Planned Features
 

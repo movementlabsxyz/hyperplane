@@ -12,6 +12,8 @@ The simulator creates a test environment with multiple chains and accounts, then
 - Initializes accounts with configurable balances
 - Generates transactions using a Zipf distribution
 - Measures and reports performance metrics
+- Tracks transaction status (pending, success, failure) over time
+- Generates visualization plots for transaction analysis
 - Configurable number of accounts and chains
 - Adjustable transaction rates and types (CAT vs REGULAR)
 - Detailed statistics and visualization
@@ -42,9 +44,13 @@ This symmetry ensures that both chains process the same workload, making it easi
 
 ## Usage
 
+From the root directory of the repository:
+
 ```bash
 ./simulator/run.sh
 ```
+
+This will execute the simulation and generate results in `simulator/results/`.
 
 When running with logs enabled, the simulator will write detailed logs to `simulation.log` in the project root directory. The logs include:
 
@@ -59,36 +65,34 @@ You can track the logs in real-time by running in a separate terminal:
 tail -f simulation.log
 ```
 
-## Customization
+## Configuration
 
-You can modify the simulation parameters by editing the constants in `src/bin/simulator.rs`:
-
-- `NUM_ACCOUNTS`: Number of accounts to create per chain
-- `INITIAL_BALANCE`: Starting balance for each account
-- `TARGET_TPS`: Target transactions per second
-- `SIMULATION_DURATION`: How long to run the simulation (in seconds)
-
-## Example Output
-
-```
-=== Simulation Results ===
-Total Transactions: 600
-Successful: 598 (99.67%)
-Failed: 2 (0.33%)
-Average TPS: 9.97
-Total Duration: 60.12 seconds
-```
+You can modify the simulation parameters by editing the `config.toml` file.
 
 ## Architecture
 
 The simulator is organized into several modules:
 
-- `network.rs`: Handles node setup and chain registration
-- `account_selector.rs`: Manages account selection using Zipf distribution
-- `simulation.rs`: Core simulation logic and statistics tracking
-- `bin/simulator.rs`: Main entry point and configuration
+```
+simulator/
+├── src/                # Simulator core logic
+│   ├── run_simulation.rs    # Core simulation logic and transaction processing
+│   ├── simulation_results.rs # Results tracking and data collection
+│   ├── config.rs            # Configuration management
+│   ├── network.rs           # Node setup and chain registration
+│   ├── account_selector.rs  # Account selection using Zipf distribution
+│   └── bin/simulator.rs     # Main entry point
+├── scripts/            # Plotting and analysis scripts
+│   ├── plot_results.py      # Main plotting script
+│   ├── plot_miscellaneous.py # Transaction status plots
+│   └── plot_account_selection.py # Account selection plots
+├── results/            # Generated results and figures
+│   ├── data/               # JSON data files
+│   └── figs/               # Generated plot images
+└── config.toml         # Configuration file
+```
 
-## Visualizing Results
+## Notes on Visualizing Results
 
 The simulator generates results in the `simulator/results` directory. To visualize these results:
 
@@ -104,6 +108,8 @@ pip3 install -r simulator/scripts/requirements.txt
 python3 simulator/scripts/plot_results.py
 ```
 
-## Configuration
+This will generate several plots:
 
-The simulator can be configured through the `config.toml` file. Here are the available parameters:
+- **Transaction Status Plots**: `tx_count_pending.png`, `tx_count_success.png`, `tx_count_failure.png` - Shows transaction counts over time for each status
+- **Account Selection Plots**: Distribution of sender and receiver account selection
+- **Parameter Tracking**: Simulation configuration and parameters used
