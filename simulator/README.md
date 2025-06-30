@@ -72,6 +72,14 @@ You can track the logs in real-time by running in a separate terminal:
 tail -f simulator/results/sim_simple/simulation.log
 ```
 
+## Running Plots After Simulation
+
+If you want to regenerate plots after a simulation has been completed, you can run the plotting scripts directly from the root directory. For example
+
+```bash
+python3 simulator/scripts/sim_simple/plot_results.py
+```
+
 ## Configuration
 
 You can modify the simulation parameters by editing the configuration files in `simulator/src/scenarios/`:
