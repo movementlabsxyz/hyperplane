@@ -25,12 +25,13 @@ impl SimulatorInterface {
         Self
     }
 
+    pub fn get_menu_text(&self) -> &'static str {
+        "Available simulation types:\n  1. Simple simulation\n  2. Dummy simulation (not yet implemented)\n  3. Exit"
+    }
+
     pub fn show_menu(&self) {
         println!("=== Hyperplane Simulator ===");
-        println!("Available simulation types:");
-        println!("  1. Simple simulation");
-        println!("  2. Dummy simulation (not yet implemented)");
-        println!("  3. Exit");
+        println!("{}", self.get_menu_text());
     }
 
     pub fn get_user_choice(&self) -> Option<SimulationType> {
@@ -65,6 +66,46 @@ impl SimulatorInterface {
             println!("Plot output: {}", String::from_utf8_lossy(&output.stdout));
         }
 
+        Ok(())
+    }
+
+    pub async fn run_simple_simulation_async(&self) -> Result<(), String> {
+        loop {
+            self.show_menu();
+            
+            match self.get_user_choice() {
+                Some(SimulationType::SimpleSim) => {
+                    // Call the async simulation function
+                    if let Err(e) = crate::run_simple_simulation().await {
+                        return Err(format!("Simulation failed: {}", e));
+                    }
+                    
+                    // Generate plots after successful simulation
+                    println!("Generating plots...");
+                    if let Err(e) = self.generate_plots() {
+                        return Err(format!("Plot generation failed: {}", e));
+                    }
+                    
+                    println!("Simple simulation completed successfully!");
+                    break;
+                }
+                Some(SimulationType::DummySim) => {
+                    if let Err(e) = self.run_dummy_simulation() {
+                        return Err(format!("Dummy simulation failed: {}", e));
+                    }
+                    break;
+                }
+                Some(SimulationType::Exit) => {
+                    println!("Exiting...");
+                    break;
+                }
+                None => {
+                    println!("Invalid choice. Please enter 1, 2, or 3.");
+                    println!("{}", self.get_menu_text());
+                }
+            }
+        }
+        
         Ok(())
     }
 } 
