@@ -133,12 +133,16 @@ impl HyperIGNode {
         let mut state = self.state.lock().await;
         let chain_id = state.my_chain_id.0.clone();
 
-        // Find timed out CATs
+        // Find timed out CATs (only those that are still pending)
         let timed_out_cats: Vec<(CATId, TransactionId)> = state.cat_max_lifetime.iter()
             .filter(|(_, max_lifetime)| current_block_height > **max_lifetime)
             .filter_map(|(cat_id, _)| {
                 state.cat_to_tx_id.get(cat_id)
                     .map(|tx_id| (cat_id.clone(), tx_id.clone()))
+            })
+            .filter(|(_, tx_id)| {
+                // Only timeout CATs that are still pending
+                state.transaction_statuses.get(tx_id) == Some(&TransactionStatus::Pending)
             })
             .collect();
 

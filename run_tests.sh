@@ -84,6 +84,7 @@ TESTS=(
     hyper_ig::tests::timeouts::test_cat_timeout
     hyper_ig::tests::timeouts::test_cat_timeout_not
     hyper_ig::tests::timeouts::test_cat_timeout_irreversible
+    hyper_ig::tests::timeouts::test_cat_success_should_not_timeout
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -126,7 +127,9 @@ TESTS=(
 # Test specific tests
 TESTS2=(
 
-    hyper_ig::tests::timeouts::test_cat_timeout_irreversible
+    # hyper_ig::tests::timeouts::test_cat_timeout_irreversible
+    hyper_ig::tests::timeouts::test_cat_success_should_not_timeout
+
 )
 
 # Check if arguments are provided

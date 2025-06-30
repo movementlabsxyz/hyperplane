@@ -148,3 +148,88 @@ async fn test_cat_timeout_irreversible() {
     
     logging::log("TEST", "=== Test completed successfully ===\n");
 }
+
+/// Tests that a CAT transaction that succeeds should not be timed out.
+/// 
+/// This test verifies that if a CAT transaction receives a success status update,
+/// it should not be marked as failed due to timeout, even if the timeout period
+/// has passed. This is important for ensuring that successful CATs are not
+/// incorrectly marked as failed.
+/// 
+/// Test flow:
+/// 1. Creates a CAT transaction in block 1
+/// 2. Processes block 6 (which is after max lifetime of 5)
+/// 3. Sends a success status update
+/// 4. Verifies the CAT remains successful and is not timed out
+#[tokio::test]
+async fn test_cat_success_should_not_timeout() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_success_should_not_timeout ===");
+    
+    let cl_id = CLTransactionId("cl-tx".to_string());
+    let tx_id = TransactionId(format!("{}:tx", cl_id.0));
+    
+    // Create node
+    let (mut hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    
+    // Create a CAT transaction
+    let cat_tx = Transaction::new(
+        tx_id.clone(),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id.clone(),
+    ).expect("Failed to create transaction");
+    // Process the CAT in block 1
+    let subblock = SubBlock {
+        block_height: 1,
+        chain_id: constants::chain_1(),
+        transactions: vec![cat_tx.clone()],
+    };
+    hig_node.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", "Processed block height=1");
+    
+    // Verify CAT is pending
+    let status = hig_node.get_transaction_status(tx_id.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Pending);
+
+    // Create a subblock that provides a status update with success
+    let status_update = Transaction::new(
+        TransactionId(format!("{}:status_update", cl_id.0)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        format!("STATUS_UPDATE:Success.CAT_ID:{}", cl_id.0),
+        cl_id.clone(),
+    ).expect("Failed to create status update");
+    // Process the status update in block 2
+    let subblock = SubBlock {
+        block_height: 2,
+        chain_id: constants::chain_1(),
+        transactions: vec![status_update],
+    };
+    hig_node.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", "Processed block height=2");
+
+    // Verify the CAT is successful
+    let status = hig_node.get_transaction_status(tx_id.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Success, "CAT should be successful after status update");
+    
+    // get the max lifetime
+    let max_lifetime = hig_node.get_cat_lifetime().await.unwrap();
+    logging::log("TEST", &format!("Max lifetime='{}'", max_lifetime));
+
+    // Process block after max lifetime
+    let subblock = SubBlock {
+        block_height: max_lifetime + 2,
+        chain_id: constants::chain_1(),
+        transactions: vec![],
+    };
+    hig_node.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", &format!("Processed block height={}", max_lifetime + 2));
+    
+    // Verify CAT is still successful
+    let status = hig_node.get_transaction_status(tx_id.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Success, "CAT should still be successful after timeout check");
+    
+    logging::log("TEST", "=== Test completed successfully ===\n");
+}
