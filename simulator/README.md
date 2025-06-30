@@ -57,9 +57,9 @@ The simple simulation will:
 - Run the simulation with the current configuration
 - Display progress bar and real-time output
 - Automatically generate plots after completion
-- Save results in `simulator/results/`
+- Save results in `simulator/results/sim_simple/`
 
-When running with logs enabled, the simulator will write detailed logs to `simulator/results/simulation.log`. The logs include:
+When running with logs enabled, the simulator will write detailed logs to `simulator/results/sim_simple/simulation.log`. The logs include:
 
 - Network setup and initialization
 - Account creation and balance updates
@@ -69,7 +69,7 @@ When running with logs enabled, the simulator will write detailed logs to `simul
 You can track the logs in real-time by running in a separate terminal:
 
 ```bash
-tail -f simulator/results/simulation.log
+tail -f simulator/results/sim_simple/simulation.log
 ```
 
 ## Configuration
@@ -86,6 +86,7 @@ simulator/
 │   ├── bin/
 │   │   └── simulator.rs    # Main entry point with interactive interface
 │   ├── interface.rs        # Interface system for simulation selection
+│   ├── sim_simple.rs       # Simple simulation implementation
 │   ├── run_simulation.rs   # Core simulation logic and transaction processing
 │   ├── simulation_results.rs # Results tracking and data collection
 │   ├── config.rs           # Configuration management
@@ -94,21 +95,23 @@ simulator/
 │   ├── account_selection.rs # Account selection statistics tracking
 │   └── lib.rs              # Module declarations and exports
 ├── scripts/
-│   └── simple-sim/         # Simple simulation specific scripts
+│   └── sim_simple/          # Simple simulation specific scripts
 │       ├── plot_results.py # Main plotting script
 │       ├── plot_miscellaneous.py # Transaction status plots
 │       ├── plot_account_selection.py # Account selection plots
 │       └── requirements.txt # Python dependencies
 ├── results/                # Generated results and figures
-│   ├── data/               # JSON data files
-│   └── figs/               # Generated plot images
+│   └── sim_simple/         # Simple simulation results
+│       ├── data/           # JSON data files
+│       ├── figs/           # Generated plot images
+│       └── simulation.log  # Simulation logs (when enabled)
 ├── config.toml             # Configuration file
 └── run.sh                  # Launch script
 ```
 
 ## Notes on Visualizing Results
 
-The simulator automatically generates plots after each simulation run. The plots are saved in `simulator/results/figs/` and include:
+The simulator automatically generates plots after each simulation run. The plots are saved in `simulator/results/sim_simple/figs/` and include:
 
 - **Transaction Status Plots**: `tx_count_pending.png`, `tx_count_success.png`, `tx_count_failure.png` - Shows transaction counts over time for each status
 - **Account Selection Plots**: Distribution of sender and receiver account selection
@@ -117,5 +120,5 @@ The simulator automatically generates plots after each simulation run. The plots
 If you need to regenerate plots manually, you can run:
 
 ```bash
-python3 simulator/scripts/simple-sim/plot_results.py
+python3 simulator/scripts/sim_simple/plot_results.py
 ```

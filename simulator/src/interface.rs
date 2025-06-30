@@ -53,7 +53,7 @@ impl SimulatorInterface {
     pub fn generate_plots(&self) -> Result<(), String> {
         // Execute the simple simulation plotting script
         let output = Command::new("python3")
-            .arg("simulator/scripts/simple-sim/plot_results.py")
+            .arg("simulator/scripts/sim_simple/plot_results.py")
             .output()
             .map_err(|e| format!("Failed to execute plotting script: {}", e))?;
 

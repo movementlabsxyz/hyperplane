@@ -16,7 +16,7 @@ from plot_miscellaneous import (
 
 def main():
     # Create results directory if it doesn't exist
-    os.makedirs('simulator/results/figs', exist_ok=True)
+    os.makedirs('simulator/results/sim_simple/figs', exist_ok=True)
     
     # Plot account selection distributions
     plot_account_selection()

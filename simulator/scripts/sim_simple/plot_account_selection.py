@@ -24,7 +24,7 @@ def plot_distribution(role, zipf_param, num_accounts):
     - For zipf_param > 0, this is a Zipf distribution
     """
     # Load and extract data
-    with open(f'simulator/results/data/account_{role}_selection.json', 'r') as f:
+    with open(f'simulator/results/sim_simple/data/account_{role}_selection.json', 'r') as f:
         data = json.load(f)
     
     accounts = [entry['account'] for entry in data[f'{role}_selection']]
@@ -70,7 +70,7 @@ def plot_distribution(role, zipf_param, num_accounts):
     ax3.grid(True)
     
     plt.tight_layout()
-    plt.savefig(f'simulator/results/figs/account_{role}_selection.png')
+    plt.savefig(f'simulator/results/sim_simple/figs/account_{role}_selection.png')
     plt.close()
 
 def plot_account_selection():
@@ -83,11 +83,11 @@ def plot_account_selection():
     3. Plots receiver distribution with Zipf theoretical curve
     
     The plots are saved as:
-    - simulator/results/figs/account_sender_selection.png
-    - simulator/results/figs/account_receiver_selection.png
+    - simulator/results/sim_simple/figs/account_sender_selection.png
+    - simulator/results/sim_simple/figs/account_receiver_selection.png
     """
     # Load simulation parameters
-    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+    with open('simulator/results/sim_simple/data/simulation_stats.json', 'r') as f:
         sim_stats = json.load(f)
     
     # Get parameters
