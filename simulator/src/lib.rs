@@ -8,6 +8,7 @@ pub mod logging;
 pub mod testnodes;
 pub mod interface;
 pub mod sim_simple;
+pub mod sim_sweep_cat_rate;
 
 pub use account_selection::AccountSelectionStats;
 pub use zipf_account_selection::AccountSelector;
@@ -16,4 +17,5 @@ pub use simulation_results::SimulationResults;
 pub use network::initialize_accounts;
 pub use testnodes::*;
 pub use interface::{SimulatorInterface, SimulationType};
-pub use sim_simple::run_simple_simulation; 
+pub use sim_simple::run_simple_simulation;
+pub use sim_sweep_cat_rate::run_sweep_cat_rate_simulation; 

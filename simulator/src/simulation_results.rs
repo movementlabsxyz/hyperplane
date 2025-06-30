@@ -68,6 +68,11 @@ impl Default for SimulationResults {
 impl SimulationResults {
     /// Saves the simulation results to files
     pub async fn save(&self) -> Result<(), String> {
+        self.save_to_directory("simulator/results/sim_simple").await
+    }
+
+    /// Saves the simulation results to a specific directory
+    pub async fn save_to_directory(&self, base_dir: &str) -> Result<(), String> {
         // Print final statistics
         logging::log("SIMULATOR", "\n=== Simulation Statistics ===");
         logging::log("SIMULATOR", &format!("Total Transactions: {}", self.transactions_sent));
@@ -96,11 +101,11 @@ impl SimulationResults {
         });
 
         // Create results directories if they don't exist
-        fs::create_dir_all("simulator/results/sim_simple/data").expect("Failed to create results directory");
+        fs::create_dir_all(&format!("{}/data", base_dir)).expect("Failed to create results directory");
 
         // Save simulation stats
-        let stats_file = "simulator/results/sim_simple/data/simulation_stats.json";
-        fs::write(stats_file, serde_json::to_string_pretty(&stats).expect("Failed to serialize stats")).map_err(|e| e.to_string())?;
+        let stats_file = format!("{}/data/simulation_stats.json", base_dir);
+        fs::write(&stats_file, serde_json::to_string_pretty(&stats).expect("Failed to serialize stats")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved simulation statistics to {}", stats_file));
 
         // Save pending transactions data from chain 1
@@ -112,8 +117,8 @@ impl SimulationResults {
                 })
             }).collect::<Vec<_>>()
         });
-        let pending_file_chain_1 = "simulator/results/sim_simple/data/pending_transactions_chain_1.json";
-        fs::write(pending_file_chain_1, serde_json::to_string_pretty(&pending_txs_chain_1).expect("Failed to serialize pending transactions")).map_err(|e| e.to_string())?;
+        let pending_file_chain_1 = format!("{}/data/pending_transactions_chain_1.json", base_dir);
+        fs::write(&pending_file_chain_1, serde_json::to_string_pretty(&pending_txs_chain_1).expect("Failed to serialize pending transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved pending transactions data to {}", pending_file_chain_1));
 
         // Save pending transactions data from chain 2
@@ -125,8 +130,8 @@ impl SimulationResults {
                 })
             }).collect::<Vec<_>>()
         });
-        let pending_file_chain_2 = "simulator/results/sim_simple/data/pending_transactions_chain_2.json";
-        fs::write(pending_file_chain_2, serde_json::to_string_pretty(&pending_txs_chain_2).expect("Failed to serialize pending transactions")).map_err(|e| e.to_string())?;
+        let pending_file_chain_2 = format!("{}/data/pending_transactions_chain_2.json", base_dir);
+        fs::write(&pending_file_chain_2, serde_json::to_string_pretty(&pending_txs_chain_2).expect("Failed to serialize pending transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved pending transactions data to {}", pending_file_chain_2));
 
         // Save success transactions data from chain 1
@@ -138,8 +143,8 @@ impl SimulationResults {
                 })
             }).collect::<Vec<_>>()
         });
-        let success_file_chain_1 = "simulator/results/sim_simple/data/success_transactions_chain_1.json";
-        fs::write(success_file_chain_1, serde_json::to_string_pretty(&success_txs_chain_1).expect("Failed to serialize success transactions")).map_err(|e| e.to_string())?;
+        let success_file_chain_1 = format!("{}/data/success_transactions_chain_1.json", base_dir);
+        fs::write(&success_file_chain_1, serde_json::to_string_pretty(&success_txs_chain_1).expect("Failed to serialize success transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved success transactions data to {}", success_file_chain_1));
 
         // Save success transactions data from chain 2
@@ -151,8 +156,8 @@ impl SimulationResults {
                 })
             }).collect::<Vec<_>>()
         });
-        let success_file_chain_2 = "simulator/results/sim_simple/data/success_transactions_chain_2.json";
-        fs::write(success_file_chain_2, serde_json::to_string_pretty(&success_txs_chain_2).expect("Failed to serialize success transactions")).map_err(|e| e.to_string())?;
+        let success_file_chain_2 = format!("{}/data/success_transactions_chain_2.json", base_dir);
+        fs::write(&success_file_chain_2, serde_json::to_string_pretty(&success_txs_chain_2).expect("Failed to serialize success transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved success transactions data to {}", success_file_chain_2));
 
         // Save failure transactions data from chain 1
@@ -164,8 +169,8 @@ impl SimulationResults {
                 })
             }).collect::<Vec<_>>()
         });
-        let failure_file_chain_1 = "simulator/results/sim_simple/data/failure_transactions_chain_1.json";
-        fs::write(failure_file_chain_1, serde_json::to_string_pretty(&failure_txs_chain_1).expect("Failed to serialize failure transactions")).map_err(|e| e.to_string())?;
+        let failure_file_chain_1 = format!("{}/data/failure_transactions_chain_1.json", base_dir);
+        fs::write(&failure_file_chain_1, serde_json::to_string_pretty(&failure_txs_chain_1).expect("Failed to serialize failure transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved failure transactions data to {}", failure_file_chain_1));
 
         // Save failure transactions data from chain 2
@@ -177,17 +182,17 @@ impl SimulationResults {
                 })
             }).collect::<Vec<_>>()
         });
-        let failure_file_chain_2 = "simulator/results/sim_simple/data/failure_transactions_chain_2.json";
-        fs::write(failure_file_chain_2, serde_json::to_string_pretty(&failure_txs_chain_2).expect("Failed to serialize failure transactions")).map_err(|e| e.to_string())?;
+        let failure_file_chain_2 = format!("{}/data/failure_transactions_chain_2.json", base_dir);
+        fs::write(&failure_file_chain_2, serde_json::to_string_pretty(&failure_txs_chain_2).expect("Failed to serialize failure transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved failure transactions data to {}", failure_file_chain_2));
 
         // Save account selection data to files
         let (sender_json, receiver_json) = self.account_stats.to_json();
-        let sender_file = "simulator/results/sim_simple/data/account_sender_selection.json";
-        fs::write(sender_file, serde_json::to_string_pretty(&sender_json).expect("Failed to serialize sender stats")).map_err(|e| e.to_string())?;
+        let sender_file = format!("{}/data/account_sender_selection.json", base_dir);
+        fs::write(&sender_file, serde_json::to_string_pretty(&sender_json).expect("Failed to serialize sender stats")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved sender selection data to {}", sender_file));
-        let receiver_file = "simulator/results/sim_simple/data/account_receiver_selection.json";
-        fs::write(receiver_file, serde_json::to_string_pretty(&receiver_json).expect("Failed to serialize receiver stats")).map_err(|e| e.to_string())?;
+        let receiver_file = format!("{}/data/account_receiver_selection.json", base_dir);
+        fs::write(&receiver_file, serde_json::to_string_pretty(&receiver_json).expect("Failed to serialize receiver stats")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved receiver selection data to {}", receiver_file));
 
         Ok(())

@@ -3,6 +3,7 @@ use std::process::Command;
 
 pub enum SimulationType {
     SimpleSim,
+    SweepCatRate,
     DummySim,
     Exit,
 }
@@ -11,8 +12,9 @@ impl SimulationType {
     pub fn from_input(input: &str) -> Option<Self> {
         match input.trim() {
             "1" => Some(SimulationType::SimpleSim),
-            "2" => Some(SimulationType::DummySim),
-            "3" => Some(SimulationType::Exit),
+            "2" => Some(SimulationType::SweepCatRate),
+            "3" => Some(SimulationType::DummySim),
+            "4" => Some(SimulationType::Exit),
             _ => None,
         }
     }
@@ -26,7 +28,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Dummy simulation (not yet implemented)\n  3. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate simulation\n  3. Dummy simulation (not yet implemented)\n  4. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -35,7 +37,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_user_choice(&self) -> Option<SimulationType> {
-        print!("\nSelect simulation type (1-3): ");
+        print!("\nSelect simulation type (1-4): ");
         io::stdout().flush().unwrap();
         
         let mut input = String::new();
@@ -50,10 +52,16 @@ impl SimulatorInterface {
         Ok(())
     }
 
-    pub fn generate_plots(&self) -> Result<(), String> {
-        // Execute the simple simulation plotting script
+    pub fn generate_plots(&self, simulation_type: &str) -> Result<(), String> {
+        // Execute the appropriate plotting script based on simulation type
+        let script_path = match simulation_type {
+            "simple" => "simulator/scripts/sim_simple/plot_results.py",
+            "sweep_cat_rate" => "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
+            _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
+        };
+
         let output = Command::new("python3")
-            .arg("simulator/scripts/sim_simple/plot_results.py")
+            .arg(script_path)
             .output()
             .map_err(|e| format!("Failed to execute plotting script: {}", e))?;
 
@@ -82,11 +90,26 @@ impl SimulatorInterface {
                     
                     // Generate plots after successful simulation
                     println!("Generating plots...");
-                    if let Err(e) = self.generate_plots() {
+                    if let Err(e) = self.generate_plots("simple") {
                         return Err(format!("Plot generation failed: {}", e));
                     }
                     
                     println!("Simple simulation completed successfully!");
+                    break;
+                }
+                Some(SimulationType::SweepCatRate) => {
+                    // Call the sweep simulation function
+                    if let Err(e) = crate::run_sweep_cat_rate_simulation().await {
+                        return Err(format!("Sweep simulation failed: {}", e));
+                    }
+                    
+                    // Generate plots after successful simulation
+                    println!("Generating plots...");
+                    if let Err(e) = self.generate_plots("sweep_cat_rate") {
+                        return Err(format!("Plot generation failed: {}", e));
+                    }
+                    
+                    println!("Sweep CAT rate simulation completed successfully!");
                     break;
                 }
                 Some(SimulationType::DummySim) => {
@@ -100,7 +123,7 @@ impl SimulatorInterface {
                     break;
                 }
                 None => {
-                    println!("Invalid choice. Please enter 1, 2, or 3.");
+                    println!("Invalid choice. Please enter 1, 2, 3, or 4.");
                     println!("{}", self.get_menu_text());
                 }
             }

@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+import json
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
+
+# Add the current directory to the Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+def load_sweep_data():
+    """Load the combined sweep results data"""
+    with open('simulator/results/sim_sweep_cat_rate/data/sweep_results.json', 'r') as f:
+        return json.load(f)
+
+def create_color_gradient(num_simulations):
+    """Create a color gradient from red (0) to blue (max)"""
+    colors = plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
+    return colors
+
+def plot_pending_transactions_overlay():
+    """Plot pending transactions for all simulations with color gradient"""
+    try:
+        data = load_sweep_data()
+        individual_results = data['individual_results']
+        sweep_summary = data['sweep_summary']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping pending transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(12, 8))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Plot each simulation's chain 1 pending transactions
+        for i, result in enumerate(individual_results):
+            cat_ratio = result['cat_ratio']
+            chain_1_pending = result['chain_1_pending']
+            
+            if not chain_1_pending:
+                continue
+                
+            # Extract data - chain_1_pending is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_1_pending]
+            counts = [entry[1] for entry in chain_1_pending]
+            
+            # Plot with color based on CAT ratio
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=f'CAT ratio: {cat_ratio:.3f}', linewidth=1.5)
+        
+        plt.title('Pending Transactions by Height (Chain 1) - CAT Rate Sweep')
+        plt.xlabel('Block Height')
+        plt.ylabel('Number of Pending Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.savefig('simulator/results/sim_sweep_cat_rate/figs/pending_transactions_overlay.png', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing pending transactions data: {e}")
+        return
+
+def plot_success_transactions_overlay():
+    """Plot success transactions for all simulations with color gradient"""
+    try:
+        data = load_sweep_data()
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping success transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(12, 8))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Plot each simulation's chain 1 success transactions
+        for i, result in enumerate(individual_results):
+            cat_ratio = result['cat_ratio']
+            chain_1_success = result['chain_1_success']
+            
+            if not chain_1_success:
+                continue
+                
+            # Extract data - chain_1_success is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_1_success]
+            counts = [entry[1] for entry in chain_1_success]
+            
+            # Plot with color based on CAT ratio
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=f'CAT ratio: {cat_ratio:.3f}', linewidth=1.5)
+        
+        plt.title('Success Transactions by Height (Chain 1) - CAT Rate Sweep')
+        plt.xlabel('Block Height')
+        plt.ylabel('Number of Success Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.savefig('simulator/results/sim_sweep_cat_rate/figs/success_transactions_overlay.png', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing success transactions data: {e}")
+        return
+
+def plot_failure_transactions_overlay():
+    """Plot failure transactions for all simulations with color gradient"""
+    try:
+        data = load_sweep_data()
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping failure transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(12, 8))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Plot each simulation's chain 1 failure transactions
+        for i, result in enumerate(individual_results):
+            cat_ratio = result['cat_ratio']
+            chain_1_failure = result['chain_1_failure']
+            
+            if not chain_1_failure:
+                continue
+                
+            # Extract data - chain_1_failure is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_1_failure]
+            counts = [entry[1] for entry in chain_1_failure]
+            
+            # Plot with color based on CAT ratio
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=f'CAT ratio: {cat_ratio:.3f}', linewidth=1.5)
+        
+        plt.title('Failure Transactions by Height (Chain 1) - CAT Rate Sweep')
+        plt.xlabel('Block Height')
+        plt.ylabel('Number of Failure Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        plt.savefig('simulator/results/sim_sweep_cat_rate/figs/failure_transactions_overlay.png', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing failure transactions data: {e}")
+        return
+
+def plot_sweep_summary():
+    """Plot summary statistics across all CAT ratios"""
+    try:
+        data = load_sweep_data()
+        sweep_summary = data['sweep_summary']
+        
+        if not sweep_summary:
+            print("Warning: No sweep summary found, skipping summary plot")
+            return
+        
+        cat_ratios = sweep_summary['cat_ratios']
+        total_transactions = sweep_summary['total_transactions']
+        cat_transactions = sweep_summary['cat_transactions']
+        regular_transactions = sweep_summary['regular_transactions']
+        
+        # Create subplots
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+        
+        # Plot 1: Total transactions
+        ax1.plot(cat_ratios, total_transactions, 'bo-', linewidth=2, markersize=6)
+        ax1.set_title('Total Transactions vs CAT Ratio')
+        ax1.set_xlabel('CAT Ratio')
+        ax1.set_ylabel('Total Transactions')
+        ax1.grid(True, alpha=0.3)
+        
+        # Plot 2: CAT transactions
+        ax2.plot(cat_ratios, cat_transactions, 'ro-', linewidth=2, markersize=6)
+        ax2.set_title('CAT Transactions vs CAT Ratio')
+        ax2.set_xlabel('CAT Ratio')
+        ax2.set_ylabel('CAT Transactions')
+        ax2.grid(True, alpha=0.3)
+        
+        # Plot 3: Regular transactions
+        ax3.plot(cat_ratios, regular_transactions, 'go-', linewidth=2, markersize=6)
+        ax3.set_title('Regular Transactions vs CAT Ratio')
+        ax3.set_xlabel('CAT Ratio')
+        ax3.set_ylabel('Regular Transactions')
+        ax3.grid(True, alpha=0.3)
+        
+        # Plot 4: Transaction type distribution
+        x = np.arange(len(cat_ratios))
+        width = 0.35
+        
+        ax4.bar(x - width/2, cat_transactions, width, label='CAT Transactions', alpha=0.8)
+        ax4.bar(x + width/2, regular_transactions, width, label='Regular Transactions', alpha=0.8)
+        ax4.set_title('Transaction Distribution by CAT Ratio')
+        ax4.set_xlabel('CAT Ratio')
+        ax4.set_ylabel('Number of Transactions')
+        ax4.set_xticks(x)
+        ax4.set_xticklabels([f'{ratio:.2f}' for ratio in cat_ratios], rotation=45)
+        ax4.legend()
+        ax4.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.savefig('simulator/results/sim_sweep_cat_rate/figs/sweep_summary.png', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing sweep summary data: {e}")
+        return
+
+def main():
+    # Create results directory if it doesn't exist
+    os.makedirs('simulator/results/sim_sweep_cat_rate/figs', exist_ok=True)
+    
+    print("Generating sweep CAT rate simulation plots...")
+    
+    # Plot transaction overlays
+    plot_pending_transactions_overlay()
+    plot_success_transactions_overlay()
+    plot_failure_transactions_overlay()
+    
+    # Plot sweep summary
+    plot_sweep_summary()
+    
+    print("Sweep CAT rate simulation plots generated successfully!")
+
+if __name__ == "__main__":
+    main() 

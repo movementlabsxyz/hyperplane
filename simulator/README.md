@@ -94,31 +94,9 @@ simulator/
 │   ├── zipf_account_selection.rs # Account selection using Zipf distribution
 │   ├── account_selection.rs # Account selection statistics tracking
 │   └── lib.rs              # Module declarations and exports
-├── scripts/
-│   └── sim_simple/          # Simple simulation specific scripts
-│       ├── plot_results.py # Main plotting script
-│       ├── plot_miscellaneous.py # Transaction status plots
-│       ├── plot_account_selection.py # Account selection plots
-│       └── requirements.txt # Python dependencies
+├── scripts/                # Simulation scripts
 ├── results/                # Generated results and figures
-│   └── sim_simple/         # Simple simulation results
-│       ├── data/           # JSON data files
-│       ├── figs/           # Generated plot images
-│       └── simulation.log  # Simulation logs (when enabled)
-├── config.toml             # Configuration file
+└── config_default.toml     # Default configuration for simple simulation
+└── config_sweep_cat_rate.toml # Configuration for sweep simulation
 └── run.sh                  # Launch script
-```
-
-## Notes on Visualizing Results
-
-The simulator automatically generates plots after each simulation run. The plots are saved in `simulator/results/sim_simple/figs/` and include:
-
-- **Transaction Status Plots**: `tx_count_pending.png`, `tx_count_success.png`, `tx_count_failure.png` - Shows transaction counts over time for each status
-- **Account Selection Plots**: Distribution of sender and receiver account selection
-- **Parameter Tracking**: Simulation configuration and parameters used
-
-If you need to regenerate plots manually, you can run:
-
-```bash
-python3 simulator/scripts/sim_simple/plot_results.py
 ```
