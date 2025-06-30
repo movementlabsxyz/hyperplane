@@ -53,8 +53,8 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
                 duration_seconds: sweep_config.transactions.duration_seconds,
                 zipf_parameter: sweep_config.transactions.zipf_parameter,
                 ratio_cats: *cat_ratio,
+                cat_lifetime_blocks: sweep_config.transactions.cat_lifetime_blocks,
             },
-            block: sweep_config.block.clone(),
         };
 
         // Initialize simulation results
@@ -62,7 +62,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
 
         // Setup test nodes
         let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-            Duration::from_secs_f64(sim_config.block.block_interval),
+            Duration::from_secs_f64(sim_config.network.block_interval),
             &sim_config.network.chain_delays,
         ).await;
         
@@ -136,8 +136,8 @@ fn initialize_simulation_results(config: &crate::config::Config, sim_index: usiz
     results.duration_seconds = config.transactions.duration_seconds.try_into().unwrap();
     results.zipf_parameter = config.transactions.zipf_parameter;
     results.ratio_cats = config.transactions.ratio_cats;
-    results.block_interval = config.block.block_interval;
-    results.cat_lifetime = 10; // Default CAT lifetime
+    results.block_interval = config.network.block_interval;
+    results.cat_lifetime = config.transactions.cat_lifetime_blocks;
     results.chain_delays = config.network.chain_delays.clone();
     results.start_time = Instant::now();
 

@@ -22,7 +22,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
 
     // Setup test nodes
     let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-        Duration::from_secs_f64(config.block.block_interval),
+        Duration::from_secs_f64(config.network.block_interval),
         &config.network.chain_delays,
     ).await;
     
@@ -68,8 +68,8 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     results.duration_seconds = config.transactions.duration_seconds.try_into().unwrap();
     results.zipf_parameter = config.transactions.zipf_parameter;
     results.ratio_cats = config.transactions.ratio_cats;
-    results.block_interval = config.block.block_interval;
-    results.cat_lifetime = 10; // Default CAT lifetime
+    results.block_interval = config.network.block_interval;
+    results.cat_lifetime = config.transactions.cat_lifetime_blocks;
     results.chain_delays = config.network.chain_delays.clone();
     results.start_time = Instant::now();
 

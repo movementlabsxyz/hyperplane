@@ -7,6 +7,8 @@ num_chains = 2
 # Delay in seconds for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 chain_delays = [0.0, 0.5]  # chain-1 has .. delay, chain-2 has .. delay
+# Block interval in seconds
+block_interval = 0.1
 
 # Account parameters
 [accounts]
@@ -32,13 +34,11 @@ duration_seconds = 20
 zipf_parameter = 1.0
 # Ratio of transactions that will be CATs
 ratio_cats = 0.03
-
-# Block parameters
-[block]
-# Block interval in seconds
-block_interval = 0.1
+# CAT lifetime in blocks
+# This is the maximum number of blocks a CAT transaction can remain pending
+cat_lifetime_blocks = 10
 
 # Sweep parameters
 [sweep]
-num_simulations = 6 # Number of simulations to run
-cat_rate_step = 0.02 # Step size for CAT ratio 
+num_simulations = 4 # Number of simulations to run
+cat_rate_step = 0.05 # Step size for CAT ratio 

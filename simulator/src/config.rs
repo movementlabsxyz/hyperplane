@@ -9,7 +9,6 @@ pub struct Config {
     #[serde(rename = "accounts")]
     pub num_accounts: AccountConfig,
     pub transactions: TransactionConfig,
-    pub block: BlockConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -17,6 +16,7 @@ pub struct NetworkConfig {
     pub num_chains: usize,
     #[serde(deserialize_with = "deserialize_durations")]
     pub chain_delays: Vec<Duration>,  // Delay for each chain
+    pub block_interval: f64,  // Block interval in seconds
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -31,11 +31,7 @@ pub struct TransactionConfig {
     pub duration_seconds: u64,
     pub zipf_parameter: f64,
     pub ratio_cats: f64,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct BlockConfig {
-    pub block_interval: f64,  // Block interval in seconds
+    pub cat_lifetime_blocks: u64,  // CAT lifetime in blocks
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -44,7 +40,6 @@ pub struct SweepConfig {
     #[serde(rename = "accounts")]
     pub num_accounts: AccountConfig,
     pub transactions: TransactionConfig,
-    pub block: BlockConfig,
     pub sweep: SweepParameters,
 }
 
@@ -121,8 +116,8 @@ impl Config {
         if self.transactions.ratio_cats < 0.0 || self.transactions.ratio_cats > 1.0 {
             return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
         }
-        if self.block.block_interval <= 0.0 {
-            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
+        if self.transactions.cat_lifetime_blocks == 0 {
+            return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
         }
         if self.network.num_chains == 0 {
             return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
@@ -134,6 +129,9 @@ impl Config {
             if delay.as_secs_f64() < 0.0 {
                 return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
             }
+        }
+        if self.network.block_interval <= 0.0 {
+            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
         }
         Ok(())
     }
@@ -163,8 +161,8 @@ impl SweepConfig {
         if self.transactions.ratio_cats < 0.0 || self.transactions.ratio_cats > 1.0 {
             return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
         }
-        if self.block.block_interval <= 0.0 {
-            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
+        if self.transactions.cat_lifetime_blocks == 0 {
+            return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
         }
         if self.network.num_chains == 0 {
             return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
@@ -182,6 +180,9 @@ impl SweepConfig {
         }
         if self.sweep.cat_rate_step <= 0.0 {
             return Err(ConfigError::ValidationError("CAT rate step must be positive".into()));
+        }
+        if self.network.block_interval <= 0.0 {
+            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
         }
         Ok(())
     }
