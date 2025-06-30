@@ -36,6 +36,9 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
         &mut results,
     ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
+    // Save results
+    results.save().await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+
     Ok(())
 }
 

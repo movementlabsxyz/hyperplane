@@ -81,7 +81,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
         ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
         // Save individual simulation results
-        results.save_to_directory(&format!("simulator/results/sim_sweep_cat_rate/sim_{}", sim_index)).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+        results.save_to_directory(&format!("simulator/results/sim_sweep_cat_rate/data/sim_{}", sim_index)).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
         
         all_results.push((*cat_ratio, results));
         
