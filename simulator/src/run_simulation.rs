@@ -10,7 +10,7 @@ use hyperplane::{
     hyper_ig::HyperIG,
     utils::logging,
 };
-use crate::account_selector::AccountSelector;
+use crate::zipf_account_selection::AccountSelector;
 use rand::Rng;
 use crate::SimulationResults;
 
