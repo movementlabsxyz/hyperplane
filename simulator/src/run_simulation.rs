@@ -132,10 +132,8 @@ pub async fn run_simulation(
         results.transactions_sent += 1;
         progress_bar.inc(1);
         
-        // Get current block height and pending transactions
+        // Get current block height and transaction status counts
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
-        let chain_1_pending_txs = hig_nodes[0].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
-        let chain_2_pending_txs = hig_nodes[1].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
         
         // Get success and failure transaction counts
         let (chain_1_pending, chain_1_success, chain_1_failure) = hig_nodes[0].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;

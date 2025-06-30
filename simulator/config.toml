@@ -22,13 +22,13 @@ duration_seconds = 20
 zipf_parameter = 1.0
 
 # Ratio of transactions that will be CATs
-ratio_cats = 0.1
+ratio_cats = 0.03
 
 # Block interval in seconds
 block_interval = 0.1
 
 # Number of blocks a CAT can be pending, before timing out
-cat_lifetime = 5
+cat_lifetime = 10
 
 # Chain configuration
 [chains]
@@ -38,4 +38,4 @@ num_chains = 2
 
 # Delay in seconds for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-delays = [0.0, 0.0]  # chain-1 has .. delay, chain-2 has .. delay
+delays = [0.0, 0.5]  # chain-1 has .. delay, chain-2 has .. delay
