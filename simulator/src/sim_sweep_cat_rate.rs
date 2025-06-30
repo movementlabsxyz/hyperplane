@@ -3,6 +3,7 @@ use std::fs;
 use chrono::Local;
 use hyperplane::utils::logging;
 use std::time::{Duration, Instant};
+use indicatif::{ProgressBar, ProgressStyle};
 
 /// Runs the sweep CAT rate simulation
 pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::ConfigError> {
@@ -27,6 +28,13 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
     logging::log("SIMULATOR", &format!("CAT rate step: {}", sweep_config.sweep.cat_rate_step));
     logging::log("SIMULATOR", &format!("CAT ratios: {:?}", cat_ratios));
     logging::log("SIMULATOR", "================================");
+
+    // Create progress bar for sweep
+    let progress_bar = ProgressBar::new(sweep_config.sweep.num_simulations as u64);
+    progress_bar.set_style(ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
+        .unwrap()
+        .progress_chars("+>-"));
 
     // Store results for each simulation
     let mut all_results = Vec::new();
@@ -76,7 +84,19 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
         results.save_to_directory(&format!("simulator/results/sim_sweep_cat_rate/sim_{}", sim_index)).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
         
         all_results.push((*cat_ratio, results));
+        
+        // Update progress bar and show completed simulation
+        progress_bar.inc(1);
+        progress_bar.set_message(format!("Simulation {}/{} with CAT ratio: {:.3}", 
+            sim_index + 1, sweep_config.sweep.num_simulations, cat_ratio));
     }
+
+    // Finish progress bar with final state
+    progress_bar.finish_with_message(format!("Simulation {}/{} with CAT ratio: {:.3}", 
+        sweep_config.sweep.num_simulations, sweep_config.sweep.num_simulations, 
+        cat_ratios.last().unwrap()));
+    
+    println!("Sweep simulation complete");
 
     // Save combined results
     save_sweep_results(&all_results).await?;
