@@ -55,6 +55,8 @@ pub struct SweepParameters {
     pub chain_delay_step: Option<f64>,
     #[serde(default)]
     pub duration_step: Option<u64>,
+    #[serde(default)]
+    pub cat_lifetime_step: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -77,6 +79,15 @@ pub struct SweepChainDelayConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepDurationConfig {
+    pub network: NetworkConfig,
+    #[serde(rename = "accounts")]
+    pub num_accounts: AccountConfig,
+    pub transactions: TransactionConfig,
+    pub sweep: SweepParameters,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SweepCatLifetimeConfig {
     pub network: NetworkConfig,
     #[serde(rename = "accounts")]
     pub num_accounts: AccountConfig,
@@ -212,6 +223,13 @@ impl Config {
         Ok(config)
     }
 
+    pub fn load_sweep_cat_lifetime() -> Result<SweepCatLifetimeConfig, ConfigError> {
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_lifetime.toml")?;
+        let config: SweepCatLifetimeConfig = toml::from_str(&config_str)?;
+        config.validate()?;
+        Ok(config)
+    }
+
     fn validate(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.num_accounts, &self.transactions, &self.network)
     }
@@ -308,6 +326,29 @@ impl ValidateConfig for SweepDurationConfig {
 }
 
 impl SweepDurationConfig {
+    pub fn get_duration(&self) -> Duration {
+        Duration::from_secs(self.transactions.duration_seconds)
+    }
+}
+
+impl ValidateConfig for SweepCatLifetimeConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.cat_lifetime_step.is_none() {
+            return Err(ConfigError::ValidationError("CAT lifetime step must be specified".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepCatLifetimeConfig {
     pub fn get_duration(&self) -> Duration {
         Duration::from_secs(self.transactions.duration_seconds)
     }
