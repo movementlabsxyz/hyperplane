@@ -116,6 +116,62 @@ pub enum ConfigError {
     ValidationError(String),
 }
 
+// Trait for common validation functionality
+trait ValidateConfig {
+    fn validate_common(&self) -> Result<(), ConfigError>;
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError>;
+    
+    fn validate(&self) -> Result<(), ConfigError> {
+        self.validate_common()?;
+        self.validate_sweep_specific()?;
+        Ok(())
+    }
+}
+
+// Common validation logic
+fn validate_common_fields(
+    num_accounts: &AccountConfig,
+    transactions: &TransactionConfig,
+    network: &NetworkConfig,
+) -> Result<(), ConfigError> {
+    if num_accounts.initial_balance <= 0 {
+        return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
+    }
+    if num_accounts.num_accounts == 0 {
+        return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
+    }
+    if transactions.target_tps <= 0.0 {
+        return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
+    }
+    if transactions.duration_seconds == 0 {
+        return Err(ConfigError::ValidationError("Duration must be positive".into()));
+    }
+    if transactions.zipf_parameter < 0.0 {
+        return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
+    }
+    if transactions.ratio_cats < 0.0 || transactions.ratio_cats > 1.0 {
+        return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
+    }
+    if transactions.cat_lifetime_blocks == 0 {
+        return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
+    }
+    if network.num_chains == 0 {
+        return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
+    }
+    if network.chain_delays.len() != network.num_chains {
+        return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
+    }
+    for (i, delay) in network.chain_delays.iter().enumerate() {
+        if delay.as_secs_f64() < 0.0 {
+            return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
+        }
+    }
+    if network.block_interval <= 0.0 {
+        return Err(ConfigError::ValidationError("Block interval must be positive".into()));
+    }
+    Ok(())
+}
+
 impl Config {
     pub fn load() -> Result<Self, ConfigError> {
         let config_str = fs::read_to_string("simulator/src/scenarios/config_simple.toml")?;
@@ -153,248 +209,101 @@ impl Config {
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
-        if self.num_accounts.initial_balance <= 0 {
-            return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
-        }
-        if self.num_accounts.num_accounts == 0 {
-            return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
-        }
-        if self.transactions.target_tps <= 0.0 {
-            return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
-        }
-        if self.transactions.duration_seconds == 0 {
-            return Err(ConfigError::ValidationError("Duration must be positive".into()));
-        }
-        if self.transactions.zipf_parameter < 0.0 {
-            return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
-        }
-        if self.transactions.ratio_cats < 0.0 || self.transactions.ratio_cats > 1.0 {
-            return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
-        }
-        if self.transactions.cat_lifetime_blocks == 0 {
-            return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
-        }
-        if self.network.num_chains == 0 {
-            return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
-        }
-        if self.network.chain_delays.len() != self.network.num_chains {
-            return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
-        }
-        for (i, delay) in self.network.chain_delays.iter().enumerate() {
-            if delay.as_secs_f64() < 0.0 {
-                return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
-            }
-        }
-        if self.network.block_interval <= 0.0 {
-            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
-        }
-        Ok(())
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)
     }
 
     pub fn get_duration(&self) -> Duration {
         Duration::from_secs(self.transactions.duration_seconds)
+    }
+}
+
+impl ValidateConfig for SweepConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.cat_rate_step.is_none() && self.sweep.zipf_step.is_none() {
+            return Err(ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
+        }
+        Ok(())
     }
 }
 
 impl SweepConfig {
-    fn validate(&self) -> Result<(), ConfigError> {
-        if self.num_accounts.initial_balance <= 0 {
-            return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
-        }
-        if self.num_accounts.num_accounts == 0 {
-            return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
-        }
-        if self.transactions.target_tps <= 0.0 {
-            return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
-        }
-        if self.transactions.duration_seconds == 0 {
-            return Err(ConfigError::ValidationError("Duration must be positive".into()));
-        }
-        if self.transactions.zipf_parameter < 0.0 {
-            return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
-        }
-        if self.transactions.ratio_cats < 0.0 || self.transactions.ratio_cats > 1.0 {
-            return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
-        }
-        if self.transactions.cat_lifetime_blocks == 0 {
-            return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
-        }
-        if self.network.num_chains == 0 {
-            return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
-        }
-        if self.network.chain_delays.len() != self.network.num_chains {
-            return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
-        }
-        for (i, delay) in self.network.chain_delays.iter().enumerate() {
-            if delay.as_secs_f64() < 0.0 {
-                return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
-            }
-        }
+    pub fn get_duration(&self) -> Duration {
+        Duration::from_secs(self.transactions.duration_seconds)
+    }
+}
+
+impl ValidateConfig for SweepZipfConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        if self.sweep.cat_rate_step.is_none() && self.sweep.zipf_step.is_none() {
-            return Err(ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
-        }
-        if self.network.block_interval <= 0.0 {
-            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
         }
         Ok(())
     }
 
-    pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.cat_rate_step.is_none() && self.sweep.zipf_step.is_none() {
+            return Err(ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
+        }
+        Ok(())
     }
 }
 
 impl SweepZipfConfig {
-    fn validate(&self) -> Result<(), ConfigError> {
-        if self.num_accounts.initial_balance <= 0 {
-            return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
-        }
-        if self.num_accounts.num_accounts == 0 {
-            return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
-        }
-        if self.transactions.target_tps <= 0.0 {
-            return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
-        }
-        if self.transactions.duration_seconds == 0 {
-            return Err(ConfigError::ValidationError("Duration must be positive".into()));
-        }
-        if self.transactions.zipf_parameter < 0.0 {
-            return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
-        }
-        if self.transactions.ratio_cats < 0.0 || self.transactions.ratio_cats > 1.0 {
-            return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
-        }
-        if self.transactions.cat_lifetime_blocks == 0 {
-            return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
-        }
-        if self.network.num_chains == 0 {
-            return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
-        }
-        if self.network.chain_delays.len() != self.network.num_chains {
-            return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
-        }
-        for (i, delay) in self.network.chain_delays.iter().enumerate() {
-            if delay.as_secs_f64() < 0.0 {
-                return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
-            }
-        }
+    pub fn get_duration(&self) -> Duration {
+        Duration::from_secs(self.transactions.duration_seconds)
+    }
+}
+
+impl ValidateConfig for SweepChainDelayConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        if self.sweep.cat_rate_step.is_none() && self.sweep.zipf_step.is_none() {
-            return Err(ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
-        }
-        if self.network.block_interval <= 0.0 {
-            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
         }
         Ok(())
     }
 
-    pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.chain_delay_step.is_none() {
+            return Err(ConfigError::ValidationError("Chain delay step must be specified".into()));
+        }
+        Ok(())
     }
 }
 
 impl SweepChainDelayConfig {
-    fn validate(&self) -> Result<(), ConfigError> {
-        if self.num_accounts.initial_balance <= 0 {
-            return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
-        }
-        if self.num_accounts.num_accounts == 0 {
-            return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
-        }
-        if self.transactions.target_tps <= 0.0 {
-            return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
-        }
-        if self.transactions.duration_seconds == 0 {
-            return Err(ConfigError::ValidationError("Duration must be positive".into()));
-        }
-        if self.transactions.zipf_parameter < 0.0 {
-            return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
-        }
-        if self.transactions.ratio_cats < 0.0 || self.transactions.ratio_cats > 1.0 {
-            return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
-        }
-        if self.transactions.cat_lifetime_blocks == 0 {
-            return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
-        }
-        if self.network.num_chains == 0 {
-            return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
-        }
-        if self.network.chain_delays.len() != self.network.num_chains {
-            return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
-        }
-        for (i, delay) in self.network.chain_delays.iter().enumerate() {
-            if delay.as_secs_f64() < 0.0 {
-                return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
-            }
-        }
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        if self.sweep.chain_delay_step.is_none() {
-            return Err(ConfigError::ValidationError("Chain delay step must be specified".into()));
-        }
-        if self.network.block_interval <= 0.0 {
-            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
-        }
-        Ok(())
-    }
-
     pub fn get_duration(&self) -> Duration {
         Duration::from_secs(self.transactions.duration_seconds)
     }
 }
 
-impl SweepDurationConfig {
-    fn validate(&self) -> Result<(), ConfigError> {
-        if self.num_accounts.initial_balance <= 0 {
-            return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
-        }
-        if self.num_accounts.num_accounts == 0 {
-            return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
-        }
-        if self.transactions.target_tps <= 0.0 {
-            return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
-        }
-        if self.transactions.duration_seconds == 0 {
-            return Err(ConfigError::ValidationError("Duration must be positive".into()));
-        }
-        if self.transactions.zipf_parameter < 0.0 {
-            return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
-        }
-        if self.transactions.ratio_cats < 0.0 || self.transactions.ratio_cats > 1.0 {
-            return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
-        }
-        if self.transactions.cat_lifetime_blocks == 0 {
-            return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
-        }
-        if self.network.num_chains == 0 {
-            return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
-        }
-        if self.network.chain_delays.len() != self.network.num_chains {
-            return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
-        }
-        for (i, delay) in self.network.chain_delays.iter().enumerate() {
-            if delay.as_secs_f64() < 0.0 {
-                return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
-            }
-        }
+impl ValidateConfig for SweepDurationConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        if self.sweep.duration_step.is_none() {
-            return Err(ConfigError::ValidationError("Duration step must be specified".into()));
-        }
-        if self.network.block_interval <= 0.0 {
-            return Err(ConfigError::ValidationError("Block interval must be positive".into()));
         }
         Ok(())
     }
 
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.duration_step.is_none() {
+            return Err(ConfigError::ValidationError("Duration step must be specified".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepDurationConfig {
     pub fn get_duration(&self) -> Duration {
         Duration::from_secs(self.transactions.duration_seconds)
     }
