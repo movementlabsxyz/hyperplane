@@ -58,6 +58,9 @@ pub trait HyperIG: Send + Sync {
 
     /// Get the current block height
     async fn get_current_block_height(&self) -> Result<u64, HyperIGError>;
+
+    /// Get the default CAT lifetime configuration in blocks
+    async fn get_cat_lifetime(&self) -> Result<u64, HyperIGError>;
 }
 
 #[cfg(test)]

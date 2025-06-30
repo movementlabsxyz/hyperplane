@@ -1031,6 +1031,15 @@ impl HyperIG for HyperIGNode {
         let state = self.state.lock().await;
         Ok(state.current_block_height)
     }
+
+    /// Gets the default CAT lifetime configuration in blocks.
+    /// 
+    /// # Returns
+    /// The default CAT lifetime in blocks
+    async fn get_cat_lifetime(&self) -> Result<u64, HyperIGError> {
+        let state = self.state.lock().await;
+        Ok(state.cat_lifetime)
+    }
 }
 
 //==============================================================================
@@ -1140,5 +1149,14 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
     async fn get_current_block_height(&self) -> Result<u64, HyperIGError> {
         let node = self.lock().await;
         node.get_current_block_height().await
+    }
+
+    /// Gets the default CAT lifetime configuration in blocks.
+    /// 
+    /// # Returns
+    /// The default CAT lifetime in blocks
+    async fn get_cat_lifetime(&self) -> Result<u64, HyperIGError> {
+        let node = self.lock().await;
+        node.get_cat_lifetime().await
     }
 } 
