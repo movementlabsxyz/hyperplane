@@ -1044,6 +1044,42 @@ impl HyperIG for HyperIGNode {
         let state = self.state.lock().await;
         Ok(state.cat_lifetime)
     }
+
+    /// Gets the count of transactions with a specific status.
+    /// 
+    /// # Arguments
+    /// * `status` - The transaction status to count
+    /// 
+    /// # Returns
+    /// The count of transactions with the specified status
+    async fn get_transaction_status_count(&self, status: TransactionStatus) -> Result<u64, HyperIGError> {
+        let state = self.state.lock().await;
+        let count = state.transaction_statuses.values()
+            .filter(|&s| *s == status)
+            .count();
+        Ok(count as u64)
+    }
+
+    /// Gets counts of all transaction statuses (Pending, Success, Failure).
+    /// 
+    /// # Returns
+    /// A tuple of (pending_count, success_count, failure_count)
+    async fn get_transaction_status_counts(&self) -> Result<(u64, u64, u64), HyperIGError> {
+        let state = self.state.lock().await;
+        let mut pending = 0;
+        let mut success = 0;
+        let mut failure = 0;
+        
+        for status in state.transaction_statuses.values() {
+            match status {
+                TransactionStatus::Pending => pending += 1,
+                TransactionStatus::Success => success += 1,
+                TransactionStatus::Failure => failure += 1,
+            }
+        }
+        
+        Ok((pending, success, failure))
+    }
 }
 
 //==============================================================================
@@ -1162,5 +1198,26 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
     async fn get_cat_lifetime(&self) -> Result<u64, HyperIGError> {
         let node = self.lock().await;
         node.get_cat_lifetime().await
+    }
+
+    /// Gets the count of transactions with a specific status.
+    /// 
+    /// # Arguments
+    /// * `status` - The transaction status to count
+    /// 
+    /// # Returns
+    /// The count of transactions with the specified status
+    async fn get_transaction_status_count(&self, status: TransactionStatus) -> Result<u64, HyperIGError> {
+        let node = self.lock().await;
+        node.get_transaction_status_count(status).await
+    }
+
+    /// Gets counts of all transaction statuses (Pending, Success, Failure).
+    /// 
+    /// # Returns
+    /// A tuple of (pending_count, success_count, failure_count)
+    async fn get_transaction_status_counts(&self) -> Result<(u64, u64, u64), HyperIGError> {
+        let node = self.lock().await;
+        node.get_transaction_status_counts().await
     }
 } 

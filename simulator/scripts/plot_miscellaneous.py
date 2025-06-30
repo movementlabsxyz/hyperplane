@@ -31,28 +31,6 @@ def plot_pending_transactions():
             print("Warning: Empty pending transaction data found, skipping pending transactions plot")
             return
         
-        # Create plot for chain 1
-        plt.figure(figsize=(12, 6))
-        plt.plot(chain_1_blocks, chain_1_pending, 'b-', label='Chain 1 Pending Transactions')
-        plt.title('Chain 1 Pending Transactions by Height')
-        plt.xlabel('Block Height')
-        plt.ylabel('Number of Pending Transactions')
-        plt.grid(True)
-        plt.legend()
-        plt.savefig('simulator/results/figs/pending_transactions_chain_1.png')
-        plt.close()
-        
-        # Create plot for chain 2
-        plt.figure(figsize=(12, 6))
-        plt.plot(chain_2_blocks, chain_2_pending, 'r-', label='Chain 2 Pending Transactions')
-        plt.title('Chain 2 Pending Transactions by Height')
-        plt.xlabel('Block Height')
-        plt.ylabel('Number of Pending Transactions')
-        plt.grid(True)
-        plt.legend()
-        plt.savefig('simulator/results/figs/pending_transactions_chain_2.png')
-        plt.close()
-        
         # Create combined plot
         plt.figure(figsize=(12, 6))
         plt.plot(chain_1_blocks, chain_1_pending, 'b-', label='Chain 1')
@@ -62,10 +40,84 @@ def plot_pending_transactions():
         plt.ylabel('Number of Pending Transactions')
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/figs/pending_transactions_combined.png')
+        plt.savefig('simulator/results/figs/tx_count_pending.png')
         plt.close()
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing pending transactions data: {e}")
+        return
+
+
+def plot_success_transactions():
+    try:
+        # Load success transactions data for both chains
+        with open('simulator/results/data/success_transactions_chain_1.json', 'r') as f:
+            chain_1_data = json.load(f)
+        with open('simulator/results/data/success_transactions_chain_2.json', 'r') as f:
+            chain_2_data = json.load(f)
+        
+        # Extract data for chain 1
+        chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_success']]
+        chain_1_success = [entry['count'] for entry in chain_1_data['chain_1_success']]
+        
+        # Extract data for chain 2
+        chain_2_blocks = [entry['height'] for entry in chain_2_data['chain_2_success']]
+        chain_2_success = [entry['count'] for entry in chain_2_data['chain_2_success']]
+        
+        # Check for valid values
+        if not chain_1_blocks or not chain_1_success or not chain_2_blocks or not chain_2_success:
+            print("Warning: Empty success transaction data found, skipping success transactions plot")
+            return
+        
+        # Create combined plot
+        plt.figure(figsize=(12, 6))
+        plt.plot(chain_1_blocks, chain_1_success, 'b-', label='Chain 1')
+        plt.plot(chain_2_blocks, chain_2_success, 'r--', label='Chain 2')
+        plt.title('Success Transactions by Height')
+        plt.xlabel('Block Height')
+        plt.ylabel('Number of Success Transactions')
+        plt.grid(True)
+        plt.legend()
+        plt.savefig('simulator/results/figs/tx_count_success.png')
+        plt.close()
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing success transactions data: {e}")
+        return
+
+
+def plot_failure_transactions():
+    try:
+        # Load failure transactions data for both chains
+        with open('simulator/results/data/failure_transactions_chain_1.json', 'r') as f:
+            chain_1_data = json.load(f)
+        with open('simulator/results/data/failure_transactions_chain_2.json', 'r') as f:
+            chain_2_data = json.load(f)
+        
+        # Extract data for chain 1
+        chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_failure']]
+        chain_1_failure = [entry['count'] for entry in chain_1_data['chain_1_failure']]
+        
+        # Extract data for chain 2
+        chain_2_blocks = [entry['height'] for entry in chain_2_data['chain_2_failure']]
+        chain_2_failure = [entry['count'] for entry in chain_2_data['chain_2_failure']]
+        
+        # Check for valid values
+        if not chain_1_blocks or not chain_1_failure or not chain_2_blocks or not chain_2_failure:
+            print("Warning: Empty failure transaction data found, skipping failure transactions plot")
+            return
+        
+        # Create combined plot
+        plt.figure(figsize=(12, 6))
+        plt.plot(chain_1_blocks, chain_1_failure, 'b-', label='Chain 1')
+        plt.plot(chain_2_blocks, chain_2_failure, 'r--', label='Chain 2')
+        plt.title('Failure Transactions by Height')
+        plt.xlabel('Block Height')
+        plt.ylabel('Number of Failure Transactions')
+        plt.grid(True)
+        plt.legend()
+        plt.savefig('simulator/results/figs/tx_count_failure.png')
+        plt.close()
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing failure transactions data: {e}")
         return
 
 

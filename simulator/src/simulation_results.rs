@@ -26,6 +26,10 @@ pub struct SimulationResults {
     // Chain data
     pub chain_1_pending: Vec<(u64, u64)>,
     pub chain_2_pending: Vec<(u64, u64)>,
+    pub chain_1_success: Vec<(u64, u64)>,
+    pub chain_2_success: Vec<(u64, u64)>,
+    pub chain_1_failure: Vec<(u64, u64)>,
+    pub chain_2_failure: Vec<(u64, u64)>,
     
     // Statistics
     pub account_stats: AccountSelectionStats,
@@ -50,6 +54,10 @@ impl Default for SimulationResults {
             chain_delays: Vec::new(),
             chain_1_pending: Vec::new(),
             chain_2_pending: Vec::new(),
+            chain_1_success: Vec::new(),
+            chain_2_success: Vec::new(),
+            chain_1_failure: Vec::new(),
+            chain_2_failure: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -120,6 +128,58 @@ impl SimulationResults {
         let pending_file_chain_2 = "simulator/results/data/pending_transactions_chain_2.json";
         fs::write(pending_file_chain_2, serde_json::to_string_pretty(&pending_txs_chain_2).expect("Failed to serialize pending transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved pending transactions data to {}", pending_file_chain_2));
+
+        // Save success transactions data from chain 1
+        let success_txs_chain_1 = serde_json::json!({
+            "chain_1_success": self.chain_1_success.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let success_file_chain_1 = "simulator/results/data/success_transactions_chain_1.json";
+        fs::write(success_file_chain_1, serde_json::to_string_pretty(&success_txs_chain_1).expect("Failed to serialize success transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved success transactions data to {}", success_file_chain_1));
+
+        // Save success transactions data from chain 2
+        let success_txs_chain_2 = serde_json::json!({
+            "chain_2_success": self.chain_2_success.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let success_file_chain_2 = "simulator/results/data/success_transactions_chain_2.json";
+        fs::write(success_file_chain_2, serde_json::to_string_pretty(&success_txs_chain_2).expect("Failed to serialize success transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved success transactions data to {}", success_file_chain_2));
+
+        // Save failure transactions data from chain 1
+        let failure_txs_chain_1 = serde_json::json!({
+            "chain_1_failure": self.chain_1_failure.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let failure_file_chain_1 = "simulator/results/data/failure_transactions_chain_1.json";
+        fs::write(failure_file_chain_1, serde_json::to_string_pretty(&failure_txs_chain_1).expect("Failed to serialize failure transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved failure transactions data to {}", failure_file_chain_1));
+
+        // Save failure transactions data from chain 2
+        let failure_txs_chain_2 = serde_json::json!({
+            "chain_2_failure": self.chain_2_failure.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let failure_file_chain_2 = "simulator/results/data/failure_transactions_chain_2.json";
+        fs::write(failure_file_chain_2, serde_json::to_string_pretty(&failure_txs_chain_2).expect("Failed to serialize failure transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved failure transactions data to {}", failure_file_chain_2));
 
         // Save account selection data to files
         let (sender_json, receiver_json) = self.account_stats.to_json();

@@ -13,12 +13,12 @@ target_tps = 100.0
 
 # Duration of the simulation in seconds
 # The simulation will run for this many seconds
-duration_seconds = 10
+duration_seconds = 20
 
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
-# Must be greater than 0
+# Must be greater than or equal to 0
 zipf_parameter = 1.0
 
 # Ratio of transactions that will be CATs
@@ -32,7 +32,10 @@ cat_lifetime = 5
 
 # Chain configuration
 [chains]
+
+# the number of chains to simulate
 num_chains = 2
+
 # Delay in seconds for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 delays = [0.0, 0.0]  # chain-1 has .. delay, chain-2 has .. delay

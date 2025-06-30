@@ -4,6 +4,8 @@ import os
 from plot_account_selection import plot_account_selection
 from plot_miscellaneous import (
     plot_pending_transactions,
+    plot_success_transactions,
+    plot_failure_transactions,
     plot_parameters,
 )
 
@@ -16,6 +18,12 @@ def main():
     
     # Plot pending transactions
     plot_pending_transactions()
+    
+    # Plot success transactions
+    plot_success_transactions()
+    
+    # Plot failure transactions
+    plot_failure_transactions()
     
     # Plot simulation parameters
     plot_parameters()

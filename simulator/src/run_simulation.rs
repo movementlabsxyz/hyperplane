@@ -137,11 +137,19 @@ pub async fn run_simulation(
         let chain_1_pending_txs = hig_nodes[0].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
         let chain_2_pending_txs = hig_nodes[1].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
         
-        // Only record pending count if we've moved to a new block
+        // Get success and failure transaction counts
+        let (chain_1_pending, chain_1_success, chain_1_failure) = hig_nodes[0].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
+        let (chain_2_pending, chain_2_success, chain_2_failure) = hig_nodes[1].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
+        
+        // Only record counts if we've moved to a new block
         if new_block != current_block {
             if current_block > 0 {  // Don't record for block 0
-                results.chain_1_pending.push((current_block, chain_1_pending_txs.len() as u64));    
-                results.chain_2_pending.push((current_block, chain_2_pending_txs.len() as u64));
+                results.chain_1_pending.push((current_block, chain_1_pending));    
+                results.chain_2_pending.push((current_block, chain_2_pending));
+                results.chain_1_success.push((current_block, chain_1_success));
+                results.chain_2_success.push((current_block, chain_2_success));
+                results.chain_1_failure.push((current_block, chain_1_failure));
+                results.chain_2_failure.push((current_block, chain_2_failure));
             }
             current_block = new_block;
         }

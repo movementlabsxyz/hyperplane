@@ -61,6 +61,12 @@ pub trait HyperIG: Send + Sync {
 
     /// Get the default CAT lifetime configuration in blocks
     async fn get_cat_lifetime(&self) -> Result<u64, HyperIGError>;
+
+    /// Get the count of transactions with a specific status
+    async fn get_transaction_status_count(&self, status: TransactionStatus) -> Result<u64, HyperIGError>;
+
+    /// Get counts of all transaction statuses (Pending, Success, Failure)
+    async fn get_transaction_status_counts(&self) -> Result<(u64, u64, u64), HyperIGError>;
 }
 
 #[cfg(test)]
