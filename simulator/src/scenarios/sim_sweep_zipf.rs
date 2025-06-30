@@ -5,29 +5,29 @@ use hyperplane::utils::logging;
 use std::time::{Duration, Instant};
 use indicatif::{ProgressBar, ProgressStyle};
 
-/// Runs the sweep CAT rate simulation
-pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::ConfigError> {
+/// Runs the sweep Zipf distribution simulation
+pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigError> {
     // Create results directory if it doesn't exist
-    fs::create_dir_all("simulator/results/sim_sweep_cat_rate").expect("Failed to create results directory");
-    fs::create_dir_all("simulator/results/sim_sweep_cat_rate/data").expect("Failed to create data directory");
-    fs::create_dir_all("simulator/results/sim_sweep_cat_rate/figs").expect("Failed to create figures directory");
+    fs::create_dir_all("simulator/results/sim_sweep_zipf").expect("Failed to create results directory");
+    fs::create_dir_all("simulator/results/sim_sweep_zipf/data").expect("Failed to create data directory");
+    fs::create_dir_all("simulator/results/sim_sweep_zipf/figs").expect("Failed to create figures directory");
     
     // Setup logging
     setup_logging();
 
     // Load sweep configuration
-    let sweep_config = crate::config::Config::load_sweep()?;
+    let sweep_config = crate::config::Config::load_sweep_zipf()?;
     
-    // Calculate CAT ratios for each simulation
-    let cat_ratios: Vec<f64> = (0..sweep_config.sweep.num_simulations)
-        .map(|i| i as f64 * sweep_config.sweep.cat_rate_step.unwrap())
+    // Calculate Zipf parameters for each simulation
+    let zipf_parameters: Vec<f64> = (0..sweep_config.sweep.num_simulations)
+        .map(|i| i as f64 * sweep_config.sweep.zipf_step.unwrap())
         .collect();
 
-    logging::log("SIMULATOR", "=== Sweep CAT Rate Simulation ===");
+    logging::log("SIMULATOR", "=== Sweep Zipf Distribution Simulation ===");
     logging::log("SIMULATOR", &format!("Number of simulations: {}", sweep_config.sweep.num_simulations));
-    logging::log("SIMULATOR", &format!("CAT rate step: {}", sweep_config.sweep.cat_rate_step.unwrap()));
-    logging::log("SIMULATOR", &format!("CAT ratios: {:?}", cat_ratios));
-    logging::log("SIMULATOR", "================================");
+    logging::log("SIMULATOR", &format!("Zipf step: {}", sweep_config.sweep.zipf_step.unwrap()));
+    logging::log("SIMULATOR", &format!("Zipf parameters: {:?}", zipf_parameters));
+    logging::log("SIMULATOR", "==========================================");
 
     // Create progress bar for sweep
     let progress_bar = ProgressBar::new(sweep_config.sweep.num_simulations as u64);
@@ -39,26 +39,26 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
     // Store results for each simulation
     let mut all_results = Vec::new();
 
-    // Run each simulation with different CAT ratio
-    for (sim_index, cat_ratio) in cat_ratios.iter().enumerate() {
-        logging::log("SIMULATOR", &format!("Running simulation {}/{} with CAT ratio: {:.3}", 
-            sim_index + 1, sweep_config.sweep.num_simulations, cat_ratio));
+    // Run each simulation with different Zipf parameter
+    for (sim_index, zipf_param) in zipf_parameters.iter().enumerate() {
+        logging::log("SIMULATOR", &format!("Running simulation {}/{} with Zipf parameter: {:.3}", 
+            sim_index + 1, sweep_config.sweep.num_simulations, zipf_param));
 
-        // Create a modified config with the current CAT ratio
+        // Create a modified config with the current Zipf parameter
         let sim_config = crate::config::Config {
             network: sweep_config.network.clone(),
             num_accounts: sweep_config.num_accounts.clone(),
             transactions: crate::config::TransactionConfig {
                 target_tps: sweep_config.transactions.target_tps,
                 duration_seconds: sweep_config.transactions.duration_seconds,
-                zipf_parameter: sweep_config.transactions.zipf_parameter,
-                ratio_cats: *cat_ratio,
+                zipf_parameter: *zipf_param,
+                ratio_cats: sweep_config.transactions.ratio_cats,
                 cat_lifetime_blocks: sweep_config.transactions.cat_lifetime_blocks,
             },
         };
 
         // Initialize simulation results
-        let mut results = initialize_simulation_results(&sim_config, sim_index, *cat_ratio);
+        let mut results = initialize_simulation_results(&sim_config, sim_index, *zipf_param);
 
         // Setup test nodes
         let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
@@ -81,20 +81,20 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
         ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
         // Save individual simulation results
-        results.save_to_directory(&format!("simulator/results/sim_sweep_cat_rate/data/sim_{}", sim_index)).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+        results.save_to_directory(&format!("simulator/results/sim_sweep_zipf/data/sim_{}", sim_index)).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
         
-        all_results.push((*cat_ratio, results));
+        all_results.push((*zipf_param, results));
         
         // Update progress bar and show completed simulation
         progress_bar.inc(1);
-        progress_bar.set_message(format!("Simulation {}/{} with CAT ratio: {:.3}", 
-            sim_index + 1, sweep_config.sweep.num_simulations, cat_ratio));
+        progress_bar.set_message(format!("Simulation {}/{} with Zipf parameter: {:.3}", 
+            sim_index + 1, sweep_config.sweep.num_simulations, zipf_param));
     }
 
     // Finish progress bar with final state
-    progress_bar.finish_with_message(format!("Simulation {}/{} with CAT ratio: {:.3}", 
+    progress_bar.finish_with_message(format!("Simulation {}/{} with Zipf parameter: {:.3}", 
         sweep_config.sweep.num_simulations, sweep_config.sweep.num_simulations, 
-        cat_ratios.last().unwrap()));
+        zipf_parameters.last().unwrap()));
     
     println!("Sweep simulation complete");
 
@@ -111,7 +111,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
 fn setup_logging() {
     if env::var("ENABLE_LOGS").is_ok() {
         // Delete existing log file if it exists
-        let log_path = "simulator/results/sim_sweep_cat_rate/simulation.log";
+        let log_path = "simulator/results/sim_sweep_zipf/simulation.log";
         if let Err(e) = fs::remove_file(log_path) {
             // Ignore error if file doesn't exist
             if e.kind() != std::io::ErrorKind::NotFound {
@@ -128,7 +128,7 @@ fn setup_logging() {
 }
 
 /// Initializes simulation results from configuration
-fn initialize_simulation_results(config: &crate::config::Config, sim_index: usize, cat_ratio: f64) -> crate::SimulationResults {
+fn initialize_simulation_results(config: &crate::config::Config, sim_index: usize, zipf_param: f64) -> crate::SimulationResults {
     let mut results = crate::SimulationResults::default();
     results.initial_balance = config.num_accounts.initial_balance.try_into().unwrap();
     results.num_accounts = config.num_accounts.num_accounts.try_into().unwrap();
@@ -145,13 +145,13 @@ fn initialize_simulation_results(config: &crate::config::Config, sim_index: usiz
     let start_time = Local::now();
     logging::log("SIMULATOR", &format!("=== Simulation {} Configuration ===", sim_index + 1));
     logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
-    logging::log("SIMULATOR", &format!("CAT Ratio: {:.3}", cat_ratio));
+    logging::log("SIMULATOR", &format!("Zipf Parameter: {:.3}", zipf_param));
     logging::log("SIMULATOR", &format!("Initial Balance: {}", config.num_accounts.initial_balance));
     logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.num_accounts.num_accounts));
     logging::log("SIMULATOR", &format!("Target TPS: {}", config.transactions.target_tps));
     logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", config.transactions.duration_seconds));
     logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
-    logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transactions.zipf_parameter));
+    logging::log("SIMULATOR", &format!("CAT Ratio: {}", config.transactions.ratio_cats));
     logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", results.cat_lifetime));
     for (i, delay) in config.network.chain_delays.iter().enumerate() {
         logging::log("SIMULATOR", &format!("Chain {} Delay: {:?}", i + 1, delay));
@@ -169,14 +169,14 @@ async fn save_sweep_results(all_results: &[(f64, crate::SimulationResults)]) -> 
     let combined_results = serde_json::json!({
         "sweep_summary": {
             "num_simulations": all_results.len(),
-            "cat_ratios": all_results.iter().map(|(ratio, _)| ratio).collect::<Vec<_>>(),
+            "zipf_parameters": all_results.iter().map(|(param, _)| param).collect::<Vec<_>>(),
             "total_transactions": all_results.iter().map(|(_, results)| results.transactions_sent).collect::<Vec<_>>(),
             "cat_transactions": all_results.iter().map(|(_, results)| results.cat_transactions).collect::<Vec<_>>(),
             "regular_transactions": all_results.iter().map(|(_, results)| results.regular_transactions).collect::<Vec<_>>(),
         },
-        "individual_results": all_results.iter().map(|(ratio, results)| {
+        "individual_results": all_results.iter().map(|(param, results)| {
             serde_json::json!({
-                "cat_ratio": ratio,
+                "zipf_parameter": param,
                 "total_transactions": results.transactions_sent,
                 "cat_transactions": results.cat_transactions,
                 "regular_transactions": results.regular_transactions,
@@ -188,7 +188,7 @@ async fn save_sweep_results(all_results: &[(f64, crate::SimulationResults)]) -> 
     });
 
     // Save combined results
-    let combined_file = "simulator/results/sim_sweep_cat_rate/data/sweep_results.json";
+    let combined_file = "simulator/results/sim_sweep_zipf/data/sweep_results.json";
     fs::write(combined_file, serde_json::to_string_pretty(&combined_results).expect("Failed to serialize combined results"))
         .map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
     

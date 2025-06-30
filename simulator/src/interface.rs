@@ -4,6 +4,7 @@ use std::process::Command;
 pub enum SimulationType {
     SimpleSim,
     SweepCatRate,
+    SweepZipf,
     DummySim,
     Exit,
 }
@@ -13,7 +14,8 @@ impl SimulationType {
         match input.trim() {
             "1" => Some(SimulationType::SimpleSim),
             "2" => Some(SimulationType::SweepCatRate),
-            "3" => Some(SimulationType::DummySim),
+            "3" => Some(SimulationType::SweepZipf),
+            "4" => Some(SimulationType::DummySim),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -28,7 +30,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate simulation\n  3. Dummy simulation (not yet implemented)\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate simulation\n  3. Sweep Zipf distribution simulation\n  4. Dummy simulation (not yet implemented)\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -57,6 +59,7 @@ impl SimulatorInterface {
         let script_path = match simulation_type {
             "simple" => "simulator/scripts/sim_simple/plot_results.py",
             "sweep_cat_rate" => "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
+            "sweep_zipf" => "simulator/scripts/sim_sweep_zipf/plot_results.py",
             _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
         };
 
@@ -112,6 +115,21 @@ impl SimulatorInterface {
                     println!("Sweep CAT rate simulation completed successfully!");
                     break;
                 }
+                Some(SimulationType::SweepZipf) => {
+                    // Call the sweep Zipf simulation function
+                    if let Err(e) = crate::run_sweep_zipf_simulation().await {
+                        return Err(format!("Sweep Zipf simulation failed: {}", e));
+                    }
+                    
+                    // Generate plots after successful simulation
+                    println!("Generating plots...");
+                    if let Err(e) = self.generate_plots("sweep_zipf") {
+                        return Err(format!("Plot generation failed: {}", e));
+                    }
+                    
+                    println!("Sweep Zipf distribution simulation completed successfully!");
+                    break;
+                }
                 Some(SimulationType::DummySim) => {
                     if let Err(e) = self.run_dummy_simulation() {
                         return Err(format!("Dummy simulation failed: {}", e));
@@ -123,7 +141,7 @@ impl SimulatorInterface {
                     break;
                 }
                 None => {
-                    println!("Invalid choice. Please enter 1, 2, 3, or 0 to exit.");
+                    println!("Invalid choice. Please enter 1, 2, 3, 4, or 0 to exit.");
                     println!("{}", self.get_menu_text());
                 }
             }
