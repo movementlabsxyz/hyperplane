@@ -14,7 +14,7 @@ impl SimulationType {
             "1" => Some(SimulationType::SimpleSim),
             "2" => Some(SimulationType::SweepCatRate),
             "3" => Some(SimulationType::DummySim),
-            "4" => Some(SimulationType::Exit),
+            "0" => Some(SimulationType::Exit),
             _ => None,
         }
     }
@@ -28,7 +28,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate simulation\n  3. Dummy simulation (not yet implemented)\n  4. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate simulation\n  3. Dummy simulation (not yet implemented)\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -123,7 +123,7 @@ impl SimulatorInterface {
                     break;
                 }
                 None => {
-                    println!("Invalid choice. Please enter 1, 2, 3, or 4.");
+                    println!("Invalid choice. Please enter 1, 2, 3, or 0 to exit.");
                     println!("{}", self.get_menu_text());
                 }
             }
