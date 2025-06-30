@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 
 import os
+import sys
+
+# Add the current directory to the Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from plot_account_selection import plot_account_selection
 from plot_miscellaneous import (
     plot_pending_transactions,

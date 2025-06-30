@@ -13,7 +13,7 @@ target_tps = 100.0
 
 # Duration of the simulation in seconds
 # The simulation will run for this many seconds
-duration_seconds = 20
+duration_seconds = 5
 
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed

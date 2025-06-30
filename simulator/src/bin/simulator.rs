@@ -8,9 +8,9 @@ use simulator::{
     run_simulation,
     testnodes::setup_test_nodes,
     SimulationResults,
+    interface::{SimulatorInterface, SimulationType},
 };
 use std::time::{Duration, Instant};
-
 
 // ------------------------------------------------------------------------------------------------
 // Main
@@ -18,7 +18,47 @@ use std::time::{Duration, Instant};
 
 /// Main function that orchestrates the simulation setup and execution
 #[tokio::main]
-async fn main() -> Result<(), ConfigError> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let interface = SimulatorInterface::new();
+    
+    loop {
+        interface.show_menu();
+        
+        match interface.get_user_choice() {
+            Some(SimulationType::SimpleSim) => {
+                if let Err(e) = run_simple_simulation().await {
+                    eprintln!("Error: {}", e);
+                } else {
+                    // Generate plots after successful simulation
+                    println!("Generating plots...");
+                    if let Err(e) = interface.generate_plots() {
+                        eprintln!("Plot generation failed: {}", e);
+                    }
+                    println!("Simple simulation completed successfully!");
+                }
+                break;
+            }
+            Some(SimulationType::DummySim) => {
+                if let Err(e) = interface.run_dummy_simulation() {
+                    eprintln!("Error: {}", e);
+                }
+                break;
+            }
+            Some(SimulationType::Exit) => {
+                println!("Exiting...");
+                break;
+            }
+            None => {
+                println!("Invalid choice. Please enter 1, 2, or 3.");
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+/// Runs the simple simulation
+async fn run_simple_simulation() -> Result<(), ConfigError> {
     // Create results directory if it doesn't exist
     fs::create_dir_all("simulator/results").expect("Failed to create results directory");
     
@@ -36,6 +76,7 @@ async fn main() -> Result<(), ConfigError> {
         Duration::from_secs_f64(config.block_interval),
         &config.chains.delays,
     ).await;
+    
     // Initialize accounts with initial balance
     initialize_accounts(&[cl_node.clone()], config.initial_balance.try_into().unwrap(), config.num_accounts.try_into().unwrap()).await;
 
@@ -47,7 +88,7 @@ async fn main() -> Result<(), ConfigError> {
     ).await.map_err(|e| ConfigError::ValidationError(e))?;
 
     Ok(())
-} 
+}
 
 /// Sets up logging if ENABLE_LOGS environment variable is set
 fn setup_logging() {

@@ -6,10 +6,12 @@ pub mod network;
 pub mod config;
 pub mod logging;
 pub mod testnodes;
+pub mod interface;
 
 pub use account_selector::AccountSelector;
 pub use account_selection::AccountSelectionStats;
 pub use run_simulation::run_simulation;
 pub use simulation_results::SimulationResults;
 pub use network::initialize_accounts;
-pub use testnodes::*; 
+pub use testnodes::*;
+pub use interface::{SimulatorInterface, SimulationType}; 
