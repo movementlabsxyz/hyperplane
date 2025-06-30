@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 async fn setup_test_hig_node() -> std::sync::Arc<tokio::sync::Mutex<HyperIGNode>> {
     let (_sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
-    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, ChainId("chain-1".to_string()));
+    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, ChainId("chain-1".to_string()), 4);
     let hig_node = std::sync::Arc::new(tokio::sync::Mutex::new(hig_node));
     
     // Spawn a task to keep the receiver alive

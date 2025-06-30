@@ -52,6 +52,21 @@ pub trait HyperIG: Send + Sync {
     /// Gets the current state of the chain.
     /// Returns a HashMap containing the current state of all accounts and their balances.
     async fn get_chain_state(&self) -> Result<std::collections::HashMap<String, i64>, anyhow::Error>;
+
+    /// Get the maximum lifetime for a CAT transaction
+    async fn get_cat_max_lifetime(&self, cat_id: CATId) -> Result<u64, HyperIGError>;
+
+    /// Get the current block height
+    async fn get_current_block_height(&self) -> Result<u64, HyperIGError>;
+
+    /// Get the default CAT lifetime configuration in blocks
+    async fn get_cat_lifetime(&self) -> Result<u64, HyperIGError>;
+
+    /// Get the count of transactions with a specific status
+    async fn get_transaction_status_count(&self, status: TransactionStatus) -> Result<u64, HyperIGError>;
+
+    /// Get counts of all transaction statuses (Pending, Success, Failure)
+    async fn get_transaction_status_counts(&self) -> Result<(u64, u64, u64), HyperIGError>;
 }
 
 #[cfg(test)]

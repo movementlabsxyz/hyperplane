@@ -13,6 +13,8 @@ use hyperplane::{
     types::constants::{chain_1, chain_2, chain_3},
 };
 
+mod config;
+
 // Store transaction statuses
 struct TransactionTracker {
     transactions: HashMap<TransactionId, TransactionStatus>,
@@ -43,11 +45,8 @@ async fn main() {
     // Set up channel for HS <-> CL
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel::<CLTransaction>(100);
 
-    // Set block time to 1 second
-    let block_time = Duration::from_secs(1);
-
     // Initialize nodes
-    let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(receiver_hs_to_cl, block_time).unwrap()));
+    let cl_node = Arc::new(Mutex::new(ConfirmationLayerNode::new_with_block_interval(receiver_hs_to_cl, config::BLOCK_TIME).unwrap()));
     let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(sender_hs_to_cl)));
 
     // Store HIG nodes by chain_id
@@ -70,7 +69,7 @@ async fn main() {
         // Channels for HIG <-> HS
         let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
         // Create HIG node
-        let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone())));
+        let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS)));
         // Register chain with CL
         let mut cl_node_guard = cl_node.lock().await;
         cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");
@@ -144,6 +143,32 @@ async fn main() {
                 chain_list.sort();  // Sort chains alphabetically
                 println!("Registered chains: {}", chain_list.join(", "));
                 
+                // Display configuration information
+                println!("\nConfiguration:");
+                
+                // Get block time from CL node
+                let block_time_ms = match cl_node.lock().await.get_block_interval().await {
+                    Ok(interval) => interval.as_millis() as u64,
+                    Err(_) => config::BLOCK_TIME_MILLISECONDS, // fallback to config
+                };
+                println!("  Block Time: {}ms", block_time_ms);
+                
+                // Get CAT timeout from one of the HIG nodes
+                let cat_timeout_blocks = if let Some((_, node)) = chains.iter().next() {
+                    match node.lock().await.get_cat_lifetime().await {
+                        Ok(lifetime) => lifetime,
+                        Err(_) => config::CAT_MAX_LIFETIME_BLOCKS, // fallback to config
+                    }
+                } else {
+                    config::CAT_MAX_LIFETIME_BLOCKS // fallback to config
+                };
+                println!("  CAT Max Lifetime: {} blocks ({}ms)", cat_timeout_blocks, cat_timeout_blocks * block_time_ms);
+                
+                // Get CL block time and interval
+                let cl_block = cl_node.lock().await.get_current_block().await.unwrap();
+                let cl_interval = cl_node.lock().await.get_block_interval().await.unwrap();
+                println!("\nCL Block Height: {} (Interval: {}ms)", cl_block, cl_interval.as_millis());
+                
                 // Show state for each chain
                 println!("\nChain States:");
                 let mut chain_states: Vec<_> = chains.iter().collect();
@@ -167,29 +192,19 @@ async fn main() {
                 let chain_nodes: Vec<(ChainId, Arc<Mutex<HyperIGNode>>)> = chains.iter()
                     .map(|(id, node)| (id.clone(), node.clone()))
                     .collect();
-                let mut tx_ids: Vec<(TransactionId, u64)> = transactions.transactions.keys()
-                    .map(|id| {
-                        let cl_id = if id.0.ends_with(":tx") {
-                            &id.0[..id.0.len()-3]
-                        } else {
-                            &id.0
-                        };
-                        let timestamp = cl_id.split('_').last()
-                            .and_then(|s| s.parse::<u64>().ok())
-                            .unwrap_or(0);
-                        (id.clone(), timestamp)
-                    })
+                let mut tx_ids: Vec<TransactionId> = transactions.transactions.keys()
+                    .cloned()
                     .collect();
                 
-                // Sort by timestamp (oldest first)
-                tx_ids.sort_by(|a, b| a.1.cmp(&b.1));
+                // Sort by transaction ID string for consistent display
+                tx_ids.sort_by(|a, b| a.0.cmp(&b.0));
                 
                 // Release the locks before making async calls
                 drop(chains);
                 drop(transactions);
 
                 // Process each transaction
-                for (tx_id, _) in tx_ids {
+                for tx_id in tx_ids {
                     // Extract CL ID from transaction ID by removing the ":tx" suffix
                     let cl_id = if tx_id.0.ends_with(":tx") {
                         &tx_id.0[..tx_id.0.len()-3]
@@ -218,7 +233,7 @@ async fn main() {
                     // Channels for HIG <-> HS
                     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
                     // Create HIG node
-                    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone())));
+                    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS)));
                     // Register chain with CL
                     let mut cl_node_guard = cl_node.lock().await;
                     cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");

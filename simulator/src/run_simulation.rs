@@ -12,8 +12,11 @@ use hyperplane::{
 };
 use crate::account_selector::AccountSelector;
 use rand::Rng;
-use crate::account_selection::AccountSelectionStats;
-use crate::save_results;
+use crate::SimulationResults;
+
+// ------------------------------------------------------------------------------------------------
+// Main Simulation Function
+// ------------------------------------------------------------------------------------------------
 
 /// Runs the simulation for the specified duration
 ///
@@ -34,19 +37,12 @@ use crate::save_results;
 pub async fn run_simulation(
     cl_node: Arc<Mutex<ConfirmationLayerNode>>,
     hig_nodes: Vec<Arc<Mutex<HyperIGNode>>>,
-    duration_seconds: u64,
-    initial_balance: u64,
-    num_accounts: usize,
-    target_tps: u64,
-    zipf_parameter: f64,
-    chain_delays: Vec<f64>,
-    block_interval: f64,
-    ratio_cats: f64,
+    results: &mut SimulationResults,
 ) -> Result<(), String> {
     
     // Wait for initialization transactions to be processed
     logging::log("SIMULATOR", "Waiting 5 block for initialization transactions to be processed...");
-    let wait = Duration::from_secs_f64(block_interval * 5.0);
+    let wait = Duration::from_secs_f64(results.block_interval * 5.0);
     sleep(wait).await;
     logging::log("SIMULATOR", "Initialization complete, starting simulation");
 
@@ -54,15 +50,12 @@ pub async fn run_simulation(
     let mut rng = rand::thread_rng();
     
     // Initialize sender account selector with uniform distribution
-    let account_selector_sender = AccountSelector::new(num_accounts, 0.0);    
+    let account_selector_sender = AccountSelector::new(results.num_accounts, 0.0);    
     // Initialize receiver account selector with Zipf distribution
-    let account_selector_receiver = AccountSelector::new(num_accounts, zipf_parameter);
-    
-    // Initialize account statistics
-    let mut account_stats = AccountSelectionStats::new();
+    let account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
     
     // Calculate total number of transactions to send
-    let total_transactions = target_tps * duration_seconds;
+    let total_transactions = results.target_tps * results.duration_seconds;
     
     // Create progress bar
     let progress_bar = ProgressBar::new(total_transactions);
@@ -72,23 +65,11 @@ pub async fn run_simulation(
         .progress_chars("##-"));
 
     // Set HIG delays
-    for (i, delay) in chain_delays.iter().enumerate() {
-        hig_nodes[i].lock().await.set_hs_message_delay(Duration::from_secs_f64(*delay));
+    for (i, delay) in results.chain_delays.iter().enumerate() {
+        hig_nodes[i].lock().await.set_hs_message_delay(*delay);
     }
     
-    // Initialize counters
-    let mut transactions_sent = 0;
-    let cat_transactions = 0;
-    let regular_transactions = 0;
-    
     // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.
-    let mut chain_1_pending: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_1_success: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_1_failure: Vec<(u64, u64)> = Vec::new();
-    let mut chain_2_pending: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_2_success: Vec<(u64, u64)> = Vec::new();
-    let mut _chain_2_failure: Vec<(u64, u64)> = Vec::new();
-    
     let mut current_block = 0;
     
     // Get registered chains
@@ -97,18 +78,16 @@ pub async fn run_simulation(
     let chain_id_2 = chains[1].clone();
     
     // Main simulation loop
-    let start_time = std::time::Instant::now();
-    while transactions_sent < total_transactions {
+    while results.transactions_sent < total_transactions {
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(&mut rng);
         let to_account = account_selector_receiver.select_account(&mut rng);
         
         // Record transaction in account statistics
-        account_stats.record_transaction(from_account as u64, to_account as u64);
-        
+        results.account_stats.record_transaction(from_account as u64, to_account as u64);
         
         // Determine if this should be a CAT transaction based on configured ratio
-        let is_cat = rng.gen_bool(ratio_cats);
+        let is_cat = rng.gen_bool(results.ratio_cats);
         
         // Create transaction data
         let tx_data = format!("{}.send {} {} 1", 
@@ -120,9 +99,10 @@ pub async fn run_simulation(
         logging::log("SIMULATOR", &format!("Transaction data: '{}'", tx_data));
 
         // Create and submit transaction
-        let cl_id = CLTransactionId(format!("cl-tx_{}", transactions_sent));
+        let cl_id = CLTransactionId(format!("cl-tx_{}", results.transactions_sent));
         
         let (success, _) = if is_cat {
+            results.cat_transactions += 1;
             create_and_submit_cat_transaction(
                 &cl_node,
                 cl_id,
@@ -131,6 +111,7 @@ pub async fn run_simulation(
                 tx_data.clone(),
             ).await?
         } else {
+            results.regular_transactions += 1;
             create_and_submit_regular_transaction(
                 &cl_node,
                 cl_id,
@@ -148,52 +129,47 @@ pub async fn run_simulation(
             panic!("Transaction failed submitted to CL");
         }
         
-        transactions_sent += 1;
+        results.transactions_sent += 1;
         progress_bar.inc(1);
         
-        // Get current block height and pending transactions
+        // Get current block height and transaction status counts
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
-        let chain_1_pending_txs = hig_nodes[0].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
-        let chain_2_pending_txs = hig_nodes[1].lock().await.get_pending_transactions().await.map_err(|e| e.to_string())?;
         
-        // Only record pending count if we've moved to a new block
+        // Get success and failure transaction counts
+        let (chain_1_pending, chain_1_success, chain_1_failure) = hig_nodes[0].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
+        let (chain_2_pending, chain_2_success, chain_2_failure) = hig_nodes[1].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
+        
+        // Only record counts if we've moved to a new block
         if new_block != current_block {
             if current_block > 0 {  // Don't record for block 0
-                chain_1_pending.push((current_block, chain_1_pending_txs.len() as u64));    
-                chain_2_pending.push((current_block, chain_2_pending_txs.len() as u64));
+                results.chain_1_pending.push((current_block, chain_1_pending));    
+                results.chain_2_pending.push((current_block, chain_2_pending));
+                results.chain_1_success.push((current_block, chain_1_success));
+                results.chain_2_success.push((current_block, chain_2_success));
+                results.chain_1_failure.push((current_block, chain_1_failure));
+                results.chain_2_failure.push((current_block, chain_2_failure));
             }
             current_block = new_block;
         }
         
         // Calculate sleep time to maintain target TPS
-        let elapsed = start_time.elapsed();
-        let target_milliseconds = (transactions_sent as f64 / target_tps as f64) * 1000.0;
+        let elapsed = results.start_time.elapsed();
+        let target_milliseconds = (results.transactions_sent as f64 / results.target_tps as f64) * 1000.0;
         let target_elapsed = Duration::from_millis(target_milliseconds as u64);
         if elapsed < target_elapsed {
             tokio::time::sleep(target_elapsed - elapsed).await;
         }
     }
  
-    save_results::save_results(
-        transactions_sent,
-        cat_transactions,
-        regular_transactions,
-        initial_balance,
-        num_accounts,
-        target_tps,
-        duration_seconds,
-        zipf_parameter,
-        ratio_cats,
-        block_interval,
-        chain_delays,
-        chain_1_pending,
-        chain_2_pending,
-        account_stats,
-        start_time,
-    ).await?;
+    // Save results
+    results.save().await?;
     
     Ok(())
 }
+
+// ------------------------------------------------------------------------------------------------
+// Transaction Creation and Submission
+// ------------------------------------------------------------------------------------------------
 
 /// Creates and submits a CAT transaction
 /// 

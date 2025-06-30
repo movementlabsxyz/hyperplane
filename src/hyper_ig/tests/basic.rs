@@ -10,18 +10,23 @@ use regex::Regex;
 use std::time::Duration;
 
 /// Helper function to set up a test HIG node
-async fn setup_test_hig_node() -> (Arc<Mutex<HyperIGNode>>, mpsc::Receiver<CATStatusUpdate>) {
+pub async fn setup_test_hig_node() -> (Arc<Mutex<HyperIGNode>>, mpsc::Receiver<CATStatusUpdate>) {
     let (_sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
     
-    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1());
-    (Arc::new(Mutex::new(hig_node)), receiver_hig_to_hs)
+    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1(), 4);
+    let hig_node = Arc::new(Mutex::new(hig_node));
+    
+    // Start the node
+    HyperIGNode::start(hig_node.clone()).await;
+
+    (hig_node, receiver_hig_to_hs)
 }
 
 /// Helper function: Tests regular non-dependent transaction path in HyperIG
 /// - Status verification
 /// - Status persistence
-async fn run_test_regular_transaction_status(expected_status: TransactionStatus) {
+async fn run_test_regular_transaction_status(data: &str, expected_status: TransactionStatus) {
     logging::log("TEST", &format!("\n=== Starting regular non-dependent transaction test with status {:?}===", expected_status));
     
     logging::log("TEST", "Setting up test nodes...");
@@ -32,11 +37,8 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
     logging::log("TEST", &format!("\nProcessing transaction: {}", tx_id));
     
     // Use credit for success, send for failure (since account is empty)
-    let command = match expected_status {
-        TransactionStatus::Success => "REGULAR.credit 1 100",
-        TransactionStatus::Failure => "REGULAR.send 1 2 1000",
-        _ => panic!("Unexpected status for regular transaction test"),
-    };
+    let command = format!("REGULAR.{}", data);
+    logging::log("TEST", &format!("Command: {}", command));
 
     let cl_id = CLTransactionId("cl-tx".to_string());
     let tx = Transaction::new(
@@ -68,39 +70,35 @@ async fn run_test_regular_transaction_status(expected_status: TransactionStatus)
 #[tokio::test]
 async fn test_regular_transaction_success() {
     logging::init_logging();
-    run_test_regular_transaction_status(TransactionStatus::Success).await;
+    run_test_regular_transaction_status("credit 1 100", TransactionStatus::Success).await;
 }
 
 /// Tests regular non-dependent transaction success path in HyperIG:
 #[tokio::test]
 async fn test_regular_transaction_failure() {
     logging::init_logging();
-    run_test_regular_transaction_status(TransactionStatus::Failure).await;
+    run_test_regular_transaction_status("send 1 2 100", TransactionStatus::Failure).await;
 }
 
 /// Helper function to test sending a CAT status proposal
-async fn run_process_and_send_cat(expected_status: CATStatusLimited) {    
+async fn run_process_and_send_cat(data: &str, expected_status: CATStatusLimited) {    
     logging::log("TEST", "Setting up test nodes...");
     let (hig_node, _receiver_hig_to_hs  ) = setup_test_hig_node().await;
     logging::log("TEST", "Test nodes setup complete");
     
     // Create necessary parts of a CAT transaction
-    let cat_id = CATId(CLTransactionId("test-cat-tx".to_string()));
     let cl_id = CLTransactionId("cl-tx".to_string());
     let tx_chain_1 = Transaction::new(
         TransactionId(format!("{:?}:tx_chain_1", cl_id)),
         constants::chain_1(),
         vec![constants::chain_1(), constants::chain_2()],
-        match expected_status {
-            CATStatusLimited::Success => format!("CAT.credit 1 100"),
-            // send should fail because of insufficient balance
-            CATStatusLimited::Failure => format!("CAT.send 1 2 1000"),
-        },
+        data.to_string(),
+
         cl_id.clone(),
     ).expect("Failed to create transaction");
 
-    // Execute the transaction
-    logging::log("TEST", "Executing chain-level transaction of a CLCAT transaction...");
+    // Process the transaction
+    logging::log("TEST", &format!("Executing transaction of a CAT with data: {}", tx_chain_1.data));
     let status = hig_node.lock().await.process_transaction(tx_chain_1.clone())
         .await
         .expect("Failed to execute transaction");
@@ -138,7 +136,8 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
     logging::log("TEST", &format!("Verified proposed status is {:?}", expected_status));
     
     // Send the status proposal to HS
-    logging::log("TEST", "Sending status proposal to HS...");
+    let cat_id = CATId(cl_id.clone());
+    logging::log("TEST", &format!("Sending status proposal to HS for cat_id: {:?}", cat_id));
     // we only have one chain for now, so we create a vector with one element
     hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), expected_status, vec![constants::chain_1()])
         .await
@@ -154,7 +153,7 @@ async fn run_process_and_send_cat(expected_status: CATStatusLimited) {
 async fn test_cat_process_and_send_success() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_cat_process_and_send_success ===");
-    run_process_and_send_cat(CATStatusLimited::Success).await;
+    run_process_and_send_cat("CAT.credit 1 100", CATStatusLimited::Success).await;
 }
 
 /// Tests CAT transaction failure proposal path in HyperIG
@@ -163,7 +162,7 @@ async fn test_cat_process_and_send_success() {
 async fn test_cat_process_and_send_failure() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_cat_process_and_send_failure ===");
-    run_process_and_send_cat(CATStatusLimited::Failure).await;
+    run_process_and_send_cat("CAT.send 1 2 1000", CATStatusLimited::Failure).await;
 }
 
 /// Tests get pending transactions functionality:
@@ -195,13 +194,13 @@ async fn test_get_pending_transactions() {
         "CAT.credit 1 100".to_string(),
         cl_id_1.clone(),
     ).expect("Failed to create transaction");
-    logging::log("TEST", "Executing transaction...");
+    logging::log("TEST", "Executing transaction of a CAT.");
     let _status = hig_node.lock().await.process_transaction(tx_1.clone())
         .await
         .expect("Failed to execute transaction");
 
     // Create and execute a dependent transaction
-    logging::log("TEST", "Creating dependent transaction...");
+    logging::log("TEST", "Creating dependent transaction.");
     let cl_id_2 = CLTransactionId("cl-tx_dependent".to_string());
     let tx_2 = Transaction::new(
         TransactionId(format!("{:?}:tx_2", cl_id_2)),
@@ -234,15 +233,11 @@ async fn test_wrong_chain_subblock() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_wrong_chain_subblock ===");
     
-    // Create channels
-    let (_sender_cl_to_hig, receiver_cl_to_hig) = tokio::sync::mpsc::channel(100);
-    let (sender_hig_to_hs, _receiver_hig_to_hs) = tokio::sync::mpsc::channel(100);
+    // setup using the helper function
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
 
-    // Create HIG node
-    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1())));
-
-    // Start the node
-    HyperIGNode::start(hig_node.clone()).await;
+    // // Start the node
+    // HyperIGNode::start(hig_node.clone()).await;
 
     // Create a subblock with a different chain ID
     let cl_id = CLTransactionId("cl-tx".to_string());
@@ -605,11 +600,6 @@ async fn test_hs_message_delay() {
     
     // Set up test node
     let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node().await;
-    logging::log("TEST", "Test node setup complete");
-    
-    // Start the node to ensure queue processor is running
-    HyperIGNode::start(hig_node.clone()).await;
-    logging::log("TEST", "Node started, queue processor should be running");
     
     // Set delay to 100ms
     hig_node.lock().await.set_hs_message_delay(Duration::from_millis(100));
