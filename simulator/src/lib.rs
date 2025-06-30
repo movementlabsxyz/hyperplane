@@ -20,4 +20,5 @@ pub use interface::{SimulatorInterface, SimulationType};
 pub use scenarios::sim_simple::run_simple_simulation;
 pub use scenarios::sim_sweep_cat_rate::run_sweep_cat_rate_simulation;
 pub use scenarios::sim_sweep_zipf::run_sweep_zipf_simulation;
-pub use scenarios::sim_sweep_chain_delay::run_sweep_chain_delay; 
+pub use scenarios::sim_sweep_chain_delay::run_sweep_chain_delay;
+pub use scenarios::sim_sweep_duration::run_sweep_duration; 
