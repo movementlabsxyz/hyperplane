@@ -53,9 +53,10 @@ def plot_pending_transactions_overlay():
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
                     label=f'Zipf: {zipf_parameter:.3f}', linewidth=1.5)
         
-        plt.title('Pending Transactions by Height (Chain 1) - Zipf Distribution Sweep')
+        plt.title('Pending Transactions by Height (Chain 1) - Zipf Parameter Sweep')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Pending Transactions')
+        plt.xlim(left=0)
         plt.grid(True, alpha=0.3)
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
@@ -85,7 +86,7 @@ def plot_success_transactions_overlay():
         
         # Plot each simulation's chain 1 success transactions
         for i, result in enumerate(individual_results):
-            zipf_parameter = result['zipf_parameter']
+            zipf_param = result['zipf_parameter']
             chain_1_success = result['chain_1_success']
             
             if not chain_1_success:
@@ -97,11 +98,12 @@ def plot_success_transactions_overlay():
             
             # Plot with color based on Zipf parameter
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
-                    label=f'Zipf: {zipf_parameter:.3f}', linewidth=1.5)
+                    label=f'Zipf: {zipf_param:.3f}', linewidth=1.5)
         
-        plt.title('Success Transactions by Height (Chain 1) - Zipf Distribution Sweep')
+        plt.title('Success Transactions by Height (Chain 1) - Zipf Parameter Sweep')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Success Transactions')
+        plt.xlim(left=0)
         plt.grid(True, alpha=0.3)
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
@@ -131,7 +133,7 @@ def plot_failure_transactions_overlay():
         
         # Plot each simulation's chain 1 failure transactions
         for i, result in enumerate(individual_results):
-            zipf_parameter = result['zipf_parameter']
+            zipf_param = result['zipf_parameter']
             chain_1_failure = result['chain_1_failure']
             
             if not chain_1_failure:
@@ -143,11 +145,12 @@ def plot_failure_transactions_overlay():
             
             # Plot with color based on Zipf parameter
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
-                    label=f'Zipf: {zipf_parameter:.3f}', linewidth=1.5)
+                    label=f'Zipf: {zipf_param:.3f}', linewidth=1.5)
         
-        plt.title('Failure Transactions by Height (Chain 1) - Zipf Distribution Sweep')
+        plt.title('Failure Transactions by Height (Chain 1) - Zipf Parameter Sweep')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Failure Transactions')
+        plt.xlim(left=0)
         plt.grid(True, alpha=0.3)
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()

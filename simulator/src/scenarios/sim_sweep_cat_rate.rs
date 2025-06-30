@@ -54,6 +54,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
                 zipf_parameter: sweep_config.transactions.zipf_parameter,
                 ratio_cats: *cat_ratio,
                 cat_lifetime_blocks: sweep_config.transactions.cat_lifetime_blocks,
+                initialization_wait_blocks: sweep_config.transactions.initialization_wait_blocks,
             },
         };
 
@@ -138,6 +139,7 @@ fn initialize_simulation_results(config: &crate::config::Config, sim_index: usiz
     results.ratio_cats = config.transactions.ratio_cats;
     results.block_interval = config.network.block_interval;
     results.cat_lifetime = config.transactions.cat_lifetime_blocks;
+    results.initialization_wait_blocks = config.transactions.initialization_wait_blocks;
     results.chain_delays = config.network.chain_delays.clone();
     results.start_time = Instant::now();
 
@@ -153,6 +155,7 @@ fn initialize_simulation_results(config: &crate::config::Config, sim_index: usiz
     logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
     logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transactions.zipf_parameter));
     logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", results.cat_lifetime));
+    logging::log("SIMULATOR", &format!("Initialization Wait Blocks: {}", results.initialization_wait_blocks));
     for (i, delay) in config.network.chain_delays.iter().enumerate() {
         logging::log("SIMULATOR", &format!("Chain {} Delay: {:?}", i + 1, delay));
     }

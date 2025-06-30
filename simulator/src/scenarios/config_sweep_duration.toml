@@ -37,6 +37,9 @@ ratio_cats = 0.1
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 10
+# Number of blocks to wait before starting transaction submission
+# This ensures the system is fully initialized and stable
+initialization_wait_blocks = 10
 
 # Sweep parameters
 [sweep]

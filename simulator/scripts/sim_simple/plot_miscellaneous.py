@@ -38,6 +38,7 @@ def plot_pending_transactions():
         plt.title('Pending Transactions by Height')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Pending Transactions')
+        plt.xlim(left=0)  # Start x-axis at 0
         plt.grid(True)
         plt.legend()
         plt.savefig('simulator/results/sim_simple/figs/tx_count_pending.png')
@@ -75,6 +76,7 @@ def plot_success_transactions():
         plt.title('Success Transactions by Height')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Success Transactions')
+        plt.xlim(left=0)  # Start x-axis at 0
         plt.grid(True)
         plt.legend()
         plt.savefig('simulator/results/sim_simple/figs/tx_count_success.png')
@@ -112,6 +114,7 @@ def plot_failure_transactions():
         plt.title('Failure Transactions by Height')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Failure Transactions')
+        plt.xlim(left=0)  # Start x-axis at 0
         plt.grid(True)
         plt.legend()
         plt.savefig('simulator/results/sim_simple/figs/tx_count_failure.png')

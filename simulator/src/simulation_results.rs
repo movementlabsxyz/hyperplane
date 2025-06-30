@@ -21,6 +21,7 @@ pub struct SimulationResults {
     pub ratio_cats: f64,
     pub block_interval: f64,
     pub cat_lifetime: u64,
+    pub initialization_wait_blocks: u64,
     pub chain_delays: Vec<Duration>,
     
     // Chain data
@@ -51,6 +52,7 @@ impl Default for SimulationResults {
             ratio_cats: 0.0,
             block_interval: 0.0,
             cat_lifetime: 0,
+            initialization_wait_blocks: 0,
             chain_delays: Vec::new(),
             chain_1_pending: Vec::new(),
             chain_2_pending: Vec::new(),

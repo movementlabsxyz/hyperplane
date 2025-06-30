@@ -32,6 +32,7 @@ pub struct TransactionConfig {
     pub zipf_parameter: f64,
     pub ratio_cats: f64,
     pub cat_lifetime_blocks: u64,  // CAT lifetime in blocks
+    pub initialization_wait_blocks: u64,  // Number of blocks to wait before starting transaction submission
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -154,6 +155,9 @@ fn validate_common_fields(
     }
     if transactions.cat_lifetime_blocks == 0 {
         return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
+    }
+    if transactions.initialization_wait_blocks == 0 {
+        return Err(ConfigError::ValidationError("Initialization wait blocks must be positive".into()));
     }
     if network.num_chains == 0 {
         return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
