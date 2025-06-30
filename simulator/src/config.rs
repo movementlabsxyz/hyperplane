@@ -89,14 +89,14 @@ pub enum ConfigError {
 
 impl Config {
     pub fn load() -> Result<Self, ConfigError> {
-        let config_str = fs::read_to_string("simulator/config_default.toml")?;
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_simple.toml")?;
         let config: Config = toml::from_str(&config_str)?;
         config.validate()?;
         Ok(config)
     }
 
     pub fn load_sweep() -> Result<SweepConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/config_sweep_cat_rate.toml")?;
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_rate.toml")?;
         let config: SweepConfig = toml::from_str(&config_str)?;
         config.validate()?;
         Ok(config)

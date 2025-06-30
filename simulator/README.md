@@ -74,7 +74,10 @@ tail -f simulator/results/sim_simple/simulation.log
 
 ## Configuration
 
-You can modify the simulation parameters by editing the `simulator/config.toml` file.
+You can modify the simulation parameters by editing the configuration files in `simulator/src/scenarios/`:
+
+- `config_simple.toml` - Configuration for simple simulation
+- `config_sweep_cat_rate.toml` - Configuration for sweep simulation
 
 ## Architecture
 
@@ -85,8 +88,13 @@ simulator/
 ├── src/                    # Simulator core logic
 │   ├── bin/
 │   │   └── simulator.rs    # Main entry point with interactive interface
+│   ├── scenarios/          # Simulation scenarios and configurations
+│   │   ├── mod.rs          # Scenario module declarations
+│   │   ├── sim_simple.rs   # Simple simulation implementation
+│   │   ├── sim_sweep_cat_rate.rs # Sweep simulation implementation
+│   │   ├── config_simple.toml # Configuration for simple simulation
+│   │   └── config_sweep_cat_rate.toml # Configuration for sweep simulation
 │   ├── interface.rs        # Interface system for simulation selection
-│   ├── sim_simple.rs       # Simple simulation implementation
 │   ├── run_simulation.rs   # Core simulation logic and transaction processing
 │   ├── simulation_results.rs # Results tracking and data collection
 │   ├── config.rs           # Configuration management
@@ -96,7 +104,5 @@ simulator/
 │   └── lib.rs              # Module declarations and exports
 ├── scripts/                # Simulation scripts
 ├── results/                # Generated results and figures
-└── config_default.toml     # Default configuration for simple simulation
-└── config_sweep_cat_rate.toml # Configuration for sweep simulation
 └── run.sh                  # Launch script
 ```
