@@ -8,6 +8,8 @@ pub enum SimulationType {
     SweepChainDelay,
     SweepDuration,
     SweepCatLifetime,
+    SweepBlockIntervalConstantDelay,
+    SweepBlockIntervalScaledDelay,
     DummySim,
     RunAllTests,
     Exit,
@@ -22,8 +24,10 @@ impl SimulationType {
             "4" => Some(SimulationType::SweepChainDelay),
             "5" => Some(SimulationType::SweepDuration),
             "6" => Some(SimulationType::SweepCatLifetime),
-            "7" => Some(SimulationType::DummySim),
-            "8" => Some(SimulationType::RunAllTests),
+            "7" => Some(SimulationType::SweepBlockIntervalConstantDelay),
+            "8" => Some(SimulationType::SweepBlockIntervalScaledDelay),
+            "9" => Some(SimulationType::DummySim),
+            "10" => Some(SimulationType::RunAllTests),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -38,7 +42,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Dummy simulation (no simulation inside)\n  8. Run All Tests\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Dummy simulation (no simulation inside)\n  10. Run All Tests\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -47,7 +51,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_user_choice(&self) -> Option<SimulationType> {
-        print!("\nSelect simulation type (1-8): ");
+        print!("\nSelect simulation type (1-10): ");
         io::stdout().flush().unwrap();
         
         let mut input = String::new();
@@ -71,6 +75,8 @@ impl SimulatorInterface {
             "sweep_chain_delay" => "simulator/scripts/sim_sweep_chain_delay/plot_results.py",
             "sweep_duration" => "simulator/scripts/sim_sweep_duration/plot_results.py",
             "sweep_cat_lifetime" => "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py",
+            "sweep_block_interval_constant_delay" => "simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py",
+            "sweep_block_interval_scaled_delay" => "simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py",
             _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
         };
 
@@ -184,6 +190,36 @@ impl SimulatorInterface {
                     }
                     
                     println!("Sweep CAT lifetime simulation completed successfully!");
+                    break;
+                }
+                Some(SimulationType::SweepBlockIntervalConstantDelay) => {
+                    // Call the sweep block interval constant delay simulation function
+                    if let Err(e) = crate::run_sweep_block_interval_constant_delay().await {
+                        return Err(format!("Sweep Block Interval Constant Delay simulation failed: {}", e));
+                    }
+                    
+                    // Generate plots after successful simulation
+                    println!("Generating plots...");
+                    if let Err(e) = self.generate_plots("sweep_block_interval_constant_delay") {
+                        return Err(format!("Plot generation failed: {}", e));
+                    }
+                    
+                    println!("Sweep Block Interval Constant Delay simulation completed successfully!");
+                    break;
+                }
+                Some(SimulationType::SweepBlockIntervalScaledDelay) => {
+                    // Call the sweep block interval scaled delay simulation function
+                    if let Err(e) = crate::run_sweep_block_interval_scaled_delay().await {
+                        return Err(format!("Sweep Block Interval Scaled Delay simulation failed: {}", e));
+                    }
+                    
+                    // Generate plots after successful simulation
+                    println!("Generating plots...");
+                    if let Err(e) = self.generate_plots("sweep_block_interval_scaled_delay") {
+                        return Err(format!("Plot generation failed: {}", e));
+                    }
+                    
+                    println!("Sweep Block Interval Scaled Delay simulation completed successfully!");
                     break;
                 }
                 Some(SimulationType::DummySim) => {

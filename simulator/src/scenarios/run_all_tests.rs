@@ -64,6 +64,18 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     logging::log("SIMULATOR", "CAT lifetime sweep completed successfully");
     run_plot("simulator/scripts/sim_sweep_cat_lifetime/plot_results.py", "CAT Lifetime Sweep");
     
+    // Run block interval constant delay sweep
+    logging::log("SIMULATOR", "=== Running Block Interval Constant Delay Sweep ===");
+    crate::run_sweep_block_interval_constant_delay().await?;
+    logging::log("SIMULATOR", "Block interval constant delay sweep completed successfully");
+    run_plot("simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py", "Block Interval Constant Delay Sweep");
+    
+    // Run block interval scaled delay sweep
+    logging::log("SIMULATOR", "=== Running Block Interval Scaled Delay Sweep ===");
+    crate::run_sweep_block_interval_scaled_delay().await?;
+    logging::log("SIMULATOR", "Block interval scaled delay sweep completed successfully");
+    run_plot("simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py", "Block Interval Scaled Delay Sweep");
+    
     let total_time = start_time.elapsed();
     logging::log("SIMULATOR", "=== All Tests Completed Successfully ===");
     logging::log("SIMULATOR", &format!("Total execution time: {:.2?}", total_time));

@@ -38,7 +38,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
             crate::config::Config {
                 network: config.network.clone(),
                 num_accounts: config.num_accounts.clone(),
-                transactions: crate::config::TransactionConfig {
+            transactions: crate::config::TransactionConfig {
                     target_tps: config.transactions.target_tps,
                     sim_total_block_number: config.transactions.sim_total_block_number,
                     zipf_parameter: config.transactions.zipf_parameter,

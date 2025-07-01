@@ -3,6 +3,7 @@ use std::fs;
 use std::time::Duration;
 use thiserror::Error;
 
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub network: NetworkConfig,
@@ -57,6 +58,8 @@ pub struct SweepParameters {
     pub duration_step: Option<u64>,
     #[serde(default)]
     pub cat_lifetime_step: Option<u64>,
+    #[serde(default)]
+    pub block_interval_step: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -88,6 +91,24 @@ pub struct SweepDurationConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepCatLifetimeConfig {
+    pub network: NetworkConfig,
+    #[serde(rename = "accounts")]
+    pub num_accounts: AccountConfig,
+    pub transactions: TransactionConfig,
+    pub sweep: SweepParameters,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SweepBlockIntervalConstantDelayConfig {
+    pub network: NetworkConfig,
+    #[serde(rename = "accounts")]
+    pub num_accounts: AccountConfig,
+    pub transactions: TransactionConfig,
+    pub sweep: SweepParameters,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SweepBlockIntervalScaledDelayConfig {
     pub network: NetworkConfig,
     #[serde(rename = "accounts")]
     pub num_accounts: AccountConfig,
@@ -226,6 +247,20 @@ impl Config {
     pub fn load_sweep_cat_lifetime() -> Result<SweepCatLifetimeConfig, ConfigError> {
         let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_lifetime.toml")?;
         let config: SweepCatLifetimeConfig = toml::from_str(&config_str)?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub fn load_sweep_block_interval_constant_delay() -> Result<SweepBlockIntervalConstantDelayConfig, ConfigError> {
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_delay.toml")?;
+        let config: SweepBlockIntervalConstantDelayConfig = toml::from_str(&config_str)?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub fn load_sweep_block_interval_scaled_delay() -> Result<SweepBlockIntervalScaledDelayConfig, ConfigError> {
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_scaled_delay.toml")?;
+        let config: SweepBlockIntervalScaledDelayConfig = toml::from_str(&config_str)?;
         config.validate()?;
         Ok(config)
     }
@@ -376,4 +411,74 @@ impl SweepCatLifetimeConfig {
         let total_blocks = self.transactions.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
+}
+
+impl ValidateConfig for SweepBlockIntervalConstantDelayConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.block_interval_step.is_none() {
+            return Err(ConfigError::ValidationError("Block interval step must be specified".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepBlockIntervalConstantDelayConfig {
+    pub fn get_duration(&self) -> Duration {
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
+    }
+}
+
+impl ValidateConfig for SweepBlockIntervalScaledDelayConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.block_interval_step.is_none() {
+            return Err(ConfigError::ValidationError("Block interval step must be specified".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepBlockIntervalScaledDelayConfig {
+    pub fn get_duration(&self) -> Duration {
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
+    }
+}
+
+impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalConstantDelayConfig {
+    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
+    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
+    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
+    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn as_any(&self) -> &dyn std::any::Any { self }
+}
+
+impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalScaledDelayConfig {
+    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
+    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
+    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
+    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 } 
