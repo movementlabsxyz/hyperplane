@@ -9,6 +9,7 @@ pub enum SimulationType {
     SweepDuration,
     SweepCatLifetime,
     DummySim,
+    RunAllTests,
     Exit,
 }
 
@@ -22,6 +23,7 @@ impl SimulationType {
             "5" => Some(SimulationType::SweepDuration),
             "6" => Some(SimulationType::SweepCatLifetime),
             "7" => Some(SimulationType::DummySim),
+            "8" => Some(SimulationType::RunAllTests),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -36,7 +38,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Dummy simulation (not yet implemented)\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Dummy simulation (no simulation inside)\n  8. Run All Tests\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -45,7 +47,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_user_choice(&self) -> Option<SimulationType> {
-        print!("\nSelect simulation type (1-7): ");
+        print!("\nSelect simulation type (1-8): ");
         io::stdout().flush().unwrap();
         
         let mut input = String::new();
@@ -190,12 +192,19 @@ impl SimulatorInterface {
                     }
                     break;
                 }
+                Some(SimulationType::RunAllTests) => {
+                    // Call the run all tests function
+                    if let Err(e) = crate::scenarios::run_all_tests::run_all_tests().await {
+                        return Err(format!("Run All Tests failed: {}", e));
+                    }
+                    break;
+                }
                 Some(SimulationType::Exit) => {
                     println!("Exiting...");
                     break;
                 }
                 None => {
-                    println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, or 0 to exit.");
+                    println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, 8, or 0 to exit.");
                     println!("{}", self.get_menu_text());
                 }
             }
