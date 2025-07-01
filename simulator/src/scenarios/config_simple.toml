@@ -23,7 +23,7 @@ num_accounts = 4
 [transactions]
 # Target transactions per second to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-target_tps = 100.0
+target_tps = 10.0
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 50
@@ -33,13 +33,13 @@ sim_total_block_number = 50
 # Must be greater than or equal to 0
 zipf_parameter = 1.0
 # Ratio of transactions that will be CATs
-ratio_cats = 0.3
+ratio_cats = 0.9
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 100
 # Number of blocks to wait before starting transaction submission
 # This ensures the system is fully initialized and stable
-initialization_wait_blocks = 4
+initialization_wait_blocks = 2
 # Whether to allow CAT transactions to depend on locked keys
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)

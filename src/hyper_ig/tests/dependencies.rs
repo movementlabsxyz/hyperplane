@@ -172,3 +172,96 @@ pub async fn test_multiple_transactions_same_key_success() {
 
     logging::log("TEST", "=== Test completed successfully ===\n");
 } 
+
+/// Tests that locks are properly released when a CAT transaction is marked as successful.
+/// 
+/// This test verifies the critical lock release mechanism:
+/// 1. A CAT transaction acquires locks on keys
+/// 2. The CAT is marked as success
+/// 3. A status update is processed
+/// 4. The locks are properly released
+/// 5. Subsequent transactions can access the previously locked keys
+/// 
+/// This test would catch the issue where CATs get stuck in a "success" state
+/// without releasing their locks, which was observed in the simulation.
+#[tokio::test]
+pub async fn test_cat_lock_release_on_success() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_lock_release_on_success ===");
+    
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+
+    // Step 1: Create a CAT transaction that will lock key "1"
+    let cl_id_1 = CLTransactionId("cl-cat-tx-1".to_string());
+    let cat_tx = Transaction::new(
+        TransactionId(format!("{:?}:cat-credit-tx", cl_id_1)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        "CAT.credit 1 100".to_string(),
+        cl_id_1.clone(),
+    ).expect("Failed to create CAT transaction");
+
+    // Step 2: Process the CAT transaction - it should be pending and lock key "1"
+    let status = hig_node.lock().await.process_transaction(cat_tx.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Pending);
+    logging::log("TEST", "CAT transaction processed and set to pending");
+
+    // Step 3: Verify that key "1" is locked by the CAT
+    let locked_keys = hig_node.lock().await.get_locked_keys_by_transaction(cat_tx.id.clone()).await;
+    assert!(locked_keys.contains(&"1".to_string()), "Key '1' should be locked by the CAT");
+    logging::log("TEST", &format!("Verified that keys {:?} are locked by the CAT", locked_keys));
+
+    // Step 4: Create a regular transaction that tries to access key "1" - it should be blocked
+    let cl_id_2 = CLTransactionId("cl-reg-tx-1".to_string());
+    let blocked_tx = Transaction::new(
+        TransactionId(format!("{:?}:blocked-send-tx", cl_id_2)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.send 1 3 10".to_string(),
+        cl_id_2.clone(),
+    ).expect("Failed to create blocked transaction");
+
+    let blocked_status = hig_node.lock().await.process_transaction(blocked_tx.clone()).await.unwrap();
+    assert_eq!(blocked_status, TransactionStatus::Pending, "Transaction should be blocked and pending");
+    logging::log("TEST", "Verified that regular transaction is blocked by the CAT");
+
+    // Step 5: Create a status update transaction that marks the CAT as successful
+    let status_update = Transaction::new(
+        TransactionId(format!("{:?}:status-update", cl_id_1)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        format!("STATUS_UPDATE:Success.CAT_ID:{}", cl_id_1.0),
+        cl_id_1.clone(),
+    ).expect("Failed to create status update transaction");
+
+    // Step 6: Process the status update - this should release the locks
+    let update_status = hig_node.lock().await.process_transaction(status_update).await.unwrap();
+    assert_eq!(update_status, TransactionStatus::Success, "Status update should be successful");
+    logging::log("TEST", "Status update processed successfully");
+
+    // Step 7: Verify that key "1" is no longer locked
+    let remaining_locked_keys = hig_node.lock().await.get_locked_keys_by_transaction(cat_tx.id.clone()).await;
+    assert!(remaining_locked_keys.is_empty(), "Key '1' should no longer be locked by the CAT");
+    logging::log("TEST", "Verified that locks have been released");
+
+    // Step 8: Verify that the blocked transaction is now processed
+    let final_blocked_status = hig_node.lock().await.get_transaction_status(blocked_tx.id.clone()).await.unwrap();
+    assert_eq!(final_blocked_status, TransactionStatus::Success, "Blocked transaction should now be successful");
+    logging::log("TEST", "Verified that blocked transaction is now processed successfully");
+
+    // Step 9: Create another transaction that accesses key "1" - it should succeed immediately
+    let cl_id_3 = CLTransactionId("cl-reg-tx-2".to_string());
+    let new_tx = Transaction::new(
+        TransactionId(format!("{:?}:new-send-tx", cl_id_3)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.send 1 4 5".to_string(),
+        cl_id_3.clone(),
+    ).expect("Failed to create new transaction");
+
+    let new_status = hig_node.lock().await.process_transaction(new_tx.clone()).await.unwrap();
+    assert_eq!(new_status, TransactionStatus::Success, "New transaction should succeed immediately");
+    logging::log("TEST", "Verified that new transaction can access key '1' immediately");
+
+    logging::log("TEST", "=== test_cat_lock_release_on_success completed successfully ===\n");
+} 

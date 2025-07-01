@@ -732,6 +732,21 @@ impl HyperIGNode {
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("No proposed status found for transaction"))?)
     }
+
+    /// Gets the keys locked by a specific transaction (for testing purposes).
+    /// 
+    /// # Arguments
+    /// * `tx_id` - The transaction ID to check
+    /// 
+    /// # Returns
+    /// A vector of keys locked by the specified transaction
+    pub async fn get_locked_keys_by_transaction(&self, tx_id: TransactionId) -> Vec<String> {
+        let state = self.state.lock().await;
+        state.key_locked_by_tx.iter()
+            .filter(|(_, locked_tx_id)| **locked_tx_id == tx_id)
+            .map(|(key, _)| key.clone())
+            .collect()
+    }
 }
 
 //==============================================================================

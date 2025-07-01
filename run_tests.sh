@@ -82,6 +82,7 @@ TESTS=(
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
     hyper_ig::tests::dependencies::test_single_dependency
     hyper_ig::tests::dependencies::test_success_dependency
+    hyper_ig::tests::dependencies::test_cat_lock_release_on_success
     hyper_ig::tests::timeouts::test_cat_timeout
     hyper_ig::tests::timeouts::test_cat_timeout_not
     hyper_ig::tests::timeouts::test_cat_timeout_irreversible
@@ -128,7 +129,7 @@ TESTS=(
 # Test specific tests
 TESTS2=(
 
-    hyper_ig::tests::basic::test_cat_pending_dependency_restriction
+    hyper_ig::tests::dependencies::test_cat_lock_release_on_success
 
 )
 
