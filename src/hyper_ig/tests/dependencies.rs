@@ -2,27 +2,9 @@ use crate::hyper_ig::node::HyperIGNode;
 use crate::types::{Transaction, TransactionId, TransactionStatus, ChainId, CLTransactionId};
 use crate::utils::logging;
 use crate::hyper_ig::HyperIG;
-use tokio::sync::mpsc;
+use crate::hyper_ig::tests::basic::setup_test_hig_node;
 
-/// Creates and initializes a test HyperIG node with necessary channels and spawns a background task
-/// to keep the receiver alive. Returns an Arc<Mutex<HyperIGNode>> for use in tests.
-async fn setup_test_hig_node() -> std::sync::Arc<tokio::sync::Mutex<HyperIGNode>> {
-    let (_sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
-    let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
-    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, ChainId("chain-1".to_string()), 4);
-    let hig_node = std::sync::Arc::new(tokio::sync::Mutex::new(hig_node));
-    
-    // Spawn a task to keep the receiver alive
-    let mut receiver = receiver_hig_to_hs;
-    tokio::spawn(async move {
-        while let Some(_msg) = receiver.recv().await {
-            // Keep receiving messages to prevent channel closure
-        }
-    });
-    
-    HyperIGNode::start(hig_node.clone()).await;
-    hig_node
-}
+
 
 /// Runs a dependency test scenario where a transaction depends on a CAT transaction.
 /// 
@@ -47,7 +29,7 @@ async fn run_cat_credit_and_dependent_tx(
     logging::init_logging();
     logging::log("TEST", &format!("\n=== Starting test with CAT status: {:?}, expected result: {:?} ===", cat_status, expected_result));
     
-    let hig_node = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
 
     // Create a transaction that is part of a CAT that credits key "1"
     let cl_id_1 = CLTransactionId("cl-tx_1".to_string());

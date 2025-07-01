@@ -54,6 +54,8 @@ struct HyperIGState {
     cat_lifetime: u64,
     /// Current block height
     current_block_height: u64,
+    /// Flag to control whether CATs can depend on pending transactions
+    allow_cat_pending_dependencies: bool,
 }
 
 /// Node implementation of the Hyper Information Gateway
@@ -81,10 +83,12 @@ impl HyperIGNode {
     /// * `receiver_cl_to_hig` - Channel receiver for messages from Confirmation Layer
     /// * `sender_hig_to_hs` - Channel sender for messages to Hyper Scheduler
     /// * `my_chain_id` - The chain ID this node is responsible for
+    /// * `cat_lifetime` - The default lifetime for CATs in blocks
+    /// * `allow_cat_pending_dependencies` - Whether CATs can depend on pending transactions
     /// 
     /// # Returns
     /// A new HyperIGNode instance
-    pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId, cat_lifetime: u64) -> Self {
+    pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId, cat_lifetime: u64, allow_cat_pending_dependencies: bool) -> Self {
         Self {
             state: Arc::new(Mutex::new(HyperIGState {
                 transaction_statuses: HashMap::new(),
@@ -101,12 +105,29 @@ impl HyperIGNode {
                 cat_max_lifetime: HashMap::new(),
                 cat_lifetime: cat_lifetime,
                 current_block_height: 0,
+                allow_cat_pending_dependencies,
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
             hs_message_delay: Duration::from_millis(0), // Default 0ms delay
             queue_processor_running: Arc::new(Mutex::new(false)),
         }
+    }
+
+    /// Gets whether CATs can depend on pending transactions.
+    /// 
+    /// # Returns
+    /// True if CATs can depend on pending transactions, false otherwise
+    pub async fn get_allow_cat_pending_dependencies(&self) -> bool {
+        self.state.lock().await.allow_cat_pending_dependencies
+    }
+
+    /// Sets whether CATs can depend on pending transactions.
+    /// 
+    /// # Arguments
+    /// * `allow` - Whether CATs can depend on pending transactions
+    pub async fn set_allow_cat_pending_dependencies(&self, allow: bool) {
+        self.state.lock().await.allow_cat_pending_dependencies = allow;
     }
 
     /// Updates the delay for sending messages to Hyper Scheduler.
@@ -469,6 +490,41 @@ impl HyperIGNode {
 
         // Get keys accessed by this transaction
         let keys = self.get_transaction_keys(command).await?;
+
+        // Check if CAT depends on pending transactions (when flag is false)
+        {
+            let state = self.state.lock().await;
+            if !state.allow_cat_pending_dependencies {
+                // Check if any of the keys are currently locked by pending transactions
+                for key in &keys {
+                    if let Some(locking_tx_id) = state.key_locked_by_tx.get(key) {
+                        // Check if the locking transaction is still pending
+                        if state.pending_transactions.contains(locking_tx_id) {
+                            log(&format!("HIG-{}", chain_id), &format!("CAT transaction '{}' depends on pending transaction '{}' (key '{}'), but allow_cat_pending_dependencies is false", tx.id.0, locking_tx_id.0, key));
+                            
+                            // Mark the CAT as failed
+                            drop(state); // Release lock before async call
+                            self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
+                            self.state.lock().await.pending_transactions.remove(&tx.id);
+                            
+                            // Store the mapping from CAT ID to transaction ID for status reporting
+                            let cat_id = CATId(tx.cl_id.clone());
+                            self.state.lock().await.cat_to_tx_id.insert(cat_id.clone(), tx.id.clone());
+                            
+                            // Set max lifetime for this CAT (current block height + lifetime)
+                            let current_height = self.state.lock().await.current_block_height;
+                            let cat_lifetime = self.state.lock().await.cat_lifetime;
+                            self.state.lock().await.cat_max_lifetime.insert(cat_id.clone(), current_height + cat_lifetime);
+                            
+                            // Store proposed status as Failure
+                            self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), CATStatusLimited::Failure);
+                            
+                            return Ok(TransactionStatus::Failure);
+                        }
+                    }
+                }
+            }
+        }
 
         // Lock all keys accessed by this CAT
         {

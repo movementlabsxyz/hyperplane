@@ -19,6 +19,8 @@ pub enum HyperIGError {
     WrongChainId { expected: ChainId, received: ChainId },
     #[error("Invalid CAT constituent chains: {0}")]
     InvalidCATConstituentChains(String),
+    #[error("CAT depends on pending transaction: {0}")]
+    CATDependsOnPendingTransaction(String),
 }
 
 /// The Hyper IG is responsible for executing transactions,

@@ -14,7 +14,7 @@ async fn run_cat_timeout_test(second_block_height: u64, expected_status: Transac
         second_block_height, expected_status));
     
     // Create node
-    let (mut hig_node, receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (mut hig_node, receiver_hig_to_hs) = setup_test_hig_node(true).await;
     
     // Create a CAT transaction
     let cl_id = CLTransactionId("cl-tx".to_string());
@@ -170,7 +170,7 @@ async fn test_cat_success_should_not_timeout() {
     let tx_id = TransactionId(format!("{}:tx", cl_id.0));
     
     // Create node
-    let (mut hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (mut hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     
     // Create a CAT transaction
     let cat_tx = Transaction::new(

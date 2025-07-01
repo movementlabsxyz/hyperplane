@@ -9,12 +9,12 @@ use hyperplane::utils::logging;
 use regex::Regex;
 use std::time::Duration;
 
-/// Helper function to set up a test HIG node
-pub async fn setup_test_hig_node() -> (Arc<Mutex<HyperIGNode>>, mpsc::Receiver<CATStatusUpdate>) {
+/// Helper function to set up a test HIG node with configurable CAT pending dependency behavior
+pub async fn setup_test_hig_node(allow_cat_pending_dependencies: bool) -> (Arc<Mutex<HyperIGNode>>, mpsc::Receiver<CATStatusUpdate>) {
     let (_sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel(100);
     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel(100);
     
-    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1(), 4);
+    let hig_node = HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, constants::chain_1(), 4, allow_cat_pending_dependencies);
     let hig_node = Arc::new(Mutex::new(hig_node));
     
     // Start the node
@@ -30,7 +30,7 @@ async fn run_test_regular_transaction_status(data: &str, expected_status: Transa
     logging::log("TEST", &format!("\n=== Starting regular non-dependent transaction test with status {:?}===", expected_status));
     
     logging::log("TEST", "Setting up test nodes...");
-    let (hig_node, _rx) = setup_test_hig_node().await;
+    let (hig_node, _rx) = setup_test_hig_node(true).await;
     logging::log("TEST", "Test nodes setup complete");
 
     let tx_id = "test-tx";
@@ -83,7 +83,7 @@ async fn test_regular_transaction_failure() {
 /// Helper function to test sending a CAT status proposal
 async fn run_process_and_send_cat(data: &str, expected_status: CATStatusLimited) {    
     logging::log("TEST", "Setting up test nodes...");
-    let (hig_node, _receiver_hig_to_hs  ) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs  ) = setup_test_hig_node(true).await;
     logging::log("TEST", "Test nodes setup complete");
     
     // Create necessary parts of a CAT transaction
@@ -174,7 +174,7 @@ async fn test_get_pending_transactions() {
     logging::log("TEST", "\n=== Starting test_get_pending_transactions ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     logging::log("TEST", "Test nodes setup complete");
 
     // Get pending transactions when none exist
@@ -234,7 +234,7 @@ async fn test_wrong_chain_subblock() {
     logging::log("TEST", "\n=== Starting test_wrong_chain_subblock ===");
     
     // setup using the helper function
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
 
     // // Start the node
     // HyperIGNode::start(hig_node.clone()).await;
@@ -324,7 +324,7 @@ async fn test_send_after_credit() {
     logging::log("TEST", "\n=== Starting test_send_after_credit ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     logging::log("TEST", "Test nodes setup complete");
 
     // First credit 100 to account 1
@@ -387,7 +387,7 @@ async fn test_cat_send_no_funds() {
     logging::log("TEST", "\n=== Starting test_cat_send_no_funds ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     logging::log("TEST", "Test nodes setup complete");
 
     // Create a CAT send transaction with multiple constituent chains
@@ -426,7 +426,7 @@ async fn test_cat_credit_pending() {
     logging::log("TEST", "\n=== Starting test_cat_credit_pending ===");
     
     logging::log("TEST", "Setting up test nodes...");
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     logging::log("TEST", "Test nodes setup complete");
 
     // Create a CAT credit transaction with multiple constituent chains
@@ -464,7 +464,7 @@ async fn test_cat_send_after_credit() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_cat_send_after_credit ===");
     
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     
     // First do a regular credit
     let cl_id_1 = CLTransactionId("cl-tx_1".to_string());
@@ -506,7 +506,7 @@ async fn test_get_chain_state_empty() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_get_chain_state_empty ===");
     
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     let state = hig_node.lock().await.get_chain_state().await.unwrap();
     assert!(state.is_empty(), "Initial chain state should be empty");
 }
@@ -521,7 +521,7 @@ async fn test_get_chain_state_after_transaction() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_get_chain_state_after_transaction ===");
     
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     
     // Create and process a credit transaction
     let cl_id = CLTransactionId("cl-tx".to_string());
@@ -549,7 +549,7 @@ async fn test_get_chain_state_after_transaction() {
 #[tokio::test]
 async fn test_duplicate_transaction_id() {
     // Create a HIG node
-    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
     
     // Create a transaction
     let cl_id = CLTransactionId("cl-tx".to_string());
@@ -599,7 +599,7 @@ async fn test_hs_message_delay() {
     logging::log("TEST", "\n=== Starting test_hs_message_delay ===");
     
     // Set up test node
-    let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node().await;
+    let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node(true).await;
     
     // Set delay to 100ms
     hig_node.lock().await.set_hs_message_delay(Duration::from_millis(100));
@@ -641,5 +641,157 @@ async fn test_hs_message_delay() {
     logging::log("TEST", "HS message delay test completed successfully");
 }
 
+/// Tests that CATs are rejected when they depend on pending transactions and allow_cat_pending_dependencies is false.
+/// This verifies that:
+/// 1. When allow_cat_pending_dependencies is false, CATs that depend on pending transactions are rejected
+/// 2. The rejected CAT is marked as failed
+/// 3. A failure status proposal is sent to HS
+/// 4. When allow_cat_pending_dependencies is true, CATs can depend on pending transactions
+#[tokio::test]
+async fn test_cat_pending_dependency_restriction() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_pending_dependency_restriction ===");
+    
+    // Test with allow_cat_pending_dependencies = false
+    {
+        logging::log("TEST", "Testing with allow_cat_pending_dependencies = false");
+        let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node(false).await;
+        
+        // Verify the flag is set correctly
+        let flag_value = hig_node.lock().await.get_allow_cat_pending_dependencies().await;
+        assert_eq!(flag_value, false, "Flag should be set to false");
+        
+        // First create a CAT transaction that will be pending
+        let cl_id_1 = CLTransactionId("cl-tx_cat_1".to_string());
+        let cat_tx_1 = Transaction::new(
+            TransactionId(format!("{:?}:cat_1", cl_id_1)),
+            constants::chain_1(),
+            vec![constants::chain_1(), constants::chain_2()],
+            "CAT.credit 1 100".to_string(),
+            cl_id_1.clone(),
+        ).expect("Failed to create first CAT transaction");
+        
+        let status = hig_node.lock().await.process_transaction(cat_tx_1.clone()).await.unwrap();
+        assert_eq!(status, TransactionStatus::Pending, "First CAT should be pending");
+        
+        // Now create a second CAT that depends on the same key (account 1)
+        let cl_id_2 = CLTransactionId("cl-tx_cat_2".to_string());
+        let cat_tx_2 = Transaction::new(
+            TransactionId(format!("{:?}:cat_2", cl_id_2)),
+            constants::chain_1(),
+            vec![constants::chain_1(), constants::chain_2()],
+            "CAT.send 1 2 50".to_string(), // This depends on account 1 which is locked by the first CAT
+            cl_id_2.clone(),
+        ).expect("Failed to create second CAT transaction");
+        
+        let status = hig_node.lock().await.process_transaction(cat_tx_2.clone()).await.unwrap();
+        assert_eq!(status, TransactionStatus::Failure, "Second CAT should be rejected due to pending dependency");
+        
+        // Verify the second CAT is marked as failed
+        let retrieved_status = hig_node.lock().await.get_transaction_status(cat_tx_2.id.clone()).await.unwrap();
+        assert_eq!(retrieved_status, TransactionStatus::Failure, "Rejected CAT should be marked as failed");
+        
+        // Verify the second CAT is not in pending transactions
+        let pending = hig_node.lock().await.get_pending_transactions().await.unwrap();
+        assert!(!pending.contains(&cat_tx_2.id), "Rejected CAT should not be in pending transactions");
+        
+        // Verify a failure status proposal is sent to HS for the second CAT
+        let cat_id_2 = CATId(cl_id_2.clone());
+        let proposed_status = hig_node.lock().await.get_proposed_status(cat_tx_2.id.clone()).await.unwrap();
+        assert_eq!(proposed_status, CATStatusLimited::Failure, "Rejected CAT should propose Failure status");
+        
+        // Wait for the status proposals to be sent (both CATs will send proposals)
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        
+        // Receive both status updates and find the one for the second CAT
+        let mut found_second_cat_update = false;
+        for _ in 0..2 {
+            if let Ok(status_update) = receiver_hig_to_hs.try_recv() {
+                if status_update.cat_id == cat_id_2 {
+                    assert_eq!(status_update.status, CATStatusLimited::Failure, "Status update for second CAT should be Failure");
+                    found_second_cat_update = true;
+                    break;
+                }
+            }
+        }
+        assert!(found_second_cat_update, "Should receive status update for the second CAT");
+        
+        logging::log("TEST", "Test with allow_cat_pending_dependencies = false completed successfully");
+    }
+    
+    // Test with allow_cat_pending_dependencies = true
+    {
+        logging::log("TEST", "Testing with allow_cat_pending_dependencies = true");
+        let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+        
+        // Verify the flag is set correctly
+        let flag_value = hig_node.lock().await.get_allow_cat_pending_dependencies().await;
+        assert_eq!(flag_value, true, "Flag should be set to true");
+        
+        // First create a CAT transaction that will be pending
+        let cl_id_1 = CLTransactionId("cl-tx_cat_3".to_string());
+        let cat_tx_1 = Transaction::new(
+            TransactionId(format!("{:?}:cat_3", cl_id_1)),
+            constants::chain_1(),
+            vec![constants::chain_1(), constants::chain_2()],
+            "CAT.credit 1 100".to_string(),
+            cl_id_1.clone(),
+        ).expect("Failed to create first CAT transaction");
+        
+        let status = hig_node.lock().await.process_transaction(cat_tx_1.clone()).await.unwrap();
+        assert_eq!(status, TransactionStatus::Pending, "First CAT should be pending");
+        
+        // Now create a second CAT that depends on the same key (account 1)
+        let cl_id_2 = CLTransactionId("cl-tx_cat_4".to_string());
+        let cat_tx_2 = Transaction::new(
+            TransactionId(format!("{:?}:cat_4", cl_id_2)),
+            constants::chain_1(),
+            vec![constants::chain_1(), constants::chain_2()],
+            "CAT.send 1 2 50".to_string(), // This depends on account 1 which is locked by the first CAT
+            cl_id_2.clone(),
+        ).expect("Failed to create second CAT transaction");
+        
+        let status = hig_node.lock().await.process_transaction(cat_tx_2.clone()).await.unwrap();
+        assert_eq!(status, TransactionStatus::Pending, "Second CAT should be pending (allowed to depend on pending)");
+        
+        // Verify the second CAT is in pending transactions
+        let pending = hig_node.lock().await.get_pending_transactions().await.unwrap();
+        assert!(pending.contains(&cat_tx_2.id), "Second CAT should be in pending transactions");
+        
+        logging::log("TEST", "Test with allow_cat_pending_dependencies = true completed successfully");
+    }
+    
+    logging::log("TEST", "=== test_cat_pending_dependency_restriction completed successfully ===\n");
+}
 
-
+/// Tests that the allow_cat_pending_dependencies flag can be changed at runtime.
+/// This verifies that:
+/// 1. The flag can be set and retrieved correctly
+/// 2. The flag affects subsequent CAT processing
+#[tokio::test]
+async fn test_cat_pending_dependency_flag_runtime_change() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_pending_dependency_flag_runtime_change ===");
+    
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    
+    // Verify initial flag value
+    let flag_value = hig_node.lock().await.get_allow_cat_pending_dependencies().await;
+    assert_eq!(flag_value, true, "Initial flag should be true");
+    
+    // Change the flag to false
+    hig_node.lock().await.set_allow_cat_pending_dependencies(false).await;
+    
+    // Verify the flag was changed
+    let flag_value = hig_node.lock().await.get_allow_cat_pending_dependencies().await;
+    assert_eq!(flag_value, false, "Flag should be changed to false");
+    
+    // Change the flag back to true
+    hig_node.lock().await.set_allow_cat_pending_dependencies(true).await;
+    
+    // Verify the flag was changed back
+    let flag_value = hig_node.lock().await.get_allow_cat_pending_dependencies().await;
+    assert_eq!(flag_value, true, "Flag should be changed back to true");
+    
+    logging::log("TEST", "=== test_cat_pending_dependency_flag_runtime_change completed successfully ===\n");
+}
