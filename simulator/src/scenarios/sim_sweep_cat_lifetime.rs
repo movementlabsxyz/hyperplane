@@ -1,201 +1,60 @@
-use std::env;
-use std::fs;
-use chrono::Local;
-use hyperplane::utils::logging;
-use std::time::{Duration, Instant};
-use indicatif::{ProgressBar, ProgressStyle};
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
 /// Runs the sweep CAT lifetime simulation
+/// 
+/// This simulation explores how different CAT (Cross-Chain Atomic Transaction) lifetimes
+/// affect system performance. CAT lifetime determines how long a cross-chain transaction
+/// remains valid before it expires.
+/// 
+/// The sweep varies the CAT lifetime from a minimum number of blocks to longer periods,
+/// running multiple simulations to understand how transaction expiration affects
+/// success rates, retry patterns, and overall system throughput.
 pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::ConfigError> {
-    // Create results directory if it doesn't exist
-    fs::create_dir_all("simulator/results/sim_sweep_cat_lifetime").expect("Failed to create results directory");
-    fs::create_dir_all("simulator/results/sim_sweep_cat_lifetime/data").expect("Failed to create data directory");
-    fs::create_dir_all("simulator/results/sim_sweep_cat_lifetime/figs").expect("Failed to create figures directory");
-    
-    // Setup logging
-    setup_logging();
-
-    // Load sweep configuration
+    // Load sweep configuration to get parameter values
+    // This reads the sweep settings from config_sweep_cat_lifetime.toml
     let sweep_config = crate::config::Config::load_sweep_cat_lifetime()?;
     
     // Calculate CAT lifetimes for each simulation
+    // Creates a sequence of lifetimes: 1 block, 2 blocks, 3 blocks, etc.
+    // Each value represents the number of blocks a CAT remains valid
     let cat_lifetimes: Vec<u64> = (0..sweep_config.sweep.num_simulations)
         .map(|i| (i as u64 + 1) * sweep_config.sweep.cat_lifetime_step.unwrap())
         .collect();
 
-    logging::log("SIMULATOR", "=== Sweep CAT Lifetime Simulation ===");
-    logging::log("SIMULATOR", &format!("Number of simulations: {}", sweep_config.sweep.num_simulations));
-    logging::log("SIMULATOR", &format!("CAT lifetime step: {}", sweep_config.sweep.cat_lifetime_step.unwrap()));
-    logging::log("SIMULATOR", &format!("CAT lifetimes: {:?}", cat_lifetimes));
-    logging::log("SIMULATOR", "================================");
-
-    // Create progress bar for sweep
-    let progress_bar = ProgressBar::new(sweep_config.sweep.num_simulations as u64);
-    progress_bar.set_style(ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
-        .unwrap()
-        .progress_chars("+>-"));
-
-    // Store results for each simulation
-    let mut all_results = Vec::new();
-
-    // Run each simulation with different CAT lifetime
-    for (sim_index, cat_lifetime) in cat_lifetimes.iter().enumerate() {
-        logging::log("SIMULATOR", &format!("Running simulation {}/{} with CAT lifetime: {} blocks", 
-            sim_index + 1, sweep_config.sweep.num_simulations, cat_lifetime));
-
-        // Create a modified config with the current CAT lifetime
-        let sim_config = crate::config::Config {
-            network: sweep_config.network.clone(),
-            num_accounts: sweep_config.num_accounts.clone(),
-            transactions: crate::config::TransactionConfig {
-                target_tps: sweep_config.transactions.target_tps,
-                duration_seconds: sweep_config.transactions.duration_seconds,
-                zipf_parameter: sweep_config.transactions.zipf_parameter,
-                ratio_cats: sweep_config.transactions.ratio_cats,
-                cat_lifetime_blocks: *cat_lifetime,
-                initialization_wait_blocks: sweep_config.transactions.initialization_wait_blocks,
-            },
-        };
-
-        // Initialize simulation results
-        let mut results = initialize_simulation_results(&sim_config, sim_index, *cat_lifetime);
-
-        // Setup test nodes
-        let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-            Duration::from_secs_f64(sim_config.network.block_interval),
-            &sim_config.network.chain_delays,
-        ).await;
-        
-        // Initialize accounts with initial balance
-        crate::network::initialize_accounts(
-            &[cl_node.clone()], 
-            sim_config.num_accounts.initial_balance.try_into().unwrap(), 
-            sim_config.num_accounts.num_accounts.try_into().unwrap()
-        ).await;
-
-        // Run simulation
-        crate::run_simulation::run_simulation(
-            cl_node,
-            vec![hig_node_1, hig_node_2],
-            &mut results,
-        ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
-
-        // Save individual simulation results
-        results.save_to_directory(&format!("simulator/results/sim_sweep_cat_lifetime/data/sim_{}", sim_index)).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
-        
-        all_results.push((*cat_lifetime, results));
-        
-        // Update progress bar and show completed simulation
-        progress_bar.inc(1);
-        progress_bar.set_message(format!("Simulation {}/{} with CAT lifetime: {} blocks", 
-            sim_index + 1, sweep_config.sweep.num_simulations, cat_lifetime));
-    }
-
-    // Finish progress bar with final state
-    progress_bar.finish_with_message(format!("Simulation {}/{} with CAT lifetime: {} blocks", 
-        sweep_config.sweep.num_simulations, sweep_config.sweep.num_simulations, 
-        cat_lifetimes.last().unwrap()));
-    
-    println!("Sweep simulation complete");
-
-    // Save combined results
-    save_sweep_results(&all_results).await?;
-
-    logging::log("SIMULATOR", "=== Sweep Simulation Complete ===");
-    logging::log("SIMULATOR", &format!("Total simulations completed: {}", all_results.len()));
-
-    Ok(())
-}
-
-/// Sets up logging if ENABLE_LOGS environment variable is set
-fn setup_logging() {
-    if env::var("ENABLE_LOGS").is_ok() {
-        // Delete existing log file if it exists
-        let log_path = "simulator/results/sim_sweep_cat_lifetime/simulation.log";
-        if let Err(e) = fs::remove_file(log_path) {
-            // Ignore error if file doesn't exist
-            if e.kind() != std::io::ErrorKind::NotFound {
-                eprintln!("Error deleting log file: {}", e);
+    // Create the generic sweep runner that handles all the common functionality
+    // This eliminates code duplication across different sweep types
+    let runner = SweepRunner::new(
+        "CAT Lifetime",                // Human-readable name for logging
+        "sim_sweep_cat_lifetime",      // Directory name for results
+        "cat_lifetime",                // Parameter name for JSON output
+        cat_lifetimes,                 // List of parameter values to test
+        // Function to load the sweep configuration
+        Box::new(|| {
+            crate::config::Config::load_sweep_cat_lifetime().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+        }),
+        // Function to create a modified config for each simulation
+        // This takes the base config and applies the current CAT lifetime
+        Box::new(|sweep_config, cat_lifetime| {
+            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepCatLifetimeConfig>().unwrap();
+            crate::config::Config {
+                network: config.network.clone(),
+                num_accounts: config.num_accounts.clone(),
+                transactions: crate::config::TransactionConfig {
+                    target_tps: config.transactions.target_tps,
+                    duration_seconds: config.transactions.duration_seconds,
+                    zipf_parameter: config.transactions.zipf_parameter,
+                    ratio_cats: config.transactions.ratio_cats,
+                    cat_lifetime_blocks: cat_lifetime,  // This is the parameter we're varying
+                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
+                },
             }
-        }
+        }),
+        // Function to save the combined results from all simulations
+        Box::new(|results_dir, all_results| {
+            save_generic_sweep_results(results_dir, "cat_lifetime", all_results)
+        }),
+    );
 
-        // Initialize logging with simulation-specific log file
-        env::set_var("HYPERPLANE_LOGGING", "true");
-        env::set_var("HYPERPLANE_LOG_TO_FILE", "true");
-        env::set_var("HYPERPLANE_LOG_FILE", log_path);
-        logging::init_logging();
-    }
-}
-
-/// Initializes simulation results from configuration
-fn initialize_simulation_results(config: &crate::config::Config, sim_index: usize, cat_lifetime: u64) -> crate::SimulationResults {
-    let mut results = crate::SimulationResults::default();
-    results.initial_balance = config.num_accounts.initial_balance.try_into().unwrap();
-    results.num_accounts = config.num_accounts.num_accounts.try_into().unwrap();
-    results.target_tps = config.transactions.target_tps as u64;
-    results.duration_seconds = config.transactions.duration_seconds.try_into().unwrap();
-    results.zipf_parameter = config.transactions.zipf_parameter;
-    results.ratio_cats = config.transactions.ratio_cats;
-    results.block_interval = config.network.block_interval;
-    results.cat_lifetime = config.transactions.cat_lifetime_blocks;
-    results.initialization_wait_blocks = config.transactions.initialization_wait_blocks;
-    results.chain_delays = config.network.chain_delays.clone();
-    results.start_time = Instant::now();
-
-    // Log configuration
-    let start_time = Local::now();
-    logging::log("SIMULATOR", &format!("=== Simulation {} Configuration ===", sim_index + 1));
-    logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
-    logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", cat_lifetime));
-    logging::log("SIMULATOR", &format!("Initial Balance: {}", config.num_accounts.initial_balance));
-    logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.num_accounts.num_accounts));
-    logging::log("SIMULATOR", &format!("Target TPS: {}", config.transactions.target_tps));
-    logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", config.transactions.duration_seconds));
-    logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
-    logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transactions.zipf_parameter));
-    logging::log("SIMULATOR", &format!("CAT Ratio: {}", results.ratio_cats));
-    logging::log("SIMULATOR", &format!("Initialization Wait Blocks: {}", results.initialization_wait_blocks));
-    for (i, delay) in config.network.chain_delays.iter().enumerate() {
-        logging::log("SIMULATOR", &format!("Chain {} Delay: {:?}", i + 1, delay));
-    }
-    logging::log("SIMULATOR", "=============================");
-
-    results
-}
-
-/// Saves combined sweep results
-async fn save_sweep_results(all_results: &[(u64, crate::SimulationResults)]) -> Result<(), crate::config::ConfigError> {
-    use serde_json;
-    
-    // Create combined results structure
-    let combined_results = serde_json::json!({
-        "sweep_summary": {
-            "num_simulations": all_results.len(),
-            "cat_lifetimes": all_results.iter().map(|(lifetime, _)| lifetime).collect::<Vec<_>>(),
-            "total_transactions": all_results.iter().map(|(_, results)| results.transactions_sent).collect::<Vec<_>>(),
-            "cat_transactions": all_results.iter().map(|(_, results)| results.cat_transactions).collect::<Vec<_>>(),
-            "regular_transactions": all_results.iter().map(|(_, results)| results.regular_transactions).collect::<Vec<_>>(),
-        },
-        "individual_results": all_results.iter().map(|(lifetime, results)| {
-            serde_json::json!({
-                "cat_lifetime": lifetime,
-                "total_transactions": results.transactions_sent,
-                "cat_transactions": results.cat_transactions,
-                "regular_transactions": results.regular_transactions,
-                "chain_1_pending": results.chain_1_pending,
-                "chain_1_success": results.chain_1_success,
-                "chain_1_failure": results.chain_1_failure,
-            })
-        }).collect::<Vec<_>>()
-    });
-
-    // Save combined results
-    let combined_file = "simulator/results/sim_sweep_cat_lifetime/data/sweep_results.json";
-    fs::write(combined_file, serde_json::to_string_pretty(&combined_results).expect("Failed to serialize combined results"))
-        .map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
-    
-    logging::log("SIMULATOR", &format!("Saved combined sweep results to {}", combined_file));
-
-    Ok(())
+    // Run the sweep - this handles all the simulation execution, logging, and result saving
+    runner.run().await
 } 

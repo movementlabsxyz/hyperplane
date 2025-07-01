@@ -4,4 +4,5 @@ pub mod sim_sweep_chain_delay;
 pub mod sim_sweep_duration;
 pub mod sim_sweep_zipf;
 pub mod sim_sweep_cat_lifetime;
-pub mod run_all_tests; 
+pub mod run_all_tests;
+pub mod sweep_runner; 
