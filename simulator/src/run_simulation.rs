@@ -10,22 +10,23 @@ use hyperplane::{
     hyper_ig::HyperIG,
     utils::logging,
 };
-use crate::account_selector::AccountSelector;
+use crate::zipf_account_selection::AccountSelector;
 use rand::Rng;
 use crate::SimulationResults;
+use std::time::Instant;
 
 // ------------------------------------------------------------------------------------------------
 // Main Simulation Function
 // ------------------------------------------------------------------------------------------------
 
-/// Runs the simulation for the specified duration
+/// Runs the simulation for the specified number of blocks
 ///
 /// # Arguments
 ///
 /// * `nodes` - A tuple containing two vectors:
 ///   - The first vector contains Arc<Mutex<ConfirmationLayerNode>>, the confirmation layer nodes
 ///   - The second vector contains Arc<Mutex<HyperIGNode>>, the HyperIG nodes
-/// * `duration_seconds` - A u64, the duration of the simulation in seconds
+/// * `sim_total_block_number` - A u64, the total number of blocks to simulate
 /// * `initial_balance` - A u64, the initial balance for transactions
 /// * `num_accounts` - A usize, the number of accounts
 /// * `target_tps` - A u64, the target TPS
@@ -40,11 +41,28 @@ pub async fn run_simulation(
     results: &mut SimulationResults,
 ) -> Result<(), String> {
     
-    // Wait for initialization transactions to be processed
-    logging::log("SIMULATOR", "Waiting 5 block for initialization transactions to be processed...");
-    let wait = Duration::from_secs_f64(results.block_interval * 5.0);
-    sleep(wait).await;
-    logging::log("SIMULATOR", "Initialization complete, starting simulation");
+    // Get the current block at the start
+    let start_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+    let target_block = start_block + results.initialization_wait_blocks;
+    
+    logging::log("SIMULATOR", &format!("Starting at block {}, waiting until block {} for initialization and stable block production...", start_block, target_block));
+    
+    // Wait until we reach the target block
+    loop {
+        let current_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+        if current_block >= target_block {
+            break;
+        }
+        // Sleep for a short duration before checking again
+        sleep(Duration::from_millis(100)).await;
+    }
+    
+    // Get the current block after initialization
+    let initial_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+    logging::log("SIMULATOR", &format!("Initialization complete, starting simulation at block {}", initial_block));
+
+    // Record the start time for transaction sending (after initialization)
+    let transaction_start_time = Instant::now();
 
     // Initialize random number generator
     let mut rng = rand::thread_rng();
@@ -54,13 +72,13 @@ pub async fn run_simulation(
     // Initialize receiver account selector with Zipf distribution
     let account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
     
-    // Calculate total number of transactions to send
-    let total_transactions = results.target_tps * results.duration_seconds;
+    // Calculate target block number for simulation termination
+    let target_simulation_block = initial_block + results.sim_total_block_number;
     
-    // Create progress bar
-    let progress_bar = ProgressBar::new(total_transactions);
+    // Create progress bar for blocks
+    let progress_bar = ProgressBar::new(results.sim_total_block_number);
     progress_bar.set_style(ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} transactions ({eta})")
+        .template("[{elapsed_precise}] {bar:40.cyan/blue} Block {pos}/{len} ({eta})")
         .unwrap()
         .progress_chars("##-"));
 
@@ -70,7 +88,7 @@ pub async fn run_simulation(
     }
     
     // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.
-    let mut current_block = 0;
+    let mut current_block = initial_block;
     
     // Get registered chains
     let chains = cl_node.lock().await.get_registered_chains().await.map_err(|e| e.to_string())?;
@@ -78,7 +96,7 @@ pub async fn run_simulation(
     let chain_id_2 = chains[1].clone();
     
     // Main simulation loop
-    while results.transactions_sent < total_transactions {
+    while current_block < target_simulation_block {
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(&mut rng);
         let to_account = account_selector_receiver.select_account(&mut rng);
@@ -130,7 +148,6 @@ pub async fn run_simulation(
         }
         
         results.transactions_sent += 1;
-        progress_bar.inc(1);
         
         // Get current block height and transaction status counts
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
@@ -139,21 +156,30 @@ pub async fn run_simulation(
         let (chain_1_pending, chain_1_success, chain_1_failure) = hig_nodes[0].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
         let (chain_2_pending, chain_2_success, chain_2_failure) = hig_nodes[1].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
         
+        // Subtract initialization transactions from success counts
+        // Each account gets one initialization credit transaction per chain
+        let init_tx_count = results.num_accounts as u64;
+        let chain_1_success_filtered = chain_1_success.saturating_sub(init_tx_count);
+        let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
+        
         // Only record counts if we've moved to a new block
         if new_block != current_block {
-            if current_block > 0 {  // Don't record for block 0
-                results.chain_1_pending.push((current_block, chain_1_pending));    
-                results.chain_2_pending.push((current_block, chain_2_pending));
-                results.chain_1_success.push((current_block, chain_1_success));
-                results.chain_2_success.push((current_block, chain_2_success));
-                results.chain_1_failure.push((current_block, chain_1_failure));
-                results.chain_2_failure.push((current_block, chain_2_failure));
-            }
+            // Record data for all blocks (no longer skipping block 0)
+            results.chain_1_pending.push((new_block, chain_1_pending));    
+            results.chain_2_pending.push((new_block, chain_2_pending));
+            results.chain_1_success.push((new_block, chain_1_success_filtered));
+            results.chain_2_success.push((new_block, chain_2_success_filtered));
+            results.chain_1_failure.push((new_block, chain_1_failure));
+            results.chain_2_failure.push((new_block, chain_2_failure));
             current_block = new_block;
+            
+            // Update progress bar for new block
+            let blocks_completed = new_block - initial_block;
+            progress_bar.set_position(blocks_completed);
         }
         
-        // Calculate sleep time to maintain target TPS
-        let elapsed = results.start_time.elapsed();
+        // Calculate sleep time to maintain target TPS (using transaction start time)
+        let elapsed = transaction_start_time.elapsed();
         let target_milliseconds = (results.transactions_sent as f64 / results.target_tps as f64) * 1000.0;
         let target_elapsed = Duration::from_millis(target_milliseconds as u64);
         if elapsed < target_elapsed {

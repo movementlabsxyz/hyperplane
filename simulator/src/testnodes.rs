@@ -10,7 +10,6 @@ use tokio::time::Duration;
 use tokio::sync::mpsc;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use crate::config::Config;
 
 // ------------------------------------------------------------------------------------------------
 // Test Node Setup
@@ -37,9 +36,6 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration
     // Initialize logging
     logging::init_logging();
 
-    // Load configuration
-    let config = Config::load().expect("Failed to load config");
-
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
     let (sender_hig1_to_hs, receiver_hig1_to_hs) = mpsc::channel(100);
@@ -53,8 +49,8 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration
         receiver_hs_to_cl,
         block_interval,
     ).expect("Failed to create confirmation node")));
-    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), config.cat_lifetime)));
-    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), config.cat_lifetime)));
+    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), 10)));
+    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), 10)));
 
     // Start the nodes
     HyperSchedulerNode::start(hs_node.clone()).await;

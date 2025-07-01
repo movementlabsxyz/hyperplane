@@ -7,15 +7,15 @@ from scipy.stats import zipf
 import os
 
 def load_simulation_data():
-    with open('simulator/results/data/simulation_stats.json', 'r') as f:
+    with open('simulator/results/sim_simple/data/simulation_stats.json', 'r') as f:
         return json.load(f)
 
 def plot_pending_transactions():
     try:
         # Load pending transactions data for both chains
-        with open('simulator/results/data/pending_transactions_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/pending_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/data/pending_transactions_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/pending_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         
         # Extract data for chain 1
@@ -38,9 +38,10 @@ def plot_pending_transactions():
         plt.title('Pending Transactions by Height')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Pending Transactions')
+        plt.xlim(left=0)  # Start x-axis at 0
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/figs/tx_count_pending.png')
+        plt.savefig('simulator/results/sim_simple/figs/tx_count_pending.png')
         plt.close()
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing pending transactions data: {e}")
@@ -50,9 +51,9 @@ def plot_pending_transactions():
 def plot_success_transactions():
     try:
         # Load success transactions data for both chains
-        with open('simulator/results/data/success_transactions_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/success_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/data/success_transactions_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/success_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         
         # Extract data for chain 1
@@ -75,9 +76,10 @@ def plot_success_transactions():
         plt.title('Success Transactions by Height')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Success Transactions')
+        plt.xlim(left=0)  # Start x-axis at 0
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/figs/tx_count_success.png')
+        plt.savefig('simulator/results/sim_simple/figs/tx_count_success.png')
         plt.close()
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing success transactions data: {e}")
@@ -87,9 +89,9 @@ def plot_success_transactions():
 def plot_failure_transactions():
     try:
         # Load failure transactions data for both chains
-        with open('simulator/results/data/failure_transactions_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/failure_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/data/failure_transactions_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/failure_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         
         # Extract data for chain 1
@@ -112,9 +114,10 @@ def plot_failure_transactions():
         plt.title('Failure Transactions by Height')
         plt.xlabel('Block Height')
         plt.ylabel('Number of Failure Transactions')
+        plt.xlim(left=0)  # Start x-axis at 0
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/figs/tx_count_failure.png')
+        plt.savefig('simulator/results/sim_simple/figs/tx_count_failure.png')
         plt.close()
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing failure transactions data: {e}")
@@ -126,13 +129,17 @@ def plot_parameters():
     params = data['parameters']
     
     # Create a text file with parameters
-    with open('simulator/results/figs/parameters.txt', 'w') as f:
+    with open('simulator/results/sim_simple/figs/parameters.txt', 'w') as f:
         f.write("Simulation Parameters:\n")
         f.write("=====================\n")
         f.write(f"Initial Balance: {params['initial_balance']}\n")
         f.write(f"Number of Accounts: {params['num_accounts']}\n")
         f.write(f"Target TPS: {params['target_tps']}\n")
-        f.write(f"Duration (seconds): {params['duration_seconds']}\n")
+        # Handle both old and new parameter names
+        if 'duration_seconds' in params:
+            f.write(f"Duration (seconds): {params['duration_seconds']}\n")
+        if 'sim_total_block_number' in params:
+            f.write(f"Total Blocks: {params['sim_total_block_number']}\n")
         f.write(f"Zipf Parameter: {params['zipf_parameter']}\n")
         f.write(f"CAT Ratio: {params['ratio_cats']}\n")
         f.write(f"Block Interval: {params['block_interval']}\n")

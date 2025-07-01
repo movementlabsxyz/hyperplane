@@ -18,7 +18,7 @@ The simulator creates a test environment with multiple chains and accounts, then
 - Adjustable transaction rates and types (CAT vs REGULAR)
 - Detailed statistics and visualization
 
-## Account Selection Model
+## Zipf-based Account Selection Model
 
 The simulator uses a realistic account selection model where:
 
@@ -50,9 +50,16 @@ From the root directory of the repository:
 ./simulator/run.sh
 ```
 
-This will execute the simulation and generate results in `simulator/results/`.
+This will start the interactive simulator interface.
 
-When running with logs enabled, the simulator will write detailed logs to `simulation.log` in the project root directory. The logs include:
+The simple simulation will:
+
+- Run the simulation with the current configuration
+- Display progress bar and real-time output
+- Automatically generate plots after completion
+- Save results in `simulator/results/sim_simple/`
+
+When running with logs enabled, the simulator will write detailed logs to `simulator/results/sim_simple/simulation.log`. The logs include:
 
 - Network setup and initialization
 - Account creation and balance updates
@@ -62,12 +69,23 @@ When running with logs enabled, the simulator will write detailed logs to `simul
 You can track the logs in real-time by running in a separate terminal:
 
 ```bash
-tail -f simulation.log
+tail -f simulator/results/sim_simple/simulation.log
+```
+
+## Running Plots After Simulation
+
+If you want to regenerate plots after a simulation has been completed, you can run the plotting scripts directly from the root directory. For example
+
+```bash
+python3 simulator/scripts/sim_simple/plot_results.py
 ```
 
 ## Configuration
 
-You can modify the simulation parameters by editing the `config.toml` file.
+You can modify the simulation parameters by editing the configuration files in `simulator/src/scenarios/`:
+
+- `config_simple.toml` - Configuration for simple simulation
+- `config_sweep_cat_rate.toml` - Configuration for sweep simulation
 
 ## Architecture
 
@@ -75,41 +93,24 @@ The simulator is organized into several modules:
 
 ```
 simulator/
-├── src/                # Simulator core logic
-│   ├── run_simulation.rs    # Core simulation logic and transaction processing
+├── src/                    # Simulator core logic
+│   ├── bin/
+│   │   └── simulator.rs    # Main entry point with interactive interface
+│   ├── scenarios/          # Simulation scenarios and configurations
+│   │   ├── mod.rs          # Scenario module declarations
+│   │   ├── sim_simple.rs   # Simple simulation implementation
+│   │   ├── sim_sweep_cat_rate.rs # Sweep simulation implementation
+│   │   ├── config_simple.toml # Configuration for simple simulation
+│   │   └── config_sweep_cat_rate.toml # Configuration for sweep simulation
+│   ├── interface.rs        # Interface system for simulation selection
+│   ├── run_simulation.rs   # Core simulation logic and transaction processing
 │   ├── simulation_results.rs # Results tracking and data collection
-│   ├── config.rs            # Configuration management
-│   ├── network.rs           # Node setup and chain registration
-│   ├── account_selector.rs  # Account selection using Zipf distribution
-│   └── bin/simulator.rs     # Main entry point
-├── scripts/            # Plotting and analysis scripts
-│   ├── plot_results.py      # Main plotting script
-│   ├── plot_miscellaneous.py # Transaction status plots
-│   └── plot_account_selection.py # Account selection plots
-├── results/            # Generated results and figures
-│   ├── data/               # JSON data files
-│   └── figs/               # Generated plot images
-└── config.toml         # Configuration file
+│   ├── config.rs           # Configuration management
+│   ├── network.rs          # Node setup and chain registration
+│   ├── zipf_account_selection.rs # Account selection using Zipf distribution
+│   ├── account_selection.rs # Account selection statistics tracking
+│   └── lib.rs              # Module declarations and exports
+├── scripts/                # Simulation scripts
+├── results/                # Generated results and figures
+└── run.sh                  # Launch script
 ```
-
-## Notes on Visualizing Results
-
-The simulator generates results in the `simulator/results` directory. To visualize these results:
-
-1. Install Python dependencies:
-
-```bash
-pip3 install -r simulator/scripts/requirements.txt
-```
-
-2. Run the visualization script:
-
-```bash
-python3 simulator/scripts/plot_results.py
-```
-
-This will generate several plots:
-
-- **Transaction Status Plots**: `tx_count_pending.png`, `tx_count_success.png`, `tx_count_failure.png` - Shows transaction counts over time for each status
-- **Account Selection Plots**: Distribution of sender and receiver account selection
-- **Parameter Tracking**: Simulation configuration and parameters used
