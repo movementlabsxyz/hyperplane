@@ -795,3 +795,115 @@ async fn test_cat_pending_dependency_flag_runtime_change() {
     
     logging::log("TEST", "=== test_cat_pending_dependency_flag_runtime_change completed successfully ===\n");
 }
+
+/// Tests that CATs are rejected when they depend on pending transactions in a complex dependency chain.
+/// This tests the specific scenario: CAT credit 1 → regular tx send 1 to 2 → CAT send 2 to 3
+/// When allow_cat_pending_dependencies is false, the final CAT should be rejected because it depends
+/// on the regular transaction which depends on the first CAT.
+#[tokio::test]
+async fn test_cat_pending_dependency_restriction_v2() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_cat_pending_dependency_restriction_v2 ===");
+    
+    // Test with allow_cat_pending_dependencies = false
+    logging::log("TEST", "Testing with allow_cat_pending_dependencies = false");
+    let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node(false).await;
+    
+    // Verify the flag is set correctly
+    let flag_value = hig_node.lock().await.get_allow_cat_pending_dependencies().await;
+    logging::log("TEST", &format!("Flag value: {}", flag_value));
+    assert_eq!(flag_value, false, "Flag should be set to false");
+    
+    // Step 1: Create first CAT transaction (credit 1 100) - this will be pending
+    logging::log("TEST", "Step 1: Creating CAT.credit 1 100");
+    let cl_id_1 = CLTransactionId("cl-tx_cat_credit".to_string());
+    let cat_credit_tx = Transaction::new(
+        TransactionId(format!("{:?}:cat_credit", cl_id_1)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_1.clone(),
+    ).expect("Failed to create CAT credit transaction");
+    logging::log("TEST", &format!("Processing CAT.credit 1 100: {}", cat_credit_tx.id));
+    let status = hig_node.lock().await.process_transaction(cat_credit_tx.clone()).await.unwrap();
+    logging::log("TEST", &format!("Status after processing CAT.credit 1 100: {:?}", status));
+    assert_eq!(status, TransactionStatus::Pending, "CAT credit should be pending");
+    logging::log("TEST", "Step 1: CAT credit 1 100 created and pending");
+    
+    // Step 2: Create regular transaction (send 1 2 50) - this depends on account 1 which is locked by the CAT
+    logging::log("TEST", "Step 2: Creating REGULAR.send 1 2 50");
+    let cl_id_2 = CLTransactionId("cl-tx_regular_send".to_string());
+    let regular_send_tx = Transaction::new(
+        TransactionId(format!("{:?}:regular_send", cl_id_2)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.send 1 2 50".to_string(),
+        cl_id_2.clone(),
+    ).expect("Failed to create regular send transaction");
+    logging::log("TEST", &format!("Processing REGULAR.send 1 2 50: {}", regular_send_tx.id));
+    let status = hig_node.lock().await.process_transaction(regular_send_tx.clone()).await.unwrap();
+    logging::log("TEST", &format!("Status after processing REGULAR.send 1 2 50: {:?}", status));
+    assert_eq!(status, TransactionStatus::Pending, "Regular send should be pending (depends on CAT)");
+    logging::log("TEST", "Step 2: Regular send 1 2 50 created and pending");
+    
+    // Step 3: Create second CAT transaction (CAT.send 2 3 30) - this depends on account 2 which is locked by the regular transaction
+    logging::log("TEST", "Step 3: Creating CAT.send 2 3 30");
+    let cl_id_3 = CLTransactionId("cl-tx_cat_send".to_string());
+    let cat_send_tx = Transaction::new(
+        TransactionId(format!("{:?}:cat_send", cl_id_3)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.send 2 3 30".to_string(),
+        cl_id_3.clone(),
+    ).expect("Failed to create CAT send transaction");
+    logging::log("TEST", &format!("Processing CAT.send 2 3 30: {}", cat_send_tx.id));
+    let status = hig_node.lock().await.process_transaction(cat_send_tx.clone()).await.unwrap();
+    logging::log("TEST", &format!("Status after processing CAT.send 2 3 30: {:?}", status));
+    assert_eq!(status, TransactionStatus::Failure, "CAT send should be rejected due to pending dependency chain");
+    logging::log("TEST", "Step 3: CAT send 2 3 30 rejected due to pending dependency");
+    
+    // Verify the final CAT is marked as failed
+    logging::log("TEST", "Verifying final CAT is marked as failed");
+    let retrieved_status = hig_node.lock().await.get_transaction_status(cat_send_tx.id.clone()).await.unwrap();
+    logging::log("TEST", &format!("Retrieved status for final CAT: {:?}", retrieved_status));
+    assert_eq!(retrieved_status, TransactionStatus::Failure, "Rejected CAT should be marked as failed");
+    
+    // Verify the final CAT is not in pending transactions
+    logging::log("TEST", "Verifying final CAT is not in pending transactions");
+    let pending = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    logging::log("TEST", &format!("Pending transactions: {:?}", pending));
+    assert!(!pending.contains(&cat_send_tx.id), "Rejected CAT should not be in pending transactions");
+    
+    // Verify the first two transactions are still pending
+    logging::log("TEST", "Verifying first two transactions are still pending");
+    assert!(pending.contains(&cat_credit_tx.id), "First CAT should still be in pending transactions");
+    assert!(pending.contains(&regular_send_tx.id), "Regular transaction should still be in pending transactions");
+    
+    // Verify a failure status proposal is sent to HS for the final CAT
+    logging::log("TEST", "Verifying failure status proposal is sent to HS for final CAT");
+    let cat_id_3 = CATId(cl_id_3.clone());
+    let proposed_status = hig_node.lock().await.get_proposed_status(cat_send_tx.id.clone()).await.unwrap();
+    logging::log("TEST", &format!("Proposed status for final CAT: {:?}", proposed_status));
+    assert_eq!(proposed_status, CATStatusLimited::Failure, "Rejected CAT should propose Failure status");
+    
+    // Wait for the status proposals to be sent
+    logging::log("TEST", "Waiting for status proposals to be sent");
+    tokio::time::sleep(Duration::from_millis(10)).await;
+    
+    // Receive status updates and find the one for the final CAT
+    logging::log("TEST", "Receiving status updates from HIG to HS");
+    let mut found_final_cat_update = false;
+    for _ in 0..3 { // We expect up to 3 status updates (one for each transaction)
+        if let Ok(status_update) = receiver_hig_to_hs.try_recv() {
+            logging::log("TEST", &format!("Received status update: cat_id={:?}, status={:?}", status_update.cat_id, status_update.status));
+            if status_update.cat_id == cat_id_3 {
+                assert_eq!(status_update.status, CATStatusLimited::Failure, "Status update for final CAT should be Failure");
+                found_final_cat_update = true;
+                break;
+            }
+        }
+    }
+    assert!(found_final_cat_update, "Should receive status update for the final CAT");
+    
+    logging::log("TEST", "=== test_cat_pending_dependency_restriction_v2 completed successfully ===\n");
+}

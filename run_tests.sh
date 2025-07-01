@@ -76,6 +76,8 @@ TESTS=(
     hyper_ig::tests::basic::test_get_chain_state_after_transaction
     hyper_ig::tests::basic::test_duplicate_transaction_id
     hyper_ig::tests::basic::test_hs_message_delay
+    hyper_ig::tests::basic::test_cat_pending_dependency_restriction
+    hyper_ig::tests::basic::test_cat_pending_dependency_restriction_v2
     hyper_ig::tests::dependencies::test_failed_dependency
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
@@ -127,8 +129,8 @@ TESTS=(
 # Test specific tests
 TESTS2=(
 
-    # hyper_ig::tests::timeouts::test_cat_timeout_irreversible
-    hyper_ig::tests::timeouts::test_cat_success_should_not_timeout
+    hyper_ig::tests::basic::test_cat_pending_dependency_restriction
+    hyper_ig::tests::basic::test_cat_pending_dependency_restriction_v2
 
 )
 
