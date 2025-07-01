@@ -24,6 +24,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
         Duration::from_secs_f64(config.network.block_interval),
         &config.network.chain_delays,
+        config.transactions.allow_cat_pending_dependencies,
     ).await;
     
     // Initialize accounts with initial balance

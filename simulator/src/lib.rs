@@ -25,4 +25,5 @@ pub use scenarios::sim_sweep_total_block_number::run_sweep_total_block_number;
 pub use scenarios::sim_sweep_cat_lifetime::run_sweep_cat_lifetime_simulation;
 pub use scenarios::sim_sweep_block_interval_constant_delay::run_sweep_block_interval_constant_delay;
 pub use scenarios::sim_sweep_block_interval_scaled_delay::run_sweep_block_interval_scaled_delay;
+pub use scenarios::sim_sweep_cat_pending_dependencies::run_sweep_cat_pending_dependencies_simulation;
 pub use scenarios::run_all_tests; 

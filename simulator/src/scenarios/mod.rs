@@ -6,5 +6,6 @@ pub mod sim_sweep_zipf;
 pub mod sim_sweep_cat_lifetime;
 pub mod sim_sweep_block_interval_constant_delay;
 pub mod sim_sweep_block_interval_scaled_delay;
+pub mod sim_sweep_cat_pending_dependencies;
 pub mod run_all_tests;
 pub mod sweep_runner; 

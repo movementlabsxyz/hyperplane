@@ -40,3 +40,7 @@ cat_lifetime_blocks = 10
 # Number of blocks to wait before starting transaction submission
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 14
+# Whether to allow CAT transactions to depend on locked keys
+# When false, CATs are rejected if they depend on locked keys
+# When true, CATs are allowed to depend on locked keys (current behavior)
+allow_cat_pending_dependencies = true

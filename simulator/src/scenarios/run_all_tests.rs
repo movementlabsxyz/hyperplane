@@ -76,6 +76,12 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     logging::log("SIMULATOR", "Block interval scaled delay sweep completed successfully");
     run_plot("simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py", "Block Interval Scaled Delay Sweep");
     
+    // Run CAT pending dependencies sweep
+    logging::log("SIMULATOR", "=== Running CAT Pending Dependencies Sweep ===");
+    crate::run_sweep_cat_pending_dependencies_simulation().await?;
+    logging::log("SIMULATOR", "CAT pending dependencies sweep completed successfully");
+    run_plot("simulator/scripts/sim_sweep_cat_pending_dependencies/plot_results.py", "CAT Pending Dependencies Sweep");
+    
     let total_time = start_time.elapsed();
     logging::log("SIMULATOR", "=== All Tests Completed Successfully ===");
     logging::log("SIMULATOR", &format!("Total execution time: {:.2?}", total_time));

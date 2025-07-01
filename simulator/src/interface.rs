@@ -10,6 +10,7 @@ pub enum SimulationType {
     SweepCatLifetime,
     SweepBlockIntervalConstantDelay,
     SweepBlockIntervalScaledDelay,
+    SweepCatPendingDependencies,
     RunAllTests,
     RunAllPlots,
     Exit,
@@ -26,8 +27,9 @@ impl SimulationType {
             "6" => Some(SimulationType::SweepCatLifetime),
             "7" => Some(SimulationType::SweepBlockIntervalConstantDelay),
             "8" => Some(SimulationType::SweepBlockIntervalScaledDelay),
-            "9" => Some(SimulationType::RunAllTests),
-            "10" => Some(SimulationType::RunAllPlots),
+            "9" => Some(SimulationType::SweepCatPendingDependencies),
+            "10" => Some(SimulationType::RunAllTests),
+            "11" => Some(SimulationType::RunAllPlots),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -42,7 +44,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Total Block Number\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Run All Tests\n 10. Rerun All Plots Only\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Total Block Number\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Sweep CAT Pending Dependencies\n 10. Run All Tests\n 11. Rerun All Plots Only\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -71,6 +73,7 @@ impl SimulatorInterface {
             "sweep_cat_lifetime" => "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py",
             "sweep_block_interval_constant_delay" => "simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py",
             "sweep_block_interval_scaled_delay" => "simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py",
+            "sweep_cat_pending_dependencies" => "simulator/scripts/sim_sweep_cat_pending_dependencies/plot_results.py",
             _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
         };
 
@@ -216,6 +219,21 @@ impl SimulatorInterface {
                     println!("Sweep Block Interval Scaled Delay simulation completed successfully!");
                     break;
                 }
+                Some(SimulationType::SweepCatPendingDependencies) => {
+                    // Call the sweep CAT pending dependencies simulation function
+                    if let Err(e) = crate::run_sweep_cat_pending_dependencies_simulation().await {
+                        return Err(format!("Sweep CAT Pending Dependencies simulation failed: {}", e));
+                    }
+                    
+                    // Generate plots after successful simulation
+                    println!("Generating plots...");
+                    if let Err(e) = self.generate_plots("sweep_cat_pending_dependencies") {
+                        return Err(format!("Plot generation failed: {}", e));
+                    }
+                    
+                    println!("Sweep CAT Pending Dependencies simulation completed successfully!");
+                    break;
+                }
                 Some(SimulationType::RunAllTests) => {
                     // Call the run all tests function
                     if let Err(e) = crate::scenarios::run_all_tests::run_all_tests().await {
@@ -254,6 +272,7 @@ impl SimulatorInterface {
             ("sweep_cat_lifetime", "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py"),
             ("sweep_block_interval_constant_delay", "simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py"),
             ("sweep_block_interval_scaled_delay", "simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py"),
+            ("sweep_cat_pending_dependencies", "simulator/scripts/sim_sweep_cat_pending_dependencies/plot_results.py"),
         ];
         for (name, script) in &plot_scripts {
             println!("Running plot script for {}...", name);

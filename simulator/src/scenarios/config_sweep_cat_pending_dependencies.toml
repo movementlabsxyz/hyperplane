@@ -1,4 +1,4 @@
-# Sweep Zipf Distribution Simulation Configuration
+# Sweep CAT Pending Dependencies Simulation Configuration
 
 # Network parameters
 [network]
@@ -6,7 +6,7 @@
 num_chains = 2
 # Delay in seconds for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0.0, 0.5]  # chain-1 has .. delay, chain-2 has .. delay
+chain_delays = [0.0, 0.5]  # chain-1 has 0s delay, chain-2 has 0.5s delay
 # Block interval in seconds
 block_interval = 0.1
 
@@ -41,11 +41,9 @@ cat_lifetime_blocks = 10
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Whether to allow CAT transactions to depend on locked keys
-# When false, CATs are rejected if they depend on locked keys
-# When true, CATs are allowed to depend on locked keys (current behavior)
+# This value will be overridden by the sweep test (false and true)
 allow_cat_pending_dependencies = true
 
 # Sweep parameters
 [sweep]
-num_simulations = 7 # Number of simulations to run
-zipf_step = 0.2 # Step size for Zipf parameter, starting from 0
+num_simulations = 2  # Exactly 2 simulations: false and true for allow_cat_pending_dependencies 

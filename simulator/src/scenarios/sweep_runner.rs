@@ -122,6 +122,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
                 Duration::from_secs_f64(sim_config.network.block_interval),
                 &sim_config.network.chain_delays,
+                sim_config.transactions.allow_cat_pending_dependencies,
             ).await;
             
             // Initialize accounts with initial balance

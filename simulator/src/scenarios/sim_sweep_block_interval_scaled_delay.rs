@@ -65,6 +65,7 @@ pub async fn run_sweep_block_interval_scaled_delay() -> Result<(), crate::config
                     ratio_cats: config.transactions.ratio_cats,
                     cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,
                     initialization_wait_blocks: config.transactions.initialization_wait_blocks,
+                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
                 },
             }
         }),
