@@ -68,7 +68,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     results.initial_balance = config.num_accounts.initial_balance.try_into().unwrap();
     results.num_accounts = config.num_accounts.num_accounts.try_into().unwrap();
     results.target_tps = config.transactions.target_tps as u64;
-    results.duration_seconds = config.transactions.duration_seconds.try_into().unwrap();
+            results.sim_total_block_number = config.transactions.sim_total_block_number.try_into().unwrap();
     results.zipf_parameter = config.transactions.zipf_parameter;
     results.ratio_cats = config.transactions.ratio_cats;
     results.block_interval = config.network.block_interval;
@@ -84,7 +84,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     logging::log("SIMULATOR", &format!("Initial Balance: {}", config.num_accounts.initial_balance));
     logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.num_accounts.num_accounts));
     logging::log("SIMULATOR", &format!("Target TPS: {}", config.transactions.target_tps));
-    logging::log("SIMULATOR", &format!("Simulation Duration: {} seconds", config.transactions.duration_seconds));
+    logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transactions.sim_total_block_number));
     logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
     logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transactions.zipf_parameter));
     logging::log("SIMULATOR", &format!("Ratio CATs: {}", config.transactions.ratio_cats));

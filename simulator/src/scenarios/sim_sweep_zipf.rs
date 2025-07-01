@@ -41,7 +41,7 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
                 num_accounts: config.num_accounts.clone(),
                 transactions: crate::config::TransactionConfig {
                     target_tps: config.transactions.target_tps,
-                    duration_seconds: config.transactions.duration_seconds,
+                    sim_total_block_number: config.transactions.sim_total_block_number,
                     zipf_parameter: zipf_param,  // This is the parameter we're varying
                     ratio_cats: config.transactions.ratio_cats,
                     cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,

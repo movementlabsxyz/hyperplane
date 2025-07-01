@@ -41,7 +41,7 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
                 num_accounts: config.num_accounts.clone(),
                 transactions: crate::config::TransactionConfig {
                     target_tps: config.transactions.target_tps,
-                    duration_seconds: config.transactions.duration_seconds,
+                    sim_total_block_number: config.transactions.sim_total_block_number,
                     zipf_parameter: config.transactions.zipf_parameter,
                     ratio_cats: config.transactions.ratio_cats,
                     cat_lifetime_blocks: cat_lifetime,  // This is the parameter we're varying

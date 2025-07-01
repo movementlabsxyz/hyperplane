@@ -28,7 +28,7 @@ pub struct AccountConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct TransactionConfig {
     pub target_tps: f64,
-    pub duration_seconds: u64,
+    pub sim_total_block_number: u64,  // Total number of blocks to simulate
     pub zipf_parameter: f64,
     pub ratio_cats: f64,
     pub cat_lifetime_blocks: u64,  // CAT lifetime in blocks
@@ -155,8 +155,8 @@ fn validate_common_fields(
     if transactions.target_tps <= 0.0 {
         return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
     }
-    if transactions.duration_seconds == 0 {
-        return Err(ConfigError::ValidationError("Duration must be positive".into()));
+    if transactions.sim_total_block_number == 0 {
+        return Err(ConfigError::ValidationError("Simulation total block number must be positive".into()));
     }
     if transactions.zipf_parameter < 0.0 {
         return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
@@ -235,7 +235,11 @@ impl Config {
     }
 
     pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -258,7 +262,11 @@ impl ValidateConfig for SweepConfig {
 
 impl SweepConfig {
     pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -281,7 +289,11 @@ impl ValidateConfig for SweepZipfConfig {
 
 impl SweepZipfConfig {
     pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -304,7 +316,11 @@ impl ValidateConfig for SweepChainDelayConfig {
 
 impl SweepChainDelayConfig {
     pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -327,7 +343,11 @@ impl ValidateConfig for SweepDurationConfig {
 
 impl SweepDurationConfig {
     pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -350,6 +370,10 @@ impl ValidateConfig for SweepCatLifetimeConfig {
 
 impl SweepCatLifetimeConfig {
     pub fn get_duration(&self) -> Duration {
-        Duration::from_secs(self.transactions.duration_seconds)
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 } 

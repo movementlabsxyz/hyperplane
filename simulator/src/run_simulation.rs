@@ -19,14 +19,14 @@ use std::time::Instant;
 // Main Simulation Function
 // ------------------------------------------------------------------------------------------------
 
-/// Runs the simulation for the specified duration
+/// Runs the simulation for the specified number of blocks
 ///
 /// # Arguments
 ///
 /// * `nodes` - A tuple containing two vectors:
 ///   - The first vector contains Arc<Mutex<ConfirmationLayerNode>>, the confirmation layer nodes
 ///   - The second vector contains Arc<Mutex<HyperIGNode>>, the HyperIG nodes
-/// * `duration_seconds` - A u64, the duration of the simulation in seconds
+/// * `sim_total_block_number` - A u64, the total number of blocks to simulate
 /// * `initial_balance` - A u64, the initial balance for transactions
 /// * `num_accounts` - A usize, the number of accounts
 /// * `target_tps` - A u64, the target TPS
@@ -72,13 +72,13 @@ pub async fn run_simulation(
     // Initialize receiver account selector with Zipf distribution
     let account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
     
-    // Calculate total number of transactions to send (only for the actual simulation duration)
-    let total_transactions = results.target_tps * results.duration_seconds;
+    // Calculate target block number for simulation termination
+    let target_simulation_block = initial_block + results.sim_total_block_number;
     
-    // Create progress bar
-    let progress_bar = ProgressBar::new(total_transactions);
+    // Create progress bar for blocks
+    let progress_bar = ProgressBar::new(results.sim_total_block_number);
     progress_bar.set_style(ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} transactions ({eta})")
+        .template("[{elapsed_precise}] {bar:40.cyan/blue} Block {pos}/{len} ({eta})")
         .unwrap()
         .progress_chars("##-"));
 
@@ -96,7 +96,7 @@ pub async fn run_simulation(
     let chain_id_2 = chains[1].clone();
     
     // Main simulation loop
-    while results.transactions_sent < total_transactions {
+    while current_block < target_simulation_block {
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(&mut rng);
         let to_account = account_selector_receiver.select_account(&mut rng);
@@ -148,7 +148,6 @@ pub async fn run_simulation(
         }
         
         results.transactions_sent += 1;
-        progress_bar.inc(1);
         
         // Get current block height and transaction status counts
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
@@ -173,6 +172,10 @@ pub async fn run_simulation(
             results.chain_1_failure.push((new_block, chain_1_failure));
             results.chain_2_failure.push((new_block, chain_2_failure));
             current_block = new_block;
+            
+            // Update progress bar for new block
+            let blocks_completed = new_block - initial_block;
+            progress_bar.set_position(blocks_completed);
         }
         
         // Calculate sleep time to maintain target TPS (using transaction start time)
