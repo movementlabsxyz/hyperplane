@@ -1,14 +1,14 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
-/// Runs the sweep duration simulation
+/// Runs the sweep total block number simulation
 /// 
 /// This simulation explores how different simulation block counts affect the simulation. 
 /// 
 /// The sweep varies the total number of blocks to simulate from a minimum to longer periods.
-pub async fn run_sweep_duration() -> Result<(), crate::config::ConfigError> {
+pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
-    // This reads the sweep settings from config_sweep_duration.toml
-    let sweep_config = crate::config::Config::load_sweep_duration()?;
+    // This reads the sweep settings from config_sweep_total_block_number.toml
+    let sweep_config = crate::config::Config::load_sweep_total_block_number()?;
     
     // Calculate block numbers for each simulation
     // Creates a sequence of block numbers: 25, 50, 75, 100, etc.
@@ -21,12 +21,12 @@ pub async fn run_sweep_duration() -> Result<(), crate::config::ConfigError> {
     // This eliminates code duplication across different sweep types
     let runner = SweepRunner::new(
         "Duration",                    // Human-readable name for logging
-        "sim_sweep_duration",          // Directory name for results
+        "sim_sweep_total_block_number",          // Directory name for results
         "duration",                    // Parameter name for JSON output
         block_numbers,                 // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
-            crate::config::Config::load_sweep_duration().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+            crate::config::Config::load_sweep_total_block_number().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation
         // This takes the base config and applies the current block number

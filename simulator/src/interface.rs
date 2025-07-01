@@ -6,7 +6,7 @@ pub enum SimulationType {
     SweepCatRate,
     SweepZipf,
     SweepChainDelay,
-    SweepDuration,
+    SweepTotalBlockNumber,
     SweepCatLifetime,
     SweepBlockIntervalConstantDelay,
     SweepBlockIntervalScaledDelay,
@@ -22,7 +22,7 @@ impl SimulationType {
             "2" => Some(SimulationType::SweepCatRate),
             "3" => Some(SimulationType::SweepZipf),
             "4" => Some(SimulationType::SweepChainDelay),
-            "5" => Some(SimulationType::SweepDuration),
+            "5" => Some(SimulationType::SweepTotalBlockNumber),
             "6" => Some(SimulationType::SweepCatLifetime),
             "7" => Some(SimulationType::SweepBlockIntervalConstantDelay),
             "8" => Some(SimulationType::SweepBlockIntervalScaledDelay),
@@ -42,7 +42,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Run All Tests\n 10. Rerun All Plots Only\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Total Block Number\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Run All Tests\n 10. Rerun All Plots Only\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -67,7 +67,7 @@ impl SimulatorInterface {
             "sweep_cat_rate" => "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
             "sweep_zipf" => "simulator/scripts/sim_sweep_zipf/plot_results.py",
             "sweep_chain_delay" => "simulator/scripts/sim_sweep_chain_delay/plot_results.py",
-            "sweep_duration" => "simulator/scripts/sim_sweep_duration/plot_results.py",
+            "sweep_total_block_number" => "simulator/scripts/sim_sweep_total_block_number/plot_results.py",
             "sweep_cat_lifetime" => "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py",
             "sweep_block_interval_constant_delay" => "simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py",
             "sweep_block_interval_scaled_delay" => "simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py",
@@ -156,19 +156,19 @@ impl SimulatorInterface {
                     println!("Sweep Chain Delay simulation completed successfully!");
                     break;
                 }
-                Some(SimulationType::SweepDuration) => {
-                    // Call the sweep duration simulation function
-                    if let Err(e) = crate::run_sweep_duration().await {
-                        return Err(format!("Sweep Duration simulation failed: {}", e));
+                Some(SimulationType::SweepTotalBlockNumber) => {
+                    // Call the sweep total block number simulation function
+                    if let Err(e) = crate::run_sweep_total_block_number().await {
+                        return Err(format!("Sweep Total Block Number simulation failed: {}", e));
                     }
                     
                     // Generate plots after successful simulation
                     println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_duration") {
+                    if let Err(e) = self.generate_plots("sweep_total_block_number") {
                         return Err(format!("Plot generation failed: {}", e));
                     }
                     
-                    println!("Sweep Duration simulation completed successfully!");
+                    println!("Sweep Total Block Number simulation completed successfully!");
                     break;
                 }
                 Some(SimulationType::SweepCatLifetime) => {
@@ -250,7 +250,7 @@ impl SimulatorInterface {
             ("sweep_cat_rate", "simulator/scripts/sim_sweep_cat_rate/plot_results.py"),
             ("sweep_zipf", "simulator/scripts/sim_sweep_zipf/plot_results.py"),
             ("sweep_chain_delay", "simulator/scripts/sim_sweep_chain_delay/plot_results.py"),
-            ("sweep_duration", "simulator/scripts/sim_sweep_duration/plot_results.py"),
+            ("sweep_total_block_number", "simulator/scripts/sim_sweep_total_block_number/plot_results.py"),
             ("sweep_cat_lifetime", "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py"),
             ("sweep_block_interval_constant_delay", "simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py"),
             ("sweep_block_interval_scaled_delay", "simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py"),

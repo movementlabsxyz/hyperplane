@@ -237,8 +237,8 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_sweep_duration() -> Result<SweepDurationConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_duration.toml")?;
+    pub fn load_sweep_total_block_number() -> Result<SweepDurationConfig, ConfigError> {
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_total_block_number.toml")?;
         let config: SweepDurationConfig = toml::from_str(&config_str)?;
         config.validate()?;
         Ok(config)

@@ -54,9 +54,9 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     
     // Run duration sweep
     logging::log("SIMULATOR", "=== Running Duration Sweep ===");
-    crate::run_sweep_duration().await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
+    crate::run_sweep_total_block_number().await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
     logging::log("SIMULATOR", "Duration sweep completed successfully");
-    run_plot("simulator/scripts/sim_sweep_duration/plot_results.py", "Duration Sweep");
+    run_plot("simulator/scripts/sim_sweep_total_block_number/plot_results.py", "Duration Sweep");
     
     // Run CAT lifetime sweep
     logging::log("SIMULATOR", "=== Running CAT Lifetime Sweep ===");

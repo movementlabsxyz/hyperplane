@@ -16,9 +16,9 @@ from plot_utils import generate_all_plots
 def main():
     """Main function"""
     # Configuration for this specific sweep
-    results_path = 'simulator/results/sim_sweep_duration/data/sweep_results.json'
+    results_path = 'simulator/results/sim_sweep_total_block_number/data/sweep_results.json'
     param_name = 'duration'
-    results_dir = 'simulator/results/sim_sweep_duration'
+    results_dir = 'simulator/results/sim_sweep_total_block_number'
     sweep_type = 'Duration'
     
     # Generate all plots using the generic utility
