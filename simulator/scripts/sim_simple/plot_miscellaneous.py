@@ -135,7 +135,11 @@ def plot_parameters():
         f.write(f"Initial Balance: {params['initial_balance']}\n")
         f.write(f"Number of Accounts: {params['num_accounts']}\n")
         f.write(f"Target TPS: {params['target_tps']}\n")
-        f.write(f"Duration (seconds): {params['duration_seconds']}\n")
+        # Handle both old and new parameter names
+        if 'duration_seconds' in params:
+            f.write(f"Duration (seconds): {params['duration_seconds']}\n")
+        if 'sim_total_block_number' in params:
+            f.write(f"Total Blocks: {params['sim_total_block_number']}\n")
         f.write(f"Zipf Parameter: {params['zipf_parameter']}\n")
         f.write(f"CAT Ratio: {params['ratio_cats']}\n")
         f.write(f"Block Interval: {params['block_interval']}\n")

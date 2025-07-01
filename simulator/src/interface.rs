@@ -11,6 +11,7 @@ pub enum SimulationType {
     SweepBlockIntervalConstantDelay,
     SweepBlockIntervalScaledDelay,
     RunAllTests,
+    RunAllPlots,
     Exit,
 }
 
@@ -26,6 +27,7 @@ impl SimulationType {
             "7" => Some(SimulationType::SweepBlockIntervalConstantDelay),
             "8" => Some(SimulationType::SweepBlockIntervalScaledDelay),
             "9" => Some(SimulationType::RunAllTests),
+            "10" => Some(SimulationType::RunAllPlots),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -40,7 +42,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Run All Tests\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Run All Tests\n 10. Rerun All Plots Only\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -49,7 +51,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_user_choice(&self) -> Option<SimulationType> {
-        print!("\nSelect simulation type (1-9): ");
+        print!("\nSelect simulation type (1-10): ");
         io::stdout().flush().unwrap();
         
         let mut input = String::new();
@@ -57,8 +59,6 @@ impl SimulatorInterface {
         
         SimulationType::from_input(&input)
     }
-
-
 
     pub fn generate_plots(&self, simulation_type: &str) -> Result<(), String> {
         // Execute the appropriate plotting script based on simulation type
@@ -216,7 +216,6 @@ impl SimulatorInterface {
                     println!("Sweep Block Interval Scaled Delay simulation completed successfully!");
                     break;
                 }
-
                 Some(SimulationType::RunAllTests) => {
                     // Call the run all tests function
                     if let Err(e) = crate::scenarios::run_all_tests::run_all_tests().await {
@@ -224,17 +223,48 @@ impl SimulatorInterface {
                     }
                     break;
                 }
+                Some(SimulationType::RunAllPlots) => {
+                    if let Err(e) = self.rerun_all_plots() {
+                        return Err(format!("Plot rerun failed: {}", e));
+                    }
+                    println!("All plot scripts rerun successfully!");
+                    break;
+                }
                 Some(SimulationType::Exit) => {
                     println!("Exiting...");
                     break;
                 }
                 None => {
-                    println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, 8, 9, or 0 to exit.");
+                    println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 0 to exit.");
                     println!("{}", self.get_menu_text());
                 }
             }
         }
         
+        Ok(())
+    }
+
+    pub fn rerun_all_plots(&self) -> Result<(), String> {
+        let plot_scripts = [
+            ("sim_simple", "simulator/scripts/sim_simple/plot_results.py"),
+            ("sweep_cat_rate", "simulator/scripts/sim_sweep_cat_rate/plot_results.py"),
+            ("sweep_zipf", "simulator/scripts/sim_sweep_zipf/plot_results.py"),
+            ("sweep_chain_delay", "simulator/scripts/sim_sweep_chain_delay/plot_results.py"),
+            ("sweep_duration", "simulator/scripts/sim_sweep_duration/plot_results.py"),
+            ("sweep_cat_lifetime", "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py"),
+            ("sweep_block_interval_constant_delay", "simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py"),
+            ("sweep_block_interval_scaled_delay", "simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py"),
+        ];
+        for (name, script) in &plot_scripts {
+            println!("Running plot script for {}...", name);
+            let status = Command::new("python3")
+                .arg(script)
+                .status()
+                .map_err(|e| format!("Failed to run {}: {}", script, e))?;
+            if !status.success() {
+                return Err(format!("Plot script {} failed with status {}", script, status));
+            }
+        }
         Ok(())
     }
 } 
