@@ -32,7 +32,7 @@ use tokio::sync::Mutex;
 /// * `hig_node_2` - The hyperig node for chain-2
 /// * `current_block` - The current block number at the end of the setup
 ///
-pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration], allow_cat_pending_dependencies: bool) 
+pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Initialize logging
     logging::init_logging();
@@ -50,8 +50,8 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration
         receiver_hs_to_cl,
         block_interval,
     ).expect("Failed to create confirmation node")));
-    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), 10, allow_cat_pending_dependencies)));
-    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), 10, allow_cat_pending_dependencies)));
+    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies)));
+    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies)));
 
     // Start the nodes
     HyperSchedulerNode::start(hs_node.clone()).await;

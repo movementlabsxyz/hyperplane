@@ -77,6 +77,8 @@ TESTS=(
     hyper_ig::tests::basic::test_duplicate_transaction_id
     hyper_ig::tests::basic::test_hs_message_delay
     hyper_ig::tests::basic::test_cat_pending_dependency_restriction
+    hyper_ig::tests::basic::test_cat_pending_dependency_flag_runtime_change
+    hyper_ig::tests::basic::test_proposal_queue_independent_delays
     hyper_ig::tests::dependencies::test_failed_dependency
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
@@ -89,6 +91,7 @@ TESTS=(
     hyper_ig::tests::timeouts::test_cat_success_should_not_timeout
     hyper_ig::tests::timeouts::test_status_update_before_timeout_should_process
     hyper_ig::tests::timeouts::test_status_update_at_timeout_boundary_should_process
+    hyper_ig::tests::timeouts::test_success_status_update_for_failed_cat_should_panic
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -131,8 +134,8 @@ TESTS=(
 # Test specific tests
 TESTS2=(
 
-    hyper_ig::tests::timeouts::test_status_update_before_timeout_should_process
-    hyper_ig::tests::timeouts::test_status_update_at_timeout_boundary_should_process
+    hyper_ig::tests::basic::test_proposal_queue_independent_delays
+
 
 )
 

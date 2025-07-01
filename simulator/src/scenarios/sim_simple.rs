@@ -25,6 +25,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
         Duration::from_secs_f64(config.network.block_interval),
         &[Duration::from_millis(0), Duration::from_millis(0)], // Zero delays for funding
         config.transactions.allow_cat_pending_dependencies,
+        config.transactions.cat_lifetime_blocks,
     ).await;
     
     // Initialize accounts with initial balance (with zero delays for fast processing)

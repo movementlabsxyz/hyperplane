@@ -111,6 +111,15 @@ pub async fn run_simulation(
             break;
         }
         
+        // // Log current chain delays at the start of each block
+        // if new_block != current_block {
+        //     logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
+        //     for (i, hig_node) in hig_nodes.iter().enumerate() {
+        //         let delay = hig_node.lock().await.get_hs_message_delay();
+        //         logging::log("SIMULATOR", &format!("Chain {} current delay: {:?}", i + 1, delay));
+        //     }
+        // }
+        
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(&mut rng);
         let to_account = account_selector_receiver.select_account(&mut rng);

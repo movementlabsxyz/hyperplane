@@ -796,3 +796,101 @@ async fn test_cat_pending_dependency_flag_runtime_change() {
     logging::log("TEST", "=== test_cat_pending_dependency_flag_runtime_change completed successfully ===\n");
 }
 
+/// Tests that the proposal queue processes CATs with independent delays.
+/// This verifies that:
+/// 1. Multiple CATs can be queued with different entry times
+/// 2. Each CAT is sent after its individual delay from queue entry time
+/// 3. Delays don't compound (each CAT has the same fixed delay regardless of queue position)
+#[tokio::test]
+async fn test_proposal_queue_independent_delays() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_proposal_queue_independent_delays ===");
+    
+    // Set up test node with 200ms delay
+    let (hig_node, mut receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    hig_node.lock().await.set_hs_message_delay(Duration::from_millis(200));
+    logging::log("TEST", "Set message delay to 200ms");
+    
+    // Create and process multiple CAT transactions with different timing
+    let mut cat_ids = Vec::new();
+    
+    // CAT 1: Process immediately
+    let cl_id_1 = CLTransactionId("cl-tx_queue_1".to_string());
+    let cat_tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:cat_1", cl_id_1)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_1.clone(),
+    ).expect("Failed to create first CAT transaction");
+    
+    let start_time = std::time::Instant::now();
+    let _status = hig_node.lock().await.process_transaction(cat_tx_1.clone()).await.unwrap();
+    cat_ids.push(CATId(cl_id_1.clone()));
+    logging::log("TEST", "CAT 1 processed at t=0ms");
+    
+    // Wait 50ms, then add CAT 2
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let cl_id_2 = CLTransactionId("cl-tx_queue_2".to_string());
+    let cat_tx_2 = Transaction::new(
+        TransactionId(format!("{:?}:cat_2", cl_id_2)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 2 100".to_string(),
+        cl_id_2.clone(),
+    ).expect("Failed to create second CAT transaction");
+    
+    let _status = hig_node.lock().await.process_transaction(cat_tx_2.clone()).await.unwrap();
+    cat_ids.push(CATId(cl_id_2.clone()));
+    logging::log("TEST", "CAT 2 processed at t=50ms");
+    
+    // Wait 50ms more, then add CAT 3
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let cl_id_3 = CLTransactionId("cl-tx_queue_3".to_string());
+    let cat_tx_3 = Transaction::new(
+        TransactionId(format!("{:?}:cat_3", cl_id_3)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 3 100".to_string(),
+        cl_id_3.clone(),
+    ).expect("Failed to create third CAT transaction");
+    
+    let _status = hig_node.lock().await.process_transaction(cat_tx_3.clone()).await.unwrap();
+    cat_ids.push(CATId(cl_id_3.clone()));
+    logging::log("TEST", "CAT 3 processed at t=100ms");
+    
+    // Now check the timing of received messages
+    let mut received_cats = Vec::new();
+    
+    // Wait for all three CATs to be sent (should be sent at t=200ms, t=250ms, t=300ms)
+    for i in 0..3 {
+        let receive_start = std::time::Instant::now();
+        let status_update = receiver_hig_to_hs.recv().await.expect("Should receive status update");
+        let receive_time = receive_start.elapsed();
+        let total_time = start_time.elapsed();
+        
+        logging::log("TEST", &format!("Received CAT {} at t={}ms (receive took {}ms)", 
+            i + 1, total_time.as_millis(), receive_time.as_millis()));
+        
+        received_cats.push(status_update.cat_id);
+    }
+    
+    // Verify all CATs were received
+    assert_eq!(received_cats.len(), 3, "Should receive all 3 CATs");
+    
+    // Verify the timing: each CAT should be sent after its individual 200ms delay
+    // CAT 1: entered at t=0ms, should be sent at t=200ms
+    // CAT 2: entered at t=50ms, should be sent at t=250ms  
+    // CAT 3: entered at t=100ms, should be sent at t=300ms
+    
+    // The total time should be around 300ms (the latest CAT's send time)
+    let total_time = start_time.elapsed();
+    assert!(total_time >= Duration::from_millis(300), 
+        "Total time should be at least 300ms, but was {}ms", total_time.as_millis());
+    assert!(total_time <= Duration::from_millis(400), 
+        "Total time should be at most 400ms, but was {}ms", total_time.as_millis());
+    
+    logging::log("TEST", &format!("Total time for all CATs: {}ms", total_time.as_millis()));
+    logging::log("TEST", "=== test_proposal_queue_independent_delays completed successfully ===\n");
+}
+

@@ -123,6 +123,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                 Duration::from_secs_f64(sim_config.network.block_interval),
                 &sim_config.network.chain_delays,
                 sim_config.transactions.allow_cat_pending_dependencies,
+                sim_config.transactions.cat_lifetime_blocks,
             ).await;
             
             // Initialize accounts with initial balance

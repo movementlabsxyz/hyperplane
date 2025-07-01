@@ -22,6 +22,7 @@ struct QueuedCATProposal {
     cat_id: CATId,
     status: CATStatusLimited,
     constituent_chains: Vec<ChainId>,
+    queue_entry_time: std::time::Instant,
 }
 
 /// The internal state of the HyperIGNode
@@ -275,6 +276,18 @@ impl HyperIGNode {
                     state.my_chain_id.clone()
                 };
                 
+                // Check if enough time has passed since the proposal entered the queue
+                let elapsed_since_queue_entry = proposal.queue_entry_time.elapsed();
+                if elapsed_since_queue_entry < delay {
+                    // Not enough time has passed, put the proposal back at the front of the queue
+                    let node = hig_node.lock().await;
+                    let mut state = node.state.lock().await;
+                    state.pending_proposals.push_front(proposal);
+                    // Wait a bit before checking again
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    continue;
+                }
+                
                 // Create and send the status update
                 let status_update = CATStatusUpdate {
                     cat_id: proposal.cat_id.clone(),
@@ -283,10 +296,7 @@ impl HyperIGNode {
                     constituent_chains: proposal.constituent_chains.clone(),
                 };
                 
-                // Add delay before sending
-                tokio::time::sleep(delay).await;
-                
-                // Send the status update
+                // Send the status update (delay already satisfied)
                 let send_result = {
                     let mut node = hig_node.lock().await;
                     if let Some(sender) = &mut node.sender_hig_to_hs {
@@ -596,6 +606,16 @@ impl HyperIGNode {
             .ok_or_else(|| anyhow::anyhow!("No status found for transaction: {}", tx_id))?;
         
         if current_status == TransactionStatus::Failure {
+            // CRITICAL: Check if the incoming status update is Success - this should never happen!
+            // Has format STATUS_UPDATE:<Status>.CAT_ID:<cat_id>
+            let status_part = tx.data.split(".").collect::<Vec<&str>>()[0];
+            let status_part = status_part.split(":").collect::<Vec<&str>>()[1];
+            
+            if status_part == "Success" {
+                panic!("🚨 CRITICAL ERROR: Received Success status update for CAT tx-id='{}' that is already marked as Failed! This indicates a serious logical error in the system. Current status: {:?}, Incoming status: Success", 
+                    tx_id.0, current_status);
+            }
+            
             let (cat_lifetime, max_lifetime) = {
                 let state = self.state.lock().await;
                 let cat_lifetime = state.cat_lifetime;
@@ -956,11 +976,12 @@ impl HyperIG for HyperIGNode {
     /// # Returns
     /// Result indicating success or failure of sending the proposal
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
-        // Add the proposal to the queue
+        // Add the proposal to the queue with current timestamp
         self.state.lock().await.pending_proposals.push_back(QueuedCATProposal {
             cat_id,
             status,
             constituent_chains,
+            queue_entry_time: std::time::Instant::now(),
         });
         Ok(())
     }
