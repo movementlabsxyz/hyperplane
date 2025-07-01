@@ -304,6 +304,12 @@ pub fn save_generic_sweep_results<T: serde::Serialize>(
             json_obj.insert("chain_1_pending".to_string(), serde_json::to_value(&results.chain_1_pending).unwrap());
             json_obj.insert("chain_1_success".to_string(), serde_json::to_value(&results.chain_1_success).unwrap());
             json_obj.insert("chain_1_failure".to_string(), serde_json::to_value(&results.chain_1_failure).unwrap());
+            json_obj.insert("chain_1_cat_pending".to_string(), serde_json::to_value(&results.chain_1_cat_pending).unwrap());
+            json_obj.insert("chain_1_cat_success".to_string(), serde_json::to_value(&results.chain_1_cat_success).unwrap());
+            json_obj.insert("chain_1_cat_failure".to_string(), serde_json::to_value(&results.chain_1_cat_failure).unwrap());
+            json_obj.insert("chain_1_regular_pending".to_string(), serde_json::to_value(&results.chain_1_regular_pending).unwrap());
+            json_obj.insert("chain_1_regular_success".to_string(), serde_json::to_value(&results.chain_1_regular_success).unwrap());
+            json_obj.insert("chain_1_regular_failure".to_string(), serde_json::to_value(&results.chain_1_regular_failure).unwrap());
             serde_json::Value::Object(json_obj)
         }).collect::<Vec<_>>()
     });

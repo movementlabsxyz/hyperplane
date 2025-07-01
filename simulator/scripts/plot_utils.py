@@ -96,7 +96,26 @@ def plot_transactions_overlay(
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
                     label=label, linewidth=1.5)
         
-        title = f'{transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        # Create title and filename based on transaction type
+        if transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals
+            title = f'All {transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{transaction_type}_all_transactions_overlay.png'
+        elif transaction_type.startswith('cat_'):
+            # CAT transactions
+            status = transaction_type.replace('cat_', '')
+            title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{status}_cat_transactions_overlay.png'
+        elif transaction_type.startswith('regular_'):
+            # Regular transactions
+            status = transaction_type.replace('regular_', '')
+            title = f'Regular {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{status}_regular_transactions_overlay.png'
+        else:
+            # Fallback
+            title = f'{transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{transaction_type}_transactions_overlay.png'
+        
         plt.title(title)
         plt.xlabel('Block Height')
         plt.ylabel(f'Number of {transaction_type.title()} Transactions')
@@ -107,7 +126,7 @@ def plot_transactions_overlay(
         
         # Save plot
         os.makedirs(f'{results_dir}/figs', exist_ok=True)
-        plt.savefig(f'{results_dir}/figs/{transaction_type}_transactions_overlay.png', 
+        plt.savefig(f'{results_dir}/figs/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -371,13 +390,19 @@ def generate_all_plots(
     # Create results directory if it doesn't exist
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
-    # Plot transaction overlays
+    # Plot all transaction overlays (combined totals)
     plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'failure', results_dir, sweep_type)
     
-    # Plot CAT and regular failure overlays
+    # Plot CAT transaction overlays
+    plot_transactions_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
+    
+    # Plot regular transaction overlays
+    plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
     
     # Plot sweep summary

@@ -31,7 +31,7 @@ use tokio::sync::mpsc;
 let (receiver_cl_to_hig, _sender_cl_to_hig) = mpsc::channel(100);
 let (sender_hig_to_hs, _receiver_hig_to_hs) = mpsc::channel(100);
 
-// Default behavior: allow_cat_pending_dependencies = true
+// Default behavior: allow_cat_pending_dependencies = false
 let hig_node = HyperIGNode::new(
     receiver_cl_to_hig,
     sender_hig_to_hs,
@@ -73,7 +73,7 @@ hig_node.set_allow_cat_pending_dependencies(false).await;
 
 ### Behavior Examples
 
-#### With `allow_cat_pending_dependencies = true` (default)
+#### With `allow_cat_pending_dependencies = false` (default)
 
 1. CAT A accesses key "account_1" and becomes pending
 2. CAT B also accesses key "account_1" 
