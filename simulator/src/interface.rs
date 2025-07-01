@@ -10,7 +10,6 @@ pub enum SimulationType {
     SweepCatLifetime,
     SweepBlockIntervalConstantDelay,
     SweepBlockIntervalScaledDelay,
-    DummySim,
     RunAllTests,
     Exit,
 }
@@ -26,8 +25,7 @@ impl SimulationType {
             "6" => Some(SimulationType::SweepCatLifetime),
             "7" => Some(SimulationType::SweepBlockIntervalConstantDelay),
             "8" => Some(SimulationType::SweepBlockIntervalScaledDelay),
-            "9" => Some(SimulationType::DummySim),
-            "10" => Some(SimulationType::RunAllTests),
+            "9" => Some(SimulationType::RunAllTests),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -42,7 +40,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Dummy simulation (no simulation inside)\n  10. Run All Tests\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Duration\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Delay)\n  8. Sweep Block Interval (Scaled Delay)\n  9. Run All Tests\n  0. Exit"
     }
 
     pub fn show_menu(&self) {
@@ -51,7 +49,7 @@ impl SimulatorInterface {
     }
 
     pub fn get_user_choice(&self) -> Option<SimulationType> {
-        print!("\nSelect simulation type (1-10): ");
+        print!("\nSelect simulation type (1-9): ");
         io::stdout().flush().unwrap();
         
         let mut input = String::new();
@@ -60,11 +58,7 @@ impl SimulatorInterface {
         SimulationType::from_input(&input)
     }
 
-    pub fn run_dummy_simulation(&self) -> Result<(), String> {
-        println!("Dummy simulation is not yet implemented.");
-        println!("This will be a placeholder for future simulation types.");
-        Ok(())
-    }
+
 
     pub fn generate_plots(&self, simulation_type: &str) -> Result<(), String> {
         // Execute the appropriate plotting script based on simulation type
@@ -222,12 +216,7 @@ impl SimulatorInterface {
                     println!("Sweep Block Interval Scaled Delay simulation completed successfully!");
                     break;
                 }
-                Some(SimulationType::DummySim) => {
-                    if let Err(e) = self.run_dummy_simulation() {
-                        return Err(format!("Dummy simulation failed: {}", e));
-                    }
-                    break;
-                }
+
                 Some(SimulationType::RunAllTests) => {
                     // Call the run all tests function
                     if let Err(e) = crate::scenarios::run_all_tests::run_all_tests().await {
@@ -240,7 +229,7 @@ impl SimulatorInterface {
                     break;
                 }
                 None => {
-                    println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, 8, or 0 to exit.");
+                    println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, 8, 9, or 0 to exit.");
                     println!("{}", self.get_menu_text());
                 }
             }
