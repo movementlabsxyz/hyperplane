@@ -87,6 +87,8 @@ TESTS=(
     hyper_ig::tests::timeouts::test_cat_timeout_not
     hyper_ig::tests::timeouts::test_cat_timeout_irreversible
     hyper_ig::tests::timeouts::test_cat_success_should_not_timeout
+    hyper_ig::tests::timeouts::test_status_update_before_timeout_should_process
+    hyper_ig::tests::timeouts::test_status_update_at_timeout_boundary_should_process
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -129,7 +131,8 @@ TESTS=(
 # Test specific tests
 TESTS2=(
 
-    hyper_ig::tests::dependencies::test_cat_lock_release_on_success
+    hyper_ig::tests::timeouts::test_status_update_before_timeout_should_process
+    hyper_ig::tests::timeouts::test_status_update_at_timeout_boundary_should_process
 
 )
 

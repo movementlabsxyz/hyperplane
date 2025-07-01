@@ -169,7 +169,11 @@ impl HyperIGNode {
 
         // Update status for timed out CATs
         for (cat_id, tx_id) in timed_out_cats {
-            log(&format!("HIG-{}", chain_id), &format!("CAT '{}' timed out at block height {}", cat_id.0, current_block_height));
+            let max_lifetime = state.cat_max_lifetime.get(&cat_id).unwrap_or(&state.cat_lifetime);
+            let cat_creation_block = max_lifetime.saturating_sub(state.cat_lifetime);
+            let blocks_since_creation = current_block_height.saturating_sub(cat_creation_block);
+            log(&format!("HIG-{}", chain_id), &format!("⏰ TIMEOUT: CAT '{}' timed out at block height {} (created at block {}, lived for {} blocks, max_lifetime: {}, cat_lifetime: {})", 
+                cat_id.0, current_block_height, cat_creation_block, blocks_since_creation, max_lifetime, state.cat_lifetime));
             
             // Update transaction status to Failure
             state.transaction_statuses.insert(tx_id.clone(), TransactionStatus::Failure);
@@ -592,7 +596,20 @@ impl HyperIGNode {
             .ok_or_else(|| anyhow::anyhow!("No status found for transaction: {}", tx_id))?;
         
         if current_status == TransactionStatus::Failure {
-            log(&format!("HIG-{}", chain_id), &format!("Ignoring status update for timed out CAT tx-id='{}'", tx_id.0));
+            let (cat_lifetime, max_lifetime) = {
+                let state = self.state.lock().await;
+                let cat_lifetime = state.cat_lifetime;
+                let max_lifetime = state.cat_max_lifetime.get(&cat_id).unwrap_or(&cat_lifetime);
+                (cat_lifetime, *max_lifetime)
+            };
+            let cat_creation_block = max_lifetime.saturating_sub(cat_lifetime);
+            let current_block_height = {
+                let state = self.state.lock().await;
+                state.current_block_height
+            };
+            let blocks_since_creation = current_block_height.saturating_sub(cat_creation_block);
+            log(&format!("HIG-{}", chain_id), &format!("🚫 IGNORED: Status update for failed CAT tx-id='{}' at block height {} (created at block {}, lived for {} blocks, max_lifetime: {}, cat_lifetime: {})", 
+                tx_id.0, current_block_height, cat_creation_block, blocks_since_creation, max_lifetime, cat_lifetime));
             return Ok(current_status);
         }
         
@@ -987,9 +1004,10 @@ impl HyperIG for HyperIGNode {
         }
 
         // Update current block height
-        log(&format!("HIG-{}", chain_id), "[DEBUG] Updating current block height");
+        log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Updating current block height from {} to {}", 
+            self.state.lock().await.current_block_height, subblock.block_height));
         self.state.lock().await.current_block_height = subblock.block_height;
-        log(&format!("HIG-{}", chain_id), "[DEBUG] Current block height updated");
+        log(&format!("HIG-{}", chain_id), &format!("[DEBUG] Current block height updated to {}", subblock.block_height));
 
         // Track seen transaction IDs to skip duplicates
         let mut seen_tx_ids = HashSet::new();
