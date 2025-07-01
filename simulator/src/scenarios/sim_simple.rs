@@ -20,15 +20,27 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     // Initialize simulation results from configuration
     let mut results = initialize_simulation_results(&config);
 
-    // Setup test nodes
+    // Setup test nodes (with zero delays for funding)
     let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
         Duration::from_secs_f64(config.network.block_interval),
-        &config.network.chain_delays,
+        &[Duration::from_millis(0), Duration::from_millis(0)], // Zero delays for funding
         config.transactions.allow_cat_pending_dependencies,
     ).await;
     
-    // Initialize accounts with initial balance
-    crate::network::initialize_accounts(&[cl_node.clone()], config.num_accounts.initial_balance.try_into().unwrap(), config.num_accounts.num_accounts.try_into().unwrap()).await;
+    // Initialize accounts with initial balance (with zero delays for fast processing)
+    crate::network::initialize_accounts(
+        &[cl_node.clone()], 
+        config.num_accounts.initial_balance.try_into().unwrap(), 
+        config.num_accounts.num_accounts.try_into().unwrap(),
+        Some(&[hig_node_1.clone(), hig_node_2.clone()]),
+        config.network.block_interval,
+    ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
+    
+    // Now set the actual chain delays for the main simulation
+    logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
+    hig_node_1.lock().await.set_hs_message_delay(config.network.chain_delays[0]);
+    hig_node_2.lock().await.set_hs_message_delay(config.network.chain_delays[1]);
+    logging::log("SIMULATOR", &format!("Set chain 1 delay to {:?} and chain 2 delay to {:?}", config.network.chain_delays[0], config.network.chain_delays[1]));
 
     // Run simulation
     crate::run_simulation::run_simulation(

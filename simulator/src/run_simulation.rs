@@ -43,6 +43,7 @@ pub async fn run_simulation(
     
     // Get the current block at the start
     let start_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+    
     let target_block = start_block + results.initialization_wait_blocks;
     
     logging::log("SIMULATOR", &format!("Starting at block {}, waiting until block {} for initialization and stable block production...", start_block, target_block));
@@ -82,9 +83,13 @@ pub async fn run_simulation(
         .unwrap()
         .progress_chars("##-"));
 
-    // Set HIG delays
+    // ------- main simulation loop -------
+
+    // Now set the actual chain delays for the main simulation
+    logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
     for (i, delay) in results.chain_delays.iter().enumerate() {
         hig_nodes[i].lock().await.set_hs_message_delay(*delay);
+        logging::log("SIMULATOR", &format!("Set chain {} delay to {:?}", i + 1, delay));
     }
     
     // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.
@@ -97,6 +102,15 @@ pub async fn run_simulation(
     
     // Main simulation loop
     while current_block < target_simulation_block {
+        // Get current block height first to check if we've reached the target
+        let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+        
+        // Stop processing transactions if we've reached the target block
+        if new_block >= target_simulation_block {
+            logging::log("SIMULATOR", &format!("Reached target block {}, stopping transaction processing", target_simulation_block));
+            break;
+        }
+        
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(&mut rng);
         let to_account = account_selector_receiver.select_account(&mut rng);
@@ -117,7 +131,10 @@ pub async fn run_simulation(
         logging::log("SIMULATOR", &format!("Transaction data: '{}'", tx_data));
 
         // Create and submit transaction
-        let cl_id = CLTransactionId(format!("cl-tx_{}", results.transactions_sent));
+        let cl_id = CLTransactionId(format!("cl-{}-tx_{}", 
+            if is_cat { "cat" } else { "reg" }, 
+            results.transactions_sent
+        ));
         
         let (success, _) = if is_cat {
             results.cat_transactions += 1;
@@ -149,12 +166,21 @@ pub async fn run_simulation(
         
         results.transactions_sent += 1;
         
-        // Get current block height and transaction status counts
-        let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+        // Get CAT transaction status counts
+        let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
+        let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
         
-        // Get success and failure transaction counts
-        let (chain_1_pending, chain_1_success, chain_1_failure) = hig_nodes[0].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
-        let (chain_2_pending, chain_2_success, chain_2_failure) = hig_nodes[1].lock().await.get_transaction_status_counts().await.map_err(|e| e.to_string())?;
+        // Get regular transaction status counts
+        let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+        let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+        
+        // Calculate combined totals for backward compatibility
+        let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
+        let chain_1_success = chain_1_cat_success + chain_1_regular_success;
+        let chain_1_failure = chain_1_cat_failure + chain_1_regular_failure;
+        let chain_2_pending = chain_2_cat_pending + chain_2_regular_pending;
+        let chain_2_success = chain_2_cat_success + chain_2_regular_success;
+        let chain_2_failure = chain_2_cat_failure + chain_2_regular_failure;
         
         // Subtract initialization transactions from success counts
         // Each account gets one initialization credit transaction per chain
@@ -164,13 +190,29 @@ pub async fn run_simulation(
         
         // Only record counts if we've moved to a new block
         if new_block != current_block {
-            // Record data for all blocks (no longer skipping block 0)
+            // Record combined totals (for backward compatibility)
             results.chain_1_pending.push((new_block, chain_1_pending));    
             results.chain_2_pending.push((new_block, chain_2_pending));
             results.chain_1_success.push((new_block, chain_1_success_filtered));
             results.chain_2_success.push((new_block, chain_2_success_filtered));
             results.chain_1_failure.push((new_block, chain_1_failure));
             results.chain_2_failure.push((new_block, chain_2_failure));
+            
+            // Record CAT transaction data
+            results.chain_1_cat_pending.push((new_block, chain_1_cat_pending));
+            results.chain_2_cat_pending.push((new_block, chain_2_cat_pending));
+            results.chain_1_cat_success.push((new_block, chain_1_cat_success));
+            results.chain_2_cat_success.push((new_block, chain_2_cat_success));
+            results.chain_1_cat_failure.push((new_block, chain_1_cat_failure));
+            results.chain_2_cat_failure.push((new_block, chain_2_cat_failure));
+            
+            // Record regular transaction data
+            results.chain_1_regular_pending.push((new_block, chain_1_regular_pending));
+            results.chain_2_regular_pending.push((new_block, chain_2_regular_pending));
+            results.chain_1_regular_success.push((new_block, chain_1_regular_success));
+            results.chain_2_regular_success.push((new_block, chain_2_regular_success));
+            results.chain_1_regular_failure.push((new_block, chain_1_regular_failure));
+            results.chain_2_regular_failure.push((new_block, chain_2_regular_failure));
             current_block = new_block;
             
             // Update progress bar for new block
@@ -221,7 +263,7 @@ async fn create_and_submit_cat_transaction(
         tx_data.clone(),
         cl_id.clone(),
     ).map_err(|e| {
-        logging::log("SIMULATOR", &format!("Failed to create transaction: {}", e));
+        logging::log("SIMULATOR", &format!("Failed to create CAT-sub-transaction 1: {}", e));
         e.to_string()
     })?;
 
@@ -232,7 +274,7 @@ async fn create_and_submit_cat_transaction(
         tx_data.clone(),
         cl_id.clone(),
     ).map_err(|e| {
-        logging::log("SIMULATOR", &format!("Failed to create transaction: {}", e));
+        logging::log("SIMULATOR", &format!("Failed to create CAT-sub-transaction 2: {}", e));
         e.to_string()
     })?;
 
@@ -242,11 +284,11 @@ async fn create_and_submit_cat_transaction(
         vec![chain_id_1.clone(), chain_id_2.clone()],
         vec![tx1, tx2],
     ).map_err(|e| {
-        logging::log("SIMULATOR", &format!("Failed to create CL transaction: {}", e));
+        logging::log("SIMULATOR", &format!("Failed to create CAT CL transaction: {}", e));
         e.to_string()
     })?;
 
-    logging::log("SIMULATOR", &format!("Created CL transaction with ID: {:?}", cl_id));
+    logging::log("SIMULATOR", &format!("Created CAT CL transaction with ID: {:?}", cl_id));
 
     // Submit transaction to CL node
     match cl_node.lock().await.submit_transaction(cl_tx.clone()).await {
@@ -255,7 +297,7 @@ async fn create_and_submit_cat_transaction(
             Ok((true, tx_data))
         }
         Err(e) => {
-            logging::log("SIMULATOR", &format!("Failed to submit CAT transaction: {}", e));
+            logging::log("SIMULATOR", &format!("Failed to submit CAT CL transaction: {}", e));
             logging::log("SIMULATOR", &format!("CAT transaction failed: {}", tx_data));
             Ok((false, tx_data))
         }
@@ -286,7 +328,7 @@ async fn create_and_submit_regular_transaction(
         tx_data.clone(),
         cl_id_1.clone(),
     ).map_err(|e| {
-        logging::log("SIMULATOR", &format!("Failed to create transaction: {}", e));
+        logging::log("SIMULATOR", &format!("Failed to create regular transaction for chain-1: {}", e));
         e.to_string()
     })?;
 
@@ -295,7 +337,7 @@ async fn create_and_submit_regular_transaction(
         vec![chain_id_1.clone()],
         vec![tx_1],
     ).map_err(|e| {
-        logging::log("SIMULATOR", &format!("Failed to create CL transaction: {}", e));
+        logging::log("SIMULATOR", &format!("Failed to create regular CL transaction for chain-1: {}", e));
         e.to_string()
     })?;
 
@@ -308,7 +350,7 @@ async fn create_and_submit_regular_transaction(
         tx_data.clone(),
         cl_id_2.clone(),
     ).map_err(|e| {
-        logging::log("SIMULATOR", &format!("Failed to create transaction: {}", e));
+        logging::log("SIMULATOR", &format!("Failed to create regular transaction for chain-2: {}", e));
         e.to_string()
     })?;
 
@@ -317,11 +359,11 @@ async fn create_and_submit_regular_transaction(
         vec![chain_id_2.clone()],
         vec![tx_2],
     ).map_err(|e| {
-        logging::log("SIMULATOR", &format!("Failed to create CL transaction: {}", e));
+        logging::log("SIMULATOR", &format!("Failed to create regular CL transaction for chain-2: {}", e));
         e.to_string()
     })?;
 
-    logging::log("SIMULATOR", &format!("Created CL transactions with IDs: {:?}_1 and {:?}_2", cl_id, cl_id));
+    logging::log("SIMULATOR", &format!("Created regular CL transactions with IDs: {:?}_1 and {:?}_2", cl_id, cl_id));
 
     // Submit both transactions to CL node
     let success1 = match cl_node.lock().await.submit_transaction(cl_tx_1.clone()).await {
@@ -330,20 +372,20 @@ async fn create_and_submit_regular_transaction(
             true
         }
         Err(e) => {
-            logging::log("SIMULATOR", &format!("Failed to submit regular transaction to chain-1: {}", e));
-            logging::log("SIMULATOR", &format!("Regular transaction failed on chain-1: {}", tx_data));
+            logging::log("SIMULATOR", &format!("Failed to submit regular transaction to CL node: {}", e));
+            logging::log("SIMULATOR", &format!("Regular transaction failed to submit: {}", tx_data));
             false
         }
     };
 
     let success2 = match cl_node.lock().await.submit_transaction(cl_tx_2.clone()).await {
         Ok(_) => {
-            logging::log("SIMULATOR", &format!("Regular transaction submitted successfully to chain-2: {}", tx_data));
+            logging::log("SIMULATOR", &format!("Regular transaction submitted successfully: {}", tx_data));
             true
         }
         Err(e) => {
-            logging::log("SIMULATOR", &format!("Failed to submit regular transaction to chain-2: {}", e));
-            logging::log("SIMULATOR", &format!("Regular transaction failed on chain-2: {}", tx_data));
+            logging::log("SIMULATOR", &format!("Failed to submit regular transaction to CL node: {}", e));
+            logging::log("SIMULATOR", &format!("Regular transaction failed to submit: {}", tx_data));
             false
         }
     };

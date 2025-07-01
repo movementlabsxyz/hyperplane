@@ -129,8 +129,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             crate::network::initialize_accounts(
                 &[cl_node.clone()], 
                 sim_config.num_accounts.initial_balance.try_into().unwrap(), 
-                sim_config.num_accounts.num_accounts.try_into().unwrap()
-            ).await;
+                sim_config.num_accounts.num_accounts.try_into().unwrap(),
+                Some(&[hig_node_1.clone(), hig_node_2.clone()]),
+                sim_config.network.block_interval,
+            ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
 
             // Run simulation
             crate::run_simulation::run_simulation(

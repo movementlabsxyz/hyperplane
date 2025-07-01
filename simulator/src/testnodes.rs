@@ -93,10 +93,9 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration
     let current_block = cl_node.lock().await.get_current_block().await.unwrap();
     logging::log("NODES SETUP", &format!("Nodes setup complete, current block: {}", current_block));
 
-    // set the chain delays
+    // Set the provided delays (should be zero for funding phase)
     hig_node_1.lock().await.set_hs_message_delay(chain_delays[0]);
     hig_node_2.lock().await.set_hs_message_delay(chain_delays[1]);
-    logging::log("TEST", &format!("Set HIG-chain-1 delay to {:?} and HIG-chain-2 delay to {:?}", chain_delays[0], chain_delays[1]));
 
     (hs_node, cl_node, hig_node_1, hig_node_2, current_block)
 } 

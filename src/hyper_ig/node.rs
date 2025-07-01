@@ -1116,21 +1116,52 @@ impl HyperIG for HyperIGNode {
         Ok(count as u64)
     }
 
-    /// Gets counts of all transaction statuses (Pending, Success, Failure).
+    /// Gets counts of CAT transaction statuses (Pending, Success, Failure).
     /// 
     /// # Returns
     /// A tuple of (pending_count, success_count, failure_count)
-    async fn get_transaction_status_counts(&self) -> Result<(u64, u64, u64), HyperIGError> {
+    async fn get_transaction_status_counts_cats(&self) -> Result<(u64, u64, u64), HyperIGError> {
         let state = self.state.lock().await;
         let mut pending = 0;
         let mut success = 0;
         let mut failure = 0;
         
-        for status in state.transaction_statuses.values() {
-            match status {
-                TransactionStatus::Pending => pending += 1,
-                TransactionStatus::Success => success += 1,
-                TransactionStatus::Failure => failure += 1,
+        for (tx_id, status) in &state.transaction_statuses {
+            // Check if this is a CAT transaction by looking at the transaction data
+            if let Some(tx) = state.received_txs.get(tx_id) {
+                if tx.data.starts_with("CAT.") {
+                    match status {
+                        TransactionStatus::Pending => pending += 1,
+                        TransactionStatus::Success => success += 1,
+                        TransactionStatus::Failure => failure += 1,
+                    }
+                }
+            }
+        }
+        
+        Ok((pending, success, failure))
+    }
+
+    /// Gets counts of regular transaction statuses (Pending, Success, Failure).
+    /// 
+    /// # Returns
+    /// A tuple of (pending_count, success_count, failure_count)
+    async fn get_transaction_status_counts_regular(&self) -> Result<(u64, u64, u64), HyperIGError> {
+        let state = self.state.lock().await;
+        let mut pending = 0;
+        let mut success = 0;
+        let mut failure = 0;
+        
+        for (tx_id, status) in &state.transaction_statuses {
+            // Check if this is a regular transaction by looking at the transaction data
+            if let Some(tx) = state.received_txs.get(tx_id) {
+                if tx.data.starts_with("REGULAR.") {
+                    match status {
+                        TransactionStatus::Pending => pending += 1,
+                        TransactionStatus::Success => success += 1,
+                        TransactionStatus::Failure => failure += 1,
+                    }
+                }
             }
         }
         
@@ -1268,12 +1299,21 @@ impl HyperIG for Arc<Mutex<HyperIGNode>> {
         node.get_transaction_status_count(status).await
     }
 
-    /// Gets counts of all transaction statuses (Pending, Success, Failure).
+    /// Gets counts of CAT transaction statuses (Pending, Success, Failure).
     /// 
     /// # Returns
     /// A tuple of (pending_count, success_count, failure_count)
-    async fn get_transaction_status_counts(&self) -> Result<(u64, u64, u64), HyperIGError> {
+    async fn get_transaction_status_counts_cats(&self) -> Result<(u64, u64, u64), HyperIGError> {
         let node = self.lock().await;
-        node.get_transaction_status_counts().await
+        node.get_transaction_status_counts_cats().await
+    }
+
+    /// Gets counts of regular transaction statuses (Pending, Success, Failure).
+    /// 
+    /// # Returns
+    /// A tuple of (pending_count, success_count, failure_count)
+    async fn get_transaction_status_counts_regular(&self) -> Result<(u64, u64, u64), HyperIGError> {
+        let node = self.lock().await;
+        node.get_transaction_status_counts_regular().await
     }
 } 
