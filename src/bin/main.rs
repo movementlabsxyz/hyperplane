@@ -115,6 +115,11 @@ async fn main() {
             println!("  send-cat chain-1,chain-2 CAT.credit 1 100");
             println!("  set-delay chain-1 200");
             println!("  set-block-interval 500");
+            println!("\n⚠️  CONFIGURATION NOTE:");
+            println!("  Some settings (like CAT lifetime, allow_cat_pending_dependencies)");
+            println!("  must be changed in src/bin/config.rs and require restarting the shell.");
+            println!("  Check the config file for available options.");
+            println!(" ");
             continue;
         }
         let mut parts = input.split_whitespace();
@@ -241,6 +246,7 @@ async fn main() {
                     }
                 }
                 println!("===================");
+                println!(" ");
             }
             Some("add-chain") => {
                 if let Some(chain_id_str) = parts.next() {
