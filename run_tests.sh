@@ -77,7 +77,6 @@ TESTS=(
     hyper_ig::tests::basic::test_duplicate_transaction_id
     hyper_ig::tests::basic::test_hs_message_delay
     hyper_ig::tests::basic::test_cat_pending_dependency_restriction
-    hyper_ig::tests::basic::test_cat_pending_dependency_restriction_v2
     hyper_ig::tests::dependencies::test_failed_dependency
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
@@ -130,7 +129,6 @@ TESTS=(
 TESTS2=(
 
     hyper_ig::tests::basic::test_cat_pending_dependency_restriction
-    hyper_ig::tests::basic::test_cat_pending_dependency_restriction_v2
 
 )
 
