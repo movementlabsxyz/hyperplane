@@ -22,6 +22,7 @@ use tokio::sync::Mutex;
 ///
 /// * `block_interval` - The block interval to use for the confirmation layer node
 /// * `chain_delays` - The delays to use for the hyperig nodes
+/// * `allow_cat_pending_dependencies` - Whether to allow CATs to depend on locked keys
 ///
 /// # Returns
 ///
@@ -31,7 +32,7 @@ use tokio::sync::Mutex;
 /// * `hig_node_2` - The hyperig node for chain-2
 /// * `current_block` - The current block number at the end of the setup
 ///
-pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration]) 
+pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Initialize logging
     logging::init_logging();
@@ -49,8 +50,8 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration
         receiver_hs_to_cl,
         block_interval,
     ).expect("Failed to create confirmation node")));
-    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), 10)));
-    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), 10)));
+    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies)));
+    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies)));
 
     // Start the nodes
     HyperSchedulerNode::start(hs_node.clone()).await;
@@ -92,10 +93,9 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration
     let current_block = cl_node.lock().await.get_current_block().await.unwrap();
     logging::log("NODES SETUP", &format!("Nodes setup complete, current block: {}", current_block));
 
-    // set the chain delays
+    // Set the provided delays (should be zero for funding phase)
     hig_node_1.lock().await.set_hs_message_delay(chain_delays[0]);
     hig_node_2.lock().await.set_hs_message_delay(chain_delays[1]);
-    logging::log("TEST", &format!("Set HIG-chain-1 delay to {:?} and HIG-chain-2 delay to {:?}", chain_delays[0], chain_delays[1]));
 
     (hs_node, cl_node, hig_node_1, hig_node_2, current_block)
 } 

@@ -69,7 +69,7 @@ async fn main() {
         // Channels for HIG <-> HS
         let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
         // Create HIG node
-        let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS)));
+        let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS, config::ALLOW_CAT_PENDING_DEPENDENCIES)));
         // Register chain with CL
         let mut cl_node_guard = cl_node.lock().await;
         cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");
@@ -99,7 +99,8 @@ async fn main() {
             println!("  add-chain <chain_id>");
             println!("  send-tx <chain_id> <data>");
             println!("  send-cat <chain_id1,chain_id2,...> <data>");
-            println!("  set-interval <chain_id> <milliseconds>");
+            println!("  set-delay <chain_id> <milliseconds>");
+            println!("  set-block-interval <milliseconds>");
             println!("  status");
             println!("  exit");
             println!("\nValid transaction data formats:");
@@ -112,12 +113,18 @@ async fn main() {
             println!("  send-tx chain-1 send 1 2 50");
             println!("  send-cat chain-1,chain-2 CAT.send 1 2 50");
             println!("  send-cat chain-1,chain-2 CAT.credit 1 100");
-            println!("  set-interval chain-1 200");
+            println!("  set-delay chain-1 200");
+            println!("  set-block-interval 500");
+            println!("\n⚠️  CONFIGURATION NOTE:");
+            println!("  Some settings (like CAT lifetime, allow_cat_pending_dependencies)");
+            println!("  must be changed in src/bin/config.rs and require restarting the shell.");
+            println!("  Check the config file for available options.");
+            println!(" ");
             continue;
         }
         let mut parts = input.split_whitespace();
         match parts.next() {
-            Some("set-interval") => {
+            Some("set-delay") => {
                 if let (Some(chain_id_str), Some(ms_str)) = (parts.next(), parts.next()) {
                     if let Ok(ms) = ms_str.parse::<u64>() {
                         let chain_id = ChainId(chain_id_str.to_string());
@@ -132,7 +139,23 @@ async fn main() {
                         println!("[shell] Error: Invalid milliseconds value");
                     }
                 } else {
-                    println!("Usage: set-interval <chain_id> <milliseconds>");
+                    println!("Usage: set-delay <chain_id> <milliseconds>");
+                }
+            }
+            Some("set-block-interval") => {
+                if let Some(ms_str) = parts.next() {
+                    if let Ok(ms) = ms_str.parse::<u64>() {
+                        let mut cl_node_guard = cl_node.lock().await;
+                        if let Err(e) = cl_node_guard.set_block_interval(Duration::from_millis(ms)).await {
+                            println!("[shell] Error: Failed to set block interval: {}", e);
+                        } else {
+                            println!("[shell] Set CL block interval to {}ms", ms);
+                        }
+                    } else {
+                        println!("[shell] Error: Invalid milliseconds value");
+                    }
+                } else {
+                    println!("Usage: set-block-interval <milliseconds>");
                 }
             }
             Some("status") => {
@@ -223,6 +246,7 @@ async fn main() {
                     }
                 }
                 println!("===================");
+                println!(" ");
             }
             Some("add-chain") => {
                 if let Some(chain_id_str) = parts.next() {
@@ -233,7 +257,7 @@ async fn main() {
                     // Channels for HIG <-> HS
                     let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
                     // Create HIG node
-                    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS)));
+                    let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS, config::ALLOW_CAT_PENDING_DEPENDENCIES)));
                     // Register chain with CL
                     let mut cl_node_guard = cl_node.lock().await;
                     cl_node_guard.register_chain(chain_id.clone(), sender_cl_to_hig).await.expect("Failed to register chain with CL");

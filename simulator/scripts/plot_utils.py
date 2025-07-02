@@ -96,7 +96,26 @@ def plot_transactions_overlay(
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
                     label=label, linewidth=1.5)
         
-        title = f'{transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        # Create title and filename based on transaction type
+        if transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals
+            title = f'All {transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{transaction_type}_all_transactions_overlay.png'
+        elif transaction_type.startswith('cat_'):
+            # CAT transactions
+            status = transaction_type.replace('cat_', '')
+            title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{status}_cat_transactions_overlay.png'
+        elif transaction_type.startswith('regular_'):
+            # Regular transactions
+            status = transaction_type.replace('regular_', '')
+            title = f'Regular {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{status}_regular_transactions_overlay.png'
+        else:
+            # Fallback
+            title = f'{transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'{transaction_type}_transactions_overlay.png'
+        
         plt.title(title)
         plt.xlabel('Block Height')
         plt.ylabel(f'Number of {transaction_type.title()} Transactions')
@@ -107,7 +126,7 @@ def plot_transactions_overlay(
         
         # Save plot
         os.makedirs(f'{results_dir}/figs', exist_ok=True)
-        plt.savefig(f'{results_dir}/figs/{transaction_type}_transactions_overlay.png', 
+        plt.savefig(f'{results_dir}/figs/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -168,6 +187,111 @@ def plot_transaction_status_chart(ax: plt.Axes, data: Dict[str, Any], param_name
         ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
         ax.axis('off')
 
+def plot_failure_breakdown_chart(ax: plt.Axes, data: Dict[str, Any], param_name: str) -> None:
+    """Create a line chart showing CAT vs regular failure breakdown vs parameter"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            return
+        
+        # Extract data for the chart
+        param_values = []
+        cat_failure_counts = []
+        regular_failure_counts = []
+        
+        for result in individual_results:
+            param_values.append(extract_parameter_value(result, param_name))
+            
+            # Calculate total CAT and regular failures from chain_1 data
+            cat_failure_total = sum(count for _, count in result.get('chain_1_cat_failure', []))
+            regular_failure_total = sum(count for _, count in result.get('chain_1_regular_failure', []))
+            
+            cat_failure_counts.append(cat_failure_total)
+            regular_failure_counts.append(regular_failure_total)
+        
+        # Create the line chart
+        ax.plot(param_values, cat_failure_counts, 'ro-', linewidth=2, markersize=6, label='CAT Failures')
+        ax.plot(param_values, regular_failure_counts, 'mo-', linewidth=2, markersize=6, label='Regular Failures')
+        
+        param_display_names = {
+            'zipf_parameter': 'Zipf Parameter',
+            'block_interval': 'Block Interval (seconds)',
+            'cat_rate': 'CAT Rate',
+            'chain_delay': 'Chain Delay (seconds)',
+            'duration': 'Duration (blocks)',
+            'cat_lifetime': 'CAT Lifetime (blocks)',
+            'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
+        }
+        
+        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        ax.set_title(f'Failure Breakdown vs {xlabel}')
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel('Number of Failed Transactions')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(bottom=0)
+        
+    except (KeyError, IndexError) as e:
+        print(f"Warning: Error creating failure breakdown chart: {e}")
+        ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
+        ax.axis('off')
+
+def plot_transaction_status_chart_separate(ax: plt.Axes, data: Dict[str, Any], param_name: str, transaction_type: str) -> None:
+    """Create a line chart showing pending/success/failure data vs parameter for CAT or regular transactions"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            return
+        
+        # Extract data for the chart
+        param_values = []
+        success_counts = []
+        failure_counts = []
+        pending_counts = []
+        
+        for result in individual_results:
+            param_values.append(extract_parameter_value(result, param_name))
+            
+            # Calculate totals from chain_1 data for the specified transaction type
+            success_total = sum(count for _, count in result.get(f'chain_1_{transaction_type}_success', []))
+            failure_total = sum(count for _, count in result.get(f'chain_1_{transaction_type}_failure', []))
+            pending_total = sum(count for _, count in result.get(f'chain_1_{transaction_type}_pending', []))
+            
+            success_counts.append(success_total)
+            failure_counts.append(failure_total)
+            pending_counts.append(pending_total)
+        
+        # Create the line chart
+        ax.plot(param_values, success_counts, 'go-', linewidth=2, markersize=6, label='Success')
+        ax.plot(param_values, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
+        ax.plot(param_values, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
+        
+        param_display_names = {
+            'zipf_parameter': 'Zipf Parameter',
+            'block_interval': 'Block Interval (seconds)',
+            'cat_rate': 'CAT Rate',
+            'chain_delay': 'Chain Delay (seconds)',
+            'duration': 'Duration (blocks)',
+            'cat_lifetime': 'CAT Lifetime (blocks)',
+            'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
+        }
+        
+        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        transaction_display = transaction_type.replace('_', ' ').title()
+        ax.set_title(f'{transaction_display} Transaction Status vs {xlabel}')
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel('Number of Transactions')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(bottom=0)
+        
+    except (KeyError, IndexError) as e:
+        print(f"Warning: Error creating {transaction_type} transaction status chart: {e}")
+        ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
+        ax.axis('off')
+
 def plot_sweep_summary(
     data: Dict[str, Any],
     param_name: str,
@@ -196,8 +320,8 @@ def plot_sweep_summary(
         cat_transactions = sweep_summary['cat_transactions']
         regular_transactions = sweep_summary['regular_transactions']
         
-        # Create subplots
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+        # Create subplots - 3x2 grid for more detailed analysis
+        fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 15))
         
         param_display_names = {
             'zipf_parameter': 'Zipf Parameter',
@@ -217,26 +341,27 @@ def plot_sweep_summary(
         ax1.set_ylabel('Total Transactions')
         ax1.grid(True, alpha=0.3)
         
-        # Plot 2: CAT transactions
-        ax2.plot(param_values, cat_transactions, 'ro-', linewidth=2, markersize=6)
-        ax2.set_title(f'CAT Transactions vs {xlabel}')
+        # Plot 2: Transaction type distribution
+        ax2.plot(param_values, cat_transactions, 'ro-', linewidth=2, markersize=6, label='CAT Transactions')
+        ax2.plot(param_values, regular_transactions, 'go-', linewidth=2, markersize=6, label='Regular Transactions')
+        ax2.set_title(f'Transaction Distribution vs {xlabel}')
         ax2.set_xlabel(xlabel)
-        ax2.set_ylabel('CAT Transactions')
+        ax2.set_ylabel('Number of Transactions')
+        ax2.legend()
         ax2.grid(True, alpha=0.3)
         ax2.set_ylim(bottom=0)
         
-        # Plot 3: Transaction status chart
+        # Plot 3: Combined transaction status chart
         plot_transaction_status_chart(ax3, data, param_name)
         
-        # Plot 4: Transaction type distribution (line chart)
-        ax4.plot(param_values, cat_transactions, 'ro-', linewidth=2, markersize=6, label='CAT Transactions')
-        ax4.plot(param_values, regular_transactions, 'go-', linewidth=2, markersize=6, label='Regular Transactions')
-        ax4.set_title(f'Transaction Distribution by {xlabel}')
-        ax4.set_xlabel(xlabel)
-        ax4.set_ylabel('Number of Transactions')
-        ax4.legend()
-        ax4.grid(True, alpha=0.3)
-        ax4.set_ylim(bottom=0)
+        # Plot 4: Failure breakdown chart
+        plot_failure_breakdown_chart(ax4, data, param_name)
+        
+        # Plot 5: CAT transaction status chart
+        plot_transaction_status_chart_separate(ax5, data, param_name, 'cat')
+        
+        # Plot 6: Regular transaction status chart
+        plot_transaction_status_chart_separate(ax6, data, param_name, 'regular')
         
         plt.tight_layout()
         
@@ -265,10 +390,20 @@ def generate_all_plots(
     # Create results directory if it doesn't exist
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
-    # Plot transaction overlays
+    # Plot all transaction overlays (combined totals)
     plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'failure', results_dir, sweep_type)
+    
+    # Plot CAT transaction overlays
+    plot_transactions_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
+    
+    # Plot regular transaction overlays
+    plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
     
     # Plot sweep summary
     plot_sweep_summary(data, param_name, results_dir, sweep_type)

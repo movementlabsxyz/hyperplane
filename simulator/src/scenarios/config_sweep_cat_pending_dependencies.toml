@@ -1,4 +1,4 @@
-# Simulation configuration for duration sweep
+# Sweep CAT Pending Dependencies Simulation Configuration
 
 # Network parameters
 [network]
@@ -6,7 +6,7 @@
 num_chains = 2
 # Delay in seconds for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0.0, 0.5]  # chain-1 has 0 delay, chain-2 has 0.5 delay
+chain_delays = [0.0, 0.5]  # chain-1 has 0s delay, chain-2 has 0.5s delay
 # Block interval in seconds
 block_interval = 0.1
 
@@ -26,7 +26,7 @@ num_accounts = 1000
 target_tps = 100.0
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 50
+sim_total_block_number = 1000
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -41,11 +41,9 @@ cat_lifetime_blocks = 10
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Whether to allow CAT transactions to depend on locked keys
-# When false, CATs are rejected if they depend on locked keys
-# When true, CATs are allowed to depend on locked keys (current behavior)
+# This value will be overridden by the sweep test (false and true)
 allow_cat_pending_dependencies = false
 
 # Sweep parameters
 [sweep]
-num_simulations = 4 # Number of simulations to run (25 blocks, 50 blocks, 75 blocks, 100 blocks)
-duration_step = 25 # Step size for block number parameter, starting from 25 
+num_simulations = 2  # Exactly 2 simulations: false and true for allow_cat_pending_dependencies 

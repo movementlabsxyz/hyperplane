@@ -34,6 +34,7 @@ pub struct TransactionConfig {
     pub ratio_cats: f64,
     pub cat_lifetime_blocks: u64,  // CAT lifetime in blocks
     pub initialization_wait_blocks: u64,  // Number of blocks to wait before starting transaction submission
+    pub allow_cat_pending_dependencies: bool,  // Whether to allow CATs to depend on locked keys
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -116,6 +117,15 @@ pub struct SweepBlockIntervalScaledDelayConfig {
     pub sweep: SweepParameters,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct SweepCatPendingDependenciesConfig {
+    pub network: NetworkConfig,
+    #[serde(rename = "accounts")]
+    pub num_accounts: AccountConfig,
+    pub transactions: TransactionConfig,
+    pub sweep: SweepParameters,
+}
+
 /// Deserialize durations from a vector of f64 values
 /// 
 /// # Arguments
@@ -191,6 +201,7 @@ fn validate_common_fields(
     if transactions.initialization_wait_blocks == 0 {
         return Err(ConfigError::ValidationError("Initialization wait blocks must be positive".into()));
     }
+    // allow_cat_pending_dependencies is a boolean, so no validation needed
     if network.num_chains == 0 {
         return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
     }
@@ -261,6 +272,13 @@ impl Config {
     pub fn load_sweep_block_interval_scaled_delay() -> Result<SweepBlockIntervalScaledDelayConfig, ConfigError> {
         let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_scaled_delay.toml")?;
         let config: SweepBlockIntervalScaledDelayConfig = toml::from_str(&config_str)?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    pub fn load_sweep_cat_pending_dependencies() -> Result<SweepCatPendingDependenciesConfig, ConfigError> {
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_pending_dependencies.toml")?;
+        let config: SweepCatPendingDependenciesConfig = toml::from_str(&config_str)?;
         config.validate()?;
         Ok(config)
     }
@@ -476,6 +494,43 @@ impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalCons
 }
 
 impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalScaledDelayConfig {
+    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
+    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
+    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
+    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn as_any(&self) -> &dyn std::any::Any { self }
+}
+
+impl ValidateConfig for SweepCatPendingDependenciesConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        // For this sweep, we only need to validate that num_simulations is set
+        // The sweep will test exactly 2 values: false and true
+        if self.sweep.num_simulations != 2 {
+            return Err(ConfigError::ValidationError("Number of simulations must be exactly 2 for CAT pending dependencies sweep (false and true)".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepCatPendingDependenciesConfig {
+    pub fn get_duration(&self) -> Duration {
+        // Calculate duration based on block interval and total blocks
+        // This is a rough estimate for backward compatibility
+        let block_interval = self.network.block_interval;
+        let total_blocks = self.transactions.sim_total_block_number;
+        Duration::from_secs_f64(block_interval * total_blocks as f64)
+    }
+}
+
+impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepCatPendingDependenciesConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
     fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
     fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }

@@ -3,6 +3,7 @@ use tokio::sync::{mpsc, Mutex};
 use hyperplane::{
     types::{ChainId, TransactionId, Transaction, CLTransaction, CLTransactionId, SubBlock},
     confirmation_layer::{ConfirmationLayerNode, ConfirmationLayer},
+    hyper_ig::HyperIG,
     utils::logging,
 };
 
@@ -41,8 +42,14 @@ pub async fn create_network(num_nodes: usize, num_chains: usize) -> Vec<Arc<Mute
 // Account Initialization
 // ------------------------------------------------------------------------------------------------
 
-/// Initializes accounts with the specified initial balance
-pub async fn initialize_accounts(nodes: &[Arc<Mutex<ConfirmationLayerNode>>], initial_balance: u64, num_accounts: usize) {
+/// Initializes accounts with the specified initial balance and verifies the balances
+pub async fn initialize_accounts(
+    nodes: &[Arc<Mutex<ConfirmationLayerNode>>], 
+    initial_balance: u64, 
+    num_accounts: usize,
+    hig_nodes: Option<&[Arc<Mutex<hyperplane::hyper_ig::node::HyperIGNode>>]>,
+    block_interval: f64,
+) -> Result<(), Box<dyn std::error::Error>> {
     logging::log("SIMULATOR", &format!("Initializing accounts with {} tokens each...", initial_balance));
 
     for node in nodes {
@@ -72,13 +79,73 @@ pub async fn initialize_accounts(nodes: &[Arc<Mutex<ConfirmationLayerNode>>], in
                 ).expect("Failed to create CL transaction");
 
                 if let Ok(_status) = node.submit_transaction(cl_tx).await {
-                    logging::log("SIMULATOR", &format!("Account {} credited successfully: {}", account_id, tx.data));
+                    logging::log("SIMULATOR", &format!("Account {} credit submitted to CL node: {}", account_id, tx.data));
                 } else {
-                    logging::log("SIMULATOR", &format!("Failed to credit account {}: {}", account_id, tx.data));
+                    logging::log("SIMULATOR", &format!("Failed to submit credit transaction for account {}: {}", account_id, tx.data));
                 }
             }
-            logging::log("SIMULATOR", &format!("Chain {} account initialization complete", chain_id.0));
+            logging::log("SIMULATOR", &format!("Chain {} all credit transactions submitted to CL node", chain_id.0));
         }
     }
-    logging::log("SIMULATOR", "All accounts initialized");
+    logging::log("SIMULATOR", "All credit transactions submitted to CL nodes");
+
+    // If HIG nodes are provided, wait for funding to complete and verify balances
+    if let Some(hig_nodes) = hig_nodes {
+        // Wait for funding transactions to complete
+        let funding_wait_blocks = 5; // Wait for 5 blocks to ensure funding is complete
+        let current_block = nodes[0].lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+        let funding_target_block = current_block + funding_wait_blocks;
+        
+        logging::log("SIMULATOR", &format!("Waiting for {} funding transactions to complete...", num_accounts * 2));
+        
+        // Wait for funding transactions to complete
+        loop {
+            let current_block = nodes[0].lock().await.get_current_block().await.map_err(|e| e.to_string())?;
+            logging::log("SIMULATOR", &format!("Waiting for funding transactions to complete... Current block: {}", current_block));
+            if current_block >= funding_target_block {
+                break;
+            }
+            // Sleep for the block interval before checking again
+            tokio::time::sleep(std::time::Duration::from_secs_f64(block_interval)).await;
+        }
+        
+        // Verify that all accounts have been funded correctly
+        logging::log("SIMULATOR", "================================================");
+        logging::log("SIMULATOR", "VERIFYING ACCOUNT BALANCES AFTER FUNDING...");
+        logging::log("SIMULATOR", "================================================");
+        let expected_balance = initial_balance as i64;
+        
+        for (chain_index, hig_node) in hig_nodes.iter().enumerate() {
+            let chain_state = hig_node.lock().await.get_chain_state().await.map_err(|e| e.to_string())?;
+            logging::log("SIMULATOR", &format!("Chain {} state: {:?}", chain_index + 1, chain_state));
+            
+            // Check that all accounts from 1 to num_accounts have the expected balance
+            for account_id in 1..=num_accounts {
+                let account_key = account_id.to_string();
+                let actual_balance = chain_state.get(&account_key).copied().unwrap_or(0);
+                
+                if actual_balance != expected_balance {
+                    let error_msg = format!(
+                        "Account {} on chain {} has incorrect balance: expected {}, got {}",
+                        account_id, chain_index + 1, expected_balance, actual_balance
+                    );
+                    logging::log("SIMULATOR", "================================================");
+                    logging::log("SIMULATOR", &format!("ERROR: {}", error_msg));
+                    logging::log("SIMULATOR", "================================================");
+                    return Err(error_msg.into());
+                }
+            }
+            
+            logging::log("SIMULATOR", &format!("✓ Chain {} account verification successful - all {} accounts have balance {}", 
+                chain_index + 1, num_accounts, expected_balance));
+        }
+        
+        logging::log("SIMULATOR", "================================================");
+        logging::log("SIMULATOR", "✓ ALL ACCOUNT BALANCES VERIFIED SUCCESSFULLY!");
+        logging::log("SIMULATOR", &format!("✓ All {} accounts on both chains have balance {}", num_accounts, expected_balance));
+        logging::log("SIMULATOR", "✓ Funding transactions completed successfully");
+        logging::log("SIMULATOR", "================================================");
+    }
+
+    Ok(())
 } 

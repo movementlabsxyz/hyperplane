@@ -102,6 +102,9 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         // Log sweep start
         self.log_sweep_start(&sweep_config);
 
+        // Display sweep name before progress bar
+        println!("Running Sweep: {}", self.sweep_name);
+
         // Create progress bar for sweep
         let progress_bar = self.create_progress_bar(sweep_config.get_num_simulations());
 
@@ -122,25 +125,62 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
                 Duration::from_secs_f64(sim_config.network.block_interval),
                 &sim_config.network.chain_delays,
+                sim_config.transactions.allow_cat_pending_dependencies,
+                sim_config.transactions.cat_lifetime_blocks,
             ).await;
             
             // Initialize accounts with initial balance
             crate::network::initialize_accounts(
                 &[cl_node.clone()], 
                 sim_config.num_accounts.initial_balance.try_into().unwrap(), 
-                sim_config.num_accounts.num_accounts.try_into().unwrap()
-            ).await;
+                sim_config.num_accounts.num_accounts.try_into().unwrap(),
+                Some(&[hig_node_1.clone(), hig_node_2.clone()]),
+                sim_config.network.block_interval,
+            ).await.map_err(|e| {
+                let error_context = format!(
+                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
+                    self.sweep_name,
+                    sim_index + 1,
+                    sweep_config.get_num_simulations(),
+                    self.parameter_name,
+                    param_value,
+                    e
+                );
+                crate::config::ConfigError::ValidationError(error_context)
+            })?;
 
             // Run simulation
             crate::run_simulation::run_simulation(
                 cl_node,
                 vec![hig_node_1, hig_node_2],
                 &mut results,
-            ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+            ).await.map_err(|e| {
+                let error_context = format!(
+                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
+                    self.sweep_name,
+                    sim_index + 1,
+                    sweep_config.get_num_simulations(),
+                    self.parameter_name,
+                    param_value,
+                    e
+                );
+                crate::config::ConfigError::ValidationError(error_context)
+            })?;
 
             // Save individual simulation results
             results.save_to_directory(&format!("simulator/results/{}/data/sim_{}", self.results_dir, sim_index))
-                .await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+                .await.map_err(|e| {
+                    let error_context = format!(
+                        "Sweep '{}' failed to save results for simulation {}/{} with {}: {:?}. Error: {}",
+                        self.sweep_name,
+                        sim_index + 1,
+                        sweep_config.get_num_simulations(),
+                        self.parameter_name,
+                        param_value,
+                        e
+                    );
+                    crate::config::ConfigError::ValidationError(error_context)
+                })?;
             
             all_results.push((param_value.clone(), results));
             
@@ -300,6 +340,12 @@ pub fn save_generic_sweep_results<T: serde::Serialize>(
             json_obj.insert("chain_1_pending".to_string(), serde_json::to_value(&results.chain_1_pending).unwrap());
             json_obj.insert("chain_1_success".to_string(), serde_json::to_value(&results.chain_1_success).unwrap());
             json_obj.insert("chain_1_failure".to_string(), serde_json::to_value(&results.chain_1_failure).unwrap());
+            json_obj.insert("chain_1_cat_pending".to_string(), serde_json::to_value(&results.chain_1_cat_pending).unwrap());
+            json_obj.insert("chain_1_cat_success".to_string(), serde_json::to_value(&results.chain_1_cat_success).unwrap());
+            json_obj.insert("chain_1_cat_failure".to_string(), serde_json::to_value(&results.chain_1_cat_failure).unwrap());
+            json_obj.insert("chain_1_regular_pending".to_string(), serde_json::to_value(&results.chain_1_regular_pending).unwrap());
+            json_obj.insert("chain_1_regular_success".to_string(), serde_json::to_value(&results.chain_1_regular_success).unwrap());
+            json_obj.insert("chain_1_regular_failure".to_string(), serde_json::to_value(&results.chain_1_regular_failure).unwrap());
             serde_json::Value::Object(json_obj)
         }).collect::<Vec<_>>()
     });
