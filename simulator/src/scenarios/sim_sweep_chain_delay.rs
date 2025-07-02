@@ -14,10 +14,10 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
     let sweep_config = crate::config::Config::load_sweep_chain_delay()?;
     
     // Calculate chain delays for each simulation
-    // Creates a sequence of delays: 0.0s, 0.1s, 0.2s, 0.3s, etc.
-    // Each value represents the delay from the HIG to HS 
-    let chain_delays: Vec<f64> = (0..sweep_config.sweep.num_simulations)
-        .map(|i| i as f64 * sweep_config.sweep.chain_delay_step.unwrap())
+    // Creates a sequence of delays: 0 blocks, 1 block, 2 blocks, 3 blocks, etc.
+    // Each value represents the delay from the HIG to HS in blocks
+    let chain_delays: Vec<u64> = (0..sweep_config.sweep.num_simulations)
+        .map(|i| i as u64 * sweep_config.sweep.chain_delay_step.unwrap() as u64)
         .collect();
 
     // Create the generic sweep runner that handles all the common functionality
@@ -39,8 +39,8 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
                 network: crate::config::NetworkConfig {
                     num_chains: config.network.num_chains,
                     chain_delays: vec![
-                        config.network.chain_delays[0],                    // Keep first chain delay unchanged
-                        std::time::Duration::from_secs_f64(chain_delay),  // Apply delay to second chain
+                        config.network.chain_delays[0],  // Keep first chain delay unchanged
+                        chain_delay,                     // Apply delay to second chain in blocks
                     ],
                     block_interval: config.network.block_interval,
                 },

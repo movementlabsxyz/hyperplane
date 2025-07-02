@@ -23,7 +23,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     // Setup test nodes (with zero delays for funding)
     let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
         Duration::from_secs_f64(config.network.block_interval),
-        &[Duration::from_millis(0), Duration::from_millis(0)], // Zero delays for funding
+        &[0, 0], // Zero delays for funding
         config.transactions.allow_cat_pending_dependencies,
         config.transactions.cat_lifetime_blocks,
     ).await;
@@ -39,9 +39,12 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     
     // Now set the actual chain delays for the main simulation
     logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
-    hig_node_1.lock().await.set_hs_message_delay(config.network.chain_delays[0]);
-    hig_node_2.lock().await.set_hs_message_delay(config.network.chain_delays[1]);
-    logging::log("SIMULATOR", &format!("Set chain 1 delay to {:?} and chain 2 delay to {:?}", config.network.chain_delays[0], config.network.chain_delays[1]));
+    let delay_1_time = Duration::from_secs_f64(config.network.block_interval * config.network.chain_delays[0] as f64);
+    let delay_2_time = Duration::from_secs_f64(config.network.block_interval * config.network.chain_delays[1] as f64);
+    hig_node_1.lock().await.set_hs_message_delay(delay_1_time);
+    hig_node_2.lock().await.set_hs_message_delay(delay_2_time);
+    logging::log("SIMULATOR", &format!("Set chain 1 delay to {} blocks ({:?}) and chain 2 delay to {} blocks ({:?})", 
+        config.network.chain_delays[0], delay_1_time, config.network.chain_delays[1], delay_2_time));
 
     // Run simulation
     crate::run_simulation::run_simulation(
@@ -105,7 +108,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", results.cat_lifetime));
     logging::log("SIMULATOR", &format!("Initialization Wait Blocks: {}", results.initialization_wait_blocks));
     for (i, delay) in config.network.chain_delays.iter().enumerate() {
-        logging::log("SIMULATOR", &format!("Chain {} Delay: {:?}", i + 1, delay));
+        logging::log("SIMULATOR", &format!("Chain {} Delay: {} blocks", i + 1, delay));
     }
     logging::log("SIMULATOR", "=============================");
 

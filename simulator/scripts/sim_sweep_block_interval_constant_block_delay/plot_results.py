@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Plotting script for Block Interval Scaled Delay Sweep Simulation
+Plotting script for Block Interval Constant Delay Sweep Simulation
 
 This script generates plots for the block interval sweep where the second chain
-delay scales proportionally with the block interval (5x the block interval).
+delay is constant (0.5 seconds) regardless of block interval.
 """
 
 import sys
@@ -16,10 +16,10 @@ from plot_utils import generate_all_plots
 def main():
     """Main function"""
     # Configuration for this specific sweep
-    results_path = 'simulator/results/sim_sweep_block_interval_scaled_delay/data/sweep_results.json'
+    results_path = 'simulator/results/sim_sweep_block_interval_constant_block_delay/data/sweep_results.json'
     param_name = 'block_interval'
-    results_dir = 'simulator/results/sim_sweep_block_interval_scaled_delay'
-    sweep_type = 'Block Interval (Scaled Delay)'
+    results_dir = 'simulator/results/sim_sweep_block_interval_constant_block_delay'
+    sweep_type = 'Block Interval (Constant Block Delay)'
     
     # Generate all plots using the generic utility
     generate_all_plots(results_path, param_name, results_dir, sweep_type)

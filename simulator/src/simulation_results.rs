@@ -3,7 +3,7 @@ use std::fs;
 use serde_json;
 use crate::account_selection::AccountSelectionStats;
 use hyperplane::utils::logging;
-use std::time::Duration;
+
 
 #[derive(Debug)]
 pub struct SimulationResults {
@@ -22,7 +22,7 @@ pub struct SimulationResults {
     pub block_interval: f64,
     pub cat_lifetime: u64,
     pub initialization_wait_blocks: u64,
-    pub chain_delays: Vec<Duration>,
+    pub chain_delays: Vec<u64>,  // Chain delays in blocks
     
     // Chain data - Combined totals (for backward compatibility)
     pub chain_1_pending: Vec<(u64, u64)>,
@@ -121,7 +121,7 @@ impl SimulationResults {
                 "zipf_parameter": self.zipf_parameter,
                 "ratio_cats": self.ratio_cats,
                 "block_interval": self.block_interval,
-                "chain_delays": self.chain_delays.iter().map(|d| d.as_secs_f64()).collect::<Vec<_>>()
+                "chain_delays": self.chain_delays.clone()
             },
             "results": {
                 "total_transactions": self.transactions_sent,

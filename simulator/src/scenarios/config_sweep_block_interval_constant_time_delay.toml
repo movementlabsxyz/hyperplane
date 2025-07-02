@@ -1,12 +1,12 @@
-# Sweep Block Interval with Constant Delay Simulation Configuration
+# Sweep Block Interval with Scaled Delay Simulation Configuration
 
 # Network parameters
 [network]
 # the number of chains to simulate
 num_chains = 2
-# Delay in seconds for each chain
+# Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0.0, 0.5]  # chain-1 has 0 delay, chain-2 has fixed 0.5s delay
+chain_delays = [0, 10]  # chain-1 has 0 blocks delay, chain-2 delay will be adjusted to maintain 1 second (constant time delay)
 # Block interval in seconds (will be varied in sweep)
 block_interval = 0.1
 
@@ -48,4 +48,9 @@ allow_cat_pending_dependencies = false
 # Sweep parameters
 [sweep]
 num_simulations = 5 # Number of simulations to run
-block_interval_step = 0.02 # Step size for block interval parameter, starting from 0.02 
+block_interval_step = 0.02 # Step size for block interval parameter, starting from 0.02
+
+# Reference chain delay duration at 0.1 second block interval (for constant time delay simulation)
+# This value defines what the chain delay duration should be when block_interval = 0.1 seconds
+# For other block intervals, the delay is scaled proportionally
+reference_chain_delay_duration = 0.5 

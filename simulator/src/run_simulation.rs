@@ -31,7 +31,7 @@ use std::time::Instant;
 /// * `num_accounts` - A usize, the number of accounts
 /// * `target_tps` - A u64, the target TPS
 /// * `zipf_parameter` - A f64, the Zipf parameter for account selection
-/// * `chain_delays` - A Vec<f64>, the chain delays for each node
+/// * `chain_delays` - A Vec<u64>, the chain delays for each node (in blocks)
 /// * `block_interval` - A f64, the interval between blocks
 /// * `ratio_cats` - A f64, the ratio of CAT transactions
 ///
@@ -87,9 +87,10 @@ pub async fn run_simulation(
 
     // Now set the actual chain delays for the main simulation
     logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
-    for (i, delay) in results.chain_delays.iter().enumerate() {
-        hig_nodes[i].lock().await.set_hs_message_delay(*delay);
-        logging::log("SIMULATOR", &format!("Set chain {} delay to {:?}", i + 1, delay));
+    for (i, delay_blocks) in results.chain_delays.iter().enumerate() {
+        let delay_time = Duration::from_secs_f64(results.block_interval * *delay_blocks as f64);
+        hig_nodes[i].lock().await.set_hs_message_delay(delay_time);
+        logging::log("SIMULATOR", &format!("Set chain {} delay to {} blocks ({:?})", i + 1, delay_blocks, delay_time));
     }
     
     // Track transaction amounts per chain by height. In the chain the tx is either pending, success, or failure.

@@ -15,8 +15,7 @@ pub struct Config {
 #[derive(Debug, Deserialize, Clone)]
 pub struct NetworkConfig {
     pub num_chains: usize,
-    #[serde(deserialize_with = "deserialize_durations")]
-    pub chain_delays: Vec<Duration>,  // Delay for each chain
+    pub chain_delays: Vec<u64>,  // Delay for each chain in blocks
     pub block_interval: f64,  // Block interval in seconds
 }
 
@@ -61,6 +60,8 @@ pub struct SweepParameters {
     pub cat_lifetime_step: Option<u64>,
     #[serde(default)]
     pub block_interval_step: Option<f64>,
+    #[serde(default)]
+    pub reference_chain_delay_duration: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -126,20 +127,7 @@ pub struct SweepCatPendingDependenciesConfig {
     pub sweep: SweepParameters,
 }
 
-/// Deserialize durations from a vector of f64 values
-/// 
-/// # Arguments
-/// 
-/// * `deserializer` - The deserializer to use
-/// 
-/// # Returns
-fn deserialize_durations<'de, D>(deserializer: D) -> Result<Vec<Duration>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let delays: Vec<f64> = Vec::deserialize(deserializer)?;
-    Ok(delays.into_iter().map(Duration::from_secs_f64).collect())
-}
+
 
 impl NetworkConfig {
     pub fn get_chain_ids(&self) -> Vec<String> {
@@ -208,11 +196,7 @@ fn validate_common_fields(
     if network.chain_delays.len() != network.num_chains {
         return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
     }
-    for (i, delay) in network.chain_delays.iter().enumerate() {
-        if delay.as_secs_f64() < 0.0 {
-            return Err(ConfigError::ValidationError(format!("Delay for chain {} must be non-negative", i + 1)));
-        }
-    }
+    // No validation needed for u64 - it's always non-negative
     if network.block_interval <= 0.0 {
         return Err(ConfigError::ValidationError("Block interval must be positive".into()));
     }
@@ -262,15 +246,15 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_sweep_block_interval_constant_delay() -> Result<SweepBlockIntervalConstantDelayConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_delay.toml")?;
+    pub fn load_sweep_block_interval_constant_block_delay() -> Result<SweepBlockIntervalConstantDelayConfig, ConfigError> {
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_block_delay.toml")?;
         let config: SweepBlockIntervalConstantDelayConfig = toml::from_str(&config_str)?;
         config.validate()?;
         Ok(config)
     }
 
-    pub fn load_sweep_block_interval_scaled_delay() -> Result<SweepBlockIntervalScaledDelayConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_scaled_delay.toml")?;
+    pub fn load_sweep_block_interval_constant_time_delay() -> Result<SweepBlockIntervalScaledDelayConfig, ConfigError> {
+        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_time_delay.toml")?;
         let config: SweepBlockIntervalScaledDelayConfig = toml::from_str(&config_str)?;
         config.validate()?;
         Ok(config)
@@ -470,6 +454,11 @@ impl ValidateConfig for SweepBlockIntervalScaledDelayConfig {
     fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
         if self.sweep.block_interval_step.is_none() {
             return Err(ConfigError::ValidationError("Block interval step must be specified".into()));
+        }
+        if let Some(ref_delay) = self.sweep.reference_chain_delay_duration {
+            if ref_delay <= 0.0 {
+                return Err(ConfigError::ValidationError("Reference chain delay duration must be positive".into()));
+            }
         }
         Ok(())
     }

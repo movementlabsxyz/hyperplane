@@ -297,7 +297,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", results.cat_lifetime));
         logging::log("SIMULATOR", &format!("Initialization Wait Blocks: {}", results.initialization_wait_blocks));
         for (i, delay) in config.network.chain_delays.iter().enumerate() {
-            logging::log("SIMULATOR", &format!("Chain {} Delay: {:?}", i + 1, delay));
+            logging::log("SIMULATOR", &format!("Chain {} Delay: {} blocks", i + 1, delay));
         }
         logging::log("SIMULATOR", "=============================");
 

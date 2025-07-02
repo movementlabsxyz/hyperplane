@@ -82,23 +82,23 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     logging::log("SIMULATOR", "CAT lifetime sweep completed successfully");
     run_plot("simulator/scripts/sim_sweep_cat_lifetime/plot_results.py", "CAT Lifetime Sweep");
     
-    // Run block interval constant delay sweep
-    logging::log("SIMULATOR", "=== Running Block Interval Constant Delay Sweep ===");
-    crate::run_sweep_block_interval_constant_delay().await.map_err(|e| {
-        let error_context = format!("Block Interval Constant Delay Sweep failed: {}", e);
+    // Run block interval constant block delay sweep
+    logging::log("SIMULATOR", "=== Running Block Interval Constant Block Delay Sweep ===");
+    crate::run_sweep_block_interval_constant_block_delay().await.map_err(|e| {
+        let error_context = format!("Block Interval Constant Block Delay Sweep failed: {}", e);
         crate::config::ConfigError::ValidationError(error_context)
     })?;
-    logging::log("SIMULATOR", "Block interval constant delay sweep completed successfully");
-    run_plot("simulator/scripts/sim_sweep_block_interval_constant_delay/plot_results.py", "Block Interval Constant Delay Sweep");
+    logging::log("SIMULATOR", "Block interval constant block delay sweep completed successfully");
+    run_plot("simulator/scripts/sim_sweep_block_interval_constant_block_delay/plot_results.py", "Block Interval Constant Block Delay Sweep");
     
-    // Run block interval scaled delay sweep
-    logging::log("SIMULATOR", "=== Running Block Interval Scaled Delay Sweep ===");
-    crate::run_sweep_block_interval_scaled_delay().await.map_err(|e| {
-        let error_context = format!("Block Interval Scaled Delay Sweep failed: {}", e);
+    // Run block interval constant time delay sweep
+    logging::log("SIMULATOR", "=== Running Block Interval Constant Time Delay Sweep ===");
+    crate::run_sweep_block_interval_constant_time_delay().await.map_err(|e| {
+        let error_context = format!("Block Interval Constant Time Delay Sweep failed: {}", e);
         crate::config::ConfigError::ValidationError(error_context)
     })?;
-    logging::log("SIMULATOR", "Block interval scaled delay sweep completed successfully");
-    run_plot("simulator/scripts/sim_sweep_block_interval_scaled_delay/plot_results.py", "Block Interval Scaled Delay Sweep");
+    logging::log("SIMULATOR", "Block interval constant time delay sweep completed successfully");
+    run_plot("simulator/scripts/sim_sweep_block_interval_constant_time_delay/plot_results.py", "Block Interval Constant Time Delay Sweep");
     
     // Run CAT pending dependencies sweep
     logging::log("SIMULATOR", "=== Running CAT Pending Dependencies Sweep ===");

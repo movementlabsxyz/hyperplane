@@ -21,7 +21,7 @@ use tokio::sync::Mutex;
 /// # Arguments
 ///
 /// * `block_interval` - The block interval to use for the confirmation layer node
-/// * `chain_delays` - The delays to use for the hyperig nodes
+/// * `chain_delays` - The delays to use for the hyperig nodes (in blocks)
 /// * `allow_cat_pending_dependencies` - Whether to allow CATs to depend on locked keys
 ///
 /// # Returns
@@ -32,7 +32,7 @@ use tokio::sync::Mutex;
 /// * `hig_node_2` - The hyperig node for chain-2
 /// * `current_block` - The current block number at the end of the setup
 ///
-pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64) 
+pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[u64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Initialize logging
     logging::init_logging();
@@ -93,9 +93,11 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[Duration
     let current_block = cl_node.lock().await.get_current_block().await.unwrap();
     logging::log("NODES SETUP", &format!("Nodes setup complete, current block: {}", current_block));
 
-    // Set the provided delays (should be zero for funding phase)
-    hig_node_1.lock().await.set_hs_message_delay(chain_delays[0]);
-    hig_node_2.lock().await.set_hs_message_delay(chain_delays[1]);
+    // Set the provided delays (convert from blocks to time)
+    let time_delay_1 = Duration::from_secs_f64(block_interval.as_secs_f64() * chain_delays[0] as f64);
+    let time_delay_2 = Duration::from_secs_f64(block_interval.as_secs_f64() * chain_delays[1] as f64);
+    hig_node_1.lock().await.set_hs_message_delay(time_delay_1);
+    hig_node_2.lock().await.set_hs_message_delay(time_delay_2);
 
     (hs_node, cl_node, hig_node_1, hig_node_2, current_block)
 } 
