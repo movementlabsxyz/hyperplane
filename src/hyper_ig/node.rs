@@ -612,8 +612,9 @@ impl HyperIGNode {
             let status_part = status_part.split(":").collect::<Vec<&str>>()[1];
             
             if status_part == "Success" {
-                panic!("🚨 CRITICAL ERROR: Received Success status update for CAT tx-id='{}' that is already marked as Failed! This indicates a serious logical error in the system. Current status: {:?}, Incoming status: Success", 
-                    tx_id.0, current_status);
+                log(&format!("HIG-{}", chain_id), &format!("⚠️  WARNING: Ignoring Success status update for CAT tx-id='{}' that is already marked as Failed. Current status: {:?}, Incoming status: Success. This can happen due to slow HS processing, network delays, or race conditions.", 
+                    tx_id.0, current_status));
+                return Ok(current_status);
             }
             
             let (cat_lifetime, max_lifetime) = {

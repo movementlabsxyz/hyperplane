@@ -102,6 +102,9 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         // Log sweep start
         self.log_sweep_start(&sweep_config);
 
+        // Display sweep name before progress bar
+        println!("Running Sweep: {}", self.sweep_name);
+
         // Create progress bar for sweep
         let progress_bar = self.create_progress_bar(sweep_config.get_num_simulations());
 
@@ -133,18 +136,51 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                 sim_config.num_accounts.num_accounts.try_into().unwrap(),
                 Some(&[hig_node_1.clone(), hig_node_2.clone()]),
                 sim_config.network.block_interval,
-            ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
+            ).await.map_err(|e| {
+                let error_context = format!(
+                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
+                    self.sweep_name,
+                    sim_index + 1,
+                    sweep_config.get_num_simulations(),
+                    self.parameter_name,
+                    param_value,
+                    e
+                );
+                crate::config::ConfigError::ValidationError(error_context)
+            })?;
 
             // Run simulation
             crate::run_simulation::run_simulation(
                 cl_node,
                 vec![hig_node_1, hig_node_2],
                 &mut results,
-            ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+            ).await.map_err(|e| {
+                let error_context = format!(
+                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
+                    self.sweep_name,
+                    sim_index + 1,
+                    sweep_config.get_num_simulations(),
+                    self.parameter_name,
+                    param_value,
+                    e
+                );
+                crate::config::ConfigError::ValidationError(error_context)
+            })?;
 
             // Save individual simulation results
             results.save_to_directory(&format!("simulator/results/{}/data/sim_{}", self.results_dir, sim_index))
-                .await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+                .await.map_err(|e| {
+                    let error_context = format!(
+                        "Sweep '{}' failed to save results for simulation {}/{} with {}: {:?}. Error: {}",
+                        self.sweep_name,
+                        sim_index + 1,
+                        sweep_config.get_num_simulations(),
+                        self.parameter_name,
+                        param_value,
+                        e
+                    );
+                    crate::config::ConfigError::ValidationError(error_context)
+                })?;
             
             all_results.push((param_value.clone(), results));
             

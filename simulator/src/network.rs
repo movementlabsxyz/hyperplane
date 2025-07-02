@@ -92,7 +92,7 @@ pub async fn initialize_accounts(
     // If HIG nodes are provided, wait for funding to complete and verify balances
     if let Some(hig_nodes) = hig_nodes {
         // Wait for funding transactions to complete
-        let funding_wait_blocks = 2; // Wait for 2 blocks to ensure funding is complete
+        let funding_wait_blocks = 5; // Wait for 5 blocks to ensure funding is complete
         let current_block = nodes[0].lock().await.get_current_block().await.map_err(|e| e.to_string())?;
         let funding_target_block = current_block + funding_wait_blocks;
         

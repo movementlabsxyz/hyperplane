@@ -108,11 +108,17 @@ async fn test_cat_timeout_not() {
 /// update arrives later. This is important for maintaining consistency in the system
 /// and preventing race conditions where a late status update could override a timeout.
 /// 
+/// Status updates can arrive after timeout due to:
+/// - Slow Hyper Scheduler (HS) processing delays
+/// - Network delays between chains
+/// - Different chain processing speeds
+/// - Race conditions in the distributed system
+/// 
 /// Test flow:
 /// 1. Creates a CAT transaction in block 1
 /// 2. Processes block 6 to trigger timeout (max lifetime is 5)
 /// 3. Verifies the CAT is marked as failed
-/// 4. Attempts to update the CAT to success via a status update
+/// 4. Attempts to update the CAT to success via a status update (simulating late HS response)
 /// 5. Verifies the CAT remains failed despite the status update
 #[tokio::test]
 async fn test_cat_timeout_irreversible() {
@@ -406,76 +412,4 @@ async fn test_status_update_at_timeout_boundary_should_process() {
     assert_eq!(status, TransactionStatus::Success, "CAT should still be successful after timeout check");
     
     logging::log("TEST", "=== Test completed successfully ===\n");
-}
-
-/// Tests that a Success status update for a timed-out CAT triggers a panic.
-/// 
-/// This test verifies that if a CAT transaction times out (is marked as Failed due to timeout)
-/// and then receives a Success status update, the system correctly panics with a
-/// critical error message. This is important for catching logical errors in the system.
-/// 
-/// Test flow:
-/// 1. Creates a CAT transaction in block 1
-/// 2. Processes a subblock with height > CAT lifetime to trigger timeout
-/// 3. Verifies the CAT is marked as Failed due to timeout
-/// 4. Sends a Success status update
-/// 5. Verifies that the system panics with the correct error message
-#[tokio::test]
-#[should_panic(expected = "🚨 CRITICAL ERROR: Received Success status update for CAT tx-id=")]
-async fn test_success_status_update_for_failed_cat_should_panic() {
-    logging::init_logging();
-    logging::log("TEST", "\n=== Starting test_success_status_update_for_failed_cat_should_panic ===");
-    
-    let cl_id = CLTransactionId("cl-tx".to_string());
-    let tx_id = TransactionId(format!("{}:tx", cl_id.0));
-    
-    // Create node
-    let (mut hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
-    
-    // Create a CAT transaction
-    let cat_tx = Transaction::new(
-        tx_id.clone(),
-        constants::chain_1(),
-        vec![constants::chain_1(), constants::chain_2()],
-        "CAT.credit 1 100".to_string(),
-        cl_id.clone(),
-    ).expect("Failed to create transaction");
-    
-    // Process the CAT in block 1
-    let subblock = SubBlock {
-        block_height: 1,
-        chain_id: constants::chain_1(),
-        transactions: vec![cat_tx.clone()],
-    };
-    hig_node.process_subblock(subblock).await.unwrap();
-    logging::log("TEST", "Processed block height=1");
-    
-    // Verify CAT is pending
-    let status = hig_node.get_transaction_status(tx_id.clone()).await.unwrap();
-    assert_eq!(status, TransactionStatus::Pending, "CAT should be pending after creation");
-
-    // Process a subblock with height 6 to trigger timeout (CAT lifetime is 4, so max_lifetime = 5)
-    let timeout_subblock = SubBlock {
-        block_height: 6,
-        chain_id: constants::chain_1(),
-        transactions: vec![],
-    };
-    hig_node.process_subblock(timeout_subblock).await.unwrap();
-    logging::log("TEST", "Processed block height=6 to trigger timeout");
-    
-    // Verify CAT is now failed due to timeout
-    let status = hig_node.get_transaction_status(tx_id.clone()).await.unwrap();
-    assert_eq!(status, TransactionStatus::Failure, "CAT should be failed due to timeout");
-
-    // Create a Success status update (this should trigger the panic)
-    let success_update = Transaction::new(
-        TransactionId(format!("{}:success_update", cl_id.0)),
-        constants::chain_1(),
-        vec![constants::chain_1()],
-        format!("STATUS_UPDATE:Success.CAT_ID:{}", cl_id.0),
-        cl_id.clone(),
-    ).expect("Failed to create success update");
-
-    // This should panic with the critical error message
-    hig_node.process_transaction(success_update).await.expect("Should have panicked");
 }
