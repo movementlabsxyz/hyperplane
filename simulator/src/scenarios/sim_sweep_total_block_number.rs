@@ -10,6 +10,7 @@ define_sweep_config!(
     SweepTotalBlockNumberConfig,
     "config_sweep_total_block_number.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need duration_step to generate the sequence of block counts to test
         if self_.sweep.duration_step.is_none() {
             return Err(crate::config::ConfigError::ValidationError("Duration step must be specified".into()));
         }

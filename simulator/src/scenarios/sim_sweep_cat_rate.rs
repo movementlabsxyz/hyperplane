@@ -10,6 +10,7 @@ define_sweep_config!(
     SweepCatRateConfig,
     "config_sweep_cat_rate.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need cat_rate_step to generate the sequence of CAT ratios to test
         if self_.sweep.cat_rate_step.is_none() && self_.sweep.zipf_step.is_none() {
             return Err(crate::config::ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
         }

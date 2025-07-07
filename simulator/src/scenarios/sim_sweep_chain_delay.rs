@@ -10,6 +10,7 @@ define_sweep_config!(
     SweepChainDelayConfig,
     "config_sweep_chain_delay.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need chain_delay_step to generate the sequence of chain delays to test
         if self_.sweep.chain_delay_step.is_none() {
             return Err(crate::config::ConfigError::ValidationError("Chain delay step must be specified".into()));
         }

@@ -10,6 +10,7 @@ define_sweep_config!(
     SweepZipfConfig,
     "config_sweep_zipf.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need zipf_step to generate the sequence of Zipf parameters to test
         if self_.sweep.zipf_step.is_none() {
             return Err(crate::config::ConfigError::ValidationError("Zipf step must be specified".into()));
         }

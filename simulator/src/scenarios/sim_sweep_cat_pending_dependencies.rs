@@ -10,6 +10,7 @@ define_sweep_config!(
     SweepCatPendingDependenciesConfig,
     "config_sweep_cat_pending_dependencies.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need exactly 2 simulations to test false and true values for the flag
         if self_.sweep.num_simulations != 2 {
             return Err(crate::config::ConfigError::ValidationError("Number of simulations must be exactly 2 for CAT pending dependencies sweep (false and true)".into()));
         }

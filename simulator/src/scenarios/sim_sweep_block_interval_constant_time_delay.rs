@@ -10,9 +10,11 @@ define_sweep_config!(
     SweepBlockIntervalScaledDelayConfig,
     "config_sweep_block_interval_constant_time_delay.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need block_interval_step to generate the sequence of block intervals to test
         if self_.sweep.block_interval_step.is_none() {
             return Err(crate::config::ConfigError::ValidationError("Block interval step must be specified".into()));
         }
+        // Need positive reference_delay for delay calculation: delay_blocks = reference_delay / block_interval
         if let Some(ref_delay) = self_.sweep.reference_chain_delay_duration {
             if ref_delay <= 0.0 {
                 return Err(crate::config::ConfigError::ValidationError("Reference chain delay duration must be positive".into()));

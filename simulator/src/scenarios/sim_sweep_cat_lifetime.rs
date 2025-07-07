@@ -10,6 +10,7 @@ define_sweep_config!(
     SweepCatLifetimeConfig,
     "config_sweep_cat_lifetime.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need cat_lifetime_step to generate the sequence of CAT lifetimes to test
         if self_.sweep.cat_lifetime_step.is_none() {
             return Err(crate::config::ConfigError::ValidationError("CAT lifetime step must be specified".into()));
         }

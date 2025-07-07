@@ -10,6 +10,7 @@ define_sweep_config!(
     SweepBlockIntervalConstantDelayConfig,
     "config_sweep_block_interval_constant_block_delay.toml",
     validate_sweep_specific = |self_: &Self| {
+        // Need block_interval_step to generate the sequence of block intervals to test
         if self_.sweep.block_interval_step.is_none() {
             return Err(crate::config::ConfigError::ValidationError("Block interval step must be specified".into()));
         }
