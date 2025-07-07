@@ -54,10 +54,12 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                 let config = sweep_config.as_any().downcast_ref::<crate::config::SweepBlockIntervalScaledDelayConfig>().unwrap();
                 
                 // Calculate delay to maintain constant time delay
-                // reference_chain_delay_duration is the delay duration at 0.1 second block interval
-                // For any other block interval, we scale it proportionally
+                // reference_chain_delay_duration is the time delay in seconds
+                // For example, if reference_delay = 0.5 seconds:
+                // At 0.1s block interval, this requires 5 blocks = 0.5 seconds
+                // At 0.05s block interval, this requires 10 blocks = 0.5 seconds
                 let reference_delay = config.sweep.reference_chain_delay_duration.unwrap_or(0.5);
-                let delay_blocks = (reference_delay / 0.1 * block_interval).round() as u64;
+                let delay_blocks = (reference_delay / block_interval).round() as u64;
                 
                 // Use the block number from the config
                 let block_count = config.transaction_config.sim_total_block_number;
