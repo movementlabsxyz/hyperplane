@@ -88,21 +88,34 @@ pub struct SweepConfig {
     pub sweep: SweepParameters,
 }
 
+/// Configuration for sweep simulation parameters.
+/// 
+/// This struct defines the parameters used to control parameter sweep simulations.
+/// Only ONE step parameter should be specified per sweep type - the simulator will
+/// generate a sequence of values based on the step size and number of simulations.
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
     pub num_simulations: usize,
+    /// Step size for CAT ratio sweeps (0.0 = no CATs, 1.0 = all CATs)
     #[serde(default)]
     pub cat_rate_step: Option<f64>,
+    /// Step size for Zipf distribution parameter sweeps (controls account access pattern skewness)
     #[serde(default)]
     pub zipf_step: Option<f64>,
+    /// Step size for chain delay sweeps (in blocks, affects inter-chain communication timing)
     #[serde(default)]
     pub chain_delay_step: Option<f64>,
+    /// Step size for simulation duration sweeps (in blocks, affects total simulation length)
     #[serde(default)]
     pub duration_step: Option<u64>,
+    /// Step size for CAT lifetime sweeps (in blocks, affects CAT timeout behavior)
     #[serde(default)]
     pub cat_lifetime_step: Option<u64>,
+    /// Step size for block interval sweeps (in seconds, affects block production rate)
     #[serde(default)]
     pub block_interval_step: Option<f64>,
+    /// Reference delay duration for block interval sweeps (in seconds, used with block_interval_step)
     #[serde(default)]
     pub reference_chain_delay_duration: Option<f64>,
 }
