@@ -1,3 +1,6 @@
+//! Account selection statistics tracking for the Hyperplane simulator.
+//! Records and reports which accounts were selected as senders and receivers during simulations.
+
 use std::collections::HashMap;
 use serde_json;
 

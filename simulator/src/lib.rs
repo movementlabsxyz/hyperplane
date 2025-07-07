@@ -9,6 +9,7 @@ pub mod testnodes;
 pub mod interface;
 pub mod scenarios;
 pub mod stats;
+pub mod simulation_registry;
 
 pub use account_selection::AccountSelectionStats;
 pub use zipf_account_selection::AccountSelector;

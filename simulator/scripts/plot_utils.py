@@ -36,7 +36,7 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
     elif param_name == 'cat_rate':
         return f'CAT Rate: {param_value:.3f}'
     elif param_name == 'chain_delay':
-        return f'Chain Delay: {param_value:.3f}s'
+        return f'Chain Delay: {param_value:.0f} blocks'
     elif param_name == 'duration':
         return f'Duration: {param_value:.0f} blocks'
     elif param_name == 'cat_lifetime':
@@ -169,7 +169,7 @@ def plot_transaction_status_chart(ax: plt.Axes, data: Dict[str, Any], param_name
             'zipf_parameter': 'Zipf Parameter',
             'block_interval': 'Block Interval (seconds)',
             'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (seconds)',
+            'chain_delay': 'Chain Delay (blocks)',
             'duration': 'Duration (blocks)',
             'cat_lifetime': 'CAT Lifetime (blocks)'
         }

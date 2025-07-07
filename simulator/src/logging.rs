@@ -1,3 +1,6 @@
+//! Simple timestamped logging for the Hyperplane simulator.
+//! Provides a basic logging function that prefixes messages with timestamps.
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn log(prefix: &str, message: &str) {

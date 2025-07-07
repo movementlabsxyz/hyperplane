@@ -1,4 +1,26 @@
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence};
+use crate::define_sweep_config;
+use crate::config::ValidateConfig;
+
+// ============================================================================
+// Sweep Configuration
+// ============================================================================
+
+define_sweep_config!(
+    SweepTotalBlockNumberConfig,
+    "config_sweep_total_block_number.toml",
+    validate_sweep_specific = |self_: &Self| {
+        // Need duration_step to generate the sequence of block counts to test
+        if self_.sweep.duration_step.is_none() {
+            return Err(crate::config::ConfigError::ValidationError("Duration step must be specified".into()));
+        }
+        Ok(())
+    }
+);
+
+// ------------------------------------------------------------------------------------------------
+// Parameter Sequence Generation & Sweep Runner Setup
+// ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep total block number simulation
 /// 
@@ -8,14 +30,16 @@ use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_total_block_number.toml
-    let sweep_config = crate::config::Config::load_sweep_total_block_number()?;
+    let sweep_config = load_config()?;
     
-    // Calculate block numbers for each simulation
+    // Calculate block numbers for each simulation using the helper function
     // Creates a sequence of block numbers: 25, 50, 75, 100, etc.
     // Each value represents the total number of blocks to simulate
-    let block_numbers: Vec<u64> = (0..sweep_config.sweep.num_simulations)
-        .map(|i| 25 + (i as u64 * sweep_config.sweep.duration_step.unwrap()))
-        .collect();
+    let block_numbers = generate_u64_sequence(
+        25,  // Start at 25 blocks
+        sweep_config.sweep.duration_step.unwrap(),
+        sweep_config.sweep.num_simulations
+    );
 
     // Create the generic sweep runner that handles all the common functionality
     // This eliminates code duplication across different sweep types
@@ -26,25 +50,25 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
         block_numbers,                 // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
-            crate::config::Config::load_sweep_total_block_number().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+            load_config().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
-        // Function to create a modified config for each simulation
-        // This takes the base config and applies the current block number
+        // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, block_number| {
-            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepDurationConfig>().unwrap();
-            crate::config::Config {
-                network: config.network.clone(),
-                num_accounts: config.num_accounts.clone(),
-                transactions: crate::config::TransactionConfig {
-                    target_tps: config.transactions.target_tps,
-                    sim_total_block_number: block_number,  // This is the parameter we're varying
-                    zipf_parameter: config.transactions.zipf_parameter,
-                    ratio_cats: config.transactions.ratio_cats,
-                    cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,
-                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
-                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
-                },
-            }
+            create_modified_config(sweep_config, |base_config| {
+                crate::config::Config {
+                    network_config: base_config.network_config.clone(),
+                    account_config: base_config.account_config.clone(),
+                    transaction_config: crate::config::TransactionConfig {
+                        target_tps: base_config.transaction_config.target_tps,
+                        sim_total_block_number: block_number,  // This is the parameter we're varying
+                        zipf_parameter: base_config.transaction_config.zipf_parameter,
+                        ratio_cats: base_config.transaction_config.ratio_cats,
+                        cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
+                        initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
+                        allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
+                    },
+                }
+            })
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {
@@ -54,4 +78,26 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
 
     // Run the sweep - this handles all the simulation execution, logging, and result saving
     runner.run().await
+}
+
+// ------------------------------------------------------------------------------------------------
+// Simulation Registration
+// ------------------------------------------------------------------------------------------------
+
+/// Register this simulation with the simulation registry.
+/// 
+/// This function provides the configuration needed to register the total block number sweep
+/// with the main simulation registry.
+pub fn register() -> (crate::interface::SimulationType, crate::simulation_registry::SimulationConfig) {
+    use crate::interface::SimulationType;
+    use crate::simulation_registry::SimulationConfig;
+    
+    (SimulationType::SweepTotalBlockNumber, SimulationConfig {
+        name: "Total Block Number Sweep",
+        run_fn: Box::new(|| Box::pin(async {
+            run_sweep_total_block_number().await
+                .map_err(|e| format!("Total block number sweep failed: {}", e))
+        })),
+        plot_script: "simulator/scripts/sim_sweep_total_block_number/plot_results.py",
+    })
 } 

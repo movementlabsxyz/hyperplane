@@ -1,17 +1,17 @@
 # Sweep CAT Lifetime Simulation Configuration
 
 # Network parameters
-[network]
+[network_config]
 # the number of chains to simulate
 num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 chain_delays = [0, 5]  # chain-1 has 0 blocks delay, chain-2 has 5 blocks delay
 # Block interval in seconds
-block_interval = 0.1
+block_interval = 0.02
 
 # Account parameters
-[accounts]
+[account_config]
 # Initial balance for each account in the simulation
 # This is the amount of tokens each account starts with
 initial_balance = 9999
@@ -20,13 +20,13 @@ initial_balance = 9999
 num_accounts = 1000
 
 # Transaction parameters
-[transactions]
+[transaction_config]
 # Target transactions per second to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-target_tps = 100.0
+target_tps = 500.0
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 100
+sim_total_block_number = 200
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -47,5 +47,5 @@ allow_cat_pending_dependencies = false
 
 # Sweep parameters
 [sweep]
-num_simulations = 10 # Number of simulations to run
+num_simulations = 5 # Number of simulations to run
 cat_lifetime_step = 5 # Step size for CAT lifetime blocks 

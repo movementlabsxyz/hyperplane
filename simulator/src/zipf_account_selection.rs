@@ -1,3 +1,6 @@
+//! Zipfian account selection strategy for the Hyperplane simulator.
+//! Implements account selection based on the Zipf distribution.
+
 use hyperplane::utils::logging;
 use rand::distributions::Distribution;
 use rand_distr::Zipf;

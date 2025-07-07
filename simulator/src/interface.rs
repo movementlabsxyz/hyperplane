@@ -1,6 +1,8 @@
 use std::io::{self, Write};
 use std::process::Command;
+use std::hash::Hash;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SimulationType {
     Simple,
     SweepCatRate,
@@ -99,138 +101,8 @@ impl SimulatorInterface {
             self.show_menu();
             
             match self.get_user_choice() {
-                Some(SimulationType::Simple) => {
-                    // Call the async simulation function
-                    if let Err(e) = crate::run_simple_simulation().await {
-                        return Err(format!("Simulation failed: {}", e));
-                    }
-                    
-                    // Generate plots after successful simulation
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("simple") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    
-                    println!("Simple simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepCatRate) => {
-                    // Call the sweep simulation function
-                    if let Err(e) = crate::run_sweep_cat_rate_simulation().await {
-                        return Err(format!("Sweep simulation failed: {}", e));
-                    }
-                    
-                    // Generate plots after successful simulation
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_cat_rate") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    
-                    println!("Sweep CAT rate simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepZipf) => {
-                    // Call the sweep Zipf simulation function
-                    if let Err(e) = crate::run_sweep_zipf_simulation().await {
-                        return Err(format!("Sweep Zipf simulation failed: {}", e));
-                    }
-                    
-                    // Generate plots after successful simulation
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_zipf") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    
-                    println!("Sweep Zipf distribution simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepChainDelay) => {
-                    // Call the sweep chain delay simulation function
-                    if let Err(e) = crate::run_sweep_chain_delay().await {
-                        return Err(format!("Sweep Chain Delay simulation failed: {}", e));
-                    }
-                    
-                    // Generate plots after successful simulation
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_chain_delay") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    
-                    println!("Sweep Chain Delay simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepTotalBlockNumber) => {
-                    // Call the sweep total block number simulation function
-                    if let Err(e) = crate::run_sweep_total_block_number().await {
-                        return Err(format!("Sweep Total Block Number simulation failed: {}", e));
-                    }
-                    
-                    // Generate plots after successful simulation
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_total_block_number") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    
-                    println!("Sweep Total Block Number simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepCatLifetime) => {
-                    // Call the sweep CAT lifetime simulation function
-                    if let Err(e) = crate::run_sweep_cat_lifetime_simulation().await {
-                        return Err(format!("Sweep CAT lifetime simulation failed: {}", e));
-                    }
-                    
-                    // Generate plots after successful simulation
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_cat_lifetime") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    
-                    println!("Sweep CAT lifetime simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepBlockIntervalConstantBlockDelay) => {
-                    if let Err(e) = crate::run_sweep_block_interval_constant_block_delay().await {
-                        return Err(format!("Sweep Block Interval Constant Block Delay simulation failed: {}", e));
-                    }
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_block_interval_constant_block_delay") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    println!("Sweep Block Interval Constant Block Delay simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepBlockIntervalConstantTimeDelay) => {
-                    if let Err(e) = crate::run_sweep_block_interval_constant_time_delay().await {
-                        return Err(format!("Sweep Block Interval Constant Time Delay simulation failed: {}", e));
-                    }
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_block_interval_constant_time_delay") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    println!("Sweep Block Interval Constant Time Delay simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::SweepCatPendingDependencies) => {
-                    // Call the sweep CAT pending dependencies simulation function
-                    if let Err(e) = crate::run_sweep_cat_pending_dependencies_simulation().await {
-                        return Err(format!("Sweep CAT Pending Dependencies simulation failed: {}", e));
-                    }
-                    
-                    // Generate plots after successful simulation
-                    println!("Generating plots...");
-                    if let Err(e) = self.generate_plots("sweep_cat_pending_dependencies") {
-                        return Err(format!("Plot generation failed: {}", e));
-                    }
-                    
-                    println!("Sweep CAT Pending Dependencies simulation completed successfully!");
-                    break;
-                }
-                Some(SimulationType::RunAllTests) => {
-                    // Call the run all tests function
-                    if let Err(e) = crate::scenarios::run_all_tests::run_all_tests().await {
-                        return Err(format!("Run All Tests failed: {}", e));
-                    }
+                Some(SimulationType::Exit) => {
+                    println!("Exiting...");
                     break;
                 }
                 Some(SimulationType::RunAllPlots) => {
@@ -240,9 +112,46 @@ impl SimulatorInterface {
                     println!("All plot scripts rerun successfully!");
                     break;
                 }
-                Some(SimulationType::Exit) => {
-                    println!("Exiting...");
-                    break;
+                Some(simulation_type) => {
+                    // Use the registry to run the simulation
+                    let registry = crate::simulation_registry::get_registry().await;
+                    let registry_guard = registry.lock().await;
+                    
+                    if let Some(config) = registry_guard.get(&simulation_type) {
+                        println!("Running {}...", config.name);
+                        
+                        // Run the simulation
+                        let run_future = (config.run_fn)();
+                        if let Err(e) = run_future.await {
+                            return Err(e);
+                        }
+                        
+                        // Generate plots if a script is specified
+                        if !config.plot_script.is_empty() {
+                            println!("Generating plots...");
+                            let plot_type = match simulation_type {
+                                SimulationType::Simple => "simple",
+                                SimulationType::SweepCatRate => "sweep_cat_rate",
+                                SimulationType::SweepZipf => "sweep_zipf",
+                                SimulationType::SweepChainDelay => "sweep_chain_delay",
+                                SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
+                                SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
+                                SimulationType::SweepBlockIntervalConstantBlockDelay => "sweep_block_interval_constant_block_delay",
+                                SimulationType::SweepBlockIntervalConstantTimeDelay => "sweep_block_interval_constant_time_delay",
+                                SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
+                                _ => "unknown",
+                            };
+                            
+                            if let Err(e) = self.generate_plots(plot_type) {
+                                return Err(format!("Plot generation failed: {}", e));
+                            }
+                        }
+                        
+                        println!("{} completed successfully!", config.name);
+                        break;
+                    } else {
+                        return Err(format!("Unknown simulation type: {:?}", simulation_type));
+                    }
                 }
                 None => {
                     println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 0 to exit.");
