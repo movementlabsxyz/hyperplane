@@ -82,10 +82,7 @@ python3 simulator/scripts/sim_simple/plot_results.py
 
 ## Configuration
 
-You can modify the simulation parameters by editing the configuration files in `simulator/src/scenarios/`:
-
-- `config_simple.toml` - Configuration for simple simulation
-- `config_sweep_cat_rate.toml` - Configuration for sweep simulation
+You can modify the simulation parameters by editing the configuration files in `simulator/src/scenarios/`. The simulator supports multiple simulation types including simple simulations and various parameter sweep scenarios.
 
 ## Architecture
 
@@ -99,18 +96,24 @@ simulator/
 │   ├── scenarios/          # Simulation scenarios and configurations
 │   │   ├── mod.rs          # Scenario module declarations
 │   │   ├── sim_simple.rs   # Simple simulation implementation
-│   │   ├── sim_sweep_cat_rate.rs # Sweep simulation implementation
+│   │   ├── sweep_runner.rs # Generic sweep simulation runner
+│   │   ├── run_all_tests.rs # Test orchestration
 │   │   ├── config_simple.toml # Configuration for simple simulation
-│   │   └── config_sweep_cat_rate.toml # Configuration for sweep simulation
+│   │   └── config_*.toml   # Configuration files for various sweep scenarios
 │   ├── interface.rs        # Interface system for simulation selection
 │   ├── run_simulation.rs   # Core simulation logic and transaction processing
 │   ├── simulation_results.rs # Results tracking and data collection
-│   ├── config.rs           # Configuration management
+│   ├── config.rs           # Configuration management and validation
 │   ├── network.rs          # Node setup and chain registration
 │   ├── zipf_account_selection.rs # Account selection using Zipf distribution
 │   ├── account_selection.rs # Account selection statistics tracking
+│   ├── stats.rs            # Performance statistics collection
+│   ├── logging.rs          # Logging utilities
 │   └── lib.rs              # Module declarations and exports
-├── scripts/                # Simulation scripts
+├── scripts/                # Plotting and analysis scripts
+│   ├── plot_utils.py       # Common plotting utilities
+│   ├── sim_simple/         # Simple simulation plotting scripts
+│   └── sim_sweep_*/        # Sweep simulation plotting scripts
 ├── results/                # Generated results and figures
 └── run.sh                  # Launch script
 ```
