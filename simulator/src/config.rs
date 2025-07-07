@@ -28,15 +28,27 @@ pub struct AccountConfig {
     pub num_accounts: usize,
 }
 
+/// Configuration for transaction-related simulation parameters.
+/// 
+/// This struct contains all the parameters that control how transactions are generated,
+/// processed, and managed during the simulation. It includes settings for transaction
+/// rates, simulation duration, account access patterns, and cross-chain transaction behavior.
 #[derive(Debug, Deserialize, Clone)]
 pub struct TransactionConfig {
+    /// Target transactions per second for the simulation (controls transaction generation rate)
     pub target_tps: f64,
-    pub sim_total_block_number: u64,  // Total number of blocks to simulate
+    /// Total number of blocks to simulate (determines simulation duration)
+    pub sim_total_block_number: u64,
+    /// Zipf distribution parameter α (controls account access pattern skewness: 0.0 = uniform, higher = more skewed)
     pub zipf_parameter: f64,
+    /// Ratio of Cross-Chain Atomic Transactions (CATs) to regular transactions (0.0 = no CATs, 1.0 = all CATs)
     pub ratio_cats: f64,
-    pub cat_lifetime_blocks: u64,  // CAT lifetime in blocks
-    pub initialization_wait_blocks: u64,  // Number of blocks to wait before starting transaction submission
-    pub allow_cat_pending_dependencies: bool,  // Whether to allow CATs to depend on locked keys
+    /// Maximum number of blocks a CAT can remain pending before timing out
+    pub cat_lifetime_blocks: u64,
+    /// Number of blocks to wait after account initialization before starting transaction submission
+    pub initialization_wait_blocks: u64,
+    /// Whether CATs can depend on locked keys from pending transactions (affects transaction ordering)
+    pub allow_cat_pending_dependencies: bool,
 }
 
 #[derive(Debug, Deserialize, Clone)]
