@@ -36,16 +36,16 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
         Box::new(|sweep_config, cat_ratio| {
             let config = sweep_config.as_any().downcast_ref::<crate::config::SweepConfig>().unwrap();
             crate::config::Config {
-                network: config.network.clone(),
-                num_accounts: config.num_accounts.clone(),
-            transactions: crate::config::TransactionConfig {
-                    target_tps: config.transactions.target_tps,
-                    sim_total_block_number: config.transactions.sim_total_block_number,
-                    zipf_parameter: config.transactions.zipf_parameter,
+                network_config: config.network_config.clone(),
+                account_config: config.account_config.clone(),
+                transaction_config: crate::config::TransactionConfig {
+                    target_tps: config.transaction_config.target_tps,
+                    sim_total_block_number: config.transaction_config.sim_total_block_number,
+                    zipf_parameter: config.transaction_config.zipf_parameter,
                     ratio_cats: cat_ratio,  // This is the parameter we're varying
-                    cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,
-                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
-                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
+                    cat_lifetime_blocks: config.transaction_config.cat_lifetime_blocks,
+                    initialization_wait_blocks: config.transaction_config.initialization_wait_blocks,
+                    allow_cat_pending_dependencies: config.transaction_config.allow_cat_pending_dependencies,
                 },
             }
         }),

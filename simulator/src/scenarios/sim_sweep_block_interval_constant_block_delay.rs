@@ -38,7 +38,7 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
             let config = sweep_config.as_any().downcast_ref::<crate::config::SweepBlockIntervalConstantDelayConfig>().unwrap();
 
             crate::config::Config {
-                network: crate::config::NetworkConfig {
+                network_config: crate::config::NetworkConfig {
                     num_chains: config.network.num_chains,
                     chain_delays: vec![
                         config.network.chain_delays[0],  // Keep first chain delay unchanged
@@ -46,8 +46,8 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
                     ],
                     block_interval: block_interval,                        // Apply the varied block interval
                 },
-                num_accounts: config.num_accounts.clone(),
-                transactions: crate::config::TransactionConfig {
+                account_config: config.num_accounts.clone(),
+                transaction_config: crate::config::TransactionConfig {
                     target_tps: config.transactions.target_tps,
                     sim_total_block_number: config.transactions.sim_total_block_number,                    
                     zipf_parameter: config.transactions.zipf_parameter,

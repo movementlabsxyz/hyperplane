@@ -51,7 +51,7 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
             crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Block count: {}, Chain 2 delay: {} blocks (reference: {:.1}s at 0.1s)", 
                 block_interval, block_count, delay_blocks, reference_delay));
             crate::config::Config {
-                network: crate::config::NetworkConfig {
+                network_config: crate::config::NetworkConfig {
                     num_chains: config.network.num_chains,
                     chain_delays: vec![
                         config.network.chain_delays[0],  // Keep first chain delay unchanged
@@ -59,8 +59,8 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                     ],
                     block_interval: block_interval,                        // Apply the varied block interval
                 },
-                num_accounts: config.num_accounts.clone(),
-                transactions: crate::config::TransactionConfig {
+                account_config: config.num_accounts.clone(),
+                transaction_config: crate::config::TransactionConfig {
                     target_tps: config.transactions.target_tps,
                     sim_total_block_number: block_count,                    // Use block count from config
                     zipf_parameter: config.transactions.zipf_parameter,

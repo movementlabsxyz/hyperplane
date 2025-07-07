@@ -22,29 +22,29 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
 
     // Setup test nodes (with zero delays for funding)
     let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-        Duration::from_secs_f64(config.network.block_interval),
+        Duration::from_secs_f64(config.network_config.block_interval),
         &[0, 0], // Zero delays for funding
-        config.transactions.allow_cat_pending_dependencies,
-        config.transactions.cat_lifetime_blocks,
+        config.transaction_config.allow_cat_pending_dependencies,
+        config.transaction_config.cat_lifetime_blocks,
     ).await;
     
     // Initialize accounts with initial balance (with zero delays for fast processing)
     crate::network::initialize_accounts(
         &[cl_node.clone()], 
-        config.num_accounts.initial_balance.try_into().unwrap(), 
-        config.num_accounts.num_accounts.try_into().unwrap(),
+        config.account_config.initial_balance.try_into().unwrap(), 
+        config.account_config.num_accounts.try_into().unwrap(),
         Some(&[hig_node_1.clone(), hig_node_2.clone()]),
-        config.network.block_interval,
+        config.network_config.block_interval,
     ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
     
     // Now set the actual chain delays for the main simulation
     logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
-    let delay_1_time = Duration::from_secs_f64(config.network.block_interval * config.network.chain_delays[0] as f64);
-    let delay_2_time = Duration::from_secs_f64(config.network.block_interval * config.network.chain_delays[1] as f64);
+    let delay_1_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[0] as f64);
+    let delay_2_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[1] as f64);
     hig_node_1.lock().await.set_hs_message_delay(delay_1_time);
     hig_node_2.lock().await.set_hs_message_delay(delay_2_time);
     logging::log("SIMULATOR", &format!("Set chain 1 delay to {} blocks ({:?}) and chain 2 delay to {} blocks ({:?})", 
-        config.network.chain_delays[0], delay_1_time, config.network.chain_delays[1], delay_2_time));
+        config.network_config.chain_delays[0], delay_1_time, config.network_config.chain_delays[1], delay_2_time));
 
     // Run simulation
     crate::run_simulation::run_simulation(
@@ -82,32 +82,32 @@ fn setup_logging() {
 /// Initializes simulation results from configuration
 fn initialize_simulation_results(config: &crate::config::Config) -> crate::SimulationResults {
     let mut results = crate::SimulationResults::default();
-    results.initial_balance = config.num_accounts.initial_balance.try_into().unwrap();
-    results.num_accounts = config.num_accounts.num_accounts.try_into().unwrap();
-    results.target_tps = config.transactions.target_tps as u64;
-            results.sim_total_block_number = config.transactions.sim_total_block_number.try_into().unwrap();
-    results.zipf_parameter = config.transactions.zipf_parameter;
-    results.ratio_cats = config.transactions.ratio_cats;
-    results.block_interval = config.network.block_interval;
-    results.cat_lifetime = config.transactions.cat_lifetime_blocks;
-    results.initialization_wait_blocks = config.transactions.initialization_wait_blocks;
-    results.chain_delays = config.network.chain_delays.clone();
+    results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
+    results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
+    results.target_tps = config.transaction_config.target_tps as u64;
+            results.sim_total_block_number = config.transaction_config.sim_total_block_number.try_into().unwrap();
+    results.zipf_parameter = config.transaction_config.zipf_parameter;
+    results.ratio_cats = config.transaction_config.ratio_cats;
+    results.block_interval = config.network_config.block_interval;
+    results.cat_lifetime = config.transaction_config.cat_lifetime_blocks;
+    results.initialization_wait_blocks = config.transaction_config.initialization_wait_blocks;
+    results.chain_delays = config.network_config.chain_delays.clone();
     results.start_time = Instant::now();
 
     // Log configuration
     let start_time = Local::now();
     logging::log("SIMULATOR", "=== Simulation Configuration ===");
     logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
-    logging::log("SIMULATOR", &format!("Initial Balance: {}", config.num_accounts.initial_balance));
-    logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.num_accounts.num_accounts));
-    logging::log("SIMULATOR", &format!("Target TPS: {}", config.transactions.target_tps));
-    logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transactions.sim_total_block_number));
-    logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
-    logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transactions.zipf_parameter));
-    logging::log("SIMULATOR", &format!("Ratio CATs: {}", config.transactions.ratio_cats));
+    logging::log("SIMULATOR", &format!("Initial Balance: {}", config.account_config.initial_balance));
+    logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.account_config.num_accounts));
+    logging::log("SIMULATOR", &format!("Target TPS: {}", config.transaction_config.target_tps));
+    logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transaction_config.sim_total_block_number));
+    logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network_config.num_chains));
+    logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transaction_config.zipf_parameter));
+    logging::log("SIMULATOR", &format!("Ratio CATs: {}", config.transaction_config.ratio_cats));
     logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", results.cat_lifetime));
     logging::log("SIMULATOR", &format!("Initialization Wait Blocks: {}", results.initialization_wait_blocks));
-    for (i, delay) in config.network.chain_delays.iter().enumerate() {
+    for (i, delay) in config.network_config.chain_delays.iter().enumerate() {
         logging::log("SIMULATOR", &format!("Chain {} Delay: {} blocks", i + 1, delay));
     }
     logging::log("SIMULATOR", "=============================");

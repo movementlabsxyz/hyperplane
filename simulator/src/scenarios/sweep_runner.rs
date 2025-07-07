@@ -29,9 +29,9 @@ pub trait SweepConfigTrait {
 /// Implementation for different sweep config types
 impl SweepConfigTrait for crate::config::SweepConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
@@ -123,19 +123,19 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
 
             // Setup test nodes
             let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-                Duration::from_secs_f64(sim_config.network.block_interval),
-                &sim_config.network.chain_delays,
-                sim_config.transactions.allow_cat_pending_dependencies,
-                sim_config.transactions.cat_lifetime_blocks,
+                Duration::from_secs_f64(sim_config.network_config.block_interval),
+                &sim_config.network_config.chain_delays,
+                sim_config.transaction_config.allow_cat_pending_dependencies,
+                sim_config.transaction_config.cat_lifetime_blocks,
             ).await;
             
             // Initialize accounts with initial balance
             crate::network::initialize_accounts(
                 &[cl_node.clone()], 
-                sim_config.num_accounts.initial_balance.try_into().unwrap(), 
-                sim_config.num_accounts.num_accounts.try_into().unwrap(),
+                sim_config.account_config.initial_balance.try_into().unwrap(), 
+                sim_config.account_config.num_accounts.try_into().unwrap(),
                 Some(&[hig_node_1.clone(), hig_node_2.clone()]),
-                sim_config.network.block_interval,
+                sim_config.network_config.block_interval,
             ).await.map_err(|e| {
                 let error_context = format!(
                     "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
@@ -270,16 +270,16 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
     /// Initializes simulation results from configuration
     fn initialize_simulation_results(&self, config: &crate::config::Config, sim_index: usize, param_value: &T) -> crate::SimulationResults {
         let mut results = crate::SimulationResults::default();
-        results.initial_balance = config.num_accounts.initial_balance.try_into().unwrap();
-        results.num_accounts = config.num_accounts.num_accounts.try_into().unwrap();
-        results.target_tps = config.transactions.target_tps as u64;
-        results.sim_total_block_number = config.transactions.sim_total_block_number.try_into().unwrap();
-        results.zipf_parameter = config.transactions.zipf_parameter;
-        results.ratio_cats = config.transactions.ratio_cats;
-        results.block_interval = config.network.block_interval;
-        results.cat_lifetime = config.transactions.cat_lifetime_blocks;
-        results.initialization_wait_blocks = config.transactions.initialization_wait_blocks;
-        results.chain_delays = config.network.chain_delays.clone();
+        results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
+        results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
+        results.target_tps = config.transaction_config.target_tps as u64;
+        results.sim_total_block_number = config.transaction_config.sim_total_block_number.try_into().unwrap();
+        results.zipf_parameter = config.transaction_config.zipf_parameter;
+        results.ratio_cats = config.transaction_config.ratio_cats;
+        results.block_interval = config.network_config.block_interval;
+        results.cat_lifetime = config.transaction_config.cat_lifetime_blocks;
+        results.initialization_wait_blocks = config.transaction_config.initialization_wait_blocks;
+        results.chain_delays = config.network_config.chain_delays.clone();
         results.start_time = Instant::now();
 
         // Log configuration
@@ -287,16 +287,16 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         logging::log("SIMULATOR", &format!("=== Simulation {} Configuration ===", sim_index + 1));
         logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
         logging::log("SIMULATOR", &format!("{}: {:?}", self.parameter_name, param_value));
-        logging::log("SIMULATOR", &format!("Initial Balance: {}", config.num_accounts.initial_balance));
-        logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.num_accounts.num_accounts));
-        logging::log("SIMULATOR", &format!("Target TPS: {}", config.transactions.target_tps));
-        logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transactions.sim_total_block_number));
-        logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network.num_chains));
-        logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transactions.zipf_parameter));
-        logging::log("SIMULATOR", &format!("CAT Ratio: {}", config.transactions.ratio_cats));
+        logging::log("SIMULATOR", &format!("Initial Balance: {}", config.account_config.initial_balance));
+        logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.account_config.num_accounts));
+        logging::log("SIMULATOR", &format!("Target TPS: {}", config.transaction_config.target_tps));
+        logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transaction_config.sim_total_block_number));
+        logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network_config.num_chains));
+        logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transaction_config.zipf_parameter));
+        logging::log("SIMULATOR", &format!("CAT Ratio: {}", config.transaction_config.ratio_cats));
         logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", results.cat_lifetime));
         logging::log("SIMULATOR", &format!("Initialization Wait Blocks: {}", results.initialization_wait_blocks));
-        for (i, delay) in config.network.chain_delays.iter().enumerate() {
+        for (i, delay) in config.network_config.chain_delays.iter().enumerate() {
             logging::log("SIMULATOR", &format!("Chain {} Delay: {} blocks", i + 1, delay));
         }
         logging::log("SIMULATOR", "=============================");

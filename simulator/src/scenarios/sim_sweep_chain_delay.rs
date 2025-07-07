@@ -36,7 +36,7 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
         Box::new(|sweep_config, chain_delay| {
             let config = sweep_config.as_any().downcast_ref::<crate::config::SweepChainDelayConfig>().unwrap();
             crate::config::Config {
-                network: crate::config::NetworkConfig {
+                network_config: crate::config::NetworkConfig {
                     num_chains: config.network.num_chains,
                     chain_delays: vec![
                         config.network.chain_delays[0],  // Keep first chain delay unchanged
@@ -44,8 +44,8 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
                     ],
                     block_interval: config.network.block_interval,
                 },
-                num_accounts: config.num_accounts.clone(),
-                transactions: config.transactions.clone(),
+                account_config: config.num_accounts.clone(),
+                transaction_config: config.transactions.clone(),
             }
         }),
         // Function to save the combined results from all simulations

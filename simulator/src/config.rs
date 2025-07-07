@@ -7,24 +7,46 @@ use std::time::Duration;
 use thiserror::Error;
 
 
+/// Main configuration struct for simulation parameters.
+/// 
+/// This struct contains all the configuration needed to run a simulation,
+/// including network settings, account configuration, and transaction parameters.
+/// It is used for both simple simulations and as the base configuration for sweep simulations.
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    pub network: NetworkConfig,
+    /// Network configuration including chain count, delays, and block intervals
+    pub network_config: NetworkConfig,
+    /// Account configuration including initial balances and account count
     #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub account_config: AccountConfig,
+    /// Transaction configuration including rates, patterns, and cross-chain settings
+    pub transaction_config: TransactionConfig,
 }
 
+/// Configuration for network-related simulation parameters.
+/// 
+/// This struct defines the multi-chain network topology and timing characteristics
+/// for the simulation, including the number of chains, inter-chain delays, and
+/// block production rates.
 #[derive(Debug, Deserialize, Clone)]
 pub struct NetworkConfig {
+    /// Number of chains in the multi-chain network
     pub num_chains: usize,
-    pub chain_delays: Vec<u64>,  // Delay for each chain in blocks
-    pub block_interval: f64,  // Block interval in seconds
+    /// Delay in blocks for each chain (order corresponds to chain-1, chain-2, etc.)
+    pub chain_delays: Vec<u64>,
+    /// Block interval in seconds (time between block productions)
+    pub block_interval: f64,
 }
 
+/// Configuration for account-related simulation parameters.
+/// 
+/// This struct defines the account setup for the simulation, including
+/// the number of accounts to create and their initial token balances.
 #[derive(Debug, Deserialize, Clone)]
 pub struct AccountConfig {
+    /// Initial balance for each account in the simulation (in tokens)
     pub initial_balance: i64,
+    /// Number of accounts to create in the simulation
     pub num_accounts: usize,
 }
 
@@ -53,10 +75,10 @@ pub struct TransactionConfig {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepConfig {
-    pub network: NetworkConfig,
+    pub network_config: NetworkConfig,
     #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
@@ -283,21 +305,21 @@ impl Config {
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)
     }
 
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl ValidateConfig for SweepConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -316,8 +338,8 @@ impl SweepConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }

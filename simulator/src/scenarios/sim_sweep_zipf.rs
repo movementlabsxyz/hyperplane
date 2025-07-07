@@ -37,9 +37,9 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
         Box::new(|sweep_config, zipf_param| {
             let config = sweep_config.as_any().downcast_ref::<crate::config::SweepZipfConfig>().unwrap();
             crate::config::Config {
-                network: config.network.clone(),
-                num_accounts: config.num_accounts.clone(),
-                transactions: crate::config::TransactionConfig {
+                network_config: config.network.clone(),
+                account_config: config.num_accounts.clone(),
+                transaction_config: crate::config::TransactionConfig {
                     target_tps: config.transactions.target_tps,
                     sim_total_block_number: config.transactions.sim_total_block_number,
                     zipf_parameter: zipf_param,  // This is the parameter we're varying

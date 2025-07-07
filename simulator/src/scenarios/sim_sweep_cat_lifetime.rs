@@ -37,9 +37,9 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
         Box::new(|sweep_config, cat_lifetime| {
             let config = sweep_config.as_any().downcast_ref::<crate::config::SweepCatLifetimeConfig>().unwrap();
             crate::config::Config {
-                network: config.network.clone(),
-                num_accounts: config.num_accounts.clone(),
-                transactions: crate::config::TransactionConfig {
+                network_config: config.network.clone(),
+                account_config: config.num_accounts.clone(),
+                transaction_config: crate::config::TransactionConfig {
                     target_tps: config.transactions.target_tps,
                     sim_total_block_number: config.transactions.sim_total_block_number,
                     zipf_parameter: config.transactions.zipf_parameter,
