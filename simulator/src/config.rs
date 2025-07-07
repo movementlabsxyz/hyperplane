@@ -1,3 +1,6 @@
+//! Configuration loader and validator for the Hyperplane simulator.
+//! Handles parsing, validation, and access to simulation configuration files.
+
 use serde::Deserialize;
 use std::fs;
 use std::time::Duration;

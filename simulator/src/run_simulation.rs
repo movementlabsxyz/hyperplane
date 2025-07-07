@@ -1,3 +1,6 @@
+//! Core simulation runner for the Hyperplane simulator.
+//! Contains logic to execute a single simulation scenario based on configuration.
+
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;

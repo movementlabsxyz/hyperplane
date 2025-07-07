@@ -1,3 +1,6 @@
+//! Central registry for all simulation types in the Hyperplane simulator.
+//! Maps simulation types to their configuration and execution logic for easy lookup and deduplication.
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;

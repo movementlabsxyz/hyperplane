@@ -1,3 +1,6 @@
+//! Test node setup and management for the Hyperplane simulator.
+//! Provides utilities for initializing and controlling simulated blockchain nodes.
+
 use hyperplane::{
     types::ChainId,
     confirmation_layer::node::ConfirmationLayerNode,

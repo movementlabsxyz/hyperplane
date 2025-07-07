@@ -1,3 +1,6 @@
+//! Data structures and utilities for storing simulation results in the Hyperplane simulator.
+//! Used for saving, loading, and analyzing simulation output data.
+
 use std::time::Instant;
 use std::fs;
 use serde_json;

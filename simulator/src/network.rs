@@ -1,3 +1,6 @@
+//! Account initialization and funding verification for the Hyperplane simulator.
+//! Creates initial credit transactions, waits for funding completion, and verifies account balances.
+
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
 use hyperplane::{
