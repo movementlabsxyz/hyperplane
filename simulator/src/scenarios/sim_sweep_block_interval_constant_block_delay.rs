@@ -1,4 +1,4 @@
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence, SweepConfigTrait};
 
 /// Runs the sweep block interval with constant block delay simulation
 /// 
@@ -58,4 +58,16 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
 
     // Run the sweep - this handles all the simulation execution, logging, and result saving
     runner.run().await
+}
+
+/// Implementation of SweepConfigTrait for block interval constant delay sweep configurations.
+/// 
+/// This allows the SweepRunner to work with configurations specifically designed
+/// for block interval sweeps with constant block delays.
+impl SweepConfigTrait for crate::config::SweepBlockIntervalConstantDelayConfig {
+    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 } 

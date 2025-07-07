@@ -69,53 +69,8 @@ impl SweepConfigTrait for crate::config::SweepConfig {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
-/// Implementation of SweepConfigTrait for Zipf distribution sweep configurations.
-/// 
-/// This allows the SweepRunner to work with configurations specifically designed
-/// for Zipf parameter sweeps.
-impl SweepConfigTrait for crate::config::SweepZipfConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-}
 
-/// Implementation of SweepConfigTrait for chain delay sweep configurations.
-/// 
-/// This allows the SweepRunner to work with configurations specifically designed
-/// for chain delay sweeps.
-impl SweepConfigTrait for crate::config::SweepChainDelayConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-}
 
-/// Implementation of SweepConfigTrait for duration sweep configurations.
-/// 
-/// This allows the SweepRunner to work with configurations specifically designed
-/// for simulation duration (total block number) sweeps.
-impl SweepConfigTrait for crate::config::SweepDurationConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-}
-
-/// Implementation of SweepConfigTrait for CAT lifetime sweep configurations.
-/// 
-/// This allows the SweepRunner to work with configurations specifically designed
-/// for CAT lifetime sweeps.
-impl SweepConfigTrait for crate::config::SweepCatLifetimeConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-}
 
 /// Implementation of SweepRunner methods for parameter types that support Debug and Clone.
 /// 

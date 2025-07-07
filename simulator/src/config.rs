@@ -99,6 +99,7 @@ pub struct SweepParameters {
     pub reference_chain_delay_duration: Option<f64>,
 }
 
+// Separate sweep config structs to maintain sweep-specific validation
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepZipfConfig {
     pub network_config: NetworkConfig,
@@ -154,8 +155,6 @@ pub struct SweepCatPendingDependenciesConfig {
     pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
-
-
 
 impl NetworkConfig {
     pub fn get_chain_ids(&self) -> Vec<String> {
@@ -335,6 +334,7 @@ impl SweepConfig {
     }
 }
 
+// Implement ValidateConfig for each sweep config type to maintain sweep-specific validation
 impl ValidateConfig for SweepZipfConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
@@ -345,20 +345,10 @@ impl ValidateConfig for SweepZipfConfig {
     }
 
     fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.cat_rate_step.is_none() && self.sweep.zipf_step.is_none() {
-            return Err(ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
+        if self.sweep.zipf_step.is_none() {
+            return Err(ConfigError::ValidationError("Zipf step must be specified".into()));
         }
         Ok(())
-    }
-}
-
-impl SweepZipfConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -379,16 +369,6 @@ impl ValidateConfig for SweepChainDelayConfig {
     }
 }
 
-impl SweepChainDelayConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
-    }
-}
-
 impl ValidateConfig for SweepDurationConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
@@ -403,16 +383,6 @@ impl ValidateConfig for SweepDurationConfig {
             return Err(ConfigError::ValidationError("Duration step must be specified".into()));
         }
         Ok(())
-    }
-}
-
-impl SweepDurationConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -433,16 +403,6 @@ impl ValidateConfig for SweepCatLifetimeConfig {
     }
 }
 
-impl SweepCatLifetimeConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
-    }
-}
-
 impl ValidateConfig for SweepBlockIntervalConstantDelayConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
@@ -457,16 +417,6 @@ impl ValidateConfig for SweepBlockIntervalConstantDelayConfig {
             return Err(ConfigError::ValidationError("Block interval step must be specified".into()));
         }
         Ok(())
-    }
-}
-
-impl SweepBlockIntervalConstantDelayConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
@@ -492,32 +442,6 @@ impl ValidateConfig for SweepBlockIntervalScaledDelayConfig {
     }
 }
 
-impl SweepBlockIntervalScaledDelayConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
-    }
-}
-
-impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalConstantDelayConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-}
-
-impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalScaledDelayConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-}
-
 impl ValidateConfig for SweepCatPendingDependenciesConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
@@ -535,22 +459,4 @@ impl ValidateConfig for SweepCatPendingDependenciesConfig {
         }
         Ok(())
     }
-}
-
-impl SweepCatPendingDependenciesConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
-    }
-}
-
-impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepCatPendingDependenciesConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
 } 
