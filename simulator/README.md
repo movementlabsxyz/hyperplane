@@ -84,6 +84,48 @@ python3 simulator/scripts/sim_simple/plot_results.py
 
 You can modify the simulation parameters by editing the configuration files in `simulator/src/scenarios/`. The simulator supports multiple simulation types including simple simulations and various parameter sweep scenarios.
 
+## Adding New Simulations
+
+To add a new simulation to the simulator, follow these steps:
+
+##### 1. Define the Simulation Type
+Add your simulation type to `src/interface.rs`:
+```rust
+pub enum SimulationType {
+    // ... existing types ...
+    YourNewSimulation,
+}
+```
+
+##### 2. Create the Simulation Module
+Add the module declaration in `src/scenarios/mod.rs`:
+```rust
+pub mod sim_your_new_simulation;
+```
+
+##### 3. Implement the Simulation
+Create `src/scenarios/sim_your_new_simulation.rs` with:
+- Your simulation logic
+- A `register()` function that returns `(SimulationType, SimulationConfig)`
+- See `sim_sweep_zipf.rs` for a complete reference implementation
+
+##### 4. Create Configuration
+Create `src/scenarios/config_your_new_simulation.toml` with your simulation parameters.
+
+##### 5. Create Plot Script
+Create `scripts/sim_your_new_simulation/plot_results.py` to visualize results.
+
+##### 6. Update Main Binary
+Add your simulation type handling in `src/bin/simulator.rs`.
+
+##### Reference Implementation
+See `sim_sweep_zipf.rs` for a complete example of a sweep simulation with:
+- Configuration loading and validation
+- Parameter sequence generation  
+- SweepRunner integration
+- Proper error handling
+- Registry registration
+
 ## Architecture
 
 The simulator is organized into several modules:
@@ -101,6 +143,7 @@ simulator/
 │   │   ├── config_simple.toml # Configuration for simple simulation
 │   │   └── config_*.toml   # Configuration files for various sweep scenarios
 │   ├── interface.rs        # Interface system for simulation selection
+│   ├── simulation_registry.rs # Central registry for all simulations
 │   ├── run_simulation.rs   # Core simulation logic and transaction processing
 │   ├── simulation_results.rs # Results tracking and data collection
 │   ├── config.rs           # Configuration management and validation

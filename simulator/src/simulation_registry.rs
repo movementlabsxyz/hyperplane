@@ -1,5 +1,7 @@
 //! Central registry for all simulation types in the Hyperplane simulator.
 //! Maps simulation types to their configuration and execution logic for easy lookup and deduplication.
+//! 
+//! See the README.md for instructions on how to add new simulations to this registry.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -21,6 +23,11 @@ use crate::scenarios::{
 use super::interface::SimulationType;
 
 /// Configuration for a simulation type
+/// 
+/// This struct contains all the information needed to run and manage a simulation:
+/// - `name`: Human-readable name for the simulation
+/// - `run_fn`: Function that executes the simulation asynchronously
+/// - `plot_script`: Path to the Python script that generates plots from results
 pub struct SimulationConfig {
     pub name: &'static str,
     pub run_fn: Box<dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), String>>>> + Send + Sync>,
@@ -28,11 +35,20 @@ pub struct SimulationConfig {
 }
 
 /// Registry that holds all simulation configurations
+/// 
+/// This registry provides a centralized way to manage all available simulations.
+/// It maps simulation types to their configurations and provides methods to
+/// retrieve simulation information and execute simulations.
 pub struct SimulationRegistry {
     simulations: HashMap<SimulationType, SimulationConfig>,
 }
 
 impl SimulationRegistry {
+    /// Creates a new simulation registry with all available simulations registered.
+    /// 
+    /// This method initializes the registry by calling the `register()` function
+    /// from each simulation module. Each simulation provides its own registration
+    /// information, making the registry extensible and maintainable.
     pub fn new() -> Self {
         let mut simulations = HashMap::new();
         
@@ -77,10 +93,16 @@ impl SimulationRegistry {
         Self { simulations }
     }
     
+    /// Retrieves the configuration for a specific simulation type.
+    /// 
+    /// Returns `None` if the simulation type is not registered.
     pub fn get(&self, simulation_type: &SimulationType) -> Option<&SimulationConfig> {
         self.simulations.get(simulation_type)
     }
     
+    /// Retrieves the plot script path for a specific simulation type.
+    /// 
+    /// Returns `None` if the simulation type is not registered or has no plot script.
     pub fn get_plot_script(&self, simulation_type: &SimulationType) -> Option<&str> {
         self.simulations.get(simulation_type)
             .map(|config| config.plot_script)
