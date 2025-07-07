@@ -3,6 +3,7 @@
 //! 
 //! See the README.md for instructions on how to add new simulations to this registry.
 
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -21,6 +22,10 @@ use crate::scenarios::{
 };
 
 use super::interface::SimulationType;
+
+// ------------------------------------------------------------------------------------------------
+// Configuration Structs
+// ------------------------------------------------------------------------------------------------
 
 /// Configuration for a simulation type
 /// 
@@ -42,6 +47,10 @@ pub struct SimulationConfig {
 pub struct SimulationRegistry {
     simulations: HashMap<SimulationType, SimulationConfig>,
 }
+
+// ------------------------------------------------------------------------------------------------
+// Registry Implementation
+// ------------------------------------------------------------------------------------------------
 
 impl SimulationRegistry {
     /// Creates a new simulation registry with all available simulations registered.
@@ -108,6 +117,10 @@ impl SimulationRegistry {
             .map(|config| config.plot_script)
     }
 }
+
+// ------------------------------------------------------------------------------------------------
+// Global Registry Instance
+// ------------------------------------------------------------------------------------------------
 
 // Global registry instance
 lazy_static::lazy_static! {

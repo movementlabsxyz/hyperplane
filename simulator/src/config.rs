@@ -1,11 +1,15 @@
 //! Configuration loader and validator for the Hyperplane simulator.
 //! Handles parsing, validation, and access to simulation configuration files.
 
+
 use serde::Deserialize;
 use std::fs;
 use std::time::Duration;
 use thiserror::Error;
 
+// ------------------------------------------------------------------------------------------------
+// Main Configuration Structs
+// ------------------------------------------------------------------------------------------------
 
 /// Main configuration struct for simulation parameters.
 /// 
@@ -71,6 +75,10 @@ pub struct TransactionConfig {
     /// Whether CATs can depend on locked keys from pending transactions (affects transaction ordering)
     pub allow_cat_pending_dependencies: bool,
 }
+
+// ------------------------------------------------------------------------------------------------
+// Sweep Configuration Structs
+// ------------------------------------------------------------------------------------------------
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepConfig {
@@ -164,6 +172,10 @@ impl NetworkConfig {
     }
 }
 
+// ------------------------------------------------------------------------------------------------
+// Error Types and Validation
+// ------------------------------------------------------------------------------------------------
+
 #[derive(Error, Debug)]
 pub enum ConfigError {
     #[error("Failed to read config file: {0}")]
@@ -229,6 +241,10 @@ fn validate_common_fields(
     }
     Ok(())
 }
+
+// ------------------------------------------------------------------------------------------------
+// Configuration Implementation Methods
+// ------------------------------------------------------------------------------------------------
 
 impl Config {
     pub fn load() -> Result<Self, ConfigError> {

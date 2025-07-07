@@ -1,7 +1,12 @@
+
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config};
 use crate::config::ValidateConfig;
 use std::fs;
 use toml;
+
+// ------------------------------------------------------------------------------------------------
+// Configuration Loading
+// ------------------------------------------------------------------------------------------------
 
 /// Loads the CAT pending dependencies sweep configuration from the TOML file.
 /// 
@@ -13,6 +18,10 @@ fn load_config() -> Result<crate::config::SweepCatPendingDependenciesConfig, cra
     config.validate()?;
     Ok(config)
 }
+
+// ------------------------------------------------------------------------------------------------
+// Parameter Sequence Generation & Sweep Runner Setup
+// ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep CAT pending dependencies simulation
 /// 
@@ -73,7 +82,9 @@ pub async fn run_sweep_cat_pending_dependencies_simulation() -> Result<(), crate
     runner.run().await
 }
 
-
+// ------------------------------------------------------------------------------------------------
+// Simulation Registration
+// ------------------------------------------------------------------------------------------------
 
 /// Register this simulation with the simulation registry.
 /// 

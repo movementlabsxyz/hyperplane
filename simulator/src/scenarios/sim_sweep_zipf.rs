@@ -1,7 +1,12 @@
+
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::config::ValidateConfig;
 use std::fs;
 use toml;
+
+// ------------------------------------------------------------------------------------------------
+// Configuration Loading
+// ------------------------------------------------------------------------------------------------
 
 /// Loads the Zipf sweep configuration from the TOML file.
 /// 
@@ -13,6 +18,10 @@ fn load_config() -> Result<crate::config::SweepZipfConfig, crate::config::Config
     config.validate()?;
     Ok(config)
 }
+
+// ------------------------------------------------------------------------------------------------
+// Parameter Sequence Generation & Sweep Runner Setup
+// ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep Zipf distribution simulation
 /// 
@@ -76,7 +85,9 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
     runner.run().await
 }
 
-
+// ------------------------------------------------------------------------------------------------
+// Simulation Registration
+// ------------------------------------------------------------------------------------------------
 
 /// Register this simulation with the simulation registry.
 /// 

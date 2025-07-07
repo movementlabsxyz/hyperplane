@@ -6,6 +6,10 @@ use std::time::{Duration, Instant};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json;
 
+// ------------------------------------------------------------------------------------------------
+// Macro Definitions
+// ------------------------------------------------------------------------------------------------
+
 /// Macro to implement SweepConfigTrait for any sweep config type.
 /// 
 /// This macro eliminates code duplication by providing the same implementation
@@ -23,6 +27,10 @@ macro_rules! impl_sweep_config_trait {
         )*
     };
 }
+
+// ------------------------------------------------------------------------------------------------
+// Core Types and Traits
+// ------------------------------------------------------------------------------------------------
 
 /// Generic sweep runner that eliminates duplication across sweep simulations.
 /// 
@@ -75,10 +83,9 @@ pub trait SweepConfigTrait {
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-
-
-
-
+// ------------------------------------------------------------------------------------------------
+// SweepRunner Implementation
+// ------------------------------------------------------------------------------------------------
 
 /// Implementation of SweepRunner methods for parameter types that support Debug and Clone.
 /// 
@@ -120,6 +127,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         }
     }
 
+    // ------------------------------------------------------------------------------------------------
+    // Main Simulation Execution
+    // ------------------------------------------------------------------------------------------------
+    
     /// Runs the complete sweep simulation.
     /// 
     /// This method orchestrates the entire sweep process:
@@ -250,6 +261,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
 
         Ok(())
     }
+
+    // ------------------------------------------------------------------------------------------------
+    // Setup and Utility Methods
+    // ------------------------------------------------------------------------------------------------
 
     /// Creates the necessary directories for storing sweep results.
     /// 
@@ -412,6 +427,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         results
     }
 }
+
+// ------------------------------------------------------------------------------------------------
+// Helper Functions
+// ------------------------------------------------------------------------------------------------
 
 /// Generic function to save sweep results to JSON format.
 /// 

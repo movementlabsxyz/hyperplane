@@ -1,7 +1,12 @@
+
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::config::ValidateConfig;
 use std::fs;
 use toml;
+
+// ------------------------------------------------------------------------------------------------
+// Configuration Loading
+// ------------------------------------------------------------------------------------------------
 
 /// Loads the block interval constant time delay sweep configuration from the TOML file.
 /// 
@@ -13,6 +18,10 @@ fn load_config() -> Result<crate::config::SweepBlockIntervalScaledDelayConfig, c
     config.validate()?;
     Ok(config)
 }
+
+// ------------------------------------------------------------------------------------------------
+// Parameter Sequence Generation & Sweep Runner Setup
+// ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep block interval with constant time delay simulation
 /// 
@@ -100,7 +109,9 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
     runner.run().await
 }
 
-
+// ------------------------------------------------------------------------------------------------
+// Simulation Registration
+// ------------------------------------------------------------------------------------------------
 
 /// Register this simulation with the simulation registry.
 /// 

@@ -1,8 +1,13 @@
+
 use std::env;
 use std::fs;
 use chrono::Local;
 use hyperplane::utils::logging;
 use std::time::{Duration, Instant};
+
+// ------------------------------------------------------------------------------------------------
+// Simulation Entry Point
+// ------------------------------------------------------------------------------------------------
 
 /// Runs the simple simulation
 pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
@@ -59,6 +64,10 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     Ok(())
 }
 
+// ------------------------------------------------------------------------------------------------
+// Logging Setup
+// ------------------------------------------------------------------------------------------------
+
 /// Sets up logging if ENABLE_LOGS environment variable is set
 fn setup_logging() {
     if env::var("ENABLE_LOGS").is_ok() {
@@ -78,6 +87,10 @@ fn setup_logging() {
         logging::init_logging();
     }
 }
+
+// ------------------------------------------------------------------------------------------------
+// Results Initialization
+// ------------------------------------------------------------------------------------------------
 
 /// Initializes simulation results from configuration
 fn initialize_simulation_results(config: &crate::config::Config) -> crate::SimulationResults {
@@ -114,6 +127,10 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
 
     results
 }
+
+// ------------------------------------------------------------------------------------------------
+// Simulation Registration
+// ------------------------------------------------------------------------------------------------
 
 /// Register this simulation with the simulation registry.
 /// 
