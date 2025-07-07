@@ -1,37 +1,4 @@
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
-
-/// Creates a configuration for CAT rate sweep.
-/// 
-/// This function takes a sweep configuration and a CAT ratio value, then creates
-/// a new Config with the CAT ratio applied to the transaction configuration.
-/// 
-/// # Arguments
-/// 
-/// * `sweep_config` - The sweep configuration containing base parameters
-/// * `cat_ratio` - The CAT ratio value to apply (0.0 to 1.0)
-/// 
-/// # Returns
-/// 
-/// A new Config with the CAT ratio applied
-fn create_cat_rate_config(
-    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
-    cat_ratio: f64,
-) -> crate::config::Config {
-    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepConfig>().unwrap();
-    crate::config::Config {
-        network_config: config.network_config.clone(),
-        account_config: config.account_config.clone(),
-        transaction_config: crate::config::TransactionConfig {
-            target_tps: config.transaction_config.target_tps,
-            sim_total_block_number: config.transaction_config.sim_total_block_number,
-            zipf_parameter: config.transaction_config.zipf_parameter,
-            ratio_cats: cat_ratio,  // This is the parameter we're varying
-            cat_lifetime_blocks: config.transaction_config.cat_lifetime_blocks,
-            initialization_wait_blocks: config.transaction_config.initialization_wait_blocks,
-            allow_cat_pending_dependencies: config.transaction_config.allow_cat_pending_dependencies,
-        },
-    }
-}
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 
 /// Runs the sweep CAT rate simulation
 /// 
@@ -46,12 +13,14 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
     // This reads the sweep settings from config_sweep_cat_rate.toml
     let sweep_config = crate::config::Config::load_sweep()?;
     
-    // Calculate CAT ratios for each simulation
+    // Calculate CAT ratios for each simulation using the helper function
     // Creates a sequence of CAT ratios: 0.0, 0.1, 0.2, 0.3, etc.
     // Each value represents the fraction of transactions that should be CATs
-    let cat_ratios: Vec<f64> = (0..sweep_config.sweep.num_simulations)
-        .map(|i| i as f64 * sweep_config.sweep.cat_rate_step.unwrap())
-        .collect();
+    let cat_ratios = generate_f64_sequence(
+        0.0, 
+        sweep_config.sweep.cat_rate_step.unwrap(), 
+        sweep_config.sweep.num_simulations
+    );
 
     // Create the generic sweep runner that handles all the common functionality
     // This eliminates code duplication across different sweep types
@@ -64,9 +33,23 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
         Box::new(|| {
             crate::config::Config::load_sweep().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
-        // Function to create a modified config for each simulation
+        // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, cat_ratio| {
-            create_cat_rate_config(sweep_config, cat_ratio)
+            create_modified_config(sweep_config, |base_config| {
+                crate::config::Config {
+                    network_config: base_config.network_config.clone(),
+                    account_config: base_config.account_config.clone(),
+                    transaction_config: crate::config::TransactionConfig {
+                        target_tps: base_config.transaction_config.target_tps,
+                        sim_total_block_number: base_config.transaction_config.sim_total_block_number,
+                        zipf_parameter: base_config.transaction_config.zipf_parameter,
+                        ratio_cats: cat_ratio,  // This is the parameter we're varying
+                        cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
+                        initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
+                        allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
+                    },
+                }
+            })
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

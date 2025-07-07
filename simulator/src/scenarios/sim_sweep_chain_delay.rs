@@ -1,36 +1,4 @@
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
-
-/// Creates a configuration for chain delay sweep.
-/// 
-/// This function takes a sweep configuration and a chain delay value, then creates
-/// a new Config with the chain delay applied to the network configuration.
-/// 
-/// # Arguments
-/// 
-/// * `sweep_config` - The sweep configuration containing base parameters
-/// * `chain_delay` - The chain delay value to apply to the second chain (in blocks)
-/// 
-/// # Returns
-/// 
-/// A new Config with the chain delay applied
-fn create_chain_delay_config(
-    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
-    chain_delay: u64,
-) -> crate::config::Config {
-    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepChainDelayConfig>().unwrap();
-    crate::config::Config {
-        network_config: crate::config::NetworkConfig {
-            num_chains: config.network_config.num_chains,
-            chain_delays: vec![
-                config.network_config.chain_delays[0],  // Keep first chain delay unchanged
-                chain_delay,                     // Apply delay to second chain in blocks
-            ],
-            block_interval: config.network_config.block_interval,
-        },
-        account_config: config.account_config.clone(),
-        transaction_config: config.transaction_config.clone(),
-    }
-}
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence};
 
 /// Runs the sweep chain delay simulation
 /// 
@@ -45,12 +13,14 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
     // This reads the sweep settings from config_sweep_chain_delay.toml
     let sweep_config = crate::config::Config::load_sweep_chain_delay()?;
     
-    // Calculate chain delays for each simulation
+    // Calculate chain delays for each simulation using the helper function
     // Creates a sequence of delays: 0 blocks, 1 block, 2 blocks, 3 blocks, etc.
     // Each value represents the delay from the HIG to HS in blocks
-    let chain_delays: Vec<u64> = (0..sweep_config.sweep.num_simulations)
-        .map(|i| i as u64 * sweep_config.sweep.chain_delay_step.unwrap() as u64)
-        .collect();
+    let chain_delays = generate_u64_sequence(
+        0,  // Start at 0 blocks
+        sweep_config.sweep.chain_delay_step.unwrap() as u64,
+        sweep_config.sweep.num_simulations
+    );
 
     // Create the generic sweep runner that handles all the common functionality
     // This eliminates code duplication across different sweep types
@@ -63,9 +33,22 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
         Box::new(|| {
             crate::config::Config::load_sweep_chain_delay().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
-        // Function to create a modified config for each simulation
+        // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, chain_delay| {
-            create_chain_delay_config(sweep_config, chain_delay)
+            create_modified_config(sweep_config, |base_config| {
+                crate::config::Config {
+                    network_config: crate::config::NetworkConfig {
+                        num_chains: base_config.network_config.num_chains,
+                        chain_delays: vec![
+                            base_config.network_config.chain_delays[0],  // Keep first chain delay unchanged
+                            chain_delay,                     // Apply delay to second chain in blocks
+                        ],
+                        block_interval: base_config.network_config.block_interval,
+                    },
+                    account_config: base_config.account_config.clone(),
+                    transaction_config: base_config.transaction_config.clone(),
+                }
+            })
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

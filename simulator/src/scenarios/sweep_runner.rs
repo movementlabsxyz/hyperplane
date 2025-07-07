@@ -6,7 +6,25 @@ use std::time::{Duration, Instant};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json;
 
-/// Generic sweep runner that eliminates duplication across sweep simulations
+/// Generic sweep runner that eliminates duplication across sweep simulations.
+/// 
+/// This struct provides a unified interface for running parameter sweep simulations.
+/// It handles the common workflow of loading configurations, running multiple simulations
+/// with different parameter values, and saving results.
+/// 
+/// # Type Parameters
+/// 
+/// * `T` - The type of the parameter being swept (e.g., f64 for block intervals, u64 for delays)
+/// 
+/// # Fields
+/// 
+/// * `sweep_name` - Human-readable name for logging and display
+/// * `results_dir` - Directory name for storing simulation results
+/// * `parameter_name` - Name of the parameter being varied (for JSON output)
+/// * `parameter_values` - List of parameter values to test
+/// * `config_loader` - Function to load the sweep configuration
+/// * `config_modifier` - Function to create a modified config for each simulation
+/// * `result_saver` - Function to save combined results from all simulations
 pub struct SweepRunner<T> {
     sweep_name: String,
     results_dir: String,
@@ -17,16 +35,32 @@ pub struct SweepRunner<T> {
     result_saver: Box<dyn Fn(&str, &[(T, crate::SimulationResults)]) -> Result<(), crate::config::ConfigError>>,
 }
 
-/// Trait for sweep configurations to allow generic handling
+/// Trait for sweep configurations to allow generic handling across different config types.
+/// 
+/// This trait provides a common interface for accessing configuration data regardless
+/// of the specific sweep configuration type. It allows the SweepRunner to work with
+/// any configuration that implements this trait.
 pub trait SweepConfigTrait {
+    /// Returns the number of simulations to run in this sweep
     fn get_num_simulations(&self) -> usize;
+    
+    /// Returns a reference to the network configuration
     fn get_network_config(&self) -> &crate::config::NetworkConfig;
+    
+    /// Returns a reference to the account configuration
     fn get_account_config(&self) -> &crate::config::AccountConfig;
+    
+    /// Returns a reference to the transaction configuration
     fn get_transaction_config(&self) -> &crate::config::TransactionConfig;
+    
+    /// Returns a reference to the underlying configuration as Any for type casting
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-/// Implementation for different sweep config types
+/// Implementation of SweepConfigTrait for the base SweepConfig type.
+/// 
+/// This allows the SweepRunner to work with the standard sweep configuration
+/// used for CAT rate sweeps and other basic parameter sweeps.
 impl SweepConfigTrait for crate::config::SweepConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
     fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
@@ -35,6 +69,10 @@ impl SweepConfigTrait for crate::config::SweepConfig {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
+/// Implementation of SweepConfigTrait for Zipf distribution sweep configurations.
+/// 
+/// This allows the SweepRunner to work with configurations specifically designed
+/// for Zipf parameter sweeps.
 impl SweepConfigTrait for crate::config::SweepZipfConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
     fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
@@ -43,6 +81,10 @@ impl SweepConfigTrait for crate::config::SweepZipfConfig {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
+/// Implementation of SweepConfigTrait for chain delay sweep configurations.
+/// 
+/// This allows the SweepRunner to work with configurations specifically designed
+/// for chain delay sweeps.
 impl SweepConfigTrait for crate::config::SweepChainDelayConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
     fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
@@ -51,6 +93,10 @@ impl SweepConfigTrait for crate::config::SweepChainDelayConfig {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
+/// Implementation of SweepConfigTrait for duration sweep configurations.
+/// 
+/// This allows the SweepRunner to work with configurations specifically designed
+/// for simulation duration (total block number) sweeps.
 impl SweepConfigTrait for crate::config::SweepDurationConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
     fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
@@ -59,6 +105,10 @@ impl SweepConfigTrait for crate::config::SweepDurationConfig {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
+/// Implementation of SweepConfigTrait for CAT lifetime sweep configurations.
+/// 
+/// This allows the SweepRunner to work with configurations specifically designed
+/// for CAT lifetime sweeps.
 impl SweepConfigTrait for crate::config::SweepCatLifetimeConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
     fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
@@ -67,7 +117,26 @@ impl SweepConfigTrait for crate::config::SweepCatLifetimeConfig {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
+/// Implementation of SweepRunner methods for parameter types that support Debug and Clone.
+/// 
+/// This implementation provides the core functionality for running sweep simulations.
+/// The Debug and Clone bounds are required for logging and parameter handling.
 impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
+    /// Creates a new SweepRunner instance.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `sweep_name` - Human-readable name for the sweep (used in logging and display)
+    /// * `results_dir` - Directory name where results will be stored
+    /// * `parameter_name` - Name of the parameter being varied (used in JSON output)
+    /// * `parameter_values` - Vector of parameter values to test
+    /// * `config_loader` - Function that loads the sweep configuration
+    /// * `config_modifier` - Function that creates a modified config for each simulation
+    /// * `result_saver` - Function that saves combined results from all simulations
+    /// 
+    /// # Returns
+    /// 
+    /// A new SweepRunner instance ready to execute the sweep simulation
     pub fn new(
         sweep_name: &str,
         results_dir: &str,
@@ -88,7 +157,19 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         }
     }
 
-    /// Runs the complete sweep simulation
+    /// Runs the complete sweep simulation.
+    /// 
+    /// This method orchestrates the entire sweep process:
+    /// 1. Creates necessary directories
+    /// 2. Sets up logging
+    /// 3. Loads the sweep configuration
+    /// 4. Runs each simulation with different parameter values
+    /// 5. Saves individual and combined results
+    /// 6. Provides progress feedback
+    /// 
+    /// # Returns
+    /// 
+    /// Result indicating success or failure of the sweep simulation
     pub async fn run(&self) -> Result<(), crate::config::ConfigError> {
         // Create results directory if it doesn't exist
         self.create_directories();
@@ -207,7 +288,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         Ok(())
     }
 
-    /// Creates the necessary directories for the sweep
+    /// Creates the necessary directories for storing sweep results.
+    /// 
+    /// This method creates the main results directory and subdirectories for data and figures.
+    /// The directory structure follows the pattern: `simulator/results/{sweep_name}/{data|figs}/`
     fn create_directories(&self) {
         fs::create_dir_all(&format!("simulator/results/{}", self.results_dir))
             .expect("Failed to create results directory");
@@ -217,7 +301,11 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             .expect("Failed to create figures directory");
     }
 
-    /// Sets up logging if ENABLE_LOGS environment variable is set
+    /// Sets up logging for the sweep simulation.
+    /// 
+    /// This method configures logging if the ENABLE_LOGS environment variable is set.
+    /// It creates a simulation-specific log file and initializes the logging system
+    /// with appropriate configuration for the sweep.
     fn setup_logging(&self) {
         if env::var("ENABLE_LOGS").is_ok() {
             // Delete existing log file if it exists
@@ -237,7 +325,19 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         }
     }
 
-    /// Creates a progress bar for the sweep
+    /// Creates a progress bar for tracking sweep simulation progress.
+    /// 
+    /// This method creates a visual progress bar that shows the current simulation
+    /// progress and estimated completion time. The progress bar displays the
+    /// current simulation number and parameter value being tested.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `num_simulations` - Total number of simulations to run in the sweep
+    /// 
+    /// # Returns
+    /// 
+    /// A configured ProgressBar instance ready for use
     fn create_progress_bar(&self, num_simulations: usize) -> ProgressBar {
         let progress_bar = ProgressBar::new(num_simulations as u64);
         progress_bar.set_style(ProgressStyle::default_bar()
@@ -247,7 +347,15 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         progress_bar
     }
 
-    /// Logs the start of the sweep
+    /// Logs the start of the sweep simulation with configuration details.
+    /// 
+    /// This method logs comprehensive information about the sweep including
+    /// the sweep name, number of simulations, and all parameter values to be tested.
+    /// This provides a clear record of what the sweep is testing.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `sweep_config` - The sweep configuration containing simulation parameters
     fn log_sweep_start(&self, sweep_config: &Box<dyn SweepConfigTrait>) {
         logging::log("SIMULATOR", &format!("=== Sweep {} Simulation ===", self.sweep_name));
         logging::log("SIMULATOR", &format!("Number of simulations: {}", sweep_config.get_num_simulations()));
@@ -255,19 +363,56 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         logging::log("SIMULATOR", "================================");
     }
 
-    /// Logs the start of an individual simulation
+    /// Logs the start of an individual simulation within the sweep.
+    /// 
+    /// This method logs when a specific simulation begins, showing which simulation
+    /// number is running out of the total and what parameter value is being tested.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `sim_index` - Index of the current simulation (0-based)
+    /// * `total_sims` - Total number of simulations in the sweep
+    /// * `param_value` - The parameter value being tested in this simulation
     fn log_simulation_start(&self, sim_index: usize, total_sims: usize, param_value: &T) {
         logging::log("SIMULATOR", &format!("Running simulation {}/{} with {}: {:?}", 
             sim_index + 1, total_sims, self.parameter_name, param_value));
     }
 
-    /// Formats the progress message
+    /// Formats a progress message for display in the progress bar.
+    /// 
+    /// This method creates a human-readable message showing the current simulation
+    /// progress and the parameter value being tested. The message is used by the
+    /// progress bar to show real-time status updates.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `sim_index` - Index of the current simulation (0-based)
+    /// * `total_sims` - Total number of simulations in the sweep
+    /// * `param_value` - The parameter value being tested in this simulation
+    /// 
+    /// # Returns
+    /// 
+    /// A formatted string describing the current simulation progress
     fn format_progress_message(&self, sim_index: usize, total_sims: usize, param_value: &T) -> String {
         format!("Simulation {}/{} with {}: {:?}", 
             sim_index + 1, total_sims, self.parameter_name, param_value)
     }
 
-    /// Initializes simulation results from configuration
+    /// Initializes simulation results from the given configuration.
+    /// 
+    /// This method creates a new SimulationResults instance and populates it with
+    /// configuration data. It also logs detailed configuration information for
+    /// debugging and analysis purposes.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `config` - The configuration for this simulation
+    /// * `sim_index` - Index of the current simulation (for logging)
+    /// * `param_value` - The parameter value being tested (for logging)
+    /// 
+    /// # Returns
+    /// 
+    /// A SimulationResults instance initialized with configuration data
     fn initialize_simulation_results(&self, config: &crate::config::Config, sim_index: usize, param_value: &T) -> crate::SimulationResults {
         let mut results = crate::SimulationResults::default();
         results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
@@ -305,7 +450,26 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
     }
 }
 
-/// Generic function to save sweep results
+/// Generic function to save sweep results to JSON format.
+/// 
+/// This function takes the results from all simulations in a sweep and saves them
+/// in a structured JSON format. It creates both a summary of all simulations and
+/// detailed results for each individual simulation.
+/// 
+/// The JSON output includes:
+/// - Sweep summary with parameter values and transaction counts
+/// - Individual results for each simulation with detailed metrics
+/// - Chain-specific transaction statistics
+/// 
+/// # Arguments
+/// 
+/// * `results_dir` - Directory where results should be saved
+/// * `parameter_name` - Name of the parameter being swept (used for JSON field names)
+/// * `all_results` - Vector of tuples containing (parameter_value, simulation_results)
+/// 
+/// # Returns
+/// 
+/// Result indicating success or failure of saving the results
 pub fn save_generic_sweep_results<T: serde::Serialize>(
     results_dir: &str,
     parameter_name: &str,
@@ -358,4 +522,69 @@ pub fn save_generic_sweep_results<T: serde::Serialize>(
     logging::log("SIMULATOR", &format!("Saved combined sweep results to {}", combined_file));
 
     Ok(())
+}
+
+/// Helper function to create a config with a single field modified.
+/// This reduces duplication across sweep implementations.
+/// 
+/// # Arguments
+/// 
+/// * `sweep_config` - The sweep configuration containing base parameters
+/// * `field_updater` - A function that takes the base config and returns a modified config
+/// 
+/// # Returns
+/// 
+/// A new Config with the specified field modified
+pub fn create_modified_config<F>(
+    sweep_config: &Box<dyn SweepConfigTrait>,
+    field_updater: F,
+) -> crate::config::Config
+where
+    F: FnOnce(&crate::config::Config) -> crate::config::Config,
+{
+    // Create a base config from the sweep config
+    let base_config = crate::config::Config {
+        network_config: sweep_config.get_network_config().clone(),
+        account_config: sweep_config.get_account_config().clone(),
+        transaction_config: sweep_config.get_transaction_config().clone(),
+    };
+    
+    // Apply the field updater to create the modified config
+    field_updater(&base_config)
+}
+
+/// Helper function to generate a linear sequence of f64 values.
+/// This reduces duplication in parameter generation across sweeps.
+/// 
+/// # Arguments
+/// 
+/// * `start` - The starting value
+/// * `step` - The step size between values
+/// * `count` - The number of values to generate
+/// 
+/// # Returns
+/// 
+/// A vector of f64 values in the sequence
+pub fn generate_f64_sequence(start: f64, step: f64, count: usize) -> Vec<f64> {
+    (0..count)
+        .map(|i| start + (i as f64 * step))
+        .collect()
+}
+
+/// Helper function to generate a linear sequence of u64 values.
+/// This reduces duplication in parameter generation across sweeps.
+/// 
+/// # Arguments
+/// 
+/// * `start` - The starting value
+/// * `step` - The step size between values
+/// * `count` - The number of values to generate
+/// 
+/// # Returns
+/// 
+/// A vector of u64 values in the sequence
+pub fn generate_u64_sequence(start: u64, step: u64, count: usize) -> Vec<u64> {
+    (0..count)
+        .map(|i| start + (i as u64 * step))
+        .collect()
 } 
