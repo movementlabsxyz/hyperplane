@@ -6,27 +6,7 @@ use std::time::{Duration, Instant};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json;
 
-// ------------------------------------------------------------------------------------------------
-// Macro Definitions
-// ------------------------------------------------------------------------------------------------
 
-/// Macro to implement SweepConfigTrait for any sweep config type.
-/// 
-/// This macro eliminates code duplication by providing the same implementation
-/// for all sweep config types, since they all have the same structure.
-macro_rules! impl_sweep_config_trait {
-    ($($config_type:ty),*) => {
-        $(
-            impl SweepConfigTrait for $config_type {
-                fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-                fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-                fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-                fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-                fn as_any(&self) -> &dyn std::any::Any { self }
-            }
-        )*
-    };
-}
 
 // ------------------------------------------------------------------------------------------------
 // Core Types and Traits

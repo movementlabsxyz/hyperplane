@@ -1,81 +1,26 @@
-
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence, SweepConfigTrait};
-use crate::config::{ValidateConfig, NetworkConfig, AccountConfig, TransactionConfig, SweepParameters, ConfigError};
-use std::fs;
-use serde::Deserialize;
-use std::any::Any;
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
+use crate::define_sweep_config;
+use crate::config::ValidateConfig;
 
 // ============================================================================
 // Sweep Configuration
 // ============================================================================
 
-/// Configuration struct for block interval constant time delay sweep
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepBlockIntervalScaledDelayConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
-
-impl ValidateConfig for SweepBlockIntervalScaledDelayConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+define_sweep_config!(
+    SweepBlockIntervalScaledDelayConfig,
+    "config_sweep_block_interval_constant_time_delay.toml",
+    validate_sweep_specific = |self_: &Self| {
+        if self_.sweep.block_interval_step.is_none() {
+            return Err(crate::config::ConfigError::ValidationError("Block interval step must be specified".into()));
         }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.block_interval_step.is_none() {
-            return Err(ConfigError::ValidationError("Block interval step must be specified".into()));
-        }
-        if let Some(ref_delay) = self.sweep.reference_chain_delay_duration {
+        if let Some(ref_delay) = self_.sweep.reference_chain_delay_duration {
             if ref_delay <= 0.0 {
-                return Err(ConfigError::ValidationError("Reference chain delay duration must be positive".into()));
+                return Err(crate::config::ConfigError::ValidationError("Reference chain delay duration must be positive".into()));
             }
         }
         Ok(())
     }
-}
-
-impl SweepConfigTrait for SweepBlockIntervalScaledDelayConfig {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    
-    fn get_num_simulations(&self) -> usize {
-        self.sweep.num_simulations
-    }
-    
-    fn get_network_config(&self) -> &NetworkConfig {
-        &self.network_config
-    }
-    
-    fn get_account_config(&self) -> &AccountConfig {
-        &self.account_config
-    }
-    
-    fn get_transaction_config(&self) -> &TransactionConfig {
-        &self.transaction_config
-    }
-}
-
-// ------------------------------------------------------------------------------------------------
-// Configuration Loading
-// ------------------------------------------------------------------------------------------------
-
-/// Loads the block interval constant time delay sweep configuration from the TOML file.
-/// 
-/// This function reads the configuration file and validates it according to
-/// the sweep-specific validation rules.
-fn load_config() -> Result<SweepBlockIntervalScaledDelayConfig, crate::config::ConfigError> {
-    let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_time_delay.toml")?;
-    let config: SweepBlockIntervalScaledDelayConfig = toml::from_str(&config_str)?;
-    config.validate()?;
-    Ok(config)
-}
+);
 
 // ------------------------------------------------------------------------------------------------
 // Parameter Sequence Generation & Sweep Runner Setup
