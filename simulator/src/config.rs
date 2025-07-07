@@ -28,34 +28,15 @@ pub struct AccountConfig {
     pub num_accounts: usize,
 }
 
-/// Configuration for transaction parameters.
-/// 
-/// This struct contains all the parameters that can be varied in a simulation.
-/// Each field controls a specific aspect of transaction generation and processing.
-/// 
-/// - `target_tps`: Target transactions per second for the simulation (controls transaction generation rate)
-/// - `sim_total_block_number`: Total number of blocks to simulate (determines simulation duration)
-/// - `zipf_parameter`: Zipf distribution parameter α (controls account access pattern skewness: 0.0 = uniform, higher = more skewed)
-/// - `ratio_cats`: Ratio of Cross-Chain Atomic Transactions (CATs) to regular transactions (0.0 = no CATs, 1.0 = all CATs)
-/// - `cat_lifetime_blocks`: Maximum number of blocks a CAT can remain pending before timing out
-/// - `initialization_wait_blocks`: Number of blocks to wait after account initialization before starting transaction submission
-/// - `allow_cat_pending_dependencies`: Whether CATs can depend on locked keys from pending transactions (affects transaction ordering)
 #[derive(Debug, Deserialize, Clone)]
 pub struct TransactionConfig {
-    /// Target transactions per second for the simulation (controls transaction generation rate)
     pub target_tps: f64,
-    /// Total number of blocks to simulate (determines simulation duration)
-    pub sim_total_block_number: u64,
-    /// Zipf distribution parameter α (controls account access pattern skewness: 0.0 = uniform, higher = more skewed)
+    pub sim_total_block_number: u64,  // Total number of blocks to simulate
     pub zipf_parameter: f64,
-    /// Ratio of Cross-Chain Atomic Transactions (CATs) to regular transactions (0.0 = no CATs, 1.0 = all CATs)
     pub ratio_cats: f64,
-    /// Maximum number of blocks a CAT can remain pending before timing out
-    pub cat_lifetime_blocks: u64,
-    /// Number of blocks to wait after account initialization before starting transaction submission
-    pub initialization_wait_blocks: u64,
-    /// Whether CATs can depend on locked keys from pending transactions (affects transaction ordering)
-    pub allow_cat_pending_dependencies: bool,
+    pub cat_lifetime_blocks: u64,  // CAT lifetime in blocks
+    pub initialization_wait_blocks: u64,  // Number of blocks to wait before starting transaction submission
+    pub allow_cat_pending_dependencies: bool,  // Whether to allow CATs to depend on locked keys
 }
 
 #[derive(Debug, Deserialize, Clone)]
