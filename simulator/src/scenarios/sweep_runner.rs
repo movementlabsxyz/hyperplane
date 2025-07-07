@@ -6,6 +6,24 @@ use std::time::{Duration, Instant};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json;
 
+/// Macro to implement SweepConfigTrait for any sweep config type.
+/// 
+/// This macro eliminates code duplication by providing the same implementation
+/// for all sweep config types, since they all have the same structure.
+macro_rules! impl_sweep_config_trait {
+    ($($config_type:ty),*) => {
+        $(
+            impl SweepConfigTrait for $config_type {
+                fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
+                fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+                fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+                fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
+                fn as_any(&self) -> &dyn std::any::Any { self }
+            }
+        )*
+    };
+}
+
 /// Generic sweep runner that eliminates duplication across sweep simulations.
 /// 
 /// This struct provides a unified interface for running parameter sweep simulations.
@@ -57,17 +75,7 @@ pub trait SweepConfigTrait {
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-/// Implementation of SweepConfigTrait for the base SweepConfig type.
-/// 
-/// This allows the SweepRunner to work with the standard sweep configuration
-/// used for CAT rate sweeps and other basic parameter sweeps.
-impl SweepConfigTrait for crate::config::SweepConfig {
-    fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-}
+
 
 
 
@@ -542,4 +550,16 @@ pub fn generate_u64_sequence(start: u64, step: u64, count: usize) -> Vec<u64> {
     (0..count)
         .map(|i| start + (i as u64 * step))
         .collect()
-} 
+}
+
+// Implement SweepConfigTrait for all sweep config types using the macro
+impl_sweep_config_trait!(
+    crate::config::SweepConfig,
+    crate::config::SweepZipfConfig,
+    crate::config::SweepChainDelayConfig,
+    crate::config::SweepDurationConfig,
+    crate::config::SweepCatLifetimeConfig,
+    crate::config::SweepBlockIntervalConstantDelayConfig,
+    crate::config::SweepBlockIntervalScaledDelayConfig,
+    crate::config::SweepCatPendingDependenciesConfig
+); 
