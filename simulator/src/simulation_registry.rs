@@ -6,15 +6,15 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::scenarios::{
-    sim_simple::run_simple_simulation,
-    sim_sweep_cat_rate::run_sweep_cat_rate_simulation,
-    sim_sweep_zipf::run_sweep_zipf_simulation,
-    sim_sweep_chain_delay::run_sweep_chain_delay,
-    sim_sweep_total_block_number::run_sweep_total_block_number,
-    sim_sweep_cat_lifetime::run_sweep_cat_lifetime_simulation,
-    sim_sweep_block_interval_constant_block_delay::run_sweep_block_interval_constant_block_delay,
-    sim_sweep_block_interval_constant_time_delay::run_sweep_block_interval_constant_time_delay,
-    sim_sweep_cat_pending_dependencies::run_sweep_cat_pending_dependencies_simulation,
+    sim_simple,
+    sim_sweep_cat_rate,
+    sim_sweep_zipf,
+    sim_sweep_chain_delay,
+    sim_sweep_total_block_number,
+    sim_sweep_cat_lifetime,
+    sim_sweep_block_interval_constant_block_delay,
+    sim_sweep_block_interval_constant_time_delay,
+    sim_sweep_cat_pending_dependencies,
     run_all_tests::run_all_tests,
 };
 
@@ -36,88 +36,35 @@ impl SimulationRegistry {
     pub fn new() -> Self {
         let mut simulations = HashMap::new();
         
-        // Register all simulation types
-        simulations.insert(SimulationType::Simple, SimulationConfig {
-            name: "Simple Simulation",
-            run_fn: Box::new(|| Box::pin(async {
-                run_simple_simulation().await
-                    .map_err(|e| format!("Simple simulation failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_simple/plot_results.py",
-        });
+        // Register all simulation types using their register functions
+        let (sim_type, sim_config) = sim_simple::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepCatRate, SimulationConfig {
-            name: "CAT Rate Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_cat_rate_simulation().await
-                    .map_err(|e| format!("CAT rate sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_cat_rate::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepZipf, SimulationConfig {
-            name: "Zipf Distribution Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_zipf_simulation().await
-                    .map_err(|e| format!("Zipf sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_zipf/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_zipf::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepChainDelay, SimulationConfig {
-            name: "Chain Delay Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_chain_delay().await
-                    .map_err(|e| format!("Chain delay sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_chain_delay/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_chain_delay::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepTotalBlockNumber, SimulationConfig {
-            name: "Total Block Number Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_total_block_number().await
-                    .map_err(|e| format!("Total block number sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_total_block_number/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_total_block_number::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepCatLifetime, SimulationConfig {
-            name: "CAT Lifetime Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_cat_lifetime_simulation().await
-                    .map_err(|e| format!("CAT lifetime sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_cat_lifetime::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepBlockIntervalConstantBlockDelay, SimulationConfig {
-            name: "Block Interval (Constant Block Delay) Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_block_interval_constant_block_delay().await
-                    .map_err(|e| format!("Block interval constant block delay sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_block_interval_constant_block_delay/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_block_interval_constant_block_delay::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepBlockIntervalConstantTimeDelay, SimulationConfig {
-            name: "Block Interval (Constant Time Delay) Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_block_interval_constant_time_delay().await
-                    .map_err(|e| format!("Block interval constant time delay sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_block_interval_constant_time_delay/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_block_interval_constant_time_delay::register();
+        simulations.insert(sim_type, sim_config);
         
-        simulations.insert(SimulationType::SweepCatPendingDependencies, SimulationConfig {
-            name: "CAT Pending Dependencies Sweep",
-            run_fn: Box::new(|| Box::pin(async {
-                run_sweep_cat_pending_dependencies_simulation().await
-                    .map_err(|e| format!("CAT pending dependencies sweep failed: {}", e))
-            })),
-            plot_script: "simulator/scripts/sim_sweep_cat_pending_dependencies/plot_results.py",
-        });
+        let (sim_type, sim_config) = sim_sweep_cat_pending_dependencies::register();
+        simulations.insert(sim_type, sim_config);
         
+        // Register run all tests (still hardcoded since it doesn't have a register function)
         simulations.insert(SimulationType::RunAllTests, SimulationConfig {
             name: "All Tests",
             run_fn: Box::new(|| Box::pin(async {

@@ -82,4 +82,22 @@ impl SweepConfigTrait for crate::config::SweepDurationConfig {
     fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
     fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
+}
+
+/// Register this simulation with the simulation registry.
+/// 
+/// This function provides the configuration needed to register the total block number sweep
+/// with the main simulation registry.
+pub fn register() -> (crate::interface::SimulationType, crate::simulation_registry::SimulationConfig) {
+    use crate::interface::SimulationType;
+    use crate::simulation_registry::SimulationConfig;
+    
+    (SimulationType::SweepTotalBlockNumber, SimulationConfig {
+        name: "Total Block Number Sweep",
+        run_fn: Box::new(|| Box::pin(async {
+            run_sweep_total_block_number().await
+                .map_err(|e| format!("Total block number sweep failed: {}", e))
+        })),
+        plot_script: "simulator/scripts/sim_sweep_total_block_number/plot_results.py",
+    })
 } 

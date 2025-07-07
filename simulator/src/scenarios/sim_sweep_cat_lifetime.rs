@@ -86,4 +86,22 @@ impl SweepConfigTrait for crate::config::SweepCatLifetimeConfig {
     fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
     fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
+}
+
+/// Register this simulation with the simulation registry.
+/// 
+/// This function provides the configuration needed to register the CAT lifetime sweep
+/// with the main simulation registry.
+pub fn register() -> (crate::interface::SimulationType, crate::simulation_registry::SimulationConfig) {
+    use crate::interface::SimulationType;
+    use crate::simulation_registry::SimulationConfig;
+    
+    (SimulationType::SweepCatLifetime, SimulationConfig {
+        name: "CAT Lifetime Sweep",
+        run_fn: Box::new(|| Box::pin(async {
+            run_sweep_cat_lifetime_simulation().await
+                .map_err(|e| format!("CAT lifetime sweep failed: {}", e))
+        })),
+        plot_script: "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py",
+    })
 } 

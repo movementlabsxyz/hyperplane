@@ -59,4 +59,22 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
 
     // Run the sweep - this handles all the simulation execution, logging, and result saving
     runner.run().await
+}
+
+/// Register this simulation with the simulation registry.
+/// 
+/// This function provides the configuration needed to register the CAT rate sweep
+/// with the main simulation registry.
+pub fn register() -> (crate::interface::SimulationType, crate::simulation_registry::SimulationConfig) {
+    use crate::interface::SimulationType;
+    use crate::simulation_registry::SimulationConfig;
+    
+    (SimulationType::SweepCatRate, SimulationConfig {
+        name: "CAT Rate Sweep",
+        run_fn: Box::new(|| Box::pin(async {
+            run_sweep_cat_rate_simulation().await
+                .map_err(|e| format!("CAT rate sweep failed: {}", e))
+        })),
+        plot_script: "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
+    })
 } 

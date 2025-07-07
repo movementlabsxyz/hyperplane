@@ -113,4 +113,22 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     logging::log("SIMULATOR", "=============================");
 
     results
+}
+
+/// Register this simulation with the simulation registry.
+/// 
+/// This function provides the configuration needed to register the simple simulation
+/// with the main simulation registry.
+pub fn register() -> (crate::interface::SimulationType, crate::simulation_registry::SimulationConfig) {
+    use crate::interface::SimulationType;
+    use crate::simulation_registry::SimulationConfig;
+    
+    (SimulationType::Simple, SimulationConfig {
+        name: "Simple Simulation",
+        run_fn: Box::new(|| Box::pin(async {
+            run_simple_simulation().await
+                .map_err(|e| format!("Simple simulation failed: {}", e))
+        })),
+        plot_script: "simulator/scripts/sim_simple/plot_results.py",
+    })
 } 
