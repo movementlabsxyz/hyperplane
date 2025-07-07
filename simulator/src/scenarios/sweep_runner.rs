@@ -571,14 +571,4 @@ pub fn generate_u64_sequence(start: u64, step: u64, count: usize) -> Vec<u64> {
         .collect()
 }
 
-// Implement SweepConfigTrait for all sweep config types using the macro
-impl_sweep_config_trait!(
-    crate::config::SweepConfig,
-    crate::config::SweepZipfConfig,
-    crate::config::SweepChainDelayConfig,
-    crate::config::SweepDurationConfig,
-    crate::config::SweepCatLifetimeConfig,
-    crate::config::SweepBlockIntervalConstantDelayConfig,
-    crate::config::SweepBlockIntervalScaledDelayConfig,
-    crate::config::SweepCatPendingDependenciesConfig
-); 
+// All sweep configs now have their own trait implementations in their respective files 

@@ -80,13 +80,7 @@ pub struct TransactionConfig {
 // Sweep Configuration Structs
 // ------------------------------------------------------------------------------------------------
 
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
+
 
 /// Configuration for sweep simulation parameters.
 /// 
@@ -121,61 +115,6 @@ pub struct SweepParameters {
 }
 
 // Separate sweep config structs to maintain sweep-specific validation
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepZipfConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepChainDelayConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepDurationConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepCatLifetimeConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepBlockIntervalConstantDelayConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepBlockIntervalScaledDelayConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
-
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepCatPendingDependenciesConfig {
-    pub network_config: NetworkConfig,
-    pub account_config: AccountConfig,
-    pub transaction_config: TransactionConfig,
-    pub sweep: SweepParameters,
-}
 
 impl NetworkConfig {
     pub fn get_chain_ids(&self) -> Vec<String> {
@@ -212,7 +151,7 @@ pub trait ValidateConfig {
 }
 
 // Common validation logic
-fn validate_common_fields(
+pub fn validate_common_fields(
     account_config: &AccountConfig,
     transaction_config: &TransactionConfig,
     network_config: &NetworkConfig,
@@ -267,23 +206,6 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_sweep() -> Result<SweepConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_rate.toml")?;
-        let config: SweepConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
-
-
-
-
-
-
-
-
-
-
-
 
 
     fn validate(&self) -> Result<(), ConfigError> {
@@ -299,156 +221,6 @@ impl Config {
     }
 }
 
-impl ValidateConfig for SweepConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
 
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.cat_rate_step.is_none() && self.sweep.zipf_step.is_none() {
-            return Err(ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
-        }
-        Ok(())
-    }
-}
 
-impl SweepConfig {
-    pub fn get_duration(&self) -> Duration {
-        // Calculate duration based on block interval and total blocks
-        // This is a rough estimate for backward compatibility
-        let block_interval = self.network_config.block_interval;
-        let total_blocks = self.transaction_config.sim_total_block_number;
-        Duration::from_secs_f64(block_interval * total_blocks as f64)
-    }
-}
-
-// Implement ValidateConfig for each sweep config type to maintain sweep-specific validation
-impl ValidateConfig for SweepZipfConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.zipf_step.is_none() {
-            return Err(ConfigError::ValidationError("Zipf step must be specified".into()));
-        }
-        Ok(())
-    }
-}
-
-impl ValidateConfig for SweepChainDelayConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.chain_delay_step.is_none() {
-            return Err(ConfigError::ValidationError("Chain delay step must be specified".into()));
-        }
-        Ok(())
-    }
-}
-
-impl ValidateConfig for SweepDurationConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.duration_step.is_none() {
-            return Err(ConfigError::ValidationError("Duration step must be specified".into()));
-        }
-        Ok(())
-    }
-}
-
-impl ValidateConfig for SweepCatLifetimeConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.cat_lifetime_step.is_none() {
-            return Err(ConfigError::ValidationError("CAT lifetime step must be specified".into()));
-        }
-        Ok(())
-    }
-}
-
-impl ValidateConfig for SweepBlockIntervalConstantDelayConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.block_interval_step.is_none() {
-            return Err(ConfigError::ValidationError("Block interval step must be specified".into()));
-        }
-        Ok(())
-    }
-}
-
-impl ValidateConfig for SweepBlockIntervalScaledDelayConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        if self.sweep.block_interval_step.is_none() {
-            return Err(ConfigError::ValidationError("Block interval step must be specified".into()));
-        }
-        if let Some(ref_delay) = self.sweep.reference_chain_delay_duration {
-            if ref_delay <= 0.0 {
-                return Err(ConfigError::ValidationError("Reference chain delay duration must be positive".into()));
-            }
-        }
-        Ok(())
-    }
-}
-
-impl ValidateConfig for SweepCatPendingDependenciesConfig {
-    fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
-        if self.sweep.num_simulations == 0 {
-            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
-        }
-        Ok(())
-    }
-
-    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
-        // For this sweep, we only need to validate that num_simulations is set
-        // The sweep will test exactly 2 values: false and true
-        if self.sweep.num_simulations != 2 {
-            return Err(ConfigError::ValidationError("Number of simulations must be exactly 2 for CAT pending dependencies sweep (false and true)".into()));
-        }
-        Ok(())
-    }
-} 
+// Implement ValidateConfig for each sweep config type to maintain sweep-specific validation 

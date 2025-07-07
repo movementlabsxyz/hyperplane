@@ -1,4 +1,71 @@
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence, SweepConfigTrait};
+use crate::config::{ValidateConfig, NetworkConfig, AccountConfig, TransactionConfig, SweepParameters, ConfigError};
+use std::fs;
+use toml;
+use serde::Deserialize;
+use std::any::Any;
+
+// ============================================================================
+// Sweep Configuration
+// ============================================================================
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SweepCatRateConfig {
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
+    pub sweep: SweepParameters,
+}
+
+impl ValidateConfig for SweepCatRateConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.cat_rate_step.is_none() && self.sweep.zipf_step.is_none() {
+            return Err(ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepConfigTrait for SweepCatRateConfig {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn get_num_simulations(&self) -> usize {
+        self.sweep.num_simulations
+    }
+    fn get_network_config(&self) -> &NetworkConfig {
+        &self.network_config
+    }
+    fn get_account_config(&self) -> &AccountConfig {
+        &self.account_config
+    }
+    fn get_transaction_config(&self) -> &TransactionConfig {
+        &self.transaction_config
+    }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Configuration Loading
+// ------------------------------------------------------------------------------------------------
+
+/// Loads the CAT rate sweep configuration from the TOML file.
+/// 
+/// This function reads the configuration file and validates it according to
+/// the sweep-specific validation rules.
+fn load_config() -> Result<SweepCatRateConfig, crate::config::ConfigError> {
+    let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_rate.toml")?;
+    let config: SweepCatRateConfig = toml::from_str(&config_str)?;
+    config.validate()?;
+    Ok(config)
+}
 
 /// Runs the sweep CAT rate simulation
 /// 
@@ -11,7 +78,7 @@ use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, cr
 pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_cat_rate.toml
-    let sweep_config = crate::config::Config::load_sweep()?;
+    let sweep_config = load_config()?;
     
     // Calculate CAT ratios for each simulation using the helper function
     // Creates a sequence of CAT ratios: 0.0, 0.1, 0.2, 0.3, etc.
@@ -31,7 +98,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
         cat_ratios,                    // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
-            crate::config::Config::load_sweep().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+            load_config().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, cat_ratio| {

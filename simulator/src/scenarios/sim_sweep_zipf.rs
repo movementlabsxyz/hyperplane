@@ -1,8 +1,56 @@
-
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
-use crate::config::ValidateConfig;
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence, SweepConfigTrait};
+use crate::config::{ValidateConfig, NetworkConfig, AccountConfig, TransactionConfig, SweepParameters, ConfigError};
 use std::fs;
 use toml;
+use serde::Deserialize;
+use std::any::Any;
+
+// ============================================================================
+// Sweep Configuration
+// ============================================================================
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SweepZipfConfig {
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
+    pub sweep: SweepParameters,
+}
+
+impl ValidateConfig for SweepZipfConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        if self.sweep.zipf_step.is_none() {
+            return Err(ConfigError::ValidationError("Zipf step must be specified".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepConfigTrait for SweepZipfConfig {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn get_num_simulations(&self) -> usize {
+        self.sweep.num_simulations
+    }
+    fn get_network_config(&self) -> &NetworkConfig {
+        &self.network_config
+    }
+    fn get_account_config(&self) -> &AccountConfig {
+        &self.account_config
+    }
+    fn get_transaction_config(&self) -> &TransactionConfig {
+        &self.transaction_config
+    }
+}
 
 // ------------------------------------------------------------------------------------------------
 // Configuration Loading
@@ -12,9 +60,9 @@ use toml;
 /// 
 /// This function reads the configuration file and validates it according to
 /// the sweep-specific validation rules.
-fn load_config() -> Result<crate::config::SweepZipfConfig, crate::config::ConfigError> {
+fn load_config() -> Result<SweepZipfConfig, crate::config::ConfigError> {
     let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_zipf.toml")?;
-    let config: crate::config::SweepZipfConfig = toml::from_str(&config_str)?;
+    let config: SweepZipfConfig = toml::from_str(&config_str)?;
     config.validate()?;
     Ok(config)
 }

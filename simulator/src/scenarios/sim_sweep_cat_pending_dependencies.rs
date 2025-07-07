@@ -1,8 +1,58 @@
-
-use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config};
-use crate::config::ValidateConfig;
+use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, SweepConfigTrait};
+use crate::config::{ValidateConfig, NetworkConfig, AccountConfig, TransactionConfig, SweepParameters, ConfigError};
 use std::fs;
 use toml;
+use serde::Deserialize;
+use std::any::Any;
+
+// ============================================================================
+// Sweep Configuration
+// ============================================================================
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SweepCatPendingDependenciesConfig {
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
+    pub sweep: SweepParameters,
+}
+
+impl ValidateConfig for SweepCatPendingDependenciesConfig {
+    fn validate_common(&self) -> Result<(), ConfigError> {
+        crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
+        if self.sweep.num_simulations == 0 {
+            return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
+        }
+        Ok(())
+    }
+
+    fn validate_sweep_specific(&self) -> Result<(), ConfigError> {
+        // For this sweep, we only need to validate that num_simulations is set
+        // The sweep will test exactly 2 values: false and true
+        if self.sweep.num_simulations != 2 {
+            return Err(ConfigError::ValidationError("Number of simulations must be exactly 2 for CAT pending dependencies sweep (false and true)".into()));
+        }
+        Ok(())
+    }
+}
+
+impl SweepConfigTrait for SweepCatPendingDependenciesConfig {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn get_num_simulations(&self) -> usize {
+        self.sweep.num_simulations
+    }
+    fn get_network_config(&self) -> &NetworkConfig {
+        &self.network_config
+    }
+    fn get_account_config(&self) -> &AccountConfig {
+        &self.account_config
+    }
+    fn get_transaction_config(&self) -> &TransactionConfig {
+        &self.transaction_config
+    }
+}
 
 // ------------------------------------------------------------------------------------------------
 // Configuration Loading
@@ -12,9 +62,9 @@ use toml;
 /// 
 /// This function reads the configuration file and validates it according to
 /// the sweep-specific validation rules.
-fn load_config() -> Result<crate::config::SweepCatPendingDependenciesConfig, crate::config::ConfigError> {
+fn load_config() -> Result<SweepCatPendingDependenciesConfig, crate::config::ConfigError> {
     let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_pending_dependencies.toml")?;
-    let config: crate::config::SweepCatPendingDependenciesConfig = toml::from_str(&config_str)?;
+    let config: SweepCatPendingDependenciesConfig = toml::from_str(&config_str)?;
     config.validate()?;
     Ok(config)
 }
