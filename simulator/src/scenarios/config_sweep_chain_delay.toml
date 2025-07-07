@@ -8,7 +8,7 @@ num_chains = 2
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 chain_delays = [0, 0]  # chain-1 has 0 blocks delay, chain-2 delay will be swept
 # Block interval in seconds
-block_interval = 0.1
+block_interval = 0.02
 
 # Account parameters
 [account_config]
@@ -23,7 +23,7 @@ num_accounts = 1000
 [transaction_config]
 # Target transactions per second to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-target_tps = 100.0
+target_tps = 500.0
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 50
@@ -48,4 +48,4 @@ allow_cat_pending_dependencies = false
 # Sweep parameters
 [sweep]
 num_simulations = 4 # Number of simulations to run
-chain_delay_step = 0.4 # Step size for chain delay parameter, starting from 0 
+chain_delay_step = 4 # Step size for chain delay parameter, starting from 0 

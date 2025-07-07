@@ -1,4 +1,18 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence, SweepConfigTrait};
+use crate::config::ValidateConfig;
+use std::fs;
+use toml;
+
+/// Loads the block interval constant time delay sweep configuration from the TOML file.
+/// 
+/// This function reads the configuration file and validates it according to
+/// the sweep-specific validation rules.
+fn load_config() -> Result<crate::config::SweepBlockIntervalScaledDelayConfig, crate::config::ConfigError> {
+    let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_time_delay.toml")?;
+    let config: crate::config::SweepBlockIntervalScaledDelayConfig = toml::from_str(&config_str)?;
+    config.validate()?;
+    Ok(config)
+}
 
 /// Runs the sweep block interval with constant time delay simulation
 /// 
@@ -11,7 +25,7 @@ use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, cr
 pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_block_interval_constant_time_delay.toml
-    let sweep_config = crate::config::Config::load_sweep_block_interval_constant_time_delay()?;
+    let sweep_config = load_config()?;
     
     // Calculate block intervals for each simulation using the helper function
     // Creates a sequence of block intervals starting from block_interval_step
@@ -31,7 +45,7 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
         block_intervals,                   // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
-            crate::config::Config::load_sweep_block_interval_constant_time_delay().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+            load_config().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, block_interval| {

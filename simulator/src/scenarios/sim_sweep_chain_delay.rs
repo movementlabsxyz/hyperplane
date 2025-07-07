@@ -1,4 +1,18 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence, SweepConfigTrait};
+use crate::config::ValidateConfig;
+use std::fs;
+use toml;
+
+/// Loads the chain delay sweep configuration from the TOML file.
+/// 
+/// This function reads the configuration file and validates it according to
+/// the sweep-specific validation rules.
+fn load_config() -> Result<crate::config::SweepChainDelayConfig, crate::config::ConfigError> {
+    let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_chain_delay.toml")?;
+    let config: crate::config::SweepChainDelayConfig = toml::from_str(&config_str)?;
+    config.validate()?;
+    Ok(config)
+}
 
 /// Runs the sweep chain delay simulation
 /// 
@@ -11,7 +25,7 @@ use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, cr
 pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_chain_delay.toml
-    let sweep_config = crate::config::Config::load_sweep_chain_delay()?;
+    let sweep_config = load_config()?;
     
     // Calculate chain delays for each simulation using the helper function
     // Creates a sequence of delays: 0 blocks, 1 block, 2 blocks, 3 blocks, etc.
@@ -31,7 +45,7 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
         chain_delays,                  // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
-            crate::config::Config::load_sweep_chain_delay().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+            load_config().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, chain_delay| {

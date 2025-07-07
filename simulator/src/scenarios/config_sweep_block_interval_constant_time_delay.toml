@@ -53,4 +53,4 @@ block_interval_step = 0.02 # Step size for block interval parameter, starting fr
 # Reference chain delay duration at 0.1 second block interval (for constant time delay simulation)
 # This value defines what the chain delay duration should be when block_interval = 0.1 seconds
 # For other block intervals, the delay is scaled proportionally
-reference_chain_delay_duration = 0.5 
+reference_chain_delay_duration = 5 

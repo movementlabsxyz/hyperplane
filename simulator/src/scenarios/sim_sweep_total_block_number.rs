@@ -1,5 +1,18 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence, SweepConfigTrait};
+use crate::config::ValidateConfig;
+use std::fs;
+use toml;
 
+/// Loads the total block number sweep configuration from the TOML file.
+/// 
+/// This function reads the configuration file and validates it according to
+/// the sweep-specific validation rules.
+fn load_config() -> Result<crate::config::SweepDurationConfig, crate::config::ConfigError> {
+    let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_total_block_number.toml")?;
+    let config: crate::config::SweepDurationConfig = toml::from_str(&config_str)?;
+    config.validate()?;
+    Ok(config)
+}
 
 /// Runs the sweep total block number simulation
 /// 
@@ -9,7 +22,7 @@ use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, cr
 pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_total_block_number.toml
-    let sweep_config = crate::config::Config::load_sweep_total_block_number()?;
+    let sweep_config = load_config()?;
     
     // Calculate block numbers for each simulation using the helper function
     // Creates a sequence of block numbers: 25, 50, 75, 100, etc.
@@ -29,7 +42,7 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
         block_numbers,                 // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
-            crate::config::Config::load_sweep_total_block_number().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+            load_config().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, block_number| {

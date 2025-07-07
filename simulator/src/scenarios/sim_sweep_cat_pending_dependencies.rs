@@ -1,4 +1,18 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, SweepConfigTrait};
+use crate::config::ValidateConfig;
+use std::fs;
+use toml;
+
+/// Loads the CAT pending dependencies sweep configuration from the TOML file.
+/// 
+/// This function reads the configuration file and validates it according to
+/// the sweep-specific validation rules.
+fn load_config() -> Result<crate::config::SweepCatPendingDependenciesConfig, crate::config::ConfigError> {
+    let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_pending_dependencies.toml")?;
+    let config: crate::config::SweepCatPendingDependenciesConfig = toml::from_str(&config_str)?;
+    config.validate()?;
+    Ok(config)
+}
 
 /// Runs the sweep CAT pending dependencies simulation
 /// 
@@ -15,7 +29,7 @@ use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, cr
 pub async fn run_sweep_cat_pending_dependencies_simulation() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_cat_pending_dependencies.toml
-    let _sweep_config = crate::config::Config::load_sweep_cat_pending_dependencies()?;
+    let _sweep_config = load_config()?;
     
     // Create the two values to test: false and true
     let allow_cat_pending_dependencies_values: Vec<bool> = vec![false, true];
@@ -29,7 +43,7 @@ pub async fn run_sweep_cat_pending_dependencies_simulation() -> Result<(), crate
         allow_cat_pending_dependencies_values, // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
-            crate::config::Config::load_sweep_cat_pending_dependencies().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
+            load_config().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation using the helper
         Box::new(|sweep_config, allow_cat_pending_dependencies| {

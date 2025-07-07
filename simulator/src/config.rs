@@ -175,7 +175,7 @@ pub enum ConfigError {
 }
 
 // Trait for common validation functionality
-trait ValidateConfig {
+pub trait ValidateConfig {
     fn validate_common(&self) -> Result<(), ConfigError>;
     fn validate_sweep_specific(&self) -> Result<(), ConfigError>;
     
@@ -245,54 +245,17 @@ impl Config {
         Ok(config)
     }
 
-    pub fn load_sweep_zipf() -> Result<SweepZipfConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_zipf.toml")?;
-        let config: SweepZipfConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
 
-    pub fn load_sweep_chain_delay() -> Result<SweepChainDelayConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_chain_delay.toml")?;
-        let config: SweepChainDelayConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
 
-    pub fn load_sweep_total_block_number() -> Result<SweepDurationConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_total_block_number.toml")?;
-        let config: SweepDurationConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
 
-    pub fn load_sweep_cat_lifetime() -> Result<SweepCatLifetimeConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_lifetime.toml")?;
-        let config: SweepCatLifetimeConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
 
-    pub fn load_sweep_block_interval_constant_block_delay() -> Result<SweepBlockIntervalConstantDelayConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_block_delay.toml")?;
-        let config: SweepBlockIntervalConstantDelayConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
 
-    pub fn load_sweep_block_interval_constant_time_delay() -> Result<SweepBlockIntervalScaledDelayConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_block_interval_constant_time_delay.toml")?;
-        let config: SweepBlockIntervalScaledDelayConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
 
-    pub fn load_sweep_cat_pending_dependencies() -> Result<SweepCatPendingDependenciesConfig, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_sweep_cat_pending_dependencies.toml")?;
-        let config: SweepCatPendingDependenciesConfig = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
+
+
+
+
+
 
     fn validate(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)
