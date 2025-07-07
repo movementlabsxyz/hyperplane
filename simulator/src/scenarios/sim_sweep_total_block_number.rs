@@ -1,5 +1,38 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
+/// Creates a configuration for total block number sweep.
+/// 
+/// This function takes a sweep configuration and a block number value, then creates
+/// a new Config with the total block number applied to the transaction configuration.
+/// 
+/// # Arguments
+/// 
+/// * `sweep_config` - The sweep configuration containing base parameters
+/// * `block_number` - The total block number value to apply (simulation duration)
+/// 
+/// # Returns
+/// 
+/// A new Config with the total block number applied
+fn create_total_block_number_config(
+    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
+    block_number: u64,
+) -> crate::config::Config {
+    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepDurationConfig>().unwrap();
+    crate::config::Config {
+        network_config: config.network_config.clone(),
+        account_config: config.account_config.clone(),
+        transaction_config: crate::config::TransactionConfig {
+            target_tps: config.transaction_config.target_tps,
+            sim_total_block_number: block_number,  // This is the parameter we're varying
+            zipf_parameter: config.transaction_config.zipf_parameter,
+            ratio_cats: config.transaction_config.ratio_cats,
+            cat_lifetime_blocks: config.transaction_config.cat_lifetime_blocks,
+            initialization_wait_blocks: config.transaction_config.initialization_wait_blocks,
+            allow_cat_pending_dependencies: config.transaction_config.allow_cat_pending_dependencies,
+        },
+    }
+}
+
 /// Runs the sweep total block number simulation
 /// 
 /// This simulation explores how different simulation block counts affect the simulation. 
@@ -29,22 +62,8 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
             crate::config::Config::load_sweep_total_block_number().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation
-        // This takes the base config and applies the current block number
         Box::new(|sweep_config, block_number| {
-            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepDurationConfig>().unwrap();
-            crate::config::Config {
-                network_config: config.network.clone(),
-                account_config: config.num_accounts.clone(),
-                transaction_config: crate::config::TransactionConfig {
-                    target_tps: config.transactions.target_tps,
-                    sim_total_block_number: block_number,  // This is the parameter we're varying
-                    zipf_parameter: config.transactions.zipf_parameter,
-                    ratio_cats: config.transactions.ratio_cats,
-                    cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,
-                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
-                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
-                },
-            }
+            create_total_block_number_config(sweep_config, block_number)
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

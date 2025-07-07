@@ -1,5 +1,38 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
+/// Creates a configuration for Zipf distribution sweep.
+/// 
+/// This function takes a sweep configuration and a Zipf parameter value, then creates
+/// a new Config with the Zipf parameter applied to the transaction configuration.
+/// 
+/// # Arguments
+/// 
+/// * `sweep_config` - The sweep configuration containing base parameters
+/// * `zipf_param` - The Zipf parameter value to apply (controls access pattern skewness)
+/// 
+/// # Returns
+/// 
+/// A new Config with the Zipf parameter applied
+fn create_zipf_config(
+    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
+    zipf_param: f64,
+) -> crate::config::Config {
+    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepZipfConfig>().unwrap();
+    crate::config::Config {
+        network_config: config.network_config.clone(),
+        account_config: config.account_config.clone(),
+        transaction_config: crate::config::TransactionConfig {
+            target_tps: config.transaction_config.target_tps,
+            sim_total_block_number: config.transaction_config.sim_total_block_number,
+            zipf_parameter: zipf_param,  // This is the parameter we're varying
+            ratio_cats: config.transaction_config.ratio_cats,
+            cat_lifetime_blocks: config.transaction_config.cat_lifetime_blocks,
+            initialization_wait_blocks: config.transaction_config.initialization_wait_blocks,
+            allow_cat_pending_dependencies: config.transaction_config.allow_cat_pending_dependencies,
+        },
+    }
+}
+
 /// Runs the sweep Zipf distribution simulation
 /// 
 /// This simulation explores how different Zipf distribution parameters affect
@@ -33,22 +66,8 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
             crate::config::Config::load_sweep_zipf().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation
-        // This takes the base config and applies the current Zipf parameter
         Box::new(|sweep_config, zipf_param| {
-            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepZipfConfig>().unwrap();
-            crate::config::Config {
-                network_config: config.network.clone(),
-                account_config: config.num_accounts.clone(),
-                transaction_config: crate::config::TransactionConfig {
-                    target_tps: config.transactions.target_tps,
-                    sim_total_block_number: config.transactions.sim_total_block_number,
-                    zipf_parameter: zipf_param,  // This is the parameter we're varying
-                    ratio_cats: config.transactions.ratio_cats,
-                    cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,
-                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
-                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
-                },
-            }
+            create_zipf_config(sweep_config, zipf_param)
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

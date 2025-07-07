@@ -1,5 +1,47 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
+/// Creates a configuration for block interval constant block delay sweep.
+/// 
+/// This function takes a sweep configuration and a block interval value, then creates
+/// a new Config with the block interval applied to the network configuration while
+/// keeping the second chain delay constant.
+/// 
+/// # Arguments
+/// 
+/// * `sweep_config` - The sweep configuration containing base parameters
+/// * `block_interval` - The block interval value to apply (time between blocks)
+/// 
+/// # Returns
+/// 
+/// A new Config with the block interval applied
+fn create_block_interval_constant_block_delay_config(
+    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
+    block_interval: f64,
+) -> crate::config::Config {
+    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepBlockIntervalConstantDelayConfig>().unwrap();
+
+    crate::config::Config {
+        network_config: crate::config::NetworkConfig {
+            num_chains: config.network_config.num_chains,
+            chain_delays: vec![
+                config.network_config.chain_delays[0],  // Keep first chain delay unchanged
+                config.network_config.chain_delays[1],  // Use the second chain delay for constant block delay
+            ],
+            block_interval: block_interval,                        // Apply the varied block interval
+        },
+        account_config: config.account_config.clone(),
+        transaction_config: crate::config::TransactionConfig {
+            target_tps: config.transaction_config.target_tps,
+            sim_total_block_number: config.transaction_config.sim_total_block_number,                    
+            zipf_parameter: config.transaction_config.zipf_parameter,
+            ratio_cats: config.transaction_config.ratio_cats,
+            cat_lifetime_blocks: config.transaction_config.cat_lifetime_blocks,
+            initialization_wait_blocks: config.transaction_config.initialization_wait_blocks,
+            allow_cat_pending_dependencies: config.transaction_config.allow_cat_pending_dependencies,
+        },
+    }
+}
+
 /// Runs the sweep block interval with constant block delay simulation
 /// 
 /// This simulation explores how different block intervals affect system performance
@@ -32,31 +74,8 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
             crate::config::Config::load_sweep_block_interval_constant_block_delay().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation
-        // This takes the base config and applies the current block interval
-        // while keeping the second chain delay constant at the config value.
         Box::new(|sweep_config, block_interval| {
-            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepBlockIntervalConstantDelayConfig>().unwrap();
-
-            crate::config::Config {
-                network_config: crate::config::NetworkConfig {
-                    num_chains: config.network.num_chains,
-                    chain_delays: vec![
-                        config.network.chain_delays[0],  // Keep first chain delay unchanged
-                        config.network.chain_delays[1],  // Use the second chain delay for constant block delay
-                    ],
-                    block_interval: block_interval,                        // Apply the varied block interval
-                },
-                account_config: config.num_accounts.clone(),
-                transaction_config: crate::config::TransactionConfig {
-                    target_tps: config.transactions.target_tps,
-                    sim_total_block_number: config.transactions.sim_total_block_number,                    
-                    zipf_parameter: config.transactions.zipf_parameter,
-                    ratio_cats: config.transactions.ratio_cats,
-                    cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,
-                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
-                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
-                },
-            }
+            create_block_interval_constant_block_delay_config(sweep_config, block_interval)
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

@@ -1,7 +1,7 @@
 # Sweep Block Interval with Constant Delay Simulation Configuration
 
 # Network parameters
-[network]
+[network_config]
 # the number of chains to simulate
 num_chains = 2
 # Delay in blocks for each chain
@@ -11,7 +11,7 @@ chain_delays = [0, 5]  # chain-1 has 0 blocks delay, chain-2 has fixed 5 blocks 
 block_interval = 0.1
 
 # Account parameters
-[accounts]
+[account_config]
 # Initial balance for each account in the simulation
 # This is the amount of tokens each account starts with
 initial_balance = 9999
@@ -20,7 +20,7 @@ initial_balance = 9999
 num_accounts = 1000
 
 # Transaction parameters
-[transactions]
+[transaction_config]
 # Target transactions per second to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
 target_tps = 100.0

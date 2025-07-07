@@ -1,5 +1,60 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
+/// Creates a configuration for block interval sweep with constant time delay.
+/// 
+/// This function takes a sweep configuration and a block interval value, then creates
+/// a new Config with the block interval applied while maintaining constant time delay
+/// for the second chain by scaling the delay proportionally.
+/// 
+/// # Arguments
+/// 
+/// * `sweep_config` - The sweep configuration containing base parameters
+/// * `block_interval` - The block interval value to apply (in seconds)
+/// 
+/// # Returns
+/// 
+/// A new Config with the block interval applied and delay scaled appropriately
+fn create_block_interval_config(
+    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
+    block_interval: f64,
+) -> crate::config::Config {
+    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepBlockIntervalScaledDelayConfig>().unwrap();
+    
+    // Calculate delay to maintain constant time delay
+    // reference_chain_delay_duration is the delay duration at 0.1 second block interval
+    // For any other block interval, we scale it proportionally
+    let reference_delay = config.sweep.reference_chain_delay_duration.unwrap_or(0.5);
+    let delay_blocks = (reference_delay / 0.1 * block_interval).round() as u64;
+    
+    // Use the block number from the config
+    let block_count = config.transaction_config.sim_total_block_number;
+    
+    // Log the configuration for transparency
+    crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Block count: {}, Chain 2 delay: {} blocks (reference: {:.1}s at 0.1s)", 
+        block_interval, block_count, delay_blocks, reference_delay));
+    
+    crate::config::Config {
+        network_config: crate::config::NetworkConfig {
+            num_chains: config.network_config.num_chains,
+            chain_delays: vec![
+                config.network_config.chain_delays[0],  // Keep first chain delay unchanged
+                delay_blocks,  // Set second chain delay to maintain constant value
+            ],
+            block_interval: block_interval,  // Apply the varied block interval
+        },
+        account_config: config.account_config.clone(),
+        transaction_config: crate::config::TransactionConfig {
+            target_tps: config.transaction_config.target_tps,
+            sim_total_block_number: block_count,  // Use block count from config
+            zipf_parameter: config.transaction_config.zipf_parameter,
+            ratio_cats: config.transaction_config.ratio_cats,
+            cat_lifetime_blocks: config.transaction_config.cat_lifetime_blocks,
+            initialization_wait_blocks: config.transaction_config.initialization_wait_blocks,
+            allow_cat_pending_dependencies: config.transaction_config.allow_cat_pending_dependencies,
+        },
+    }
+}
+
 /// Runs the sweep block interval with constant time delay simulation
 /// 
 /// This simulation explores how different block intervals affect system performance
@@ -32,44 +87,8 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
             crate::config::Config::load_sweep_block_interval_constant_time_delay().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation
-        // This takes the base config and applies the current block interval
-        // while keeping the second chain delay constant at the config value.
-        // Also adjusts the simulation block count to maintain approximately constant simulation time
         Box::new(|sweep_config, block_interval| {
-            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepBlockIntervalScaledDelayConfig>().unwrap();
-            
-            // Calculate delay to maintain constant time delay
-            // reference_chain_delay_duration is the delay duration at 0.1 second block interval
-            // For any other block interval, we scale it proportionally
-            let reference_delay = config.sweep.reference_chain_delay_duration.unwrap_or(0.5);
-            let delay_blocks = (reference_delay / 0.1 * block_interval).round() as u64;
-            
-            // Use the block number from the config
-            let block_count = config.transactions.sim_total_block_number;
-            
-            // Log the configuration for transparency
-            crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Block count: {}, Chain 2 delay: {} blocks (reference: {:.1}s at 0.1s)", 
-                block_interval, block_count, delay_blocks, reference_delay));
-            crate::config::Config {
-                network_config: crate::config::NetworkConfig {
-                    num_chains: config.network.num_chains,
-                    chain_delays: vec![
-                        config.network.chain_delays[0],  // Keep first chain delay unchanged
-                        delay_blocks,  // Set second chain delay to maintain constant value
-                    ],
-                    block_interval: block_interval,                        // Apply the varied block interval
-                },
-                account_config: config.num_accounts.clone(),
-                transaction_config: crate::config::TransactionConfig {
-                    target_tps: config.transactions.target_tps,
-                    sim_total_block_number: block_count,                    // Use block count from config
-                    zipf_parameter: config.transactions.zipf_parameter,
-                    ratio_cats: config.transactions.ratio_cats,
-                    cat_lifetime_blocks: config.transactions.cat_lifetime_blocks,
-                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
-                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
-                },
-            }
+            create_block_interval_config(sweep_config, block_interval)
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

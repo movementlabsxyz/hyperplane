@@ -17,7 +17,6 @@ pub struct Config {
     /// Network configuration including chain count, delays, and block intervals
     pub network_config: NetworkConfig,
     /// Account configuration including initial balances and account count
-    #[serde(rename = "accounts")]
     pub account_config: AccountConfig,
     /// Transaction configuration including rates, patterns, and cross-chain settings
     pub transaction_config: TransactionConfig,
@@ -76,7 +75,6 @@ pub struct TransactionConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepConfig {
     pub network_config: NetworkConfig,
-    #[serde(rename = "accounts")]
     pub account_config: AccountConfig,
     pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
@@ -103,64 +101,57 @@ pub struct SweepParameters {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepZipfConfig {
-    pub network: NetworkConfig,
-    #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepChainDelayConfig {
-    pub network: NetworkConfig,
-    #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepDurationConfig {
-    pub network: NetworkConfig,
-    #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepCatLifetimeConfig {
-    pub network: NetworkConfig,
-    #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepBlockIntervalConstantDelayConfig {
-    pub network: NetworkConfig,
-    #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepBlockIntervalScaledDelayConfig {
-    pub network: NetworkConfig,
-    #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct SweepCatPendingDependenciesConfig {
-    pub network: NetworkConfig,
-    #[serde(rename = "accounts")]
-    pub num_accounts: AccountConfig,
-    pub transactions: TransactionConfig,
+    pub network_config: NetworkConfig,
+    pub account_config: AccountConfig,
+    pub transaction_config: TransactionConfig,
     pub sweep: SweepParameters,
 }
 
@@ -198,43 +189,43 @@ trait ValidateConfig {
 
 // Common validation logic
 fn validate_common_fields(
-    num_accounts: &AccountConfig,
-    transactions: &TransactionConfig,
-    network: &NetworkConfig,
+    account_config: &AccountConfig,
+    transaction_config: &TransactionConfig,
+    network_config: &NetworkConfig,
 ) -> Result<(), ConfigError> {
-    if num_accounts.initial_balance <= 0 {
+    if account_config.initial_balance <= 0 {
         return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
     }
-    if num_accounts.num_accounts == 0 {
+    if account_config.num_accounts == 0 {
         return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
     }
-    if transactions.target_tps <= 0.0 {
+    if transaction_config.target_tps <= 0.0 {
         return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
     }
-    if transactions.sim_total_block_number == 0 {
+    if transaction_config.sim_total_block_number == 0 {
         return Err(ConfigError::ValidationError("Simulation total block number must be positive".into()));
     }
-    if transactions.zipf_parameter < 0.0 {
+    if transaction_config.zipf_parameter < 0.0 {
         return Err(ConfigError::ValidationError("Zipf parameter must be non-negative".into()));
     }
-    if transactions.ratio_cats < 0.0 || transactions.ratio_cats > 1.0 {
+    if transaction_config.ratio_cats < 0.0 || transaction_config.ratio_cats > 1.0 {
         return Err(ConfigError::ValidationError("Ratio cats must be between 0 and 1".into()));
     }
-    if transactions.cat_lifetime_blocks == 0 {
+    if transaction_config.cat_lifetime_blocks == 0 {
         return Err(ConfigError::ValidationError("CAT lifetime blocks must be positive".into()));
     }
-    if transactions.initialization_wait_blocks == 0 {
+    if transaction_config.initialization_wait_blocks == 0 {
         return Err(ConfigError::ValidationError("Initialization wait blocks must be positive".into()));
     }
     // allow_cat_pending_dependencies is a boolean, so no validation needed
-    if network.num_chains == 0 {
+    if network_config.num_chains == 0 {
         return Err(ConfigError::ValidationError("Number of chains must be positive".into()));
     }
-    if network.chain_delays.len() != network.num_chains {
+    if network_config.chain_delays.len() != network_config.num_chains {
         return Err(ConfigError::ValidationError("Number of chain delays must match number of chains".into()));
     }
     // No validation needed for u64 - it's always non-negative
-    if network.block_interval <= 0.0 {
+    if network_config.block_interval <= 0.0 {
         return Err(ConfigError::ValidationError("Block interval must be positive".into()));
     }
     Ok(())
@@ -346,7 +337,7 @@ impl SweepConfig {
 
 impl ValidateConfig for SweepZipfConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -365,15 +356,15 @@ impl SweepZipfConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl ValidateConfig for SweepChainDelayConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -392,15 +383,15 @@ impl SweepChainDelayConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl ValidateConfig for SweepDurationConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -419,15 +410,15 @@ impl SweepDurationConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl ValidateConfig for SweepCatLifetimeConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -446,15 +437,15 @@ impl SweepCatLifetimeConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl ValidateConfig for SweepBlockIntervalConstantDelayConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -473,15 +464,15 @@ impl SweepBlockIntervalConstantDelayConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl ValidateConfig for SweepBlockIntervalScaledDelayConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -505,31 +496,31 @@ impl SweepBlockIntervalScaledDelayConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalConstantDelayConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepBlockIntervalScaledDelayConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 impl ValidateConfig for SweepCatPendingDependenciesConfig {
     fn validate_common(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.num_accounts, &self.transactions, &self.network)?;
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
         if self.sweep.num_simulations == 0 {
             return Err(ConfigError::ValidationError("Number of simulations must be positive".into()));
         }
@@ -550,16 +541,16 @@ impl SweepCatPendingDependenciesConfig {
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
-        let block_interval = self.network.block_interval;
-        let total_blocks = self.transactions.sim_total_block_number;
+        let block_interval = self.network_config.block_interval;
+        let total_blocks = self.transaction_config.sim_total_block_number;
         Duration::from_secs_f64(block_interval * total_blocks as f64)
     }
 }
 
 impl crate::scenarios::sweep_runner::SweepConfigTrait for SweepCatPendingDependenciesConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 } 

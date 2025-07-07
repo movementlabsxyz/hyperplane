@@ -1,5 +1,38 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
+/// Creates a configuration for CAT lifetime sweep.
+/// 
+/// This function takes a sweep configuration and a CAT lifetime value, then creates
+/// a new Config with the CAT lifetime applied to the transaction configuration.
+/// 
+/// # Arguments
+/// 
+/// * `sweep_config` - The sweep configuration containing base parameters
+/// * `cat_lifetime` - The CAT lifetime value to apply (in blocks)
+/// 
+/// # Returns
+/// 
+/// A new Config with the CAT lifetime applied
+fn create_cat_lifetime_config(
+    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
+    cat_lifetime: u64,
+) -> crate::config::Config {
+    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepCatLifetimeConfig>().unwrap();
+    crate::config::Config {
+        network_config: config.network_config.clone(),
+        account_config: config.account_config.clone(),
+        transaction_config: crate::config::TransactionConfig {
+            target_tps: config.transaction_config.target_tps,
+            sim_total_block_number: config.transaction_config.sim_total_block_number,
+            zipf_parameter: config.transaction_config.zipf_parameter,
+            ratio_cats: config.transaction_config.ratio_cats,
+            cat_lifetime_blocks: cat_lifetime,  // This is the parameter we're varying
+            initialization_wait_blocks: config.transaction_config.initialization_wait_blocks,
+            allow_cat_pending_dependencies: config.transaction_config.allow_cat_pending_dependencies,
+        },
+    }
+}
+
 /// Runs the sweep CAT lifetime simulation
 /// 
 /// This simulation explores how different CAT (Cross-Chain Atomic Transaction) lifetimes
@@ -33,22 +66,8 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
             crate::config::Config::load_sweep_cat_lifetime().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation
-        // This takes the base config and applies the current CAT lifetime
         Box::new(|sweep_config, cat_lifetime| {
-            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepCatLifetimeConfig>().unwrap();
-            crate::config::Config {
-                network_config: config.network.clone(),
-                account_config: config.num_accounts.clone(),
-                transaction_config: crate::config::TransactionConfig {
-                    target_tps: config.transactions.target_tps,
-                    sim_total_block_number: config.transactions.sim_total_block_number,
-                    zipf_parameter: config.transactions.zipf_parameter,
-                    ratio_cats: config.transactions.ratio_cats,
-                    cat_lifetime_blocks: cat_lifetime,  // This is the parameter we're varying
-                    initialization_wait_blocks: config.transactions.initialization_wait_blocks,
-                    allow_cat_pending_dependencies: config.transactions.allow_cat_pending_dependencies,
-                },
-            }
+            create_cat_lifetime_config(sweep_config, cat_lifetime)
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

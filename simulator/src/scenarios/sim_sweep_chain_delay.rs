@@ -1,5 +1,37 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results};
 
+/// Creates a configuration for chain delay sweep.
+/// 
+/// This function takes a sweep configuration and a chain delay value, then creates
+/// a new Config with the chain delay applied to the network configuration.
+/// 
+/// # Arguments
+/// 
+/// * `sweep_config` - The sweep configuration containing base parameters
+/// * `chain_delay` - The chain delay value to apply to the second chain (in blocks)
+/// 
+/// # Returns
+/// 
+/// A new Config with the chain delay applied
+fn create_chain_delay_config(
+    sweep_config: &Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>,
+    chain_delay: u64,
+) -> crate::config::Config {
+    let config = sweep_config.as_any().downcast_ref::<crate::config::SweepChainDelayConfig>().unwrap();
+    crate::config::Config {
+        network_config: crate::config::NetworkConfig {
+            num_chains: config.network_config.num_chains,
+            chain_delays: vec![
+                config.network_config.chain_delays[0],  // Keep first chain delay unchanged
+                chain_delay,                     // Apply delay to second chain in blocks
+            ],
+            block_interval: config.network_config.block_interval,
+        },
+        account_config: config.account_config.clone(),
+        transaction_config: config.transaction_config.clone(),
+    }
+}
+
 /// Runs the sweep chain delay simulation
 /// 
 /// This simulation explores how a HIG delay to the HS affects
@@ -32,21 +64,8 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
             crate::config::Config::load_sweep_chain_delay().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation
-        // This takes the base config and applies the current delay from HIG to HS
         Box::new(|sweep_config, chain_delay| {
-            let config = sweep_config.as_any().downcast_ref::<crate::config::SweepChainDelayConfig>().unwrap();
-            crate::config::Config {
-                network_config: crate::config::NetworkConfig {
-                    num_chains: config.network.num_chains,
-                    chain_delays: vec![
-                        config.network.chain_delays[0],  // Keep first chain delay unchanged
-                        chain_delay,                     // Apply delay to second chain in blocks
-                    ],
-                    block_interval: config.network.block_interval,
-                },
-                account_config: config.num_accounts.clone(),
-                transaction_config: config.transactions.clone(),
-            }
+            create_chain_delay_config(sweep_config, chain_delay)
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {

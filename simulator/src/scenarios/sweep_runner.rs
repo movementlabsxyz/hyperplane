@@ -20,50 +20,50 @@ pub struct SweepRunner<T> {
 /// Trait for sweep configurations to allow generic handling
 pub trait SweepConfigTrait {
     fn get_num_simulations(&self) -> usize;
-    fn get_network(&self) -> &crate::config::NetworkConfig;
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig;
-    fn get_transactions(&self) -> &crate::config::TransactionConfig;
+    fn get_network_config(&self) -> &crate::config::NetworkConfig;
+    fn get_account_config(&self) -> &crate::config::AccountConfig;
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig;
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Implementation for different sweep config types
 impl SweepConfigTrait for crate::config::SweepConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network_config }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.account_config }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 impl SweepConfigTrait for crate::config::SweepZipfConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 impl SweepConfigTrait for crate::config::SweepChainDelayConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 impl SweepConfigTrait for crate::config::SweepDurationConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 impl SweepConfigTrait for crate::config::SweepCatLifetimeConfig {
     fn get_num_simulations(&self) -> usize { self.sweep.num_simulations }
-    fn get_network(&self) -> &crate::config::NetworkConfig { &self.network }
-    fn get_num_accounts(&self) -> &crate::config::AccountConfig { &self.num_accounts }
-    fn get_transactions(&self) -> &crate::config::TransactionConfig { &self.transactions }
+    fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
+    fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
+    fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
