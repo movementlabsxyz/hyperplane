@@ -1,6 +1,6 @@
-//! Account initialization and funding verification for the Hyperplane simulator.
-//! Creates initial credit transactions, waits for funding completion, and verifies account balances.
-
+//! Network setup and account initialization for the Hyperplane simulator.
+//! 
+//! Handles node creation, chain registration, and account funding verification.
 
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex};
@@ -14,7 +14,6 @@ use hyperplane::{
 // ------------------------------------------------------------------------------------------------
 // Network Setup
 // ------------------------------------------------------------------------------------------------
-
 
 /// Creates a network of nodes with the specified number of nodes and chains
 pub async fn create_network(num_nodes: usize, num_chains: usize) -> Vec<Arc<Mutex<ConfirmationLayerNode>>> {

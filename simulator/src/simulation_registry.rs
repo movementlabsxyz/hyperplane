@@ -1,4 +1,5 @@
-//! Central registry for all simulation types in the Hyperplane simulator.
+//! Central registry for all simulation types.
+//! 
 //! Maps simulation types to their configuration and execution logic for easy lookup and deduplication.
 //! 
 //! See the README.md for instructions on how to add new simulations to this registry.
@@ -24,7 +25,7 @@ use crate::scenarios::{
 use super::interface::SimulationType;
 
 // ------------------------------------------------------------------------------------------------
-// Configuration Structs
+// Data Structures
 // ------------------------------------------------------------------------------------------------
 
 /// Configuration for a simulation type
@@ -49,7 +50,7 @@ pub struct SimulationRegistry {
 }
 
 // ------------------------------------------------------------------------------------------------
-// Registry Implementation
+// Implementations
 // ------------------------------------------------------------------------------------------------
 
 impl SimulationRegistry {

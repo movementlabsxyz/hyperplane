@@ -1,24 +1,47 @@
+//! Interactive interface system for simulation selection and execution.
+//! 
+//! Provides user interface for selecting simulation types and managing plot generation.
+
 use std::io::{self, Write};
 use std::process::Command;
 use std::hash::Hash;
 
+// ------------------------------------------------------------------------------------------------
+// Simulation Type Enum
+// ------------------------------------------------------------------------------------------------
+
+/// Available simulation types for the Hyperplane simulator
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SimulationType {
+    /// Simple simulation with default parameters
     Simple,
+    /// CAT rate parameter sweep
     SweepCatRate,
+    /// Zipf distribution parameter sweep
     SweepZipf,
+    /// Chain delay parameter sweep
     SweepChainDelay,
+    /// Total block number parameter sweep
     SweepTotalBlockNumber,
+    /// CAT lifetime parameter sweep
     SweepCatLifetime,
+    /// Block interval sweep with constant block delay
     SweepBlockIntervalConstantBlockDelay,
+    /// Block interval sweep with constant time delay
     SweepBlockIntervalConstantTimeDelay,
+    /// CAT pending dependencies sweep
     SweepCatPendingDependencies,
+    /// Run all test scenarios
     RunAllTests,
+    /// Regenerate all plots
     RunAllPlots,
+    /// Exit the simulator
     Exit,
 }
 
+
 impl SimulationType {
+    /// Converts user input string to simulation type
     pub fn from_input(input: &str) -> Option<Self> {
         match input.trim() {
             "1" => Some(SimulationType::Simple),
@@ -38,22 +61,31 @@ impl SimulationType {
     }
 }
 
+// ------------------------------------------------------------------------------------------------
+// Simulator Interface
+// ------------------------------------------------------------------------------------------------
+
+/// Main interface for user interaction with the simulator
 pub struct SimulatorInterface;
 
 impl SimulatorInterface {
+    /// Creates a new simulator interface
     pub fn new() -> Self {
         Self
     }
 
+    /// Returns the menu text for available simulation types
     pub fn get_menu_text(&self) -> &'static str {
         "Available simulation types:\n  1. Simple simulation\n  2. Sweep CAT rate\n  3. Sweep Zipf distribution\n  4. Sweep Chain Delay\n  5. Sweep Total Block Number\n  6. Sweep CAT lifetime\n  7. Sweep Block Interval (Constant Block Delay)\n  8. Sweep Block Interval (Constant Time Delay)\n  9. Sweep CAT Pending Dependencies\n 10. Run All Tests\n 11. Rerun All Plots Only\n  0. Exit"
     }
 
+    /// Displays the simulator menu
     pub fn show_menu(&self) {
         println!("=== Hyperplane Simulator ===");
         println!("{}", self.get_menu_text());
     }
 
+    /// Gets user choice from input
     pub fn get_user_choice(&self) -> Option<SimulationType> {
         print!("\nSelect simulation type (1-10): ");
         io::stdout().flush().unwrap();
@@ -64,8 +96,8 @@ impl SimulatorInterface {
         SimulationType::from_input(&input)
     }
 
+    /// Generates plots for a specific simulation type
     pub fn generate_plots(&self, simulation_type: &str) -> Result<(), String> {
-        // Execute the appropriate plotting script based on simulation type
         let script_path = match simulation_type {
             "simple" => "simulator/scripts/sim_simple/plot_results.py",
             "sweep_cat_rate" => "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
@@ -96,6 +128,7 @@ impl SimulatorInterface {
         Ok(())
     }
 
+    /// Main simulation loop with user interaction
     pub async fn run_simple_simulation_async(&self) -> Result<(), String> {
         loop {
             self.show_menu();
@@ -125,7 +158,7 @@ impl SimulatorInterface {
                         if let Err(e) = run_future.await {
                             return Err(e);
                         }
-                        
+
                         // Generate plots if a script is specified
                         if !config.plot_script.is_empty() {
                             println!("Generating plots...");
@@ -163,6 +196,7 @@ impl SimulatorInterface {
         Ok(())
     }
 
+    /// Reruns all plot generation scripts
     pub fn rerun_all_plots(&self) -> Result<(), String> {
         let plot_scripts = [
             ("sim_simple", "simulator/scripts/sim_simple/plot_results.py"),
@@ -175,6 +209,7 @@ impl SimulatorInterface {
             ("sweep_block_interval_constant_time_delay", "simulator/scripts/sim_sweep_block_interval_constant_time_delay/plot_results.py"),
             ("sweep_cat_pending_dependencies", "simulator/scripts/sim_sweep_cat_pending_dependencies/plot_results.py"),
         ];
+        
         for (name, script) in &plot_scripts {
             println!("Running plot script for {}...", name);
             let status = Command::new("python3")

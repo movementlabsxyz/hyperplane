@@ -1,12 +1,12 @@
-//! Transaction statistics tracking for the Hyperplane simulator.
-//! Tracks transaction counts, TPS, cancellation rates, and block timing during simulations.
-
+//! Transaction statistics tracking.
+//! 
+//! Tracks transaction counts, TPS, and cancellation rates during simulations.
 
 use std::time::Instant;
 use hyperplane::types::TransactionStatus;
 
 // ------------------------------------------------------------------------------------------------
-// Statistics Tracking
+// Data Structures
 // ------------------------------------------------------------------------------------------------
 
 /// Tracks statistics for the simulation including total transactions, cancellations, and timing
@@ -22,6 +22,10 @@ pub struct SimulatorStats {
     /// Vector tracking the number of transactions processed in each block
     transactions_per_block: Vec<usize>,
 }
+
+// ------------------------------------------------------------------------------------------------
+// Implementations
+// ------------------------------------------------------------------------------------------------
 
 impl SimulatorStats {
     /// Creates a new SimulatorStats instance with initialized counters and start time

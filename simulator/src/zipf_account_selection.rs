@@ -1,4 +1,5 @@
-//! Zipfian account selection strategy for the Hyperplane simulator.
+//! Zipfian account selection strategy.
+//! 
 //! Implements account selection based on the Zipf distribution.
 
 use hyperplane::utils::logging;
@@ -7,7 +8,7 @@ use rand_distr::Zipf;
 use rand::Rng;
 
 // ------------------------------------------------------------------------------------------------
-// Account Selection
+// Data Structures
 // ------------------------------------------------------------------------------------------------
 
 /// Selects accounts according to a Zipf distribution
@@ -16,6 +17,10 @@ pub struct AccountSelector {
     zipf_parameter: f64,
     num_accounts: usize,
 }
+
+// ------------------------------------------------------------------------------------------------
+// Implementations
+// ------------------------------------------------------------------------------------------------
 
 impl AccountSelector {
     /// Creates a new account selector
@@ -42,6 +47,7 @@ impl AccountSelector {
         selected
     }
 
+    /// Returns the Zipf parameter used for account selection
     pub fn get_zipf_parameter(&self) -> f64 {
         self.zipf_parameter
     }

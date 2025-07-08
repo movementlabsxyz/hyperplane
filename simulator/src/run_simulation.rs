@@ -1,5 +1,6 @@
-//! Core simulation runner for the Hyperplane simulator.
-//! Contains logic to execute a single simulation scenario based on configuration.
+//! Core simulation logic for the Hyperplane simulator.
+//! 
+//! Handles transaction generation, submission, and status tracking during simulations.
 
 use std::sync::Arc;
 use std::time::Duration;

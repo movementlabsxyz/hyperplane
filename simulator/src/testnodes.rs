@@ -1,6 +1,6 @@
-//! Test node setup and management for the Hyperplane simulator.
+//! Test node setup and management.
+//! 
 //! Provides utilities for initializing and controlling simulated blockchain nodes.
-
 
 use hyperplane::{
     types::ChainId,
@@ -16,10 +16,10 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 // ------------------------------------------------------------------------------------------------
-// Test Node Setup
+// Node Setup Functions
 // ------------------------------------------------------------------------------------------------
 
-/// Helper function to create test nodes with basic setup
+// Helper function to create test nodes with basic setup
 /// Returns a tuple of the nodes and the current block number at the end of the setup
 ///
 /// # Arguments

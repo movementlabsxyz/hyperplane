@@ -1,5 +1,6 @@
-//! Data structures and utilities for storing simulation results in the Hyperplane simulator.
-//! Used for saving, loading, and analyzing simulation output data.
+//! Simulation results storage and serialization.
+//! 
+//! Handles saving simulation data to JSON files for analysis.
 
 use std::time::Instant;
 use std::fs;
@@ -7,7 +8,11 @@ use serde_json;
 use crate::account_selection::AccountSelectionStats;
 use hyperplane::utils::logging;
 
+// ------------------------------------------------------------------------------------------------
+// Data Structures
+// ------------------------------------------------------------------------------------------------
 
+/// Stores all simulation results and statistics
 #[derive(Debug)]
 pub struct SimulationResults {
     // Transaction counts
@@ -56,7 +61,10 @@ pub struct SimulationResults {
     pub start_time: Instant,
 }
 
-// Empty constructor
+// ------------------------------------------------------------------------------------------------
+// Implementations
+// ------------------------------------------------------------------------------------------------
+
 impl Default for SimulationResults {
     fn default() -> Self {
         Self {
@@ -97,14 +105,13 @@ impl Default for SimulationResults {
     }
 }
 
-/// Saves the simulation results to files
 impl SimulationResults {
-    /// Saves the simulation results to files
+    /// Saves results to the default directory
     pub async fn save(&self) -> Result<(), String> {
         self.save_to_directory("simulator/results/sim_simple").await
     }
 
-    /// Saves the simulation results to a specific directory
+    /// Saves all simulation data to JSON files in the specified directory
     pub async fn save_to_directory(&self, base_dir: &str) -> Result<(), String> {
         // Print final statistics
         logging::log("SIMULATOR", "\n=== Simulation Statistics ===");

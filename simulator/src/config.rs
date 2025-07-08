@@ -1,5 +1,6 @@
-//! Configuration loader and validator for the Hyperplane simulator.
-//! Handles parsing, validation, and access to simulation configuration files.
+//! Configuration management for the Hyperplane simulator.
+//! 
+//! Handles loading, validation, and access to simulation configuration files.
 
 
 use serde::Deserialize;
@@ -11,6 +12,8 @@ use thiserror::Error;
 // Main Configuration Structs
 // ------------------------------------------------------------------------------------------------
 
+/// Main configuration struct for simulation parameters
+/// 
 /// Main configuration struct for simulation parameters.
 /// 
 /// This struct contains all the configuration needed to run a simulation,
@@ -97,7 +100,7 @@ pub enum ConfigError {
     ValidationError(String),
 }
 
-// Trait for common validation functionality
+/// Trait for common validation functionality
 pub trait ValidateConfig {
     fn validate_common(&self) -> Result<(), ConfigError>;
     fn validate_sweep_specific(&self) -> Result<(), ConfigError>;
@@ -109,7 +112,7 @@ pub trait ValidateConfig {
     }
 }
 
-// Common validation logic
+/// Common validation logic for configuration fields
 pub fn validate_common_fields(
     account_config: &AccountConfig,
     transaction_config: &TransactionConfig,
@@ -170,6 +173,7 @@ impl NetworkConfig {
 }
 
 impl Config {
+    /// Loads configuration from the default config file
     pub fn load() -> Result<Self, ConfigError> {
         let config_str = fs::read_to_string("simulator/src/scenarios/config_simple.toml")?;
         let config: Config = toml::from_str(&config_str)?;
@@ -177,10 +181,12 @@ impl Config {
         Ok(config)
     }
 
+    /// Validates the configuration
     fn validate(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)
     }
 
+    /// Calculates estimated simulation duration
     pub fn get_duration(&self) -> Duration {
         // Calculate duration based on block interval and total blocks
         // This is a rough estimate for backward compatibility
