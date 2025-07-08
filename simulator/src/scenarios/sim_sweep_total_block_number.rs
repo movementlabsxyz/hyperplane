@@ -1,6 +1,23 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the total block number sweep simulation.
+/// 
+/// This struct defines the parameters used to control the total block number sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct TotalBlockNumberSweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
+    pub num_simulations: usize,
+    /// Step size for simulation duration sweeps (in blocks, affects total simulation length)
+    pub duration_step: u64,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,10 +26,11 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepTotalBlockNumberConfig,
     "config_sweep_total_block_number.toml",
+    sweep_parameters = TotalBlockNumberSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need duration_step to generate the sequence of block counts to test
-        if self_.sweep.duration_step.is_none() {
-            return Err(crate::config::ConfigError::ValidationError("Duration step must be specified".into()));
+        if self_.sweep.duration_step == 0 {
+            return Err(crate::config::ConfigError::ValidationError("Duration step must be positive".into()));
         }
         Ok(())
     }
@@ -37,7 +55,7 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
     // Each value represents the total number of blocks to simulate
     let block_numbers = generate_u64_sequence(
         25,  // Start at 25 blocks
-        sweep_config.sweep.duration_step.unwrap(),
+        sweep_config.sweep.duration_step,
         sweep_config.sweep.num_simulations
     );
 

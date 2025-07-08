@@ -1,6 +1,23 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the CAT lifetime sweep simulation.
+/// 
+/// This struct defines the parameters used to control the CAT lifetime sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct CatLifetimeSweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
+    pub num_simulations: usize,
+    /// Step size for CAT lifetime sweeps (in blocks, affects CAT timeout behavior)
+    pub cat_lifetime_step: u64,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,10 +26,11 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepCatLifetimeConfig,
     "config_sweep_cat_lifetime.toml",
+    sweep_parameters = CatLifetimeSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need cat_lifetime_step to generate the sequence of CAT lifetimes to test
-        if self_.sweep.cat_lifetime_step.is_none() {
-            return Err(crate::config::ConfigError::ValidationError("CAT lifetime step must be specified".into()));
+        if self_.sweep.cat_lifetime_step == 0 {
+            return Err(crate::config::ConfigError::ValidationError("CAT lifetime step must be positive".into()));
         }
         Ok(())
     }
@@ -40,8 +58,8 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
     // Creates a sequence of lifetimes: 1 block, 2 blocks, 3 blocks, etc.
     // Each value represents the number of blocks a CAT remains valid
     let cat_lifetimes = generate_u64_sequence(
-        sweep_config.sweep.cat_lifetime_step.unwrap(),
-        sweep_config.sweep.cat_lifetime_step.unwrap(),
+        sweep_config.sweep.cat_lifetime_step,
+        sweep_config.sweep.cat_lifetime_step,
         sweep_config.sweep.num_simulations
     );
 

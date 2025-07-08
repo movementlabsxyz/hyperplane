@@ -1,6 +1,23 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the block interval constant block delay sweep simulation.
+/// 
+/// This struct defines the parameters used to control the block interval constant block delay sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct BlockIntervalConstantBlockDelaySweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
+    pub num_simulations: usize,
+    /// Step size for block interval sweeps (in seconds, affects block production rate)
+    pub block_interval_step: f64,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,10 +26,11 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepBlockIntervalConstantDelayConfig,
     "config_sweep_block_interval_constant_block_delay.toml",
+    sweep_parameters = BlockIntervalConstantBlockDelaySweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need block_interval_step to generate the sequence of block intervals to test
-        if self_.sweep.block_interval_step.is_none() {
-            return Err(crate::config::ConfigError::ValidationError("Block interval step must be specified".into()));
+        if self_.sweep.block_interval_step <= 0.0 {
+            return Err(crate::config::ConfigError::ValidationError("Block interval step must be positive".into()));
         }
         Ok(())
     }
@@ -39,8 +57,8 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
     // Creates a sequence of block intervals starting from block_interval_step
     // Each value represents the time between block productions
     let block_intervals = generate_f64_sequence(
-        sweep_config.sweep.block_interval_step.unwrap(),
-        sweep_config.sweep.block_interval_step.unwrap(),
+        sweep_config.sweep.block_interval_step,
+        sweep_config.sweep.block_interval_step,
         sweep_config.sweep.num_simulations
     );
 

@@ -1,6 +1,25 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the block interval constant time delay sweep simulation.
+/// 
+/// This struct defines the parameters used to control the block interval constant time delay sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct BlockIntervalConstantTimeDelaySweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
+    pub num_simulations: usize,
+    /// Step size for block interval sweeps (in seconds, affects block production rate)
+    pub block_interval_step: f64,
+    /// Reference delay duration for block interval sweeps (in seconds, used with block_interval_step)
+    pub reference_chain_delay_duration: f64,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,16 +28,15 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepBlockIntervalScaledDelayConfig,
     "config_sweep_block_interval_constant_time_delay.toml",
+    sweep_parameters = BlockIntervalConstantTimeDelaySweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need block_interval_step to generate the sequence of block intervals to test
-        if self_.sweep.block_interval_step.is_none() {
-            return Err(crate::config::ConfigError::ValidationError("Block interval step must be specified".into()));
+        if self_.sweep.block_interval_step <= 0.0 {
+            return Err(crate::config::ConfigError::ValidationError("Block interval step must be positive".into()));
         }
         // Need positive reference_delay for delay calculation: delay_blocks = reference_delay / block_interval
-        if let Some(ref_delay) = self_.sweep.reference_chain_delay_duration {
-            if ref_delay <= 0.0 {
-                return Err(crate::config::ConfigError::ValidationError("Reference chain delay duration must be positive".into()));
-            }
+        if self_.sweep.reference_chain_delay_duration <= 0.0 {
+            return Err(crate::config::ConfigError::ValidationError("Reference chain delay duration must be positive".into()));
         }
         Ok(())
     }
@@ -45,8 +63,8 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
     // Creates a sequence of block intervals starting from block_interval_step
     // Each value represents the time between block productions
     let block_intervals = generate_f64_sequence(
-        sweep_config.sweep.block_interval_step.unwrap(),
-        sweep_config.sweep.block_interval_step.unwrap(),
+        sweep_config.sweep.block_interval_step,
+        sweep_config.sweep.block_interval_step,
         sweep_config.sweep.num_simulations
     );
 
@@ -72,7 +90,7 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                 // For example, if reference_delay = 0.5 seconds:
                 // At 0.1s block interval, this requires 5 blocks = 0.5 seconds
                 // At 0.05s block interval, this requires 10 blocks = 0.5 seconds
-                let reference_delay = config.sweep.reference_chain_delay_duration.unwrap_or(0.5);
+                let reference_delay = config.sweep.reference_chain_delay_duration;
                 let delay_blocks = (reference_delay / block_interval).round() as u64;
                 
                 // Use the block number from the config

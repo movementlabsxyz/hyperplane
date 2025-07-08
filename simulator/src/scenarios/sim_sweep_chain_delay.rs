@@ -1,6 +1,23 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the chain delay sweep simulation.
+/// 
+/// This struct defines the parameters used to control the chain delay sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ChainDelaySweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
+    pub num_simulations: usize,
+    /// Step size for chain delay sweeps (in blocks, affects inter-chain communication timing)
+    pub chain_delay_step: f64,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,10 +26,11 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepChainDelayConfig,
     "config_sweep_chain_delay.toml",
+    sweep_parameters = ChainDelaySweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need chain_delay_step to generate the sequence of chain delays to test
-        if self_.sweep.chain_delay_step.is_none() {
-            return Err(crate::config::ConfigError::ValidationError("Chain delay step must be specified".into()));
+        if self_.sweep.chain_delay_step <= 0.0 {
+            return Err(crate::config::ConfigError::ValidationError("Chain delay step must be positive".into()));
         }
         Ok(())
     }
@@ -40,7 +58,7 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
     // Each value represents the delay from the HIG to HS in blocks
     let chain_delays = generate_u64_sequence(
         0,  // Start at 0 blocks
-        sweep_config.sweep.chain_delay_step.unwrap() as u64,
+        sweep_config.sweep.chain_delay_step as u64,
         sweep_config.sweep.num_simulations
     );
 

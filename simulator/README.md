@@ -84,54 +84,30 @@ python3 simulator/scripts/sim_simple/plot_results.py
 
 You can modify the simulation parameters by editing the configuration files in `simulator/src/scenarios/`. The simulator supports multiple simulation types including simple simulations and various parameter sweep scenarios.
 
+
+
 ## Adding New Simulations
 
 To add a new simulation to the simulator, follow these steps:
 
-##### 1. Define the Simulation Type
-Add your simulation type to `src/interface.rs`:
-```rust
-pub enum SimulationType {
-    // ... existing types ...
-    YourNewSimulation,
-}
-```
+##### 1. `src/interface.rs` : Add Simulation Type
+Add your simulation type to the `SimulationType` enum and update the `from_input()` method and menu text.
 
-##### 2. Create the Simulation Module
-Add the module declaration in `src/scenarios/mod.rs`:
-```rust
-pub mod sim_your_new_simulation;
-```
+##### 2. `src/scenarios/mod.rs` : Add Module Declaration
+Add the module declaration for your new simulation.
 
-##### 3. Implement the Simulation
-Create `src/scenarios/sim_your_new_simulation.rs` with:
-- Your simulation logic
-- A `register()` function that returns `(SimulationType, SimulationConfig)`
-- See `sim_sweep_zipf.rs` for a complete reference implementation
+##### 3. `src/scenarios/sim_your_new_simulation.rs` : Create Simulation File
+Create the simulation file with your simulation logic and a `register()` function.
 
-##### 4. Create Configuration
-Create `src/scenarios/config_your_new_simulation.toml` with your simulation parameters.
+##### 4. `src/scenarios/config_your_new_simulation.toml` : Create Configuration File
+Create the configuration file with your simulation parameters.
 
-##### 5. Create Plot Script
-Create `scripts/sim_your_new_simulation/plot_results.py` to visualize results.
-
-##### 6. Update Main Binary
-Add your simulation type handling in `src/bin/simulator.rs`.
-
-##### 7. Add Sweep Parameter (for sweep simulations)
-If creating a sweep simulation, add a new parameter to the `SweepParameters` struct in `src/config.rs`:
-
-```rust
-#[derive(Debug, Deserialize, Clone)]
-pub struct SweepParameters {
-    // ... existing parameters ...
-    #[serde(default)]
-    pub your_new_parameter_step: Option<f64>,  // Add your new sweep parameter
-}
-```
+##### 5. `scripts/sim_your_new_simulation/plot_results.py` : Create Plot Script
+Create the plot script directory and add the plotting script.
 
 ##### Reference Implementation
 See `sim_sweep_zipf.rs` for a complete example of a sweep simulation with:
+- Sweep-specific parameter struct definition
 - Configuration loading and validation
 - Parameter sequence generation  
 - SweepRunner integration
@@ -172,3 +148,5 @@ simulator/
 ├── results/                # Generated results and figures
 └── run.sh                  # Launch script
 ```
+
+

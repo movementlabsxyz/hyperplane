@@ -1,6 +1,23 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the CAT rate sweep simulation.
+/// 
+/// This struct defines the parameters used to control the CAT rate sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct CatRateSweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
+    pub num_simulations: usize,
+    /// Step size for CAT ratio sweeps (0.0 = no CATs, 1.0 = all CATs)
+    pub cat_rate_step: f64,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,10 +26,11 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepCatRateConfig,
     "config_sweep_cat_rate.toml",
+    sweep_parameters = CatRateSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need cat_rate_step to generate the sequence of CAT ratios to test
-        if self_.sweep.cat_rate_step.is_none() && self_.sweep.zipf_step.is_none() {
-            return Err(crate::config::ConfigError::ValidationError("Either CAT rate step or Zipf step must be specified".into()));
+        if self_.sweep.cat_rate_step <= 0.0 {
+            return Err(crate::config::ConfigError::ValidationError("CAT rate step must be positive".into()));
         }
         Ok(())
     }
@@ -40,7 +58,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
     // Each value represents the fraction of transactions that should be CATs
     let cat_ratios = generate_f64_sequence(
         0.0, 
-        sweep_config.sweep.cat_rate_step.unwrap(), 
+        sweep_config.sweep.cat_rate_step, 
         sweep_config.sweep.num_simulations
     );
 

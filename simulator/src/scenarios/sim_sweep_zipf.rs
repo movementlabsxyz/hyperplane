@@ -1,6 +1,23 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the Zipf distribution sweep simulation.
+/// 
+/// This struct defines the parameters used to control the Zipf distribution sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct ZipfSweepParameters {
+    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
+    pub num_simulations: usize,
+    /// Step size for Zipf distribution parameter sweeps (controls account access pattern skewness)
+    pub zipf_step: f64,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,10 +26,11 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepZipfConfig,
     "config_sweep_zipf.toml",
+    sweep_parameters = ZipfSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need zipf_step to generate the sequence of Zipf parameters to test
-        if self_.sweep.zipf_step.is_none() {
-            return Err(crate::config::ConfigError::ValidationError("Zipf step must be specified".into()));
+        if self_.sweep.zipf_step <= 0.0 {
+            return Err(crate::config::ConfigError::ValidationError("Zipf step must be positive".into()));
         }
         Ok(())
     }
@@ -41,7 +59,7 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
     // Each value represents the skewness of the access distribution
     let zipf_parameters = generate_f64_sequence(
         0.0,  // Start at 0.0 (uniform distribution)
-        sweep_config.sweep.zipf_step.unwrap(),
+        sweep_config.sweep.zipf_step,
         sweep_config.sweep.num_simulations
     );
 

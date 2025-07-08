@@ -1,6 +1,21 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use serde::Deserialize;
+
+// ============================================================================
+// Sweep-Specific Parameter Struct
+// ============================================================================
+
+/// Parameters specific to the CAT pending dependencies sweep simulation.
+/// 
+/// This struct defines the parameters used to control the CAT pending dependencies sweep.
+/// It contains only the parameters relevant to this specific sweep type.
+#[derive(Debug, Deserialize, Clone)]
+pub struct CatPendingDependenciesSweepParameters {
+    /// Total number of simulation runs in the sweep (must be exactly 2 for false/true values)
+    pub num_simulations: usize,
+}
 
 // ============================================================================
 // Sweep Configuration
@@ -9,6 +24,7 @@ use crate::config::ValidateConfig;
 define_sweep_config!(
     SweepCatPendingDependenciesConfig,
     "config_sweep_cat_pending_dependencies.toml",
+    sweep_parameters = CatPendingDependenciesSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need exactly 2 simulations to test false and true values for the flag
         if self_.sweep.num_simulations != 2 {
