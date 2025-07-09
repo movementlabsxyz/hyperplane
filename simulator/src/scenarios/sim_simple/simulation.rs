@@ -3,6 +3,22 @@ use std::fs;
 use chrono::Local;
 use hyperplane::utils::logging;
 use std::time::{Duration, Instant};
+use toml;
+
+// ------------------------------------------------------------------------------------------------
+// Configuration Loading
+// ------------------------------------------------------------------------------------------------
+
+/// Loads and validates the simple simulation configuration from the TOML file.
+/// 
+/// This function reads the configuration from config.toml in the sim_simple directory
+/// and validates it according to the simple simulation's requirements.
+fn load_config() -> Result<crate::config::Config, crate::config::ConfigError> {
+    let config_str = fs::read_to_string("simulator/src/scenarios/sim_simple/config.toml")?;
+    let config: crate::config::Config = toml::from_str(&config_str)?;
+    config.validate()?;
+    Ok(config)
+}
 
 // ------------------------------------------------------------------------------------------------
 // Simulation Entry Point
@@ -19,7 +35,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     setup_logging();
 
     // Load configuration
-    let config = crate::config::Config::load()?;
+    let config = load_config()?;
     
     // Initialize simulation results from configuration
     let mut results = initialize_simulation_results(&config);

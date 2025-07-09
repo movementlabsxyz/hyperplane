@@ -64,17 +64,17 @@ pub use zipf_account_selection::AccountSelector;
 pub use testnodes::*;
 
 // Simple simulation
-pub use scenarios::sim_simple::run_simple_simulation;
+pub use scenarios::sim_simple::simulation::run_simple_simulation;
 
 // Sweep simulations
-pub use scenarios::sim_sweep_cat_rate::run_sweep_cat_rate_simulation;
-pub use scenarios::sim_sweep_zipf::run_sweep_zipf_simulation;
-pub use scenarios::sim_sweep_chain_delay::run_sweep_chain_delay;
-pub use scenarios::sim_sweep_total_block_number::run_sweep_total_block_number;
-pub use scenarios::sim_sweep_cat_lifetime::run_sweep_cat_lifetime_simulation;
-pub use scenarios::sim_sweep_block_interval_constant_block_delay::run_sweep_block_interval_constant_block_delay;
-pub use scenarios::sim_sweep_block_interval_constant_time_delay::run_sweep_block_interval_constant_time_delay;
-pub use scenarios::sim_sweep_cat_pending_dependencies::run_sweep_cat_pending_dependencies_simulation;
+pub use scenarios::sim_sweep_cat_rate::simulation::run_sweep_cat_rate_simulation;
+pub use scenarios::sim_sweep_zipf::simulation::run_sweep_zipf_simulation;
+pub use scenarios::sim_sweep_chain_delay::simulation::run_sweep_chain_delay;
+pub use scenarios::sim_sweep_total_block_number::simulation::run_sweep_total_block_number;
+pub use scenarios::sim_sweep_cat_lifetime::simulation::run_sweep_cat_lifetime_simulation;
+pub use scenarios::sim_sweep_block_interval_constant_block_delay::simulation::run_sweep_block_interval_constant_block_delay;
+pub use scenarios::sim_sweep_block_interval_constant_time_delay::simulation::run_sweep_block_interval_constant_time_delay;
+pub use scenarios::sim_sweep_cat_pending_dependencies::simulation::run_sweep_cat_pending_dependencies_simulation;
 
 // Test orchestration
 pub use scenarios::run_all_tests; 

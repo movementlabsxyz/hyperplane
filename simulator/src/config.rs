@@ -4,7 +4,6 @@
 
 
 use serde::Deserialize;
-use std::fs;
 use std::time::Duration;
 use thiserror::Error;
 
@@ -173,16 +172,8 @@ impl NetworkConfig {
 }
 
 impl Config {
-    /// Loads configuration from the default config file
-    pub fn load() -> Result<Self, ConfigError> {
-        let config_str = fs::read_to_string("simulator/src/scenarios/config_simple.toml")?;
-        let config: Config = toml::from_str(&config_str)?;
-        config.validate()?;
-        Ok(config)
-    }
-
     /// Validates the configuration
-    fn validate(&self) -> Result<(), ConfigError> {
+    pub fn validate(&self) -> Result<(), ConfigError> {
         validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)
     }
 

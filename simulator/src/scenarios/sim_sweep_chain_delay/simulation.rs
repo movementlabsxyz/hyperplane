@@ -24,9 +24,16 @@ pub struct ChainDelaySweepParameters {
 // Sweep Configuration
 // ------------------------------------------------------------------------------------------------
 
+// Defines the sweep configuration for chain delay simulations.
+// 
+// This macro generates a complete sweep configuration setup including:
+// - A config struct with standard fields (network_config, account_config, transaction_config, sweep)
+// - Standard validation logic for common fields
+// - SweepConfigTrait implementation for integration with the generic SweepRunner
+// - A load_config() function that reads and validates the TOML configuration file
 define_sweep_config!(
+    "sim_sweep_chain_delay",
     SweepChainDelayConfig,
-    "config_sweep_chain_delay.toml",
     sweep_parameters = ChainDelaySweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need chain_delay_step to generate the sequence of chain delays to test

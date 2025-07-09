@@ -63,31 +63,31 @@ impl SimulationRegistry {
         let mut simulations = HashMap::new();
         
         // Register all simulation types using their register functions
-        let (sim_type, sim_config) = sim_simple::register();
+        let (sim_type, sim_config) = sim_simple::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_cat_rate::register();
+        let (sim_type, sim_config) = sim_sweep_cat_rate::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_zipf::register();
+        let (sim_type, sim_config) = sim_sweep_zipf::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_chain_delay::register();
+        let (sim_type, sim_config) = sim_sweep_chain_delay::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_total_block_number::register();
+        let (sim_type, sim_config) = sim_sweep_total_block_number::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_cat_lifetime::register();
+        let (sim_type, sim_config) = sim_sweep_cat_lifetime::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_block_interval_constant_block_delay::register();
+        let (sim_type, sim_config) = sim_sweep_block_interval_constant_block_delay::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_block_interval_constant_time_delay::register();
+        let (sim_type, sim_config) = sim_sweep_block_interval_constant_time_delay::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_cat_pending_dependencies::register();
+        let (sim_type, sim_config) = sim_sweep_cat_pending_dependencies::simulation::register();
         simulations.insert(sim_type, sim_config);
         
         // Register run all tests (still hardcoded since it doesn't have a register function)

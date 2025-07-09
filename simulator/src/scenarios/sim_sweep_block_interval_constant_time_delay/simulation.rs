@@ -26,9 +26,16 @@ pub struct BlockIntervalConstantTimeDelaySweepParameters {
 // Sweep Configuration
 // ------------------------------------------------------------------------------------------------
 
+// Defines the sweep configuration for block interval (constant time delay) simulations.
+// 
+// This macro generates a complete sweep configuration setup including:
+// - A config struct with standard fields (network_config, account_config, transaction_config, sweep)
+// - Standard validation logic for common fields
+// - SweepConfigTrait implementation for integration with the generic SweepRunner
+// - A load_config() function that reads and validates the TOML configuration file
 define_sweep_config!(
+    "sim_sweep_block_interval_constant_time_delay",
     SweepBlockIntervalScaledDelayConfig,
-    "config_sweep_block_interval_constant_time_delay.toml",
     sweep_parameters = BlockIntervalConstantTimeDelaySweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need block_interval_step to generate the sequence of block intervals to test
