@@ -14,14 +14,27 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 from typing import Dict, List, Tuple, Any, Optional
 
+# ------------------------------------------------------------------------------------------------
+# Utility Functions
+# ------------------------------------------------------------------------------------------------
+
 def create_color_gradient(num_simulations: int) -> np.ndarray:
     """Create a color gradient from red (0) to blue (max)"""
     return plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
 
 def load_sweep_data(results_path: str) -> Dict[str, Any]:
     """Load the combined sweep results data from a given path"""
-    with open(results_path, 'r') as f:
-        return json.load(f)
+    try:
+        with open(results_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Warning: Sweep results file not found: {results_path}")
+        print("This sweep may not have been executed yet. Skipping plot generation.")
+        return {"individual_results": [], "sweep_summary": {}}
+    except json.JSONDecodeError as e:
+        print(f"Warning: Invalid JSON in sweep results file: {results_path}")
+        print(f"Error: {e}")
+        return {"individual_results": [], "sweep_summary": {}}
 
 def extract_parameter_value(result: Dict[str, Any], param_name: str) -> float:
     """Extract parameter value from result dict"""
@@ -57,6 +70,10 @@ def create_sweep_title(param_name: str, sweep_type: str) -> str:
     
     param_display = param_display_names.get(param_name, param_name.replace('_', ' ').title())
     return f'{param_display} Sweep'
+
+# ------------------------------------------------------------------------------------------------
+# Transaction Overlay Plotting
+# ------------------------------------------------------------------------------------------------
 
 def plot_transactions_overlay(
     data: Dict[str, Any],
@@ -125,7 +142,6 @@ def plot_transactions_overlay(
         plt.tight_layout()
         
         # Save plot
-        os.makedirs(f'{results_dir}/figs', exist_ok=True)
         plt.savefig(f'{results_dir}/figs/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
@@ -133,6 +149,10 @@ def plot_transactions_overlay(
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing {transaction_type} transactions data: {e}")
         return
+
+# ------------------------------------------------------------------------------------------------
+# Summary Chart Plotting
+# ------------------------------------------------------------------------------------------------
 
 def plot_transaction_status_chart(ax: plt.Axes, data: Dict[str, Any], param_name: str) -> None:
     """Create a line chart showing failed/success/pending data vs parameter"""
@@ -292,6 +312,10 @@ def plot_transaction_status_chart_separate(ax: plt.Axes, data: Dict[str, Any], p
         ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
         ax.axis('off')
 
+# ------------------------------------------------------------------------------------------------
+# Sweep Summary Plotting
+# ------------------------------------------------------------------------------------------------
+
 def plot_sweep_summary(
     data: Dict[str, Any],
     param_name: str,
@@ -366,7 +390,6 @@ def plot_sweep_summary(
         plt.tight_layout()
         
         # Save plot
-        os.makedirs(f'{results_dir}/figs', exist_ok=True)
         plt.savefig(f'{results_dir}/figs/sweep_summary.png', 
                    dpi=300, bbox_inches='tight')
         plt.close()
@@ -374,6 +397,10 @@ def plot_sweep_summary(
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing sweep summary data: {e}")
         return
+
+# ------------------------------------------------------------------------------------------------
+# Main Plot Generation
+# ------------------------------------------------------------------------------------------------
 
 def generate_all_plots(
     results_path: str,
@@ -387,7 +414,12 @@ def generate_all_plots(
     # Load data
     data = load_sweep_data(results_path)
     
-    # Create results directory if it doesn't exist
+    # Check if we have any data to plot
+    if not data.get('individual_results'):
+        print(f"No data found for {sweep_type} simulation. Skipping plot generation.")
+        return
+    
+    # Create results directory only if we have data
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
     # Plot all transaction overlays (combined totals)
@@ -408,4 +440,85 @@ def generate_all_plots(
     # Plot sweep summary
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     
-    print(f"{sweep_type} simulation plots generated successfully!") 
+    # Plot locked keys data
+    plot_sweep_locked_keys(results_dir)
+    
+    print(f"{sweep_type} simulation plots generated successfully!")
+
+# ------------------------------------------------------------------------------------------------
+# Locked Keys Plotting
+# ------------------------------------------------------------------------------------------------
+
+def plot_sweep_locked_keys(results_dir: str) -> None:
+    """
+    Plot locked keys overlay for sweep simulations.
+    
+    # Arguments
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    """
+    try:
+        # Load sweep results
+        with open(f'{results_dir}/data/sweep_results.json', 'r') as f:
+            sweep_data = json.load(f)
+        
+        individual_results = sweep_data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping locked keys overlay plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(12, 8))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Plot each simulation's chain 1 locked keys
+        for i, result in enumerate(individual_results):
+            # Get the parameter value (first key that's not a standard metric)
+            param_value = None
+            for key, value in result.items():
+                if key not in ['total_transactions', 'cat_transactions', 'regular_transactions', 
+                              'chain_1_pending', 'chain_1_success', 'chain_1_failure',
+                              'chain_1_cat_pending', 'chain_1_cat_success', 'chain_1_cat_failure',
+                              'chain_1_regular_pending', 'chain_1_regular_success', 'chain_1_regular_failure',
+                              'chain_1_locked_keys', 'chain_2_locked_keys']:
+                    param_value = value
+                    break
+            
+            if param_value is None:
+                continue
+                
+            chain_data = result.get('chain_1_locked_keys', [])
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(key, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Get parameter name from results directory
+        param_name = results_dir.replace('simulator/results/', '').replace('sim_sweep_', '').replace('_', ' ').title()
+        plt.title(f'Locked Keys by Height (Chain 1) - {param_name} Sweep')
+        plt.xlabel('Block Height')
+        plt.ylabel('Number of Locked Keys')
+        plt.xlim(left=0)
+        plt.grid(True, alpha=0.3)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/locked_keys_overlay.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing sweep locked keys data for {results_dir}: {e}")
+        return 
+
+ 

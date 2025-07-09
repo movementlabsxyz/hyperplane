@@ -6,7 +6,7 @@
 num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0, 5]  # chain-1 has 0 blocks delay, chain-2 has 5 blocks delay
+chain_delays = [0, 5]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds
 block_interval = 0.02
 

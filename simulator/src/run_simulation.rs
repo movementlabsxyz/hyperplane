@@ -188,6 +188,10 @@ pub async fn run_simulation(
         let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
         let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
         
+        // Get locked keys counts
+        let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
+        let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
+        
         // Calculate combined totals for backward compatibility
         let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
         let chain_1_success = chain_1_cat_success + chain_1_regular_success;
@@ -227,6 +231,10 @@ pub async fn run_simulation(
             results.chain_2_regular_success.push((new_block, chain_2_regular_success));
             results.chain_1_regular_failure.push((new_block, chain_1_regular_failure));
             results.chain_2_regular_failure.push((new_block, chain_2_regular_failure));
+            
+            // Record locked keys data
+            results.chain_1_locked_keys.push((new_block, chain_1_locked_keys));
+            results.chain_2_locked_keys.push((new_block, chain_2_locked_keys));
             current_block = new_block;
             
             // Update progress bar for new block

@@ -472,6 +472,8 @@ pub fn save_generic_sweep_results<T: serde::Serialize>(
             json_obj.insert("chain_1_regular_pending".to_string(), serde_json::to_value(&results.chain_1_regular_pending).unwrap());
             json_obj.insert("chain_1_regular_success".to_string(), serde_json::to_value(&results.chain_1_regular_success).unwrap());
             json_obj.insert("chain_1_regular_failure".to_string(), serde_json::to_value(&results.chain_1_regular_failure).unwrap());
+            json_obj.insert("chain_1_locked_keys".to_string(), serde_json::to_value(&results.chain_1_locked_keys).unwrap());
+            json_obj.insert("chain_2_locked_keys".to_string(), serde_json::to_value(&results.chain_2_locked_keys).unwrap());
             serde_json::Value::Object(json_obj)
         }).collect::<Vec<_>>()
     });

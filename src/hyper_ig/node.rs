@@ -785,6 +785,15 @@ impl HyperIGNode {
             .map(|(key, _)| key.clone())
             .collect()
     }
+
+    /// Gets the total number of currently locked keys.
+    /// 
+    /// # Returns
+    /// The total count of keys that are currently locked by any transaction
+    pub async fn get_total_locked_keys_count(&self) -> u64 {
+        let state = self.state.lock().await;
+        state.key_locked_by_tx.len() as u64
+    }
 }
 
 //==============================================================================
