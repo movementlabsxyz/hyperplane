@@ -97,6 +97,7 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
                         initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
+                    repeat_config: base_config.repeat_config.clone(),
                 }
             })
         }),

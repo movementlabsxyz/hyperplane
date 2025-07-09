@@ -95,6 +95,7 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
                     },
                     account_config: base_config.account_config.clone(),
                     transaction_config: base_config.transaction_config.clone(),
+                    repeat_config: base_config.repeat_config.clone(),
                 }
             })
         }),

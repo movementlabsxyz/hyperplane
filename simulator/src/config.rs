@@ -26,6 +26,9 @@ pub struct Config {
     pub account_config: AccountConfig,
     /// Transaction configuration including rates, patterns, and cross-chain settings
     pub transaction_config: TransactionConfig,
+    /// Repeat configuration for running simulations multiple times (optional)
+    #[serde(default)]
+    pub repeat_config: Option<RepeatConfig>,
 }
 
 /// Configuration for network-related simulation parameters.
@@ -76,6 +79,17 @@ pub struct TransactionConfig {
     pub initialization_wait_blocks: u64,
     /// Whether CATs can depend on locked keys from pending transactions (affects transaction ordering)
     pub allow_cat_pending_dependencies: bool,
+}
+
+/// Configuration for repeat simulation parameters.
+/// 
+/// This struct defines parameters for running the same simulation multiple times
+/// and averaging the results to get more statistically reliable data.
+#[derive(Debug, Deserialize, Clone)]
+pub struct RepeatConfig {
+    /// Number of times to run the simulation
+    /// Results will be averaged across all runs
+    pub num_runs: u32,
 }
 
 // ------------------------------------------------------------------------------------------------

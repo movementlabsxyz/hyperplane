@@ -37,6 +37,15 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     // Load configuration
     let config = load_config()?;
     
+    // Display simulation name and create progress bar
+    println!("Running Simple Simulation");
+    use indicatif::{ProgressBar, ProgressStyle};
+    let progress_bar = ProgressBar::new(1);
+    progress_bar.set_style(ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
+        .unwrap()
+        .progress_chars("+>-"));
+    
     // Initialize simulation results from configuration
     let mut results = initialize_simulation_results(&config);
 
@@ -75,6 +84,18 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
 
     // Save results
     results.save().await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+
+    // Complete progress bar
+    progress_bar.inc(1);
+    progress_bar.set_message("Simple Simulation Complete");
+    progress_bar.finish_with_message("Simple Simulation Complete");
+
+    // Show completion status
+    println!("Simple simulation complete");
+    logging::log("SIMULATOR", "=== Simple Simulation Complete ===");
+    logging::log("SIMULATOR", &format!("Total transactions sent: {}", results.transactions_sent));
+    logging::log("SIMULATOR", &format!("CAT transactions: {}", results.cat_transactions));
+    logging::log("SIMULATOR", &format!("Regular transactions: {}", results.regular_transactions));
 
     Ok(())
 }

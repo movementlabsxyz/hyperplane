@@ -59,6 +59,9 @@ pub trait SweepConfigTrait {
     /// Returns a reference to the transaction configuration
     fn get_transaction_config(&self) -> &crate::config::TransactionConfig;
     
+    /// Returns a reference to the repeat configuration (if any)
+    fn get_repeat_config(&self) -> Option<&crate::config::RepeatConfig>;
+    
     /// Returns a reference to the underlying configuration as Any for type casting
     fn as_any(&self) -> &dyn std::any::Any;
 }
@@ -486,7 +489,7 @@ pub fn save_generic_sweep_results<T: serde::Serialize>(
     logging::log("SIMULATOR", &format!("Saved combined sweep results to {}", combined_file));
 
     Ok(())
-}
+} 
 
 /// Helper function to create a config with a single field modified.
 /// This reduces duplication across sweep implementations.
@@ -511,6 +514,7 @@ where
         network_config: sweep_config.get_network_config().clone(),
         account_config: sweep_config.get_account_config().clone(),
         transaction_config: sweep_config.get_transaction_config().clone(),
+        repeat_config: sweep_config.get_repeat_config().cloned(),
     };
     
     // Apply the field updater to create the modified config

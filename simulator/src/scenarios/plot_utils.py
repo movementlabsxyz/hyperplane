@@ -443,7 +443,7 @@ def generate_all_plots(
     # Plot locked keys data
     plot_sweep_locked_keys(results_dir)
     
-    print(f"{sweep_type} simulation plots generated successfully!")
+    print(f"{sweep_type} simulation plots generated successfully!") 
 
 # ------------------------------------------------------------------------------------------------
 # Locked Keys Plotting

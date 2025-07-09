@@ -13,7 +13,7 @@ use hyperplane::utils::logging;
 // ------------------------------------------------------------------------------------------------
 
 /// Stores all simulation results and statistics
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimulationResults {
     // Transaction counts
     pub transactions_sent: u64,

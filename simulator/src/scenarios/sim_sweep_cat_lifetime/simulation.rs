@@ -97,6 +97,7 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
                         initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
+                    repeat_config: base_config.repeat_config.clone(),
                 }
             })
         }),
