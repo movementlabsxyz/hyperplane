@@ -99,15 +99,15 @@ impl SimulatorInterface {
     /// Generates plots for a specific simulation type
     pub fn generate_plots(&self, simulation_type: &str) -> Result<(), String> {
         let script_path = match simulation_type {
-            "simple" => "simulator/scripts/sim_simple/plot_results.py",
-            "sweep_cat_rate" => "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
-            "sweep_zipf" => "simulator/scripts/sim_sweep_zipf/plot_results.py",
-            "sweep_chain_delay" => "simulator/scripts/sim_sweep_chain_delay/plot_results.py",
-            "sweep_total_block_number" => "simulator/scripts/sim_sweep_total_block_number/plot_results.py",
-            "sweep_cat_lifetime" => "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py",
-            "sweep_block_interval_constant_block_delay" => "simulator/scripts/sim_sweep_block_interval_constant_block_delay/plot_results.py",
-            "sweep_block_interval_constant_time_delay" => "simulator/scripts/sim_sweep_block_interval_constant_time_delay/plot_results.py",
-            "sweep_cat_pending_dependencies" => "simulator/scripts/sim_sweep_cat_pending_dependencies/plot_results.py",
+            "simple" => "simulator/src/scenarios/sim_simple/plot_results.py",
+            "sweep_cat_rate" => "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py",
+            "sweep_zipf" => "simulator/src/scenarios/sim_sweep_zipf/plot_results.py",
+            "sweep_chain_delay" => "simulator/src/scenarios/sim_sweep_chain_delay/plot_results.py",
+            "sweep_total_block_number" => "simulator/src/scenarios/sim_sweep_total_block_number/plot_results.py",
+            "sweep_cat_lifetime" => "simulator/src/scenarios/sim_sweep_cat_lifetime/plot_results.py",
+            "sweep_block_interval_constant_block_delay" => "simulator/src/scenarios/sim_sweep_block_interval_constant_block_delay/plot_results.py",
+            "sweep_block_interval_constant_time_delay" => "simulator/src/scenarios/sim_sweep_block_interval_constant_time_delay/plot_results.py",
+            "sweep_cat_pending_dependencies" => "simulator/src/scenarios/sim_sweep_cat_pending_dependencies/plot_results.py",
             _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
         };
 
@@ -199,15 +199,15 @@ impl SimulatorInterface {
     /// Reruns all plot generation scripts
     pub fn rerun_all_plots(&self) -> Result<(), String> {
         let plot_scripts = [
-            ("sim_simple", "simulator/scripts/sim_simple/plot_results.py"),
-            ("sweep_cat_rate", "simulator/scripts/sim_sweep_cat_rate/plot_results.py"),
-            ("sweep_zipf", "simulator/scripts/sim_sweep_zipf/plot_results.py"),
-            ("sweep_chain_delay", "simulator/scripts/sim_sweep_chain_delay/plot_results.py"),
-            ("sweep_total_block_number", "simulator/scripts/sim_sweep_total_block_number/plot_results.py"),
-            ("sweep_cat_lifetime", "simulator/scripts/sim_sweep_cat_lifetime/plot_results.py"),
-            ("sweep_block_interval_constant_block_delay", "simulator/scripts/sim_sweep_block_interval_constant_block_delay/plot_results.py"),
-            ("sweep_block_interval_constant_time_delay", "simulator/scripts/sim_sweep_block_interval_constant_time_delay/plot_results.py"),
-            ("sweep_cat_pending_dependencies", "simulator/scripts/sim_sweep_cat_pending_dependencies/plot_results.py"),
+            ("sim_simple", "simulator/src/scenarios/sim_simple/plot_results.py"),
+            ("sweep_cat_rate", "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py"),
+            ("sweep_zipf", "simulator/src/scenarios/sim_sweep_zipf/plot_results.py"),
+            ("sweep_chain_delay", "simulator/src/scenarios/sim_sweep_chain_delay/plot_results.py"),
+            ("sweep_total_block_number", "simulator/src/scenarios/sim_sweep_total_block_number/plot_results.py"),
+            ("sweep_cat_lifetime", "simulator/src/scenarios/sim_sweep_cat_lifetime/plot_results.py"),
+            ("sweep_block_interval_constant_block_delay", "simulator/src/scenarios/sim_sweep_block_interval_constant_block_delay/plot_results.py"),
+            ("sweep_block_interval_constant_time_delay", "simulator/src/scenarios/sim_sweep_block_interval_constant_time_delay/plot_results.py"),
+            ("sweep_cat_pending_dependencies", "simulator/src/scenarios/sim_sweep_cat_pending_dependencies/plot_results.py"),
         ];
         
         for (name, script) in &plot_scripts {

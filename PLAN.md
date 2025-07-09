@@ -96,7 +96,7 @@
   - [x] Configuration (`config.rs`)
 - [x] Transaction status tracking (pending, success, failure)
 - [x] Configuration system
-- [x] Plotting and visualization (`simulator/scripts/`)
+- [x] Plotting and visualization (`simulator/src/scenarios/`)
   - [x] Transaction status plots
   - [x] Account selection plots
   - [x] Parameter tracking

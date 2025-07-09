@@ -1,11 +1,12 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use crate::scenarios::utils::run_simulation_with_plotting;
 use serde::Deserialize;
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep-Specific Parameter Struct
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 /// Parameters specific to the CAT rate sweep simulation.
 /// 
@@ -19,9 +20,9 @@ pub struct CatRateSweepParameters {
     pub cat_rate_step: f64,
 }
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep Configuration
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 define_sweep_config!(
     SweepCatRateConfig,
@@ -37,7 +38,7 @@ define_sweep_config!(
 );
 
 // ------------------------------------------------------------------------------------------------
-// Parameter Sequence Generation & Sweep Runner Setup
+// Simulation Runner
 // ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep CAT rate simulation
@@ -119,6 +120,19 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
             run_sweep_cat_rate_simulation().await
                 .map_err(|e| format!("CAT rate sweep failed: {}", e))
         })),
-        plot_script: "simulator/scripts/sim_sweep_cat_rate/plot_results.py",
+        plot_script: "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py",
     })
+}
+
+// ------------------------------------------------------------------------------------------------
+// Run with Plotting
+// ------------------------------------------------------------------------------------------------
+
+/// Runs the CAT rate sweep simulation with automatic plotting.
+pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
+    run_simulation_with_plotting(
+        || run_sweep_cat_rate_simulation(),
+        "CAT Rate Sweep",
+        "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py"
+    ).await
 } 

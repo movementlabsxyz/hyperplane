@@ -1,11 +1,12 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_u64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use crate::scenarios::utils::run_simulation_with_plotting;
 use serde::Deserialize;
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep-Specific Parameter Struct
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 /// Parameters specific to the total block number sweep simulation.
 /// 
@@ -19,9 +20,9 @@ pub struct TotalBlockNumberSweepParameters {
     pub duration_step: u64,
 }
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep Configuration
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 define_sweep_config!(
     SweepTotalBlockNumberConfig,
@@ -37,7 +38,7 @@ define_sweep_config!(
 );
 
 // ------------------------------------------------------------------------------------------------
-// Parameter Sequence Generation & Sweep Runner Setup
+// Simulation Runner
 // ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep total block number simulation
@@ -116,6 +117,19 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
             run_sweep_total_block_number().await
                 .map_err(|e| format!("Total block number sweep failed: {}", e))
         })),
-        plot_script: "simulator/scripts/sim_sweep_total_block_number/plot_results.py",
+        plot_script: "simulator/src/scenarios/sim_sweep_total_block_number/plot_results.py",
     })
+}
+
+// ------------------------------------------------------------------------------------------------
+// Run with Plotting
+// ------------------------------------------------------------------------------------------------
+
+/// Runs the duration sweep simulation with automatic plotting.
+pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
+    run_simulation_with_plotting(
+        || run_sweep_total_block_number(),
+        "Duration Sweep",
+        "simulator/src/scenarios/sim_sweep_total_block_number/plot_results.py"
+    ).await
 } 

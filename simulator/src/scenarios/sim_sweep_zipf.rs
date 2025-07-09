@@ -1,11 +1,12 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use crate::scenarios::utils::run_simulation_with_plotting;
 use serde::Deserialize;
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep-Specific Parameter Struct
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 /// Parameters specific to the Zipf distribution sweep simulation.
 /// 
@@ -19,9 +20,9 @@ pub struct ZipfSweepParameters {
     pub zipf_step: f64,
 }
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep Configuration
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 define_sweep_config!(
     SweepZipfConfig,
@@ -37,7 +38,7 @@ define_sweep_config!(
 );
 
 // ------------------------------------------------------------------------------------------------
-// Parameter Sequence Generation & Sweep Runner Setup
+// Simulation Runner
 // ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep Zipf distribution simulation
@@ -120,6 +121,19 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
             run_sweep_zipf_simulation().await
                 .map_err(|e| format!("Zipf sweep failed: {}", e))
         })),
-        plot_script: "simulator/scripts/sim_sweep_zipf/plot_results.py",
+        plot_script: "simulator/src/scenarios/sim_sweep_zipf/plot_results.py",
     })
+}
+
+// ------------------------------------------------------------------------------------------------
+// Run with Plotting
+// ------------------------------------------------------------------------------------------------
+
+/// Runs the Zipf parameter sweep simulation with automatic plotting.
+pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
+    run_simulation_with_plotting(
+        || run_sweep_zipf_simulation(),
+        "Zipf Parameter Sweep",
+        "simulator/src/scenarios/sim_sweep_zipf/plot_results.py"
+    ).await
 } 

@@ -1,4 +1,3 @@
-
 use std::env;
 use std::fs;
 use chrono::Local;
@@ -62,6 +61,17 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     results.save().await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
     Ok(())
+}
+
+/// Runs the simple simulation with automatic plotting
+pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
+    use crate::scenarios::utils::run_simulation_with_plotting;
+    
+    run_simulation_with_plotting(
+        || run_simple_simulation(),
+        "Simple Simulation",
+        "simulator/src/scenarios/sim_simple/plot_results.py"
+    ).await
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -146,6 +156,6 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
             run_simple_simulation().await
                 .map_err(|e| format!("Simple simulation failed: {}", e))
         })),
-        plot_script: "simulator/scripts/sim_simple/plot_results.py",
+        plot_script: "simulator/src/scenarios/sim_simple/plot_results.py",
     })
 } 

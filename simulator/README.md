@@ -77,7 +77,7 @@ tail -f simulator/results/sim_simple/simulation.log
 If you want to regenerate plots after a simulation has been completed, you can run the plotting scripts directly from the root directory. For example
 
 ```bash
-python3 simulator/scripts/sim_simple/plot_results.py
+python3 simulator/src/scenarios/sim_simple/plot_results.py
 ```
 
 ## Configuration
@@ -102,7 +102,7 @@ Create the simulation file with your simulation logic and a `register()` functio
 ##### 4. `src/scenarios/config_your_new_simulation.toml` : Create Configuration File
 Create the configuration file with your simulation parameters.
 
-##### 5. `scripts/sim_your_new_simulation/plot_results.py` : Create Plot Script
+##### 5. `src/scenarios/sim_your_new_simulation/plot_results.py` : Create Plot Script
 Create the plot script directory and add the plotting script.
 
 ##### Reference Implementation

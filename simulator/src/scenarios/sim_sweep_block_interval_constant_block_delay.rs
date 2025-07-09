@@ -1,11 +1,12 @@
 use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
+use crate::scenarios::utils::run_simulation_with_plotting;
 use serde::Deserialize;
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep-Specific Parameter Struct
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 /// Parameters specific to the block interval constant block delay sweep simulation.
 /// 
@@ -19,9 +20,9 @@ pub struct BlockIntervalConstantBlockDelaySweepParameters {
     pub block_interval_step: f64,
 }
 
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 // Sweep Configuration
-// ============================================================================
+// ------------------------------------------------------------------------------------------------
 
 define_sweep_config!(
     SweepBlockIntervalConstantDelayConfig,
@@ -37,7 +38,7 @@ define_sweep_config!(
 );
 
 // ------------------------------------------------------------------------------------------------
-// Parameter Sequence Generation & Sweep Runner Setup
+// Simulation Runner
 // ------------------------------------------------------------------------------------------------
 
 /// Runs the sweep block interval with constant block delay simulation
@@ -118,6 +119,19 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
             run_sweep_block_interval_constant_block_delay().await
                 .map_err(|e| format!("Block interval constant block delay sweep failed: {}", e))
         })),
-        plot_script: "simulator/scripts/sim_sweep_block_interval_constant_block_delay/plot_results.py",
+        plot_script: "simulator/src/scenarios/sim_sweep_block_interval_constant_block_delay/plot_results.py",
     })
+}
+
+// ------------------------------------------------------------------------------------------------
+// Run with Plotting
+// ------------------------------------------------------------------------------------------------
+
+/// Runs the block interval constant block delay sweep simulation with automatic plotting.
+pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
+    run_simulation_with_plotting(
+        || run_sweep_block_interval_constant_block_delay(),
+        "Block Interval Constant Block Delay Sweep",
+        "simulator/src/scenarios/sim_sweep_block_interval_constant_block_delay/plot_results.py"
+    ).await
 } 
