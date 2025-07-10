@@ -566,7 +566,7 @@ def generate_all_plots(
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     
     # Plot locked keys data
-    plot_sweep_locked_keys(results_dir)
+    plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
     
     print(f"{sweep_type} simulation plots generated successfully!") 
 
@@ -574,19 +574,18 @@ def generate_all_plots(
 # Locked Keys Plotting
 # ------------------------------------------------------------------------------------------------
 
-def plot_sweep_locked_keys(results_dir: str) -> None:
+def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
     """
     Plot locked keys overlay for sweep simulations.
     
     # Arguments
+    * `data` - The sweep data containing individual results
+    * `param_name` - Name of the parameter being swept
     * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `sweep_type` - Type of sweep simulation
     """
     try:
-        # Load sweep results
-        with open(f'{results_dir}/data/sweep_results.json', 'r') as f:
-            sweep_data = json.load(f)
-        
-        individual_results = sweep_data['individual_results']
+        individual_results = data['individual_results']
         
         if not individual_results:
             print("Warning: No individual results found, skipping locked keys overlay plot")
@@ -628,9 +627,9 @@ def plot_sweep_locked_keys(results_dir: str) -> None:
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
                     label=label, linewidth=1.5)
         
-        # Get parameter name from results directory
-        param_name = results_dir.replace('simulator/results/', '').replace('sim_sweep_', '').replace('_', ' ').title()
-        plt.title(f'Locked Keys by Height (Chain 1) - {param_name} Sweep')
+        # Create title using the same pattern as other overlays
+        title = f'Locked Keys by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        plt.title(title)
         plt.xlabel('Block Height')
         plt.ylabel('Number of Locked Keys')
         plt.xlim(left=0)
