@@ -26,7 +26,7 @@ num_accounts = 1000
 target_tps = 100.0
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 300
+sim_total_block_number = 1000
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -60,4 +60,4 @@ reference_chain_delay_duration = 0.5
 # Repeat parameters
 [repeat_config]
 # Number of times to run each simulation (results will be averaged)
-num_runs = 3 
+num_runs = 20 
