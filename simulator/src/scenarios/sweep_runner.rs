@@ -191,6 +191,8 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                     if retry_count > 0 {
                         logging::log("SIMULATOR", &format!("=== Retry attempt {}/{} for Run {}/{} ===", 
                             retry_count, max_retries, run, num_runs));
+                        // Update progress bar message to show retry count
+                        progress_bar.set_message(self.format_progress_message(sim_index, sweep_config.get_num_simulations(), param_value, Some(total_retries_for_simulation)));
                     }
 
                     // Initialize simulation results for this run
@@ -218,9 +220,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                     if let Err(e) = account_init_result {
                         retry_count += 1;
                         total_retries_for_simulation += 1;
-                        if retry_count > max_retries {
+                        logging::log("SIMULATOR", &format!("DEBUG: Account init failed. retry_count: {}, total_retries: {}, max_retries: {}", retry_count, total_retries_for_simulation, max_retries));
+                        if total_retries_for_simulation >= max_retries {
                             let error_context = format!(
-                                "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?} after {} retries. Error: {}",
+                                "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?} after {} total retries. Error: {}",
                                 self.sweep_name,
                                 sim_index + 1,
                                 sweep_config.get_num_simulations(),
@@ -228,7 +231,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                                 num_runs,
                                 self.parameter_name,
                                 param_value,
-                                retry_count,
+                                total_retries_for_simulation,
                                 e
                             );
                             return Err(crate::config::ConfigError::ValidationError(error_context));
@@ -239,22 +242,24 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                         continue;
                     }
 
-                    // Run simulation with run message
+                    // Run simulation with run message and retry count
                     let run_message = format!("Sim {} Run {}/{}", sim_index + 1, run, num_runs);
-                    let simulation_result = crate::run_simulation::run_simulation_with_message(
+                    let simulation_result = crate::run_simulation::run_simulation_with_message_and_retries(
                         cl_node,
                         vec![hig_node_1, hig_node_2],
                         &mut results,
                         Some(run_message),
+                        Some(total_retries_for_simulation),
                     ).await;
 
                     // Check if simulation failed
                     if let Err(e) = simulation_result {
                         retry_count += 1;
                         total_retries_for_simulation += 1;
-                        if retry_count > max_retries {
+                        logging::log("SIMULATOR", &format!("DEBUG: Simulation failed. retry_count: {}, total_retries: {}, max_retries: {}", retry_count, total_retries_for_simulation, max_retries));
+                        if total_retries_for_simulation >= max_retries {
                             let error_context = format!(
-                                "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?} after {} retries. Error: {}",
+                                "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?} after {} total retries. Error: {}",
                                 self.sweep_name,
                                 sim_index + 1,
                                 sweep_config.get_num_simulations(),
@@ -262,7 +267,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                                 num_runs,
                                 self.parameter_name,
                                 param_value,
-                                retry_count,
+                                total_retries_for_simulation,
                                 e
                             );
                             return Err(crate::config::ConfigError::ValidationError(error_context));
@@ -280,9 +285,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                     if let Err(e) = save_result {
                         retry_count += 1;
                         total_retries_for_simulation += 1;
-                        if retry_count > max_retries {
+                        logging::log("SIMULATOR", &format!("DEBUG: Save failed. retry_count: {}, total_retries: {}, max_retries: {}", retry_count, total_retries_for_simulation, max_retries));
+                        if total_retries_for_simulation >= max_retries {
                             let error_context = format!(
-                                "Sweep '{}' failed to save results for simulation {}/{} run {}/{} with {}: {:?} after {} retries. Error: {}",
+                                "Sweep '{}' failed to save results for simulation {}/{} run {}/{} with {}: {:?} after {} total retries. Error: {}",
                                 self.sweep_name,
                                 sim_index + 1,
                                 sweep_config.get_num_simulations(),
@@ -290,7 +296,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                                 num_runs,
                                 self.parameter_name,
                                 param_value,
-                                retry_count,
+                                total_retries_for_simulation,
                                 e
                             );
                             return Err(crate::config::ConfigError::ValidationError(error_context));
@@ -459,7 +465,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         
         if let Some(retries) = retry_count {
             if retries > 0 {
-                format!("{} // Failures and reattempts: {}", base_message, retries)
+                format!("{} // Reattempts: {}", base_message, retries)
             } else {
                 base_message
             }

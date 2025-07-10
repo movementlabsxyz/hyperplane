@@ -53,6 +53,16 @@ pub async fn run_simulation_with_message(
     results: &mut SimulationResults,
     run_message: Option<String>,
 ) -> Result<(), String> {
+    run_simulation_with_message_and_retries(cl_node, hig_nodes, results, run_message, None).await
+}
+
+pub async fn run_simulation_with_message_and_retries(
+    cl_node: Arc<Mutex<ConfirmationLayerNode>>,
+    hig_nodes: Vec<Arc<Mutex<HyperIGNode>>>,
+    results: &mut SimulationResults,
+    run_message: Option<String>,
+    retry_count: Option<usize>,
+) -> Result<(), String> {
     
     // Get the current block at the start
     let start_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
@@ -92,14 +102,34 @@ pub async fn run_simulation_with_message(
     // Create progress bar for blocks
     let progress_bar = ProgressBar::new(results.sim_total_block_number);
     let template = if let Some(ref msg) = run_message {
-        format!("[{{elapsed_precise}}] {{bar:40.cyan/blue}} Block {{pos}}/{{len}} ({{eta}}) {}", msg)
+        let retry_suffix = if let Some(retries) = retry_count {
+            if retries > 0 {
+                format!(" [RETRY {}]", retries)
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+        format!("[{{elapsed_precise}}] {{bar:40.cyan/blue}} Block {{pos}}/{{len}} ({{eta}}) {}{}", msg, retry_suffix)
     } else {
-        "[{elapsed_precise}] {bar:40.cyan/blue} Block {pos}/{len} ({eta})".to_string()
+        let retry_suffix = if let Some(retries) = retry_count {
+            if retries > 0 {
+                format!(" [RETRY {}]", retries)
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
+        format!("[{{elapsed_precise}}] {{bar:40.cyan/blue}} Block {{pos}}/{{len}} ({{eta}}){}", retry_suffix)
     };
     progress_bar.set_style(ProgressStyle::default_bar()
         .template(&template)
         .unwrap()
         .progress_chars("##-"));
+    
+
 
     // ------- main simulation loop -------
 

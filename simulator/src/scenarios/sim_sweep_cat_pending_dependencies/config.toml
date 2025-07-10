@@ -48,7 +48,7 @@ initialization_wait_blocks = 10
 funding_wait_blocks = 10
 # Maximum number of retry attempts for failed simulation runs
 # If a run fails this many times, the entire simulation will fail
-max_retries = 20
+max_retries = 100
 # Number of times to run each simulation (results will be averaged)
 num_runs = 20
 # Number of simulations to run in the sweep
