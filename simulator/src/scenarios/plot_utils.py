@@ -514,12 +514,21 @@ def generate_all_plots(
         results_path = f'results/{results_dir_name}'
         # Run from the simulator root directory
         simulator_root = os.path.join(os.path.dirname(__file__), '..', '..')
-        subprocess.run([sys.executable, average_script_path, results_path], 
-                      check=True, cwd=simulator_root)
-        print("Averaging completed successfully!")
-    except subprocess.CalledProcessError as e:
-        print(f"Error running averaging script: {e}")
-        return
+        result = subprocess.run([sys.executable, average_script_path, results_path], 
+                               cwd=simulator_root, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print("Averaging completed successfully!")
+        else:
+            # Check if it's a "no data" error (metadata.json not found)
+            # The error message can be in either stdout or stderr
+            error_output = result.stdout + result.stderr
+            if "metadata.json not found" in error_output:
+                print("No simulation data found - skipping plotting")
+                return
+            else:
+                print(f"Error running averaging script: {error_output}")
+                return
     except Exception as e:
         print(f"Error during averaging: {e}")
         return

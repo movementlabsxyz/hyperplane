@@ -11,9 +11,6 @@ def load_metadata(results_dir):
     """Load metadata to get number of runs and parameters."""
     try:
         metadata_path = os.path.join(results_dir, 'data', 'metadata.json')
-        print(f"[DEBUG] Current working directory: {os.getcwd()}")
-        print(f"[DEBUG] Looking for metadata at: {metadata_path}")
-        print(f"[DEBUG] File exists: {os.path.exists(metadata_path)}")
         with open(metadata_path, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
@@ -147,19 +144,15 @@ def create_averaged_data(results_dir):
     num_simulations = metadata.get('num_simulations', 1)  # Default to 1 for simple simulations
     base_dir = os.path.join(results_dir, 'data')
     
-    print(f"[Averaging] Processing {num_simulations} simulation(s) with {num_runs} runs each")
-    
     # Process each simulation (for simple: only sim_0, for sweep: sim_0, sim_1, etc.)
     for sim_index in range(num_simulations):
         sim_dir = os.path.join(base_dir, f'sim_{sim_index}')
-        print(f"[Averaging] Processing simulation {sim_index} in {sim_dir}")
         
         # Load data from all runs for this simulation
         all_runs_data = []
         for run_num in range(num_runs):
             run_dir = os.path.join(sim_dir, f'run_{run_num}')
             if os.path.exists(run_dir):
-                print(f"[Averaging] Found run directory: {run_dir}")
                 run_data = load_run_data(run_dir)
                 if run_data:
                     all_runs_data.append(run_data)
@@ -177,18 +170,15 @@ def create_averaged_data(results_dir):
             avg_dir = os.path.join(sim_dir, 'run_average')
             os.makedirs(avg_dir, exist_ok=True)
             single_run_dir = os.path.join(sim_dir, 'run_0', 'data')
-            print(f"[Averaging] Only one run found. Copying data from {single_run_dir} to {avg_dir}")
             for filename in os.listdir(single_run_dir):
                 src = os.path.join(single_run_dir, filename)
                 dst = os.path.join(avg_dir, filename)
                 shutil.copy2(src, dst)
-            print(f"[Averaging] Done copying single run data for simulation {sim_index}.")
             continue
 
         # Create run_average directory for this simulation
         avg_dir = os.path.join(sim_dir, 'run_average')
         os.makedirs(avg_dir, exist_ok=True)
-        print(f"[Averaging] Averaging data from {len(all_runs_data)} runs into {avg_dir}")
         
         # Average simulation statistics
         avg_stats = {
@@ -208,7 +198,6 @@ def create_averaged_data(results_dir):
         stats_path = os.path.join(avg_dir, 'simulation_stats.json')
         with open(stats_path, 'w') as f:
             json.dump(avg_stats, f, indent=2)
-        print(f"[Averaging] Wrote averaged stats to {stats_path}")
         
         # Average time series data
         time_series_files = [
@@ -241,7 +230,6 @@ def create_averaged_data(results_dir):
                 output_file = os.path.join(avg_dir, filename)
                 with open(output_file, 'w') as f:
                     json.dump(output_data, f, indent=2)
-                print(f"[Averaging] Wrote {output_file}")
         
         # Average account selection data
         avg_sender, avg_receiver = average_account_selection_data(all_runs_data)
@@ -252,11 +240,8 @@ def create_averaged_data(results_dir):
             json.dump(avg_sender, f, indent=2)
         with open(receiver_path, 'w') as f:
             json.dump(avg_receiver, f, indent=2)
-        print(f"[Averaging] Wrote {sender_path} and {receiver_path}")
         
-        print(f"[Averaging] Completed averaging for simulation {sim_index}")
-    
-    print("[Averaging] All simulations processed successfully!")
+        # No verbose output for completion
     return True
 
 def main():
@@ -269,14 +254,12 @@ def main():
         return 1
     
     results_dir = sys.argv[1]
-    print(f"[Averaging] Starting averaging for: {results_dir}")
     
     try:
         success = create_averaged_data(results_dir)
         if not success:
             print("Averaging failed!")
             return 1
-        print("[Averaging] Averaging completed successfully!")
         return 0
     except Exception as e:
         print(f"[Averaging] Exception during averaging: {e}")
