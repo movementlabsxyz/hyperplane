@@ -1,9 +1,11 @@
 use std::env;
 use std::fs;
+use std::io::Write;
 use chrono::Local;
 use hyperplane::utils::logging;
 use std::time::{Duration, Instant};
 use toml;
+use serde_json;
 
 // ------------------------------------------------------------------------------------------------
 // Configuration Loading
@@ -37,55 +39,160 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     // Load configuration
     let config = load_config()?;
     
+    // Get number of runs from config
+    let num_runs = config.simulation_config.num_runs;
+    
+    // Write metadata.json for Python averaging script
+    let metadata = serde_json::json!({
+        "num_runs": num_runs,
+        "num_simulations": 1,
+        "parameters": {
+            "initial_balance": config.account_config.initial_balance,
+            "num_accounts": config.account_config.num_accounts,
+            "target_tps": config.transaction_config.target_tps,
+            "sim_total_block_number": config.simulation_config.sim_total_block_number,
+            "zipf_parameter": config.transaction_config.zipf_parameter,
+            "ratio_cats": config.transaction_config.ratio_cats,
+            "block_interval": config.network_config.block_interval,
+            "cat_lifetime_blocks": config.transaction_config.cat_lifetime_blocks,
+            "chain_delays": config.network_config.chain_delays,
+        }
+    });
+    std::fs::write("simulator/results/sim_simple/data/metadata.json", 
+                   serde_json::to_string_pretty(&metadata).unwrap())
+        .expect("Failed to write metadata.json");
+    
     // Display simulation name and create progress bar
     println!("Running Simple Simulation");
     use indicatif::{ProgressBar, ProgressStyle};
-    let progress_bar = ProgressBar::new(1);
+    let progress_bar = ProgressBar::new(1); // 1 simulation, not num_runs
     progress_bar.set_style(ProgressStyle::default_bar()
         .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
         .unwrap()
         .progress_chars("+>-"));
     
-    // Initialize simulation results from configuration
-    let mut results = initialize_simulation_results(&config);
+    // Store results for all runs
+    let mut all_results = Vec::new();
 
-    // Setup test nodes (with zero delays for funding)
-    let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-        Duration::from_secs_f64(config.network_config.block_interval),
-        &[0, 0], // Zero delays for funding
-        config.transaction_config.allow_cat_pending_dependencies,
-        config.transaction_config.cat_lifetime_blocks,
-    ).await;
-    
-    // Initialize accounts with initial balance (with zero delays for fast processing)
-    crate::network::initialize_accounts(
-        &[cl_node.clone()], 
-        config.account_config.initial_balance.try_into().unwrap(), 
-        config.account_config.num_accounts.try_into().unwrap(),
-        Some(&[hig_node_1.clone(), hig_node_2.clone()]),
-        config.network_config.block_interval,
-    ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
-    
-    // Now set the actual chain delays for the main simulation
-    logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
-    let delay_1_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[0] as f64);
-    let delay_2_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[1] as f64);
-    hig_node_1.lock().await.set_hs_message_delay(delay_1_time);
-    hig_node_2.lock().await.set_hs_message_delay(delay_2_time);
-    logging::log("SIMULATOR", &format!("Set chain 1 delay to {} blocks ({:?}) and chain 2 delay to {} blocks ({:?})", 
-        config.network_config.chain_delays[0], delay_1_time, config.network_config.chain_delays[1], delay_2_time));
+    // Run the simulation multiple times
+    for run in 1..=num_runs {
+        let mut retry_count = 0;
+        let max_retries = config.simulation_config.max_retries;
+        
+        loop {
+            logging::log("SIMULATOR", &format!("=== Starting Run {}/{} ===", run, num_runs));
+            
+            if retry_count > 0 {
+                logging::log("SIMULATOR", &format!("=== Retry attempt {}/{} for Run {}/{} ===", 
+                    retry_count, max_retries, run, num_runs));
+                // Print retry message on same line using carriage return
+                print!("\r[{}] ++++++++++++++++++++>------------------- Run {}/{} // Reattempts: {}", 
+                    chrono::Local::now().format("%H:%M:%S"),
+                    run, 
+                    num_runs, 
+                    retry_count);
+                std::io::stdout().flush().unwrap();
+            }
+            
+            // Initialize simulation results from configuration
+            let mut results = initialize_simulation_results(&config);
 
-    // Run simulation
-    crate::run_simulation::run_simulation(
-        cl_node,
-        vec![hig_node_1, hig_node_2],
-        &mut results,
-    ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+            // Setup test nodes (with zero delays for funding)
+            let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
+                Duration::from_secs_f64(config.network_config.block_interval),
+                &[0, 0], // Zero delays for funding
+                config.transaction_config.allow_cat_pending_dependencies,
+                config.transaction_config.cat_lifetime_blocks,
+            ).await;
+            
+            // Initialize accounts with initial balance (with zero delays for fast processing)
+            let account_init_result = crate::network::initialize_accounts(
+                &[cl_node.clone()], 
+                config.account_config.initial_balance.try_into().unwrap(), 
+                config.account_config.num_accounts.try_into().unwrap(),
+                Some(&[hig_node_1.clone(), hig_node_2.clone()]),
+                config.network_config.block_interval,
+                config.simulation_config.funding_wait_blocks,
+            ).await;
 
-    // Save results
-    results.save().await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+            // Check if account initialization failed
+            if let Err(e) = account_init_result {
+                retry_count += 1;
+                if retry_count > max_retries {
+                    let error_context = format!(
+                        "Simple simulation failed during run {}/{} after {} retries. Error: {}",
+                        run, num_runs, retry_count, e
+                    );
+                    return Err(crate::config::ConfigError::ValidationError(error_context));
+                }
+                logging::log("SIMULATOR", &format!("Account initialization failed, retrying... (attempt {}/{})", retry_count, max_retries));
+                continue;
+            }
+            
+            // Now set the actual chain delays for the main simulation
+            logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
+            let delay_1_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[0] as f64);
+            let delay_2_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[1] as f64);
+            hig_node_1.lock().await.set_hs_message_delay(delay_1_time);
+            hig_node_2.lock().await.set_hs_message_delay(delay_2_time);
+            logging::log("SIMULATOR", &format!("Set chain 1 delay to {} blocks ({:?}) and chain 2 delay to {} blocks ({:?})", 
+                config.network_config.chain_delays[0], delay_1_time, config.network_config.chain_delays[1], delay_2_time));
 
-    // Complete progress bar
+            // Run simulation with run message and retry count
+            let run_message = format!("Run {}/{}", run, num_runs);
+            let simulation_result = crate::run_simulation::run_simulation_with_message_and_retries(
+                cl_node,
+                vec![hig_node_1, hig_node_2],
+                &mut results,
+                Some(run_message),
+                Some(retry_count),
+            ).await;
+
+            // Check if simulation failed
+            if let Err(e) = simulation_result {
+                retry_count += 1;
+                if retry_count > max_retries {
+                    let error_context = format!(
+                        "Simple simulation failed during run {}/{} after {} retries. Error: {}",
+                        run, num_runs, retry_count, e
+                    );
+                    return Err(crate::config::ConfigError::ValidationError(error_context));
+                }
+                logging::log("SIMULATOR", &format!("Simulation failed, retrying... (attempt {}/{})", retry_count, max_retries));
+                continue;
+            }
+
+            // Save this run's results to its own directory
+            let run_dir = format!("simulator/results/sim_simple/data/sim_0/run_{}", run - 1);
+            let save_result = results.save_to_directory(&run_dir).await;
+            
+            if let Err(e) = save_result {
+                retry_count += 1;
+                if retry_count > max_retries {
+                    let error_context = format!(
+                        "Simple simulation failed to save results for run {}/{} after {} retries. Error: {}",
+                        run, num_runs, retry_count, e
+                    );
+                    return Err(crate::config::ConfigError::ValidationError(error_context));
+                }
+                logging::log("SIMULATOR", &format!("Result saving failed, retrying... (attempt {}/{})", retry_count, max_retries));
+                continue;
+            }
+
+            // Success! Break out of retry loop
+            all_results.push(results);
+            
+            let completion_message = if retry_count > 0 {
+                format!("=== Completed Run {}/{} (after {} retries) ===", run, num_runs, retry_count)
+            } else {
+                format!("=== Completed Run {}/{} ===", run, num_runs)
+            };
+            logging::log("SIMULATOR", &completion_message);
+            break;
+        }
+    }
+
+    // Complete progress bar (increment once per simulation, not per run)
     progress_bar.inc(1);
     progress_bar.set_message("Simple Simulation Complete");
     progress_bar.finish_with_message("Simple Simulation Complete");
@@ -93,9 +200,12 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     // Show completion status
     println!("Simple simulation complete");
     logging::log("SIMULATOR", "=== Simple Simulation Complete ===");
-    logging::log("SIMULATOR", &format!("Total transactions sent: {}", results.transactions_sent));
-    logging::log("SIMULATOR", &format!("CAT transactions: {}", results.cat_transactions));
-    logging::log("SIMULATOR", &format!("Regular transactions: {}", results.regular_transactions));
+    logging::log("SIMULATOR", &format!("Total runs completed: {}", all_results.len()));
+    if let Some(last_result) = all_results.last() {
+        logging::log("SIMULATOR", &format!("Total transactions sent: {}", last_result.transactions_sent));
+        logging::log("SIMULATOR", &format!("CAT transactions: {}", last_result.cat_transactions));
+        logging::log("SIMULATOR", &format!("Regular transactions: {}", last_result.regular_transactions));
+    }
 
     Ok(())
 }
@@ -145,12 +255,12 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
     results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
     results.target_tps = config.transaction_config.target_tps as u64;
-            results.sim_total_block_number = config.transaction_config.sim_total_block_number.try_into().unwrap();
+    results.sim_total_block_number = config.simulation_config.sim_total_block_number.try_into().unwrap();
     results.zipf_parameter = config.transaction_config.zipf_parameter;
     results.ratio_cats = config.transaction_config.ratio_cats;
     results.block_interval = config.network_config.block_interval;
     results.cat_lifetime = config.transaction_config.cat_lifetime_blocks;
-    results.initialization_wait_blocks = config.transaction_config.initialization_wait_blocks;
+    results.initialization_wait_blocks = config.simulation_config.initialization_wait_blocks;
     results.chain_delays = config.network_config.chain_delays.clone();
     results.start_time = Instant::now();
 
@@ -161,7 +271,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     logging::log("SIMULATOR", &format!("Initial Balance: {}", config.account_config.initial_balance));
     logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.account_config.num_accounts));
     logging::log("SIMULATOR", &format!("Target TPS: {}", config.transaction_config.target_tps));
-    logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transaction_config.sim_total_block_number));
+    logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.simulation_config.sim_total_block_number));
     logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network_config.num_chains));
     logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transaction_config.zipf_parameter));
     logging::log("SIMULATOR", &format!("Ratio CATs: {}", config.transaction_config.ratio_cats));

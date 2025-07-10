@@ -18,9 +18,114 @@ from typing import Dict, List, Tuple, Any, Optional
 # Utility Functions
 # ------------------------------------------------------------------------------------------------
 
+# Global parameter display names to avoid duplication
+PARAM_DISPLAY_NAMES = {
+    'zipf_parameter': 'Zipf Parameter',
+    'block_interval': 'Block Interval (seconds)',
+    'cat_rate': 'CAT Rate',
+    'chain_delay': 'Chain Delay (blocks)',
+    'duration': 'Duration (blocks)',
+    'cat_lifetime': 'CAT Lifetime (blocks)',
+    'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
+}
+
 def create_color_gradient(num_simulations: int) -> np.ndarray:
     """Create a color gradient from red (0) to blue (max)"""
     return plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
+
+def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
+    """Create sweep data structure from run_average directories."""
+    base_dir = f'simulator/results/{results_dir_name}/data'
+    
+    # Load metadata to get parameter values
+    with open(f'{base_dir}/metadata.json', 'r') as f:
+        metadata = json.load(f)
+    
+    param_values = metadata['parameter_values']
+    param_name = metadata['parameter_name']
+    
+    # Create sweep summary
+    sweep_summary = {
+        'num_simulations': metadata['num_simulations'],
+        param_name: param_values,
+        'total_transactions': [],
+        'cat_transactions': [],
+        'regular_transactions': []
+    }
+    
+    # Create individual results
+    individual_results = []
+    
+    for sim_index, param_value in enumerate(param_values):
+        # Load averaged stats for this simulation
+        stats_file = f'{base_dir}/sim_{sim_index}/run_average/simulation_stats.json'
+        if os.path.exists(stats_file):
+            with open(stats_file, 'r') as f:
+                stats = json.load(f)
+            
+            # Add to sweep summary
+            sweep_summary['total_transactions'].append(stats['results']['total_transactions'])
+            sweep_summary['cat_transactions'].append(stats['results']['cat_transactions'])
+            sweep_summary['regular_transactions'].append(stats['results']['regular_transactions'])
+            
+            # Create individual result entry
+            result_entry = {
+                param_name: param_value,
+                'total_transactions': stats['results']['total_transactions'],
+                'cat_transactions': stats['results']['cat_transactions'],
+                'regular_transactions': stats['results']['regular_transactions']
+            }
+            
+            # Load time series data
+            time_series_files = [
+                ('pending_transactions_chain_1.json', 'chain_1_pending'),
+                ('pending_transactions_chain_2.json', 'chain_2_pending'),
+                ('success_transactions_chain_1.json', 'chain_1_success'),
+                ('success_transactions_chain_2.json', 'chain_2_success'),
+                ('failure_transactions_chain_1.json', 'chain_1_failure'),
+                ('failure_transactions_chain_2.json', 'chain_2_failure'),
+                ('cat_pending_transactions_chain_1.json', 'chain_1_cat_pending'),
+                ('cat_pending_transactions_chain_2.json', 'chain_2_cat_pending'),
+                ('cat_success_transactions_chain_1.json', 'chain_1_cat_success'),
+                ('cat_success_transactions_chain_2.json', 'chain_2_cat_success'),
+                ('cat_failure_transactions_chain_1.json', 'chain_1_cat_failure'),
+                ('cat_failure_transactions_chain_2.json', 'chain_2_cat_failure'),
+                ('regular_pending_transactions_chain_1.json', 'chain_1_regular_pending'),
+                ('regular_pending_transactions_chain_2.json', 'chain_2_regular_pending'),
+                ('regular_success_transactions_chain_1.json', 'chain_1_regular_success'),
+                ('regular_success_transactions_chain_2.json', 'chain_2_regular_success'),
+                ('regular_failure_transactions_chain_1.json', 'chain_1_regular_failure'),
+                ('regular_failure_transactions_chain_2.json', 'chain_2_regular_failure'),
+                ('locked_keys_chain_1.json', 'chain_1_locked_keys'),
+                ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
+            ]
+            
+            for filename, key_name in time_series_files:
+                file_path = f'{base_dir}/sim_{sim_index}/run_average/{filename}'
+                if os.path.exists(file_path):
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                        # Convert from dict format to list of tuples for plotting
+                        if key_name in data:
+                            time_series_data = []
+                            for entry in data[key_name]:
+                                time_series_data.append((entry['height'], entry['count']))
+                            result_entry[key_name] = time_series_data
+            
+            individual_results.append(result_entry)
+    
+    # Create the complete data structure
+    sweep_data = {
+        'sweep_summary': sweep_summary,
+        'individual_results': individual_results
+    }
+    
+    # Save the combined data for plotting
+    output_file = f'{base_dir}/sweep_results_averaged.json'
+    with open(output_file, 'w') as f:
+        json.dump(sweep_data, f, indent=2)
+    
+    return output_file
 
 def load_sweep_data(results_path: str) -> Dict[str, Any]:
     """Load the combined sweep results data from a given path"""
@@ -28,8 +133,6 @@ def load_sweep_data(results_path: str) -> Dict[str, Any]:
         with open(results_path, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"Warning: Sweep results file not found: {results_path}")
-        print("This sweep may not have been executed yet. Skipping plot generation.")
         return {"individual_results": [], "sweep_summary": {}}
     except json.JSONDecodeError as e:
         print(f"Warning: Invalid JSON in sweep results file: {results_path}")
@@ -59,16 +162,10 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
 
 def create_sweep_title(param_name: str, sweep_type: str) -> str:
     """Create a title for the sweep based on parameter name and type"""
-    param_display_names = {
-        'zipf_parameter': 'Zipf Parameter',
-        'block_interval': 'Block Interval',
-        'cat_rate': 'CAT Rate',
-        'chain_delay': 'Chain Delay',
-        'duration': 'Duration',
-        'cat_lifetime': 'CAT Lifetime'
-    }
-    
-    param_display = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+    # Remove units from display name for titles
+    param_display = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
+    # Remove units in parentheses for cleaner titles
+    param_display = param_display.split(' (')[0]
     return f'{param_display} Sweep'
 
 # ------------------------------------------------------------------------------------------------
@@ -185,16 +282,7 @@ def plot_transaction_status_chart(ax: plt.Axes, data: Dict[str, Any], param_name
         ax.plot(param_values, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
         ax.plot(param_values, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (blocks)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         ax.set_title(f'Transaction Status vs {xlabel}')
         ax.set_xlabel(xlabel)
         ax.set_ylabel('Number of Transactions')
@@ -234,17 +322,7 @@ def plot_failure_breakdown_chart(ax: plt.Axes, data: Dict[str, Any], param_name:
         ax.plot(param_values, cat_failure_counts, 'ro-', linewidth=2, markersize=6, label='CAT Failures')
         ax.plot(param_values, regular_failure_counts, 'mo-', linewidth=2, markersize=6, label='Regular Failures')
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (seconds)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)',
-            'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         ax.set_title(f'Failure Breakdown vs {xlabel}')
         ax.set_xlabel(xlabel)
         ax.set_ylabel('Number of Failed Transactions')
@@ -288,17 +366,7 @@ def plot_transaction_status_chart_separate(ax: plt.Axes, data: Dict[str, Any], p
         ax.plot(param_values, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
         ax.plot(param_values, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (seconds)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)',
-            'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         transaction_display = transaction_type.replace('_', ' ').title()
         ax.set_title(f'{transaction_display} Transaction Status vs {xlabel}')
         ax.set_xlabel(xlabel)
@@ -347,16 +415,7 @@ def plot_sweep_summary(
         # Create subplots - 3x2 grid for more detailed analysis
         fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 15))
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (seconds)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         
         # Plot 1: Total transactions
         ax1.plot(param_values, total_transactions, 'bo-', linewidth=2, markersize=6)
@@ -409,7 +468,40 @@ def generate_all_plots(
     sweep_type: str
 ) -> None:
     """Generate all plots for a sweep simulation"""
-    print(f"Generating {sweep_type} simulation plots...")
+    import subprocess
+    
+    # First, run the averaging script to create averaged data
+    print("Running averaging script...")
+    try:
+        # Extract the results directory name from the full path
+        results_dir_name = results_dir.replace('simulator/results/', '')
+        # The average_runs.py script is in simulator/src/
+        average_script_path = os.path.join(os.path.dirname(__file__), '..', 'average_runs.py')
+        # Use relative path from simulator directory (where the script runs from)
+        results_path = f'results/{results_dir_name}'
+        # Run from the simulator root directory
+        simulator_root = os.path.join(os.path.dirname(__file__), '..', '..')
+        result = subprocess.run([sys.executable, average_script_path, results_path], 
+                               cwd=simulator_root, capture_output=True, text=True)
+        
+        if result.returncode == 0:
+            print("Averaging completed successfully!")
+        else:
+            # Check if it's a "no data" error (metadata.json not found)
+            # The error message can be in either stdout or stderr
+            error_output = result.stdout + result.stderr
+            if "metadata.json not found" in error_output:
+                print("No simulation data found - skipping plotting")
+                return
+            else:
+                print(f"Error running averaging script: {error_output}")
+                return
+    except Exception as e:
+        print(f"Error during averaging: {e}")
+        return
+    
+    # Create sweep data from averaged runs
+    results_path = create_sweep_data_from_averaged_runs(results_dir_name)
     
     # Load data
     data = load_sweep_data(results_path)
@@ -441,7 +533,7 @@ def generate_all_plots(
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     
     # Plot locked keys data
-    plot_sweep_locked_keys(results_dir)
+    plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
     
     print(f"{sweep_type} simulation plots generated successfully!") 
 
@@ -449,19 +541,18 @@ def generate_all_plots(
 # Locked Keys Plotting
 # ------------------------------------------------------------------------------------------------
 
-def plot_sweep_locked_keys(results_dir: str) -> None:
+def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
     """
     Plot locked keys overlay for sweep simulations.
     
     # Arguments
+    * `data` - The sweep data containing individual results
+    * `param_name` - Name of the parameter being swept
     * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `sweep_type` - Type of sweep simulation
     """
     try:
-        # Load sweep results
-        with open(f'{results_dir}/data/sweep_results.json', 'r') as f:
-            sweep_data = json.load(f)
-        
-        individual_results = sweep_data['individual_results']
+        individual_results = data['individual_results']
         
         if not individual_results:
             print("Warning: No individual results found, skipping locked keys overlay plot")
@@ -503,9 +594,9 @@ def plot_sweep_locked_keys(results_dir: str) -> None:
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
                     label=label, linewidth=1.5)
         
-        # Get parameter name from results directory
-        param_name = results_dir.replace('simulator/results/', '').replace('sim_sweep_', '').replace('_', ' ').title()
-        plt.title(f'Locked Keys by Height (Chain 1) - {param_name} Sweep')
+        # Create title using the same pattern as other overlays
+        title = f'Locked Keys by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        plt.title(title)
         plt.xlabel('Block Height')
         plt.ylabel('Number of Locked Keys')
         plt.xlim(left=0)
@@ -520,5 +611,24 @@ def plot_sweep_locked_keys(results_dir: str) -> None:
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing sweep locked keys data for {results_dir}: {e}")
         return 
+
+# ------------------------------------------------------------------------------------------------
+# Generic Sweep Plotting
+# ------------------------------------------------------------------------------------------------
+
+def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
+    """
+    Generic function to run plots for any sweep simulation.
+    
+    Args:
+        sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_rate')
+        param_name: The parameter name being swept (e.g., 'cat_rate')
+        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+    """
+    results_path = f'simulator/results/{sweep_name}/data/sweep_results.json'
+    results_dir = f'simulator/results/{sweep_name}'
+    
+    # Generate all plots using the generic utility
+    generate_all_plots(results_path, param_name, results_dir, sweep_type)
 
  

@@ -50,6 +50,9 @@ pub trait SweepConfigTrait {
     /// Returns the number of simulations to run in this sweep
     fn get_num_simulations(&self) -> usize;
     
+    /// Returns the number of runs per simulation
+    fn get_num_runs(&self) -> u32;
+    
     /// Returns a reference to the network configuration
     fn get_network_config(&self) -> &crate::config::NetworkConfig;
     
@@ -59,8 +62,8 @@ pub trait SweepConfigTrait {
     /// Returns a reference to the transaction configuration
     fn get_transaction_config(&self) -> &crate::config::TransactionConfig;
     
-    /// Returns a reference to the repeat configuration (if any)
-    fn get_repeat_config(&self) -> Option<&crate::config::RepeatConfig>;
+    /// Returns a reference to the simulation configuration
+    fn get_simulation_config(&self) -> Option<&crate::config::SimulationConfig>;
     
     /// Returns a reference to the underlying configuration as Any for type casting
     fn as_any(&self) -> &dyn std::any::Any;
@@ -114,11 +117,11 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
     // Main Simulation Execution
     // ------------------------------------------------------------------------------------------------
     
-    /// Runs the complete sweep simulation.
+    /// Runs the sweep simulation.
     /// 
-    /// This method orchestrates the entire sweep process:
-    /// 1. Creates necessary directories
-    /// 2. Sets up logging
+    /// This method orchestrates the entire sweep simulation process:
+    /// 1. Creates necessary directories for results
+    /// 2. Sets up logging if enabled
     /// 3. Loads the sweep configuration
     /// 4. Runs each simulation with different parameter values
     /// 5. Saves individual and combined results
@@ -127,7 +130,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
     /// # Returns
     /// 
     /// Result indicating success or failure of the sweep simulation
-    pub async fn run(&self) -> Result<(), crate::config::ConfigError> {
+    pub async fn run(&self) -> Result<(), crate::config::ConfigError>
+    where
+        T: serde::Serialize,
+    {
         // Create results directory if it doesn't exist
         self.create_directories();
         
@@ -136,6 +142,16 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
 
         // Load sweep configuration
         let sweep_config = (self.config_loader)()?;
+
+        // Write metadata.json for Python averaging script
+        let metadata_path = format!("simulator/results/{}/data/metadata.json", self.results_dir);
+        let metadata = serde_json::json!({
+            "num_runs": sweep_config.get_num_runs(),
+            "num_simulations": sweep_config.get_num_simulations(),
+            "parameter_name": self.parameter_name,
+            "parameter_values": self.parameter_values,
+        });
+        std::fs::write(&metadata_path, serde_json::to_string_pretty(&metadata).unwrap()).expect("Failed to write metadata.json");
 
         // Log sweep start
         self.log_sweep_start(&sweep_config);
@@ -149,6 +165,9 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         // Store results for each simulation
         let mut all_results = Vec::new();
 
+        // Get number of runs from config
+        let num_runs = sweep_config.get_num_runs();
+
         // Run each simulation with different parameter value
         for (sim_index, param_value) in self.parameter_values.iter().enumerate() {
             self.log_simulation_start(sim_index, sweep_config.get_num_simulations(), param_value);
@@ -156,82 +175,167 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             // Create a modified config with the current parameter value
             let sim_config = (self.config_modifier)(&sweep_config, param_value.clone());
 
-            // Initialize simulation results
-            let mut results = self.initialize_simulation_results(&sim_config, sim_index, param_value);
+            // Store results for all runs of this parameter set
+            let mut parameter_results = Vec::new();
+            let mut total_retries_for_simulation = 0;
 
-            // Setup test nodes
-            let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-                Duration::from_secs_f64(sim_config.network_config.block_interval),
-                &sim_config.network_config.chain_delays,
-                sim_config.transaction_config.allow_cat_pending_dependencies,
-                sim_config.transaction_config.cat_lifetime_blocks,
-            ).await;
-            
-            // Initialize accounts with initial balance
-            crate::network::initialize_accounts(
-                &[cl_node.clone()], 
-                sim_config.account_config.initial_balance.try_into().unwrap(), 
-                sim_config.account_config.num_accounts.try_into().unwrap(),
-                Some(&[hig_node_1.clone(), hig_node_2.clone()]),
-                sim_config.network_config.block_interval,
-            ).await.map_err(|e| {
-                let error_context = format!(
-                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
-                    self.sweep_name,
-                    sim_index + 1,
-                    sweep_config.get_num_simulations(),
-                    self.parameter_name,
-                    param_value,
-                    e
-                );
-                crate::config::ConfigError::ValidationError(error_context)
-            })?;
+            // Run this parameter set multiple times
+            for run in 1..=num_runs {
+                let mut retry_count = 0;
+                let max_retries = sim_config.simulation_config.max_retries;
+                
+                loop {
+                    logging::log("SIMULATOR", &format!("=== Starting Run {}/{} for parameter {}: {:?} ===", 
+                        run, num_runs, self.parameter_name, param_value));
+                    
+                    if retry_count > 0 {
+                        logging::log("SIMULATOR", &format!("=== Retry attempt {}/{} for Run {}/{} ===", 
+                            retry_count, max_retries, run, num_runs));
+                        // Update progress bar message to show retry count
+                        progress_bar.set_message(self.format_progress_message(sim_index, sweep_config.get_num_simulations(), param_value, Some(total_retries_for_simulation)));
+                    }
 
-            // Run simulation
-            crate::run_simulation::run_simulation(
-                cl_node,
-                vec![hig_node_1, hig_node_2],
-                &mut results,
-            ).await.map_err(|e| {
-                let error_context = format!(
-                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
-                    self.sweep_name,
-                    sim_index + 1,
-                    sweep_config.get_num_simulations(),
-                    self.parameter_name,
-                    param_value,
-                    e
-                );
-                crate::config::ConfigError::ValidationError(error_context)
-            })?;
+                    // Initialize simulation results for this run
+                    let mut results = self.initialize_simulation_results(&sim_config, sim_index, param_value);
 
-            // Save individual simulation results
-            results.save_to_directory(&format!("simulator/results/{}/data/sim_{}", self.results_dir, sim_index))
-                .await.map_err(|e| {
-                    let error_context = format!(
-                        "Sweep '{}' failed to save results for simulation {}/{} with {}: {:?}. Error: {}",
-                        self.sweep_name,
-                        sim_index + 1,
-                        sweep_config.get_num_simulations(),
-                        self.parameter_name,
-                        param_value,
-                        e
-                    );
-                    crate::config::ConfigError::ValidationError(error_context)
-                })?;
+                    // Setup test nodes
+                    let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
+                        Duration::from_secs_f64(sim_config.network_config.block_interval),
+                        &sim_config.network_config.chain_delays,
+                        sim_config.transaction_config.allow_cat_pending_dependencies,
+                        sim_config.transaction_config.cat_lifetime_blocks,
+                    ).await;
+                    
+                    // Initialize accounts with initial balance
+                    let account_init_result = crate::network::initialize_accounts(
+                        &[cl_node.clone()], 
+                        sim_config.account_config.initial_balance.try_into().unwrap(), 
+                        sim_config.account_config.num_accounts.try_into().unwrap(),
+                        Some(&[hig_node_1.clone(), hig_node_2.clone()]),
+                        sim_config.network_config.block_interval,
+                        sim_config.simulation_config.funding_wait_blocks,
+                    ).await;
+
+                    // Check if account initialization failed
+                    if let Err(e) = account_init_result {
+                        retry_count += 1;
+                        total_retries_for_simulation += 1;
+                        logging::log("SIMULATOR", &format!("DEBUG: Account init failed. retry_count: {}, total_retries: {}, max_retries: {}", retry_count, total_retries_for_simulation, max_retries));
+                        if total_retries_for_simulation >= max_retries {
+                            let error_context = format!(
+                                "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?} after {} total retries. Error: {}",
+                                self.sweep_name,
+                                sim_index + 1,
+                                sweep_config.get_num_simulations(),
+                                run,
+                                num_runs,
+                                self.parameter_name,
+                                param_value,
+                                total_retries_for_simulation,
+                                e
+                            );
+                            return Err(crate::config::ConfigError::ValidationError(error_context));
+                        }
+                        logging::log("SIMULATOR", &format!("Account initialization failed, retrying... (attempt {}/{})", retry_count, max_retries));
+                        // Update progress message to show retry count
+                        progress_bar.set_message(self.format_progress_message(sim_index, sweep_config.get_num_simulations(), param_value, Some(total_retries_for_simulation)));
+                        continue;
+                    }
+
+                    // Run simulation with run message and retry count
+                    let run_message = format!("Sim {} Run {}/{}", sim_index + 1, run, num_runs);
+                    let simulation_result = crate::run_simulation::run_simulation_with_message_and_retries(
+                        cl_node,
+                        vec![hig_node_1, hig_node_2],
+                        &mut results,
+                        Some(run_message),
+                        Some(total_retries_for_simulation),
+                    ).await;
+
+                    // Check if simulation failed
+                    if let Err(e) = simulation_result {
+                        retry_count += 1;
+                        total_retries_for_simulation += 1;
+                        logging::log("SIMULATOR", &format!("DEBUG: Simulation failed. retry_count: {}, total_retries: {}, max_retries: {}", retry_count, total_retries_for_simulation, max_retries));
+                        if total_retries_for_simulation >= max_retries {
+                            let error_context = format!(
+                                "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?} after {} total retries. Error: {}",
+                                self.sweep_name,
+                                sim_index + 1,
+                                sweep_config.get_num_simulations(),
+                                run,
+                                num_runs,
+                                self.parameter_name,
+                                param_value,
+                                total_retries_for_simulation,
+                                e
+                            );
+                            return Err(crate::config::ConfigError::ValidationError(error_context));
+                        }
+                        logging::log("SIMULATOR", &format!("Simulation failed, retrying... (attempt {}/{})", retry_count, max_retries));
+                        // Update progress message to show retry count
+                        progress_bar.set_message(self.format_progress_message(sim_index, sweep_config.get_num_simulations(), param_value, Some(total_retries_for_simulation)));
+                        continue;
+                    }
+
+                    // Save this run's results to its own directory
+                    let run_dir = format!("simulator/results/{}/data/sim_{}/run_{}", self.results_dir, sim_index, run - 1);
+                    let save_result = results.save_to_directory(&run_dir).await;
+                    
+                    if let Err(e) = save_result {
+                        retry_count += 1;
+                        total_retries_for_simulation += 1;
+                        logging::log("SIMULATOR", &format!("DEBUG: Save failed. retry_count: {}, total_retries: {}, max_retries: {}", retry_count, total_retries_for_simulation, max_retries));
+                        if total_retries_for_simulation >= max_retries {
+                            let error_context = format!(
+                                "Sweep '{}' failed to save results for simulation {}/{} run {}/{} with {}: {:?} after {} total retries. Error: {}",
+                                self.sweep_name,
+                                sim_index + 1,
+                                sweep_config.get_num_simulations(),
+                                run,
+                                num_runs,
+                                self.parameter_name,
+                                param_value,
+                                total_retries_for_simulation,
+                                e
+                            );
+                            return Err(crate::config::ConfigError::ValidationError(error_context));
+                        }
+                        logging::log("SIMULATOR", &format!("Result saving failed, retrying... (attempt {}/{})", retry_count, max_retries));
+                        // Update progress message to show retry count
+                        progress_bar.set_message(self.format_progress_message(sim_index, sweep_config.get_num_simulations(), param_value, Some(total_retries_for_simulation)));
+                        continue;
+                    }
+
+                    // Success! Break out of retry loop
+                    parameter_results.push(results);
+                    
+                    let completion_message = if retry_count > 0 {
+                        format!("=== Completed Run {}/{} for parameter {}: {:?} (after {} retries) ===", 
+                            run, num_runs, self.parameter_name, param_value, retry_count)
+                    } else {
+                        format!("=== Completed Run {}/{} for parameter {}: {:?} ===", 
+                            run, num_runs, self.parameter_name, param_value)
+                    };
+                    logging::log("SIMULATOR", &completion_message);
+                    break;
+                }
+            }
+
+            // Use the first run's results for the sweep summary (individual runs are saved separately)
+            all_results.push((param_value.clone(), parameter_results[0].clone()));
             
-            all_results.push((param_value.clone(), results));
-            
-            // Update progress bar and show completed simulation
+            // Update progress bar and show completed simulation with retry count
             progress_bar.inc(1);
-            progress_bar.set_message(self.format_progress_message(sim_index, sweep_config.get_num_simulations(), param_value));
+            progress_bar.set_message(self.format_progress_message(sim_index, sweep_config.get_num_simulations(), param_value, Some(total_retries_for_simulation)));
         }
 
         // Finish progress bar with final state
         progress_bar.finish_with_message(self.format_progress_message(
             sweep_config.get_num_simulations() - 1, 
             sweep_config.get_num_simulations(), 
-            self.parameter_values.last().unwrap()
+            self.parameter_values.last().unwrap(),
+            None
         ));
         
         println!("Sweep simulation complete");
@@ -350,13 +454,24 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
     /// * `sim_index` - Index of the current simulation (0-based)
     /// * `total_sims` - Total number of simulations in the sweep
     /// * `param_value` - The parameter value being tested in this simulation
+    /// * `retry_count` - Optional number of retries for the current simulation
     /// 
     /// # Returns
     /// 
     /// A formatted string describing the current simulation progress
-    fn format_progress_message(&self, sim_index: usize, total_sims: usize, param_value: &T) -> String {
-        format!("Simulation {}/{} with {}: {:?}", 
-            sim_index + 1, total_sims, self.parameter_name, param_value)
+    fn format_progress_message(&self, sim_index: usize, total_sims: usize, param_value: &T, retry_count: Option<usize>) -> String {
+        let base_message = format!("Simulation {}/{} with {}: {:?}", 
+            sim_index + 1, total_sims, self.parameter_name, param_value);
+        
+        if let Some(retries) = retry_count {
+            if retries > 0 {
+                format!("{} // Reattempts: {}", base_message, retries)
+            } else {
+                base_message
+            }
+        } else {
+            base_message
+        }
     }
 
     /// Initializes simulation results from the given configuration.
@@ -379,12 +494,12 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
         results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
         results.target_tps = config.transaction_config.target_tps as u64;
-        results.sim_total_block_number = config.transaction_config.sim_total_block_number.try_into().unwrap();
+        results.sim_total_block_number = config.simulation_config.sim_total_block_number.try_into().unwrap();
         results.zipf_parameter = config.transaction_config.zipf_parameter;
         results.ratio_cats = config.transaction_config.ratio_cats;
         results.block_interval = config.network_config.block_interval;
         results.cat_lifetime = config.transaction_config.cat_lifetime_blocks;
-        results.initialization_wait_blocks = config.transaction_config.initialization_wait_blocks;
+        results.initialization_wait_blocks = config.simulation_config.initialization_wait_blocks;
         results.chain_delays = config.network_config.chain_delays.clone();
         results.start_time = Instant::now();
 
@@ -396,12 +511,13 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         logging::log("SIMULATOR", &format!("Initial Balance: {}", config.account_config.initial_balance));
         logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.account_config.num_accounts));
         logging::log("SIMULATOR", &format!("Target TPS: {}", config.transaction_config.target_tps));
-        logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transaction_config.sim_total_block_number));
+        logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.simulation_config.sim_total_block_number));
         logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network_config.num_chains));
         logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transaction_config.zipf_parameter));
         logging::log("SIMULATOR", &format!("CAT Ratio: {}", config.transaction_config.ratio_cats));
         logging::log("SIMULATOR", &format!("CAT Lifetime: {} blocks", results.cat_lifetime));
         logging::log("SIMULATOR", &format!("Initialization Wait Blocks: {}", results.initialization_wait_blocks));
+        logging::log("SIMULATOR", &format!("Max Retries: {}", config.simulation_config.max_retries));
         for (i, delay) in config.network_config.chain_delays.iter().enumerate() {
             logging::log("SIMULATOR", &format!("Chain {} Delay: {} blocks", i + 1, delay));
         }
@@ -514,7 +630,7 @@ where
         network_config: sweep_config.get_network_config().clone(),
         account_config: sweep_config.get_account_config().clone(),
         transaction_config: sweep_config.get_transaction_config().clone(),
-        repeat_config: sweep_config.get_repeat_config().cloned(),
+        simulation_config: sweep_config.get_simulation_config().unwrap().clone(),
     };
     
     // Apply the field updater to create the modified config

@@ -24,9 +24,6 @@ num_accounts = 1000
 # Target transactions per second to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
 target_tps = 500.0
-# Total number of blocks to simulate
-# The simulation will run until this many blocks have been produced
-sim_total_block_number = 50
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -37,15 +34,28 @@ ratio_cats = 0.1
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 10
-# Number of blocks to wait before starting transaction submission
-# This ensures the system is fully initialized and stable
-initialization_wait_blocks = 10
 # Whether to allow CAT transactions to depend on locked keys
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)
 allow_cat_pending_dependencies = false
 
-# Sweep parameters
-[sweep]
-num_simulations = 4 # Number of simulations to run (25 blocks, 50 blocks, 75 blocks, 100 blocks)
-duration_step = 25 # Step size for block number parameter, starting from 25 
+# Simulation execution parameters
+[simulation_config]
+# Number of blocks to wait before starting transaction submission
+# This ensures the system is fully initialized and stable
+initialization_wait_blocks = 10
+# Number of blocks to wait for account funding to complete
+# This ensures all accounts are properly funded before starting simulation
+funding_wait_blocks = 10
+# Maximum number of retry attempts for failed simulation runs
+# If a run fails this many times, the entire simulation will fail
+max_retries = 100
+# Number of times to run each simulation (results will be averaged)
+num_runs = 20
+# Number of simulations to run in the sweep
+num_simulations = 4
+# Step size for total block number sweeps
+block_number_step = 25
+# Total number of blocks to simulate
+# The simulation will run until this many blocks have been produced
+sim_total_block_number = 1000

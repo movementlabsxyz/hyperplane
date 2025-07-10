@@ -11,7 +11,6 @@ use tokio::sync::Mutex;
 
 use crate::scenarios::{
     sim_simple,
-    sim_simple_repeated,
     sim_sweep_cat_rate,
     sim_sweep_zipf,
     sim_sweep_chain_delay,
@@ -65,9 +64,6 @@ impl SimulationRegistry {
         
         // Register all simulation types using their register functions
         let (sim_type, sim_config) = sim_simple::simulation::register();
-        simulations.insert(sim_type, sim_config);
-        
-        let (sim_type, sim_config) = sim_simple_repeated::simulation::register();
         simulations.insert(sim_type, sim_config);
         
         let (sim_type, sim_config) = sim_sweep_cat_rate::simulation::register();

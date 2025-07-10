@@ -52,6 +52,7 @@ pub async fn initialize_accounts(
     num_accounts: usize,
     hig_nodes: Option<&[Arc<Mutex<hyperplane::hyper_ig::node::HyperIGNode>>]>,
     block_interval: f64,
+    funding_wait_blocks: u64,
 ) -> Result<(), Box<dyn std::error::Error>> {
     logging::log("SIMULATOR", &format!("Initializing accounts with {} tokens each...", initial_balance));
 
@@ -95,8 +96,8 @@ pub async fn initialize_accounts(
     // If HIG nodes are provided, wait for funding to complete and verify balances
     if let Some(hig_nodes) = hig_nodes {
         // Wait for funding transactions to complete
-        // Wait for 5 blocks to ensure accounts are funded
-        let wait_blocks = 5;
+        // Wait for the specified number of blocks to ensure accounts are funded
+        let wait_blocks = funding_wait_blocks;
         
         let current_block = nodes[0].lock().await.get_current_block().await.map_err(|e| e.to_string())?;
         let funding_target_block = current_block + wait_blocks;
