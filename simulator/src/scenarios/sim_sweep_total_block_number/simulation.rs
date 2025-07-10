@@ -16,8 +16,8 @@ use serde::Deserialize;
 pub struct TotalBlockNumberSweepParameters {
     /// Total number of simulation runs in the sweep (determines how many parameter values to test)
     pub num_simulations: usize,
-    /// Step size for simulation duration sweeps (in blocks, affects total simulation length)
-    pub duration_step: u64,
+    /// Step size for total block number sweeps (in blocks, affects total simulation length)
+    pub block_number_step: u64,
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -37,8 +37,8 @@ define_sweep_config!(
     sweep_parameters = TotalBlockNumberSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need duration_step to generate the sequence of block counts to test
-        if self_.sweep.duration_step == 0 {
-            return Err(crate::config::ConfigError::ValidationError("Duration step must be positive".into()));
+        if self_.sweep.block_number_step == 0 {
+            return Err(crate::config::ConfigError::ValidationError("Block number step must be positive".into()));
         }
         Ok(())
     }
@@ -63,7 +63,7 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
     // Each value represents the total number of blocks to simulate
     let block_numbers = generate_u64_sequence(
         25,  // Start at 25 blocks
-        sweep_config.sweep.duration_step,
+        sweep_config.sweep.block_number_step,
         sweep_config.sweep.num_simulations
     );
 

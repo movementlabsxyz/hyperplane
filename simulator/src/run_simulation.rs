@@ -265,8 +265,8 @@ pub async fn run_simulation_with_message(
         }
     }
  
-    // Save results
-    results.save().await?;
+    // Save results - removed for sweep simulations that handle their own saving
+    // results.save().await?;
     
     Ok(())
 }
