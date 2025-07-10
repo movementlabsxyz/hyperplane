@@ -71,6 +71,7 @@ macro_rules! define_sweep_config {
             pub network_config: crate::config::NetworkConfig,
             pub account_config: crate::config::AccountConfig,
             pub transaction_config: crate::config::TransactionConfig,
+            #[serde(rename = "sweep_config")]
             pub sweep: $sweep_params_type,
             #[serde(default)]
             pub repeat_config: crate::config::RepeatConfig,
@@ -130,6 +131,7 @@ macro_rules! define_sweep_config {
             pub network_config: crate::config::NetworkConfig,
             pub account_config: crate::config::AccountConfig,
             pub transaction_config: crate::config::TransactionConfig,
+            #[serde(rename = "sweep_config")]
             pub sweep: crate::config::SweepParameters,
             #[serde(default)]
             pub repeat_config: crate::config::RepeatConfig,
