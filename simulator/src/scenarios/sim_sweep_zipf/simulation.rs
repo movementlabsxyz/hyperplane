@@ -34,10 +34,9 @@ pub struct ZipfSweepParameters {
 define_sweep_config!(
     "sim_sweep_zipf",
     SweepZipfConfig,
-    sweep_parameters = ZipfSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need zipf_step to generate the sequence of Zipf parameters to test
-        if self_.sweep.zipf_step <= 0.0 {
+        if self_.simulation_config.zipf_step.unwrap_or(0.0) <= 0.0 {
             return Err(crate::config::ConfigError::ValidationError("Zipf step must be positive".into()));
         }
         Ok(())
@@ -67,8 +66,8 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
     // Each value represents the skewness of the access distribution
     let zipf_parameters = generate_f64_sequence(
         0.0,  // Start at 0.0 (uniform distribution)
-        sweep_config.sweep.zipf_step,
-        sweep_config.sweep.num_simulations
+        sweep_config.simulation_config.zipf_step.unwrap(),
+        sweep_config.simulation_config.num_simulations.unwrap()
     );
 
     // Create the generic sweep runner that handles all the common functionality
@@ -90,15 +89,12 @@ pub async fn run_sweep_zipf_simulation() -> Result<(), crate::config::ConfigErro
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
                         target_tps: base_config.transaction_config.target_tps,
-                        sim_total_block_number: base_config.transaction_config.sim_total_block_number,
                         zipf_parameter: zipf_param,  // This is the parameter we're varying
                         ratio_cats: base_config.transaction_config.ratio_cats,
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
-                        initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
-                        funding_wait_blocks: base_config.transaction_config.funding_wait_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
-                    repeat_config: base_config.repeat_config.clone(),
+                    simulation_config: base_config.simulation_config.clone(),
                 }
             })
         }),

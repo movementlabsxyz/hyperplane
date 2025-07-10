@@ -32,10 +32,9 @@ pub struct CatPendingDependenciesSweepParameters {
 define_sweep_config!(
     "sim_sweep_cat_pending_dependencies",
     SweepCatPendingDependenciesConfig,
-    sweep_parameters = CatPendingDependenciesSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need exactly 2 simulations to test false and true values for the flag
-        if self_.sweep.num_simulations != 2 {
+        if self_.simulation_config.num_simulations.unwrap_or(0) != 2 {
             return Err(crate::config::ConfigError::ValidationError("Number of simulations must be exactly 2 for CAT pending dependencies sweep (false and true)".into()));
         }
         Ok(())
@@ -85,15 +84,12 @@ pub async fn run_sweep_cat_pending_dependencies_simulation() -> Result<(), crate
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
                         target_tps: base_config.transaction_config.target_tps,
-                        sim_total_block_number: base_config.transaction_config.sim_total_block_number,
                         zipf_parameter: base_config.transaction_config.zipf_parameter,
                         ratio_cats: base_config.transaction_config.ratio_cats,
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
-                        initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
-                        funding_wait_blocks: base_config.transaction_config.funding_wait_blocks,
                         allow_cat_pending_dependencies: allow_cat_pending_dependencies,  // This is the parameter we're varying
                     },
-                    repeat_config: base_config.repeat_config.clone(),
+                    simulation_config: base_config.simulation_config.clone(),
                 }
             })
         }),

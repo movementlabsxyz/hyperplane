@@ -34,10 +34,9 @@ pub struct TotalBlockNumberSweepParameters {
 define_sweep_config!(
     "sim_sweep_total_block_number",
     SweepTotalBlockNumberConfig,
-    sweep_parameters = TotalBlockNumberSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need duration_step to generate the sequence of block counts to test
-        if self_.sweep.block_number_step == 0 {
+        if self_.simulation_config.block_number_step.unwrap_or(0) == 0 {
             return Err(crate::config::ConfigError::ValidationError("Block number step must be positive".into()));
         }
         Ok(())
@@ -63,8 +62,8 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
     // Each value represents the total number of blocks to simulate
     let block_numbers = generate_u64_sequence(
         25,  // Start at 25 blocks
-        sweep_config.sweep.block_number_step,
-        sweep_config.sweep.num_simulations
+        sweep_config.simulation_config.block_number_step.unwrap(),
+        sweep_config.simulation_config.num_simulations.unwrap()
     );
 
     // Create the generic sweep runner that handles all the common functionality
@@ -86,15 +85,15 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
                         target_tps: base_config.transaction_config.target_tps,
-                        sim_total_block_number: block_number,  // This is the parameter we're varying
                         zipf_parameter: base_config.transaction_config.zipf_parameter,
                         ratio_cats: base_config.transaction_config.ratio_cats,
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
-                        initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
-                        funding_wait_blocks: base_config.transaction_config.funding_wait_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
-                    repeat_config: base_config.repeat_config.clone(),
+                    simulation_config: crate::config::SimulationConfig {
+                        sim_total_block_number: block_number,  // This is the parameter we're varying
+                        ..base_config.simulation_config.clone()
+                    },
                 }
             })
         }),

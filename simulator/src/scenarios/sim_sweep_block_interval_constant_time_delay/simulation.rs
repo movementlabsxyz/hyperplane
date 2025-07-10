@@ -35,15 +35,14 @@ pub struct BlockIntervalConstantTimeDelaySweepParameters {
 // - A load_config() function that reads and validates the TOML configuration file
 define_sweep_config!(
     "sim_sweep_block_interval_constant_time_delay",
-    SweepBlockIntervalScaledDelayConfig,
-    sweep_parameters = BlockIntervalConstantTimeDelaySweepParameters,
+    SweepBlockIntervalConstantTimeDelayConfig,
     validate_sweep_specific = |self_: &Self| {
         // Need block_interval_step to generate the sequence of block intervals to test
-        if self_.sweep.block_interval_step <= 0.0 {
+        if self_.simulation_config.block_interval_step.unwrap_or(0.0) <= 0.0 {
             return Err(crate::config::ConfigError::ValidationError("Block interval step must be positive".into()));
         }
         // Need positive reference_delay for delay calculation: delay_blocks = reference_delay / block_interval
-        if self_.sweep.reference_chain_delay_duration <= 0.0 {
+        if self_.simulation_config.reference_chain_delay_duration.unwrap_or(0.0) <= 0.0 {
             return Err(crate::config::ConfigError::ValidationError("Reference chain delay duration must be positive".into()));
         }
         Ok(())
@@ -71,9 +70,9 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
     // Creates a sequence of block intervals starting from block_interval_step
     // Each value represents the time between block productions
     let block_intervals = generate_f64_sequence(
-        sweep_config.sweep.block_interval_step,
-        sweep_config.sweep.block_interval_step,
-        sweep_config.sweep.num_simulations
+        sweep_config.simulation_config.block_interval_step.unwrap(),
+        sweep_config.simulation_config.block_interval_step.unwrap(),
+        sweep_config.simulation_config.num_simulations.unwrap()
     );
 
     // Create the generic sweep runner that handles all the common functionality
@@ -91,18 +90,18 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
         Box::new(|sweep_config, block_interval| {
             create_modified_config(sweep_config, |base_config| {
                 // Get the specific sweep config for delay calculation
-                let config = sweep_config.as_any().downcast_ref::<SweepBlockIntervalScaledDelayConfig>().unwrap();
+                let config = sweep_config.as_any().downcast_ref::<SweepBlockIntervalConstantTimeDelayConfig>().unwrap();
                 
                 // Calculate delay to maintain constant time delay
                 // reference_chain_delay_duration is the time delay in seconds
                 // For example, if reference_delay = 0.5 seconds:
                 // At 0.1s block interval, this requires 5 blocks = 0.5 seconds
                 // At 0.05s block interval, this requires 10 blocks = 0.5 seconds
-                let reference_delay = config.sweep.reference_chain_delay_duration;
+                let reference_delay = config.simulation_config.reference_chain_delay_duration.unwrap();
                 let delay_blocks = (reference_delay / block_interval).round() as u64;
                 
                 // Use the block number from the config
-                let block_count = config.transaction_config.sim_total_block_number;
+                let block_count = config.simulation_config.sim_total_block_number;
                 
                 // Log the configuration for transparency
                 crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Block count: {}, Chain 2 delay: {} blocks (reference: {:.1}s at 0.1s)", 
@@ -120,15 +119,15 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
                         target_tps: base_config.transaction_config.target_tps,
-                        sim_total_block_number: block_count,  // Use block count from config
                         zipf_parameter: base_config.transaction_config.zipf_parameter,
                         ratio_cats: base_config.transaction_config.ratio_cats,
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
-                        initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
-                        funding_wait_blocks: base_config.transaction_config.funding_wait_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
-                    repeat_config: base_config.repeat_config.clone(),
+                    simulation_config: crate::config::SimulationConfig {
+                        sim_total_block_number: block_count,  // Use block count from config
+                        ..base_config.simulation_config.clone()
+                    },
                 }
             })
         }),

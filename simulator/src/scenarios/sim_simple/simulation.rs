@@ -39,7 +39,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     let config = load_config()?;
     
     // Get number of runs from config
-    let num_runs = config.repeat_config.num_runs;
+    let num_runs = config.simulation_config.num_runs;
     
     // Write metadata.json for Python averaging script
     let metadata = serde_json::json!({
@@ -49,7 +49,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
             "initial_balance": config.account_config.initial_balance,
             "num_accounts": config.account_config.num_accounts,
             "target_tps": config.transaction_config.target_tps,
-            "sim_total_block_number": config.transaction_config.sim_total_block_number,
+            "sim_total_block_number": config.simulation_config.sim_total_block_number,
             "zipf_parameter": config.transaction_config.zipf_parameter,
             "ratio_cats": config.transaction_config.ratio_cats,
             "block_interval": config.network_config.block_interval,
@@ -95,7 +95,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
             config.account_config.num_accounts.try_into().unwrap(),
             Some(&[hig_node_1.clone(), hig_node_2.clone()]),
             config.network_config.block_interval,
-            config.transaction_config.funding_wait_blocks,
+            config.simulation_config.funding_wait_blocks,
         ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
         
         // Now set the actual chain delays for the main simulation
@@ -187,12 +187,12 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
     results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
     results.target_tps = config.transaction_config.target_tps as u64;
-    results.sim_total_block_number = config.transaction_config.sim_total_block_number.try_into().unwrap();
+    results.sim_total_block_number = config.simulation_config.sim_total_block_number.try_into().unwrap();
     results.zipf_parameter = config.transaction_config.zipf_parameter;
     results.ratio_cats = config.transaction_config.ratio_cats;
     results.block_interval = config.network_config.block_interval;
     results.cat_lifetime = config.transaction_config.cat_lifetime_blocks;
-    results.initialization_wait_blocks = config.transaction_config.initialization_wait_blocks;
+    results.initialization_wait_blocks = config.simulation_config.initialization_wait_blocks;
     results.chain_delays = config.network_config.chain_delays.clone();
     results.start_time = Instant::now();
 
@@ -203,7 +203,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     logging::log("SIMULATOR", &format!("Initial Balance: {}", config.account_config.initial_balance));
     logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.account_config.num_accounts));
     logging::log("SIMULATOR", &format!("Target TPS: {}", config.transaction_config.target_tps));
-    logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.transaction_config.sim_total_block_number));
+    logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.simulation_config.sim_total_block_number));
     logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network_config.num_chains));
     logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transaction_config.zipf_parameter));
     logging::log("SIMULATOR", &format!("Ratio CATs: {}", config.transaction_config.ratio_cats));

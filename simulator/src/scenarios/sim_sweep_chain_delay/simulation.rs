@@ -34,10 +34,9 @@ pub struct ChainDelaySweepParameters {
 define_sweep_config!(
     "sim_sweep_chain_delay",
     SweepChainDelayConfig,
-    sweep_parameters = ChainDelaySweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need chain_delay_step to generate the sequence of chain delays to test
-        if self_.sweep.chain_delay_step <= 0.0 {
+        if self_.simulation_config.chain_delay_step.unwrap_or(0) == 0 {
             return Err(crate::config::ConfigError::ValidationError("Chain delay step must be positive".into()));
         }
         Ok(())
@@ -66,8 +65,8 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
     // Each value represents the delay from the HIG to HS in blocks
     let chain_delays = generate_u64_sequence(
         0,  // Start at 0 blocks
-        sweep_config.sweep.chain_delay_step as u64,
-        sweep_config.sweep.num_simulations
+        sweep_config.simulation_config.chain_delay_step.unwrap(),
+        sweep_config.simulation_config.num_simulations.unwrap()
     );
 
     // Create the generic sweep runner that handles all the common functionality
@@ -95,7 +94,7 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
                     },
                     account_config: base_config.account_config.clone(),
                     transaction_config: base_config.transaction_config.clone(),
-                    repeat_config: base_config.repeat_config.clone(),
+                    simulation_config: base_config.simulation_config.clone(),
                 }
             })
         }),

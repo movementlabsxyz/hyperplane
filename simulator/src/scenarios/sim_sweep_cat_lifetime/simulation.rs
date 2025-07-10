@@ -2,23 +2,6 @@ use crate::scenarios::sweep_runner::{SweepRunner, save_generic_sweep_results, cr
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
 use crate::scenarios::utils::run_simulation_with_plotting;
-use serde::Deserialize;
-
-// ------------------------------------------------------------------------------------------------
-// Sweep-Specific Parameter Struct
-// ------------------------------------------------------------------------------------------------
-
-/// Parameters specific to the CAT lifetime sweep simulation.
-/// 
-/// This struct defines the parameters used to control the CAT lifetime sweep.
-/// It contains only the parameters relevant to this specific sweep type.
-#[derive(Debug, Deserialize, Clone)]
-pub struct CatLifetimeSweepParameters {
-    /// Total number of simulation runs in the sweep (determines how many parameter values to test)
-    pub num_simulations: usize,
-    /// Step size for CAT lifetime sweeps (in blocks, affects CAT timeout behavior)
-    pub cat_lifetime_step: u64,
-}
 
 // ------------------------------------------------------------------------------------------------
 // Sweep Configuration
@@ -27,17 +10,16 @@ pub struct CatLifetimeSweepParameters {
 // Defines the sweep configuration for CAT lifetime simulations.
 // 
 // This macro generates a complete sweep configuration setup including:
-// - A config struct with standard fields (network_config, account_config, transaction_config, sweep)
+// - A config struct with standard fields (network_config, account_config, transaction_config, simulation_config)
 // - Standard validation logic for common fields
 // - SweepConfigTrait implementation for integration with the generic SweepRunner
 // - A load_config() function that reads and validates the TOML configuration file
 define_sweep_config!(
     "sim_sweep_cat_lifetime",
     SweepCatLifetimeConfig,
-    sweep_parameters = CatLifetimeSweepParameters,
     validate_sweep_specific = |self_: &Self| {
         // Need cat_lifetime_step to generate the sequence of CAT lifetimes to test
-        if self_.sweep.cat_lifetime_step == 0 {
+        if self_.simulation_config.cat_lifetime_step.unwrap_or(0) == 0 {
             return Err(crate::config::ConfigError::ValidationError("CAT lifetime step must be positive".into()));
         }
         Ok(())
@@ -66,9 +48,9 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
     // Creates a sequence of lifetimes: 1 block, 2 blocks, 3 blocks, etc.
     // Each value represents the number of blocks a CAT remains valid
     let cat_lifetimes = generate_u64_sequence(
-        sweep_config.sweep.cat_lifetime_step,
-        sweep_config.sweep.cat_lifetime_step,
-        sweep_config.sweep.num_simulations
+        sweep_config.simulation_config.cat_lifetime_step.unwrap(),
+        sweep_config.simulation_config.cat_lifetime_step.unwrap(),
+        sweep_config.simulation_config.num_simulations.unwrap_or(1)
     );
 
     // Create the generic sweep runner that handles all the common functionality
@@ -90,15 +72,12 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
                         target_tps: base_config.transaction_config.target_tps,
-                        sim_total_block_number: base_config.transaction_config.sim_total_block_number,
                         zipf_parameter: base_config.transaction_config.zipf_parameter,
                         ratio_cats: base_config.transaction_config.ratio_cats,
                         cat_lifetime_blocks: cat_lifetime,  // This is the parameter we're varying
-                        initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
-                        funding_wait_blocks: base_config.transaction_config.funding_wait_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
-                    repeat_config: base_config.repeat_config.clone(),
+                    simulation_config: base_config.simulation_config.clone(),
                 }
             })
         }),

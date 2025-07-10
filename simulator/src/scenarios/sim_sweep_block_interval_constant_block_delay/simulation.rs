@@ -33,11 +33,10 @@ pub struct BlockIntervalConstantBlockDelaySweepParameters {
 // - A load_config() function that reads and validates the TOML configuration file
 define_sweep_config!(
     "sim_sweep_block_interval_constant_block_delay",
-    SweepBlockIntervalConstantDelayConfig,
-    sweep_parameters = BlockIntervalConstantBlockDelaySweepParameters,
+    SweepBlockIntervalConstantBlockDelayConfig,
     validate_sweep_specific = |self_: &Self| {
         // Need block_interval_step to generate the sequence of block intervals to test
-        if self_.sweep.block_interval_step <= 0.0 {
+        if self_.simulation_config.block_interval_step.unwrap_or(0.0) <= 0.0 {
             return Err(crate::config::ConfigError::ValidationError("Block interval step must be positive".into()));
         }
         Ok(())
@@ -65,9 +64,9 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
     // Creates a sequence of block intervals starting from block_interval_step
     // Each value represents the time between block productions
     let block_intervals = generate_f64_sequence(
-        sweep_config.sweep.block_interval_step,
-        sweep_config.sweep.block_interval_step,
-        sweep_config.sweep.num_simulations
+        sweep_config.simulation_config.block_interval_step.unwrap(),
+        sweep_config.simulation_config.block_interval_step.unwrap(),
+        sweep_config.simulation_config.num_simulations.unwrap()
     );
 
     // Create the generic sweep runner that handles all the common functionality
@@ -95,7 +94,7 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
                     },
                     account_config: base_config.account_config.clone(),
                     transaction_config: base_config.transaction_config.clone(),
-                    repeat_config: base_config.repeat_config.clone(),
+                    simulation_config: base_config.simulation_config.clone(),
                 }
             })
         }),
