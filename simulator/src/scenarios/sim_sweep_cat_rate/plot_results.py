@@ -115,7 +115,8 @@ def main():
     # First, run the averaging script to create averaged data
     print("Running averaging script...")
     try:
-        subprocess.run([sys.executable, 'average_runs.py'], check=True, cwd=os.path.dirname(__file__))
+        subprocess.run([sys.executable, '../../average_runs.py', '../../../results/sim_sweep_cat_rate'], 
+                      check=True, cwd=os.path.dirname(__file__))
         print("Averaging completed successfully!")
     except subprocess.CalledProcessError as e:
         print(f"Error running averaging script: {e}")

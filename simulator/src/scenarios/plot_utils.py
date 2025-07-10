@@ -28,8 +28,6 @@ def load_sweep_data(results_path: str) -> Dict[str, Any]:
         with open(results_path, 'r') as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"Warning: Sweep results file not found: {results_path}")
-        print("This sweep may not have been executed yet. Skipping plot generation.")
         return {"individual_results": [], "sweep_summary": {}}
     except json.JSONDecodeError as e:
         print(f"Warning: Invalid JSON in sweep results file: {results_path}")
@@ -409,8 +407,6 @@ def generate_all_plots(
     sweep_type: str
 ) -> None:
     """Generate all plots for a sweep simulation"""
-    print(f"Generating {sweep_type} simulation plots...")
-    
     # Load data
     data = load_sweep_data(results_path)
     

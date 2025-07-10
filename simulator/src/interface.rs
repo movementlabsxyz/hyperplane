@@ -213,7 +213,6 @@ impl SimulatorInterface {
         
         for (title, name, script) in &plot_scripts {
             println!("\n------------ {} -----------", title);
-            println!("Running plot script for {}...", name);
             let status = Command::new("python3")
                 .arg(script)
                 .status()

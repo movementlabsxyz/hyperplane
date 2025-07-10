@@ -26,7 +26,7 @@ def plot_distribution(role, zipf_param, num_accounts):
     - For zipf_param > 0, this is a Zipf distribution
     """
     # Load and extract data
-    with open(f'simulator/results/sim_simple/data/run_average/account_{role}_selection.json', 'r') as f:
+    with open(f'simulator/results/sim_simple/data/sim_0/run_average/account_{role}_selection.json', 'r') as f:
         data = json.load(f)
         
     # Handle both old format (with 'account' and 'transactions' keys) and new format (direct key-value pairs)
@@ -96,7 +96,7 @@ def plot_account_selection():
     - simulator/results/sim_simple/figs/account_receiver_selection.png
     """
     # Load simulation parameters
-    with open('simulator/results/sim_simple/data/run_average/simulation_stats.json', 'r') as f:
+    with open('simulator/results/sim_simple/data/sim_0/run_average/simulation_stats.json', 'r') as f:
         sim_stats = json.load(f)
     
     # Get parameters

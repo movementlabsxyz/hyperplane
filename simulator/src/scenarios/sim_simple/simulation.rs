@@ -117,7 +117,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
         ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
         // Save this run's results to its own directory
-        let run_dir = format!("simulator/results/sim_simple/data/run_{}", run - 1);
+        let run_dir = format!("simulator/results/sim_simple/data/sim_0/run_{}", run - 1);
         results.save_to_directory(&run_dir).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
         all_results.push(results);

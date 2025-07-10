@@ -27,13 +27,13 @@ def plot_locked_keys():
     """
     try:
         # Load locked keys data from chain 1
-        with open('simulator/results/sim_simple/data/run_average/locked_keys_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/locked_keys_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_locked_keys']]
         chain_1_locked_keys = [entry['count'] for entry in chain_1_data['chain_1_locked_keys']]
         
         # Load locked keys data from chain 2
-        with open('simulator/results/sim_simple/data/run_average/locked_keys_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/locked_keys_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_2_blocks = [entry['height'] for entry in chain_2_data['chain_2_locked_keys']]
         chain_2_locked_keys = [entry['count'] for entry in chain_2_data['chain_2_locked_keys']]
@@ -63,14 +63,14 @@ def plot_locked_keys_with_pending():
     """
     try:
         # Load locked keys data
-        with open('simulator/results/sim_simple/data/run_average/locked_keys_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/locked_keys_chain_1.json', 'r') as f:
             locked_keys_data = json.load(f)
         blocks = [entry['height'] for entry in locked_keys_data['chain_1_locked_keys']]
         locked_keys = [entry['count'] for entry in locked_keys_data['chain_1_locked_keys']]
         
         # Load CAT pending transactions data
         try:
-            with open('simulator/results/sim_simple/data/run_average/cat_pending_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_pending_transactions_chain_1.json', 'r') as f:
                 cat_pending_data = json.load(f)
             cat_pending_transactions = [entry['count'] for entry in cat_pending_data['chain_1_cat_pending']]
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
@@ -78,7 +78,7 @@ def plot_locked_keys_with_pending():
         
         # Load regular pending transactions data
         try:
-            with open('simulator/results/sim_simple/data/run_average/regular_pending_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_pending_transactions_chain_1.json', 'r') as f:
                 regular_pending_data = json.load(f)
             regular_pending_transactions = [entry['count'] for entry in regular_pending_data['chain_1_regular_pending']]
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
@@ -114,12 +114,46 @@ def plot_locked_keys_with_pending():
         return
 
 def main():
+    # Check if simple simulation data exists (try multiple possible paths)
+    metadata_paths = [
+        '../../../results/sim_simple/data/metadata.json',  # From sim_simple directory
+        'simulator/results/sim_simple/data/metadata.json',  # From simulator root
+        'results/sim_simple/data/metadata.json'  # From simulator root alternative
+    ]
+    
+    metadata_exists = any(os.path.exists(path) for path in metadata_paths)
+    if not metadata_exists:
+        print("No simple simulation data found. Skipping plots.")
+        print("Please run the simple simulation first (option 1).")
+        return True
+    
+    # Determine the correct results directory path
+    results_dir = None
+    for path in metadata_paths:
+        if os.path.exists(path):
+            # Get the absolute path to the results directory
+            # From sim_simple directory, go up to simulator root, then to results/sim_simple
+            results_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'results', 'sim_simple'))
+            break
+    
+    if not results_dir:
+        print("Could not determine results directory path.")
+        return False
+    
     # Run the averaging script first
-    result = subprocess.run([sys.executable, 'average_runs.py'], 
+    result = subprocess.run([sys.executable, '../../average_runs.py', results_dir], 
                           capture_output=True, text=True, cwd=os.path.dirname(__file__))
     
+    # Always show the output from the averaging script
+    if result.stdout:
+        print("Averaging script output:")
+        print(result.stdout)
+    if result.stderr:
+        print("Averaging script errors:")
+        print(result.stderr)
+    
     if result.returncode != 0:
-        print(f"Error: Averaging failed: {result.stderr}")
+        print(f"Error: Averaging failed with return code {result.returncode}")
         return False
     
     os.makedirs('simulator/results/sim_simple/figs', exist_ok=True)

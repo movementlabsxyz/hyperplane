@@ -54,4 +54,4 @@ num_simulations = 2 # Number of simulations to run (false, true)
 # Repeat parameters
 [repeat_config]
 # Number of times to run each simulation (results will be averaged)
-num_runs = 1 
+num_runs = 3

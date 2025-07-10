@@ -7,14 +7,14 @@ from scipy.stats import zipf
 import os
 
 def load_simulation_data():
-    with open('simulator/results/sim_simple/data/run_average/simulation_stats.json', 'r') as f:
+    with open('simulator/results/sim_simple/data/sim_0/run_average/simulation_stats.json', 'r') as f:
         return json.load(f)
 
 def plot_pending_transactions():
     try:
-        with open('simulator/results/sim_simple/data/run_average/pending_transactions_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/pending_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/sim_simple/data/run_average/pending_transactions_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/pending_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_pending']]
         chain_1_pending = [entry['count'] for entry in chain_1_data['chain_1_pending']]
@@ -23,14 +23,14 @@ def plot_pending_transactions():
         
         # Load CAT and regular pending data for chain 1
         try:
-            with open('simulator/results/sim_simple/data/run_average/cat_pending_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_pending_transactions_chain_1.json', 'r') as f:
                 chain_1_cat_data = json.load(f)
             chain_1_cat_pending = [entry['count'] for entry in chain_1_cat_data['chain_1_cat_pending']]
         except:
             chain_1_cat_pending = [0] * len(chain_1_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/run_average/regular_pending_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_pending_transactions_chain_1.json', 'r') as f:
                 chain_1_regular_data = json.load(f)
             chain_1_regular_pending = [entry['count'] for entry in chain_1_regular_data['chain_1_regular_pending']]
         except:
@@ -38,14 +38,14 @@ def plot_pending_transactions():
         
         # Load CAT and regular pending data for chain 2
         try:
-            with open('simulator/results/sim_simple/data/run_average/cat_pending_transactions_chain_2.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_pending_transactions_chain_2.json', 'r') as f:
                 chain_2_cat_data = json.load(f)
             chain_2_cat_pending = [entry['count'] for entry in chain_2_cat_data['chain_2_cat_pending']]
         except:
             chain_2_cat_pending = [0] * len(chain_2_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/run_average/regular_pending_transactions_chain_2.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_pending_transactions_chain_2.json', 'r') as f:
                 chain_2_regular_data = json.load(f)
             chain_2_regular_pending = [entry['count'] for entry in chain_2_regular_data['chain_2_regular_pending']]
         except:
@@ -122,9 +122,9 @@ def plot_pending_transactions():
 
 def plot_success_transactions():
     try:
-        with open('simulator/results/sim_simple/data/run_average/success_transactions_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/success_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/sim_simple/data/run_average/success_transactions_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/success_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_success']]
         chain_1_success = [entry['count'] for entry in chain_1_data['chain_1_success']]
@@ -133,14 +133,14 @@ def plot_success_transactions():
         
         # Load CAT and regular success data for chain 1
         try:
-            with open('simulator/results/sim_simple/data/run_average/cat_success_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_success_transactions_chain_1.json', 'r') as f:
                 chain_1_cat_data = json.load(f)
             chain_1_cat_success = [entry['count'] for entry in chain_1_cat_data['chain_1_cat_success']]
         except:
             chain_1_cat_success = [0] * len(chain_1_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/run_average/regular_success_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_success_transactions_chain_1.json', 'r') as f:
                 chain_1_regular_data = json.load(f)
             chain_1_regular_success = [entry['count'] for entry in chain_1_regular_data['chain_1_regular_success']]
         except:
@@ -148,14 +148,14 @@ def plot_success_transactions():
         
         # Load CAT and regular success data for chain 2
         try:
-            with open('simulator/results/sim_simple/data/run_average/cat_success_transactions_chain_2.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_success_transactions_chain_2.json', 'r') as f:
                 chain_2_cat_data = json.load(f)
             chain_2_cat_success = [entry['count'] for entry in chain_2_cat_data['chain_2_cat_success']]
         except:
             chain_2_cat_success = [0] * len(chain_2_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/run_average/regular_success_transactions_chain_2.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_success_transactions_chain_2.json', 'r') as f:
                 chain_2_regular_data = json.load(f)
             chain_2_regular_success = [entry['count'] for entry in chain_2_regular_data['chain_2_regular_success']]
         except:
@@ -232,9 +232,9 @@ def plot_success_transactions():
 
 def plot_failure_transactions():
     try:
-        with open('simulator/results/sim_simple/data/run_average/failure_transactions_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/failure_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/sim_simple/data/run_average/failure_transactions_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple/data/sim_0/run_average/failure_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_failure']]
         chain_1_failure = [entry['count'] for entry in chain_1_data['chain_1_failure']]
@@ -243,14 +243,14 @@ def plot_failure_transactions():
         
         # Load CAT and regular failure data for chain 1
         try:
-            with open('simulator/results/sim_simple/data/run_average/cat_failure_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_failure_transactions_chain_1.json', 'r') as f:
                 chain_1_cat_data = json.load(f)
             chain_1_cat_failure = [entry['count'] for entry in chain_1_cat_data['chain_1_cat_failure']]
         except:
             chain_1_cat_failure = [0] * len(chain_1_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/run_average/regular_failure_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_failure_transactions_chain_1.json', 'r') as f:
                 chain_1_regular_data = json.load(f)
             chain_1_regular_failure = [entry['count'] for entry in chain_1_regular_data['chain_1_regular_failure']]
         except:
@@ -258,14 +258,14 @@ def plot_failure_transactions():
         
         # Load CAT and regular failure data for chain 2
         try:
-            with open('simulator/results/sim_simple/data/run_average/cat_failure_transactions_chain_2.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_failure_transactions_chain_2.json', 'r') as f:
                 chain_2_cat_data = json.load(f)
             chain_2_cat_failure = [entry['count'] for entry in chain_2_cat_data['chain_2_cat_failure']]
         except:
             chain_2_cat_failure = [0] * len(chain_2_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/run_average/regular_failure_transactions_chain_2.json', 'r') as f:
+            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_failure_transactions_chain_2.json', 'r') as f:
                 chain_2_regular_data = json.load(f)
             chain_2_regular_failure = [entry['count'] for entry in chain_2_regular_data['chain_2_regular_failure']]
         except:
