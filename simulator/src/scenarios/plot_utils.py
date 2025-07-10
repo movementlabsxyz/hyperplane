@@ -18,6 +18,17 @@ from typing import Dict, List, Tuple, Any, Optional
 # Utility Functions
 # ------------------------------------------------------------------------------------------------
 
+# Global parameter display names to avoid duplication
+PARAM_DISPLAY_NAMES = {
+    'zipf_parameter': 'Zipf Parameter',
+    'block_interval': 'Block Interval (seconds)',
+    'cat_rate': 'CAT Rate',
+    'chain_delay': 'Chain Delay (blocks)',
+    'duration': 'Duration (blocks)',
+    'cat_lifetime': 'CAT Lifetime (blocks)',
+    'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
+}
+
 def create_color_gradient(num_simulations: int) -> np.ndarray:
     """Create a color gradient from red (0) to blue (max)"""
     return plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
@@ -151,16 +162,10 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
 
 def create_sweep_title(param_name: str, sweep_type: str) -> str:
     """Create a title for the sweep based on parameter name and type"""
-    param_display_names = {
-        'zipf_parameter': 'Zipf Parameter',
-        'block_interval': 'Block Interval',
-        'cat_rate': 'CAT Rate',
-        'chain_delay': 'Chain Delay',
-        'duration': 'Duration',
-        'cat_lifetime': 'CAT Lifetime'
-    }
-    
-    param_display = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+    # Remove units from display name for titles
+    param_display = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
+    # Remove units in parentheses for cleaner titles
+    param_display = param_display.split(' (')[0]
     return f'{param_display} Sweep'
 
 # ------------------------------------------------------------------------------------------------
@@ -277,16 +282,7 @@ def plot_transaction_status_chart(ax: plt.Axes, data: Dict[str, Any], param_name
         ax.plot(param_values, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
         ax.plot(param_values, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (blocks)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         ax.set_title(f'Transaction Status vs {xlabel}')
         ax.set_xlabel(xlabel)
         ax.set_ylabel('Number of Transactions')
@@ -326,17 +322,7 @@ def plot_failure_breakdown_chart(ax: plt.Axes, data: Dict[str, Any], param_name:
         ax.plot(param_values, cat_failure_counts, 'ro-', linewidth=2, markersize=6, label='CAT Failures')
         ax.plot(param_values, regular_failure_counts, 'mo-', linewidth=2, markersize=6, label='Regular Failures')
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (seconds)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)',
-            'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         ax.set_title(f'Failure Breakdown vs {xlabel}')
         ax.set_xlabel(xlabel)
         ax.set_ylabel('Number of Failed Transactions')
@@ -380,17 +366,7 @@ def plot_transaction_status_chart_separate(ax: plt.Axes, data: Dict[str, Any], p
         ax.plot(param_values, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
         ax.plot(param_values, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (seconds)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)',
-            'allow_cat_pending_dependencies': 'Allow CAT Pending Dependencies'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         transaction_display = transaction_type.replace('_', ' ').title()
         ax.set_title(f'{transaction_display} Transaction Status vs {xlabel}')
         ax.set_xlabel(xlabel)
@@ -439,16 +415,7 @@ def plot_sweep_summary(
         # Create subplots - 3x2 grid for more detailed analysis
         fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 15))
         
-        param_display_names = {
-            'zipf_parameter': 'Zipf Parameter',
-            'block_interval': 'Block Interval (seconds)',
-            'cat_rate': 'CAT Rate',
-            'chain_delay': 'Chain Delay (seconds)',
-            'duration': 'Duration (blocks)',
-            'cat_lifetime': 'CAT Lifetime (blocks)'
-        }
-        
-        xlabel = param_display_names.get(param_name, param_name.replace('_', ' ').title())
+        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         
         # Plot 1: Total transactions
         ax1.plot(param_values, total_transactions, 'bo-', linewidth=2, markersize=6)
@@ -644,5 +611,24 @@ def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: s
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing sweep locked keys data for {results_dir}: {e}")
         return 
+
+# ------------------------------------------------------------------------------------------------
+# Generic Sweep Plotting
+# ------------------------------------------------------------------------------------------------
+
+def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
+    """
+    Generic function to run plots for any sweep simulation.
+    
+    Args:
+        sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_rate')
+        param_name: The parameter name being swept (e.g., 'cat_rate')
+        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+    """
+    results_path = f'simulator/results/{sweep_name}/data/sweep_results.json'
+    results_dir = f'simulator/results/{sweep_name}'
+    
+    # Generate all plots using the generic utility
+    generate_all_plots(results_path, param_name, results_dir, sweep_type)
 
  

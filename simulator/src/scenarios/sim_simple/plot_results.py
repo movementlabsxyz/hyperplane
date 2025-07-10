@@ -17,6 +17,10 @@ from plot_miscellaneous import (
     plot_parameters,
 )
 
+# Global variables for paths
+BASE_DATA_PATH = 'simulator/results/sim_simple/data/sim_0/run_average'
+FIGS_PATH = 'simulator/results/sim_simple/figs'
+
 # ------------------------------------------------------------------------------------------------
 # Locked Keys Plotting Functions
 # ------------------------------------------------------------------------------------------------
@@ -27,13 +31,13 @@ def plot_locked_keys():
     """
     try:
         # Load locked keys data from chain 1
-        with open('simulator/results/sim_simple/data/sim_0/run_average/locked_keys_chain_1.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/locked_keys_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_locked_keys']]
         chain_1_locked_keys = [entry['count'] for entry in chain_1_data['chain_1_locked_keys']]
         
         # Load locked keys data from chain 2
-        with open('simulator/results/sim_simple/data/sim_0/run_average/locked_keys_chain_2.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/locked_keys_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_2_blocks = [entry['height'] for entry in chain_2_data['chain_2_locked_keys']]
         chain_2_locked_keys = [entry['count'] for entry in chain_2_data['chain_2_locked_keys']]
@@ -50,7 +54,7 @@ def plot_locked_keys():
         plt.legend()
         
         # Save the plot
-        plt.savefig('simulator/results/sim_simple/figs/locked_keys.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{FIGS_PATH}/locked_keys.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -63,14 +67,14 @@ def plot_locked_keys_with_pending():
     """
     try:
         # Load locked keys data
-        with open('simulator/results/sim_simple/data/sim_0/run_average/locked_keys_chain_1.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/locked_keys_chain_1.json', 'r') as f:
             locked_keys_data = json.load(f)
         blocks = [entry['height'] for entry in locked_keys_data['chain_1_locked_keys']]
         locked_keys = [entry['count'] for entry in locked_keys_data['chain_1_locked_keys']]
         
         # Load CAT pending transactions data
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_pending_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/cat_pending_transactions_chain_1.json', 'r') as f:
                 cat_pending_data = json.load(f)
             cat_pending_transactions = [entry['count'] for entry in cat_pending_data['chain_1_cat_pending']]
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
@@ -78,7 +82,7 @@ def plot_locked_keys_with_pending():
         
         # Load regular pending transactions data
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_pending_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/regular_pending_transactions_chain_1.json', 'r') as f:
                 regular_pending_data = json.load(f)
             regular_pending_transactions = [entry['count'] for entry in regular_pending_data['chain_1_regular_pending']]
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
@@ -106,7 +110,7 @@ def plot_locked_keys_with_pending():
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig('simulator/results/sim_simple/figs/locked_keys_vs_pending.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{FIGS_PATH}/locked_keys_vs_pending.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -156,7 +160,7 @@ def main():
         print(f"Error: Averaging failed with return code {result.returncode}")
         return False
     
-    os.makedirs('simulator/results/sim_simple/figs', exist_ok=True)
+    os.makedirs(FIGS_PATH, exist_ok=True)
     
     # Plot account selection distributions
     plot_account_selection()
