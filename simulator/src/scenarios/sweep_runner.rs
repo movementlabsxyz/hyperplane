@@ -198,6 +198,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                     sim_config.account_config.num_accounts.try_into().unwrap(),
                     Some(&[hig_node_1.clone(), hig_node_2.clone()]),
                     sim_config.network_config.block_interval,
+                    sim_config.transaction_config.funding_wait_blocks,
                 ).await.map_err(|e| {
                     let error_context = format!(
                         "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?}. Error: {}",

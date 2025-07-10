@@ -77,6 +77,8 @@ pub struct TransactionConfig {
     pub cat_lifetime_blocks: u64,
     /// Number of blocks to wait after account initialization before starting transaction submission
     pub initialization_wait_blocks: u64,
+    /// Number of blocks to wait for account funding to complete before starting simulation
+    pub funding_wait_blocks: u64,
     /// Whether CATs can depend on locked keys from pending transactions (affects transaction ordering)
     pub allow_cat_pending_dependencies: bool,
 }
@@ -163,6 +165,9 @@ pub fn validate_common_fields(
     }
     if transaction_config.initialization_wait_blocks == 0 {
         return Err(ConfigError::ValidationError("Initialization wait blocks must be positive".into()));
+    }
+    if transaction_config.funding_wait_blocks == 0 {
+        return Err(ConfigError::ValidationError("Funding wait blocks must be positive".into()));
     }
     // allow_cat_pending_dependencies is a boolean, so no validation needed
     if network_config.num_chains == 0 {

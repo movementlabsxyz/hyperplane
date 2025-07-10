@@ -91,6 +91,7 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
                         ratio_cats: base_config.transaction_config.ratio_cats,
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
                         initialization_wait_blocks: base_config.transaction_config.initialization_wait_blocks,
+                        funding_wait_blocks: base_config.transaction_config.funding_wait_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
                     repeat_config: base_config.repeat_config.clone(),

@@ -41,6 +41,9 @@ cat_lifetime_blocks = 1000
 # Number of blocks to wait before starting transaction submission
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 2
+# Number of blocks to wait for account funding to complete
+# This ensures all accounts are properly funded before starting simulation
+funding_wait_blocks = 5
 # Whether to allow CAT transactions to depend on locked keys
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)

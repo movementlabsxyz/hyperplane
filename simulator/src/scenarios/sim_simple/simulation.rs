@@ -64,6 +64,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
         config.account_config.num_accounts.try_into().unwrap(),
         Some(&[hig_node_1.clone(), hig_node_2.clone()]),
         config.network_config.block_interval,
+        config.transaction_config.funding_wait_blocks,
     ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
     
     // Now set the actual chain delays for the main simulation
