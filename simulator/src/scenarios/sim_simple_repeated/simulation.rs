@@ -42,14 +42,8 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
         .map(|rc| rc.num_runs)
         .unwrap_or(1);
     
-    // Display simulation name and create progress bar
+    // Display simulation name
     println!("Running Simple (repeated) Simulation with {} runs", num_runs);
-    use indicatif::{ProgressBar, ProgressStyle};
-    let progress_bar = ProgressBar::new(num_runs as u64);
-    progress_bar.set_style(ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
-        .unwrap()
-        .progress_chars("+>-"));
     
     logging::log("SIMULATOR", &format!("Starting Simple (repeated) Simulation with {} runs", num_runs));
     
@@ -86,20 +80,18 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
         logging::log("SIMULATOR", &format!("Set chain 1 delay to {} blocks ({:?}) and chain 2 delay to {} blocks ({:?})", 
             config.network_config.chain_delays[0], delay_1_time, config.network_config.chain_delays[1], delay_2_time));
 
-        // Run simulation
-        crate::run_simulation::run_simulation(
+        // Run simulation with run message
+        let run_message = format!("Run {}/{}", run, num_runs);
+        crate::run_simulation::run_simulation_with_message(
             cl_node,
             vec![hig_node_1, hig_node_2],
             &mut results,
+            Some(run_message),
         ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
         // Save this run's results to its own directory
         let run_dir = format!("simulator/results/sim_simple_repeated/data/run_{}", run - 1); // Use 0-based indexing
         results.save_to_directory(&run_dir).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
-        
-        // Update progress bar
-        progress_bar.inc(1);
-        progress_bar.set_message(format!("Run {}/{}", run, num_runs));
         
         logging::log("SIMULATOR", &format!("=== Completed Run {}/{} ===", run, num_runs));
     }
@@ -107,8 +99,16 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
     // Save metadata about the repeated simulation
     save_repeated_simulation_metadata(num_runs as usize, &config).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
-    // Finish progress bar
-    progress_bar.finish_with_message("Simple (repeated) Simulation Complete");
+    // Show final completion progress bar
+    use indicatif::{ProgressBar, ProgressStyle};
+    let final_progress = ProgressBar::new(num_runs as u64);
+    final_progress.set_style(ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
+        .unwrap()
+        .progress_chars("+>-"));
+    final_progress.set_position(num_runs as u64);
+    final_progress.set_message(format!("Run {}/{}", num_runs, num_runs));
+    final_progress.finish_with_message(format!("Run {}/{}", num_runs, num_runs));
 
     // Show completion status
     println!("Simple (repeated) simulation complete");

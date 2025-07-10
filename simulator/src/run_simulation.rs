@@ -44,6 +44,15 @@ pub async fn run_simulation(
     hig_nodes: Vec<Arc<Mutex<HyperIGNode>>>,
     results: &mut SimulationResults,
 ) -> Result<(), String> {
+    run_simulation_with_message(cl_node, hig_nodes, results, None).await
+}
+
+pub async fn run_simulation_with_message(
+    cl_node: Arc<Mutex<ConfirmationLayerNode>>,
+    hig_nodes: Vec<Arc<Mutex<HyperIGNode>>>,
+    results: &mut SimulationResults,
+    run_message: Option<String>,
+) -> Result<(), String> {
     
     // Get the current block at the start
     let start_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
@@ -82,8 +91,13 @@ pub async fn run_simulation(
     
     // Create progress bar for blocks
     let progress_bar = ProgressBar::new(results.sim_total_block_number);
+    let template = if let Some(ref msg) = run_message {
+        format!("[{{elapsed_precise}}] {{bar:40.cyan/blue}} Block {{pos}}/{{len}} ({{eta}}) {}", msg)
+    } else {
+        "[{elapsed_precise}] {bar:40.cyan/blue} Block {pos}/{len} ({eta})".to_string()
+    };
     progress_bar.set_style(ProgressStyle::default_bar()
-        .template("[{elapsed_precise}] {bar:40.cyan/blue} Block {pos}/{len} ({eta})")
+        .template(&template)
         .unwrap()
         .progress_chars("##-"));
 
