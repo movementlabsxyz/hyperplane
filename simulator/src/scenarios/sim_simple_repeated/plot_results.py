@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import matplotlib.pyplot as plt
+import subprocess
 
 # Add the current directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -26,13 +27,13 @@ def plot_locked_keys():
     """
     try:
         # Load locked keys data from chain 1
-        with open('simulator/results/sim_simple_repeated/data/locked_keys_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple_repeated/data/run_average/locked_keys_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_locked_keys']]
         chain_1_locked_keys = [entry['count'] for entry in chain_1_data['chain_1_locked_keys']]
         
         # Load locked keys data from chain 2
-        with open('simulator/results/sim_simple_repeated/data/locked_keys_chain_2.json', 'r') as f:
+        with open('simulator/results/sim_simple_repeated/data/run_average/locked_keys_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_2_blocks = [entry['height'] for entry in chain_2_data['chain_2_locked_keys']]
         chain_2_locked_keys = [entry['count'] for entry in chain_2_data['chain_2_locked_keys']]
@@ -62,14 +63,14 @@ def plot_locked_keys_with_pending():
     """
     try:
         # Load locked keys data
-        with open('simulator/results/sim_simple_repeated/data/locked_keys_chain_1.json', 'r') as f:
+        with open('simulator/results/sim_simple_repeated/data/run_average/locked_keys_chain_1.json', 'r') as f:
             locked_keys_data = json.load(f)
         blocks = [entry['height'] for entry in locked_keys_data['chain_1_locked_keys']]
         locked_keys = [entry['count'] for entry in locked_keys_data['chain_1_locked_keys']]
         
         # Load CAT pending transactions data
         try:
-            with open('simulator/results/sim_simple_repeated/data/cat_pending_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple_repeated/data/run_average/cat_pending_transactions_chain_1.json', 'r') as f:
                 cat_pending_data = json.load(f)
             cat_pending_transactions = [entry['count'] for entry in cat_pending_data['chain_1_cat_pending']]
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
@@ -77,7 +78,7 @@ def plot_locked_keys_with_pending():
         
         # Load regular pending transactions data
         try:
-            with open('simulator/results/sim_simple_repeated/data/regular_pending_transactions_chain_1.json', 'r') as f:
+            with open('simulator/results/sim_simple_repeated/data/run_average/regular_pending_transactions_chain_1.json', 'r') as f:
                 regular_pending_data = json.load(f)
             regular_pending_transactions = [entry['count'] for entry in regular_pending_data['chain_1_regular_pending']]
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
@@ -113,31 +114,26 @@ def plot_locked_keys_with_pending():
         return
 
 def main():
-    # Check if we have any data to plot by trying to access a key data file
-    try:
-        with open('simulator/results/sim_simple_repeated/data/simulation_stats.json', 'r') as f:
-            json.load(f)
-        # If we can load the data, create the figures directory
-        os.makedirs('simulator/results/sim_simple_repeated/figs', exist_ok=True)
-    except (FileNotFoundError, json.JSONDecodeError):
-        print("No simulation data found. Skipping plot generation.")
-        return
+    # Run the averaging script first
+    result = subprocess.run([sys.executable, 'average_runs.py'], 
+                          capture_output=True, text=True, cwd=os.path.dirname(__file__))
+    
+    if result.returncode != 0:
+        print(f"Error: Averaging failed: {result.stderr}")
+        return False
+    
+    os.makedirs('simulator/results/sim_simple_repeated/figs', exist_ok=True)
     
     # Plot account selection distributions
     plot_account_selection()
-    
     # Plot pending transactions
     plot_pending_transactions()
-    
     # Plot success transactions
     plot_success_transactions()
-    
     # Plot failure transactions
     plot_failure_transactions()
-    
     # Plot simulation parameters
     plot_parameters()
-    
     # Plot locked keys data
     plot_locked_keys()
     plot_locked_keys_with_pending()

@@ -4,7 +4,6 @@ use chrono::Local;
 use hyperplane::utils::logging;
 use std::time::{Duration, Instant};
 use toml;
-use std::collections::HashMap;
 
 // ------------------------------------------------------------------------------------------------
 // Configuration Loading
@@ -54,9 +53,6 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
     
     logging::log("SIMULATOR", &format!("Starting Simple (repeated) Simulation with {} runs", num_runs));
     
-    // Store results from all runs
-    let mut all_run_results: Vec<crate::SimulationResults> = Vec::new();
-    
     // Run the simulation multiple times
     for run in 1..=num_runs {
         logging::log("SIMULATOR", &format!("=== Starting Run {}/{} ===", run, num_runs));
@@ -97,8 +93,9 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
             &mut results,
         ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
-        // Store results from this run
-        all_run_results.push(results);
+        // Save this run's results to its own directory
+        let run_dir = format!("simulator/results/sim_simple_repeated/data/run_{}", run - 1); // Use 0-based indexing
+        results.save_to_directory(&run_dir).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
         
         // Update progress bar
         progress_bar.inc(1);
@@ -107,11 +104,8 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
         logging::log("SIMULATOR", &format!("=== Completed Run {}/{} ===", run, num_runs));
     }
     
-    // Average the results across all runs
-    let averaged_results = average_results(all_run_results);
-    
-    // Save averaged results
-    averaged_results.save_to_directory("simulator/results/sim_simple_repeated").await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+    // Save metadata about the repeated simulation
+    save_repeated_simulation_metadata(num_runs as usize, &config).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
     // Finish progress bar
     progress_bar.finish_with_message("Simple (repeated) Simulation Complete");
@@ -120,9 +114,39 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
     println!("Simple (repeated) simulation complete");
     logging::log("SIMULATOR", "=== Simple (repeated) Simulation Complete ===");
     logging::log("SIMULATOR", &format!("Total runs completed: {}", num_runs));
-    logging::log("SIMULATOR", &format!("Average total transactions sent: {}", averaged_results.transactions_sent));
-    logging::log("SIMULATOR", &format!("Average CAT transactions: {}", averaged_results.cat_transactions));
-    logging::log("SIMULATOR", &format!("Average regular transactions: {}", averaged_results.regular_transactions));
+    logging::log("SIMULATOR", "Individual run data saved to run_0/, run_1/, etc. directories");
+    logging::log("SIMULATOR", "Use Python plotting scripts to analyze and average the results");
+
+    Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------
+// Metadata Saving
+// ------------------------------------------------------------------------------------------------
+
+/// Saves metadata about the repeated simulation
+async fn save_repeated_simulation_metadata(num_runs: usize, config: &crate::config::Config) -> Result<(), String> {
+    use serde_json;
+    
+    let metadata = serde_json::json!({
+        "simulation_type": "simple_repeated",
+        "num_runs": num_runs,
+        "parameters": {
+            "initial_balance": config.account_config.initial_balance,
+            "num_accounts": config.account_config.num_accounts,
+            "target_tps": config.transaction_config.target_tps,
+            "sim_total_block_number": config.transaction_config.sim_total_block_number,
+            "zipf_parameter": config.transaction_config.zipf_parameter,
+            "ratio_cats": config.transaction_config.ratio_cats,
+            "block_interval": config.network_config.block_interval,
+            "chain_delays": config.network_config.chain_delays.clone()
+        },
+        "note": "Individual run data is stored in run_0/, run_1/, etc. directories. Use Python plotting scripts to analyze and average the results."
+    });
+
+    let metadata_file = "simulator/results/sim_simple_repeated/data/metadata.json";
+    fs::write(metadata_file, serde_json::to_string_pretty(&metadata).expect("Failed to serialize metadata")).map_err(|e| e.to_string())?;
+    logging::log("SIMULATOR", &format!("Saved simulation metadata to {}", metadata_file));
 
     Ok(())
 }
@@ -136,132 +160,6 @@ pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
         "Simple (repeated) Simulation",
         "simulator/src/scenarios/sim_simple_repeated/plot_results.py"
     ).await
-}
-
-// ------------------------------------------------------------------------------------------------
-// Results Averaging
-// ------------------------------------------------------------------------------------------------
-
-/// Averages results across multiple simulation runs
-fn average_results(all_results: Vec<crate::SimulationResults>) -> crate::SimulationResults {
-    if all_results.is_empty() {
-        return crate::SimulationResults::default();
-    }
-    
-    let num_runs = all_results.len();
-    let mut averaged = all_results[0].clone();
-    
-    // Average the time series data
-    averaged.chain_1_pending = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_pending).collect()
-    );
-    averaged.chain_2_pending = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_pending).collect()
-    );
-    averaged.chain_1_success = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_success).collect()
-    );
-    averaged.chain_2_success = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_success).collect()
-    );
-    averaged.chain_1_failure = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_failure).collect()
-    );
-    averaged.chain_2_failure = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_failure).collect()
-    );
-    
-    // Average CAT-specific data
-    averaged.chain_1_cat_pending = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_cat_pending).collect()
-    );
-    averaged.chain_2_cat_pending = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_cat_pending).collect()
-    );
-    averaged.chain_1_cat_success = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_cat_success).collect()
-    );
-    averaged.chain_2_cat_success = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_cat_success).collect()
-    );
-    averaged.chain_1_cat_failure = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_cat_failure).collect()
-    );
-    averaged.chain_2_cat_failure = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_cat_failure).collect()
-    );
-    
-    // Average regular transaction data
-    averaged.chain_1_regular_pending = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_regular_pending).collect()
-    );
-    averaged.chain_2_regular_pending = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_regular_pending).collect()
-    );
-    averaged.chain_1_regular_success = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_regular_success).collect()
-    );
-    averaged.chain_2_regular_success = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_regular_success).collect()
-    );
-    averaged.chain_1_regular_failure = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_regular_failure).collect()
-    );
-    averaged.chain_2_regular_failure = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_regular_failure).collect()
-    );
-    
-    // Average locked keys data
-    averaged.chain_1_locked_keys = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_1_locked_keys).collect()
-    );
-    averaged.chain_2_locked_keys = average_time_series_data(
-        all_results.iter().map(|r| &r.chain_2_locked_keys).collect()
-    );
-    
-    // Average scalar values
-    averaged.transactions_sent = all_results.iter().map(|r| r.transactions_sent).sum::<u64>() / num_runs as u64;
-    averaged.cat_transactions = all_results.iter().map(|r| r.cat_transactions).sum::<u64>() / num_runs as u64;
-    averaged.regular_transactions = all_results.iter().map(|r| r.regular_transactions).sum::<u64>() / num_runs as u64;
-    
-    // Average execution time
-    let total_duration: Duration = all_results.iter().map(|r| r.start_time.elapsed()).sum();
-    averaged.start_time = Instant::now() - (total_duration / num_runs as u32);
-    
-    logging::log("SIMULATOR", &format!("Averaged results across {} runs", num_runs));
-    
-    averaged
-}
-
-/// Averages time series data across multiple runs
-fn average_time_series_data(all_data: Vec<&Vec<(u64, u64)>>) -> Vec<(u64, u64)> {
-    if all_data.is_empty() {
-        return Vec::new();
-    }
-    
-    // Create a map to store sums and counts for each block height
-    let mut height_sums: HashMap<u64, u64> = HashMap::new();
-    let mut height_counts: HashMap<u64, u64> = HashMap::new();
-    
-    // Sum up all values for each block height
-    for data in all_data {
-        for &(height, count) in data {
-            *height_sums.entry(height).or_insert(0) += count;
-            *height_counts.entry(height).or_insert(0) += 1;
-        }
-    }
-    
-    // Calculate averages and sort by block height
-    let mut averaged_data: Vec<(u64, u64)> = height_sums
-        .into_iter()
-        .map(|(height, sum)| {
-            let count = height_counts[&height];
-            (height, sum / count)
-        })
-        .collect();
-    
-    averaged_data.sort_by_key(|&(height, _)| height);
-    averaged_data
 }
 
 // ------------------------------------------------------------------------------------------------
