@@ -36,8 +36,12 @@ def plot_distribution(role, zipf_param, num_accounts):
         counts = [entry['transactions'] for entry in data[f'{role}_selection']]
     else:
         # New format (direct key-value pairs)
-        accounts = list(data.keys())
+        # Convert string keys to integers and sort them
+        accounts = [int(account_id) for account_id in data.keys()]
         counts = list(data.values())
+        # Sort by account ID to ensure proper plotting order
+        sorted_pairs = sorted(zip(accounts, counts))
+        accounts, counts = zip(*sorted_pairs)
     
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 15))
         
