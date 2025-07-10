@@ -46,4 +46,9 @@ allow_cat_pending_dependencies = false
 
 # Sweep parameters
 [sweep]
-num_simulations = 2  # Exactly 2 simulations: false and true for allow_cat_pending_dependencies 
+num_simulations = 2 # Number of simulations to run (false, true)
+
+# Repeat parameters
+[repeat_config]
+# Number of times to run each simulation (results will be averaged)
+num_runs = 1 

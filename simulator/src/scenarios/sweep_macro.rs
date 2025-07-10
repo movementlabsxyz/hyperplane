@@ -73,14 +73,14 @@ macro_rules! define_sweep_config {
             pub transaction_config: crate::config::TransactionConfig,
             pub sweep: $sweep_params_type,
             #[serde(default)]
-            pub repeat_config: Option<crate::config::RepeatConfig>,
+            pub repeat_config: crate::config::RepeatConfig,
         }
 
         /// Standard validation implementation for sweep configurations.
         /// Validates common fields and ensures positive simulation count.
         impl crate::config::ValidateConfig for $config_name {
             fn validate_common(&self) -> Result<(), crate::config::ConfigError> {
-                crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
+                crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config, &self.repeat_config)?;
                 if self.sweep.num_simulations == 0 {
                     return Err(crate::config::ConfigError::ValidationError("Number of simulations must be positive".into()));
                 }
@@ -101,7 +101,7 @@ macro_rules! define_sweep_config {
             fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
             fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
             fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-            fn get_repeat_config(&self) -> Option<&crate::config::RepeatConfig> { self.repeat_config.as_ref() }
+            fn get_repeat_config(&self) -> Option<&crate::config::RepeatConfig> { Some(&self.repeat_config) }
         }
 
         /// Loads and validates the sweep configuration from the TOML file.
@@ -132,14 +132,14 @@ macro_rules! define_sweep_config {
             pub transaction_config: crate::config::TransactionConfig,
             pub sweep: crate::config::SweepParameters,
             #[serde(default)]
-            pub repeat_config: Option<crate::config::RepeatConfig>,
+            pub repeat_config: crate::config::RepeatConfig,
         }
 
         /// Standard validation implementation for sweep configurations.
         /// Validates common fields and ensures positive simulation count.
         impl crate::config::ValidateConfig for $config_name {
             fn validate_common(&self) -> Result<(), crate::config::ConfigError> {
-                crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)?;
+                crate::config::validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config, &self.repeat_config)?;
                 if self.sweep.num_simulations == 0 {
                     return Err(crate::config::ConfigError::ValidationError("Number of simulations must be positive".into()));
                 }
@@ -160,7 +160,7 @@ macro_rules! define_sweep_config {
             fn get_network_config(&self) -> &crate::config::NetworkConfig { &self.network_config }
             fn get_account_config(&self) -> &crate::config::AccountConfig { &self.account_config }
             fn get_transaction_config(&self) -> &crate::config::TransactionConfig { &self.transaction_config }
-            fn get_repeat_config(&self) -> Option<&crate::config::RepeatConfig> { self.repeat_config.as_ref() }
+            fn get_repeat_config(&self) -> Option<&crate::config::RepeatConfig> { Some(&self.repeat_config) }
         }
 
         /// Loads and validates the sweep configuration from the TOML file.

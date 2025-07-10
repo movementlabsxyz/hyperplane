@@ -114,11 +114,11 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
     // Main Simulation Execution
     // ------------------------------------------------------------------------------------------------
     
-    /// Runs the complete sweep simulation.
+    /// Runs the sweep simulation.
     /// 
-    /// This method orchestrates the entire sweep process:
-    /// 1. Creates necessary directories
-    /// 2. Sets up logging
+    /// This method orchestrates the entire sweep simulation process:
+    /// 1. Creates necessary directories for results
+    /// 2. Sets up logging if enabled
     /// 3. Loads the sweep configuration
     /// 4. Runs each simulation with different parameter values
     /// 5. Saves individual and combined results
@@ -127,7 +127,10 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
     /// # Returns
     /// 
     /// Result indicating success or failure of the sweep simulation
-    pub async fn run(&self) -> Result<(), crate::config::ConfigError> {
+    pub async fn run(&self) -> Result<(), crate::config::ConfigError>
+    where
+        T: serde::Serialize,
+    {
         // Create results directory if it doesn't exist
         self.create_directories();
         
@@ -136,6 +139,16 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
 
         // Load sweep configuration
         let sweep_config = (self.config_loader)()?;
+
+        // Write metadata.json for Python averaging script
+        let metadata_path = format!("simulator/results/{}/data/metadata.json", self.results_dir);
+        let metadata = serde_json::json!({
+            "num_runs": sweep_config.get_repeat_config().unwrap().num_runs,
+            "num_simulations": sweep_config.get_num_simulations(),
+            "parameter_name": self.parameter_name,
+            "parameter_values": self.parameter_values,
+        });
+        std::fs::write(&metadata_path, serde_json::to_string_pretty(&metadata).unwrap()).expect("Failed to write metadata.json");
 
         // Log sweep start
         self.log_sweep_start(&sweep_config);
@@ -149,6 +162,9 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         // Store results for each simulation
         let mut all_results = Vec::new();
 
+        // Get number of runs from config
+        let num_runs = sweep_config.get_repeat_config().unwrap().num_runs;
+
         // Run each simulation with different parameter value
         for (sim_index, param_value) in self.parameter_values.iter().enumerate() {
             self.log_simulation_start(sim_index, sweep_config.get_num_simulations(), param_value);
@@ -156,71 +172,93 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             // Create a modified config with the current parameter value
             let sim_config = (self.config_modifier)(&sweep_config, param_value.clone());
 
-            // Initialize simulation results
-            let mut results = self.initialize_simulation_results(&sim_config, sim_index, param_value);
+            // Store results for all runs of this parameter set
+            let mut parameter_results = Vec::new();
 
-            // Setup test nodes
-            let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-                Duration::from_secs_f64(sim_config.network_config.block_interval),
-                &sim_config.network_config.chain_delays,
-                sim_config.transaction_config.allow_cat_pending_dependencies,
-                sim_config.transaction_config.cat_lifetime_blocks,
-            ).await;
-            
-            // Initialize accounts with initial balance
-            crate::network::initialize_accounts(
-                &[cl_node.clone()], 
-                sim_config.account_config.initial_balance.try_into().unwrap(), 
-                sim_config.account_config.num_accounts.try_into().unwrap(),
-                Some(&[hig_node_1.clone(), hig_node_2.clone()]),
-                sim_config.network_config.block_interval,
-            ).await.map_err(|e| {
-                let error_context = format!(
-                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
-                    self.sweep_name,
-                    sim_index + 1,
-                    sweep_config.get_num_simulations(),
-                    self.parameter_name,
-                    param_value,
-                    e
-                );
-                crate::config::ConfigError::ValidationError(error_context)
-            })?;
+            // Run this parameter set multiple times
+            for run in 1..=num_runs {
+                logging::log("SIMULATOR", &format!("=== Starting Run {}/{} for parameter {}: {:?} ===", 
+                    run, num_runs, self.parameter_name, param_value));
 
-            // Run simulation
-            crate::run_simulation::run_simulation(
-                cl_node,
-                vec![hig_node_1, hig_node_2],
-                &mut results,
-            ).await.map_err(|e| {
-                let error_context = format!(
-                    "Sweep '{}' failed during simulation {}/{} with {}: {:?}. Error: {}",
-                    self.sweep_name,
-                    sim_index + 1,
-                    sweep_config.get_num_simulations(),
-                    self.parameter_name,
-                    param_value,
-                    e
-                );
-                crate::config::ConfigError::ValidationError(error_context)
-            })?;
+                // Initialize simulation results for this run
+                let mut results = self.initialize_simulation_results(&sim_config, sim_index, param_value);
 
-            // Save individual simulation results
-            results.save_to_directory(&format!("simulator/results/{}/data/sim_{}", self.results_dir, sim_index))
-                .await.map_err(|e| {
+                // Setup test nodes
+                let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
+                    Duration::from_secs_f64(sim_config.network_config.block_interval),
+                    &sim_config.network_config.chain_delays,
+                    sim_config.transaction_config.allow_cat_pending_dependencies,
+                    sim_config.transaction_config.cat_lifetime_blocks,
+                ).await;
+                
+                // Initialize accounts with initial balance
+                crate::network::initialize_accounts(
+                    &[cl_node.clone()], 
+                    sim_config.account_config.initial_balance.try_into().unwrap(), 
+                    sim_config.account_config.num_accounts.try_into().unwrap(),
+                    Some(&[hig_node_1.clone(), hig_node_2.clone()]),
+                    sim_config.network_config.block_interval,
+                ).await.map_err(|e| {
                     let error_context = format!(
-                        "Sweep '{}' failed to save results for simulation {}/{} with {}: {:?}. Error: {}",
+                        "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?}. Error: {}",
                         self.sweep_name,
                         sim_index + 1,
                         sweep_config.get_num_simulations(),
+                        run,
+                        num_runs,
                         self.parameter_name,
                         param_value,
                         e
                     );
                     crate::config::ConfigError::ValidationError(error_context)
                 })?;
-            
-            all_results.push((param_value.clone(), results));
+
+                // Run simulation with run message
+                let run_message = format!("Sim {} Run {}/{}", sim_index + 1, run, num_runs);
+                crate::run_simulation::run_simulation_with_message(
+                    cl_node,
+                    vec![hig_node_1, hig_node_2],
+                    &mut results,
+                    Some(run_message),
+                ).await.map_err(|e| {
+                    let error_context = format!(
+                        "Sweep '{}' failed during simulation {}/{} run {}/{} with {}: {:?}. Error: {}",
+                        self.sweep_name,
+                        sim_index + 1,
+                        sweep_config.get_num_simulations(),
+                        run,
+                        num_runs,
+                        self.parameter_name,
+                        param_value,
+                        e
+                    );
+                    crate::config::ConfigError::ValidationError(error_context)
+                })?;
+
+                // Save this run's results to its own directory
+                let run_dir = format!("simulator/results/{}/data/sim_{}/run_{}", self.results_dir, sim_index, run - 1);
+                results.save_to_directory(&run_dir).await.map_err(|e| {
+                    let error_context = format!(
+                        "Sweep '{}' failed to save results for simulation {}/{} run {}/{} with {}: {:?}. Error: {}",
+                        self.sweep_name,
+                        sim_index + 1,
+                        sweep_config.get_num_simulations(),
+                        run,
+                        num_runs,
+                        self.parameter_name,
+                        param_value,
+                        e
+                    );
+                    crate::config::ConfigError::ValidationError(error_context)
+                })?;
+
+                parameter_results.push(results);
+                logging::log("SIMULATOR", &format!("=== Completed Run {}/{} for parameter {}: {:?} ===", 
+                    run, num_runs, self.parameter_name, param_value));
+            }
+
+            // Use the first run's results for the sweep summary (individual runs are saved separately)
+            all_results.push((param_value.clone(), parameter_results[0].clone()));
             
             // Update progress bar and show completed simulation
             progress_bar.inc(1);
@@ -514,7 +552,7 @@ where
         network_config: sweep_config.get_network_config().clone(),
         account_config: sweep_config.get_account_config().clone(),
         transaction_config: sweep_config.get_transaction_config().clone(),
-        repeat_config: sweep_config.get_repeat_config().cloned(),
+        repeat_config: sweep_config.get_repeat_config().unwrap().clone(),
     };
     
     // Apply the field updater to create the modified config

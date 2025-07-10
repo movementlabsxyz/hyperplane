@@ -26,9 +26,9 @@ pub struct Config {
     pub account_config: AccountConfig,
     /// Transaction configuration including rates, patterns, and cross-chain settings
     pub transaction_config: TransactionConfig,
-    /// Repeat configuration for running simulations multiple times (optional)
+    /// Repeat configuration for running simulations multiple times (required)
     #[serde(default)]
-    pub repeat_config: Option<RepeatConfig>,
+    pub repeat_config: RepeatConfig,
 }
 
 /// Configuration for network-related simulation parameters.
@@ -92,6 +92,14 @@ pub struct RepeatConfig {
     pub num_runs: u32,
 }
 
+impl Default for RepeatConfig {
+    fn default() -> Self {
+        Self {
+            num_runs: 1,
+        }
+    }
+}
+
 // ------------------------------------------------------------------------------------------------
 // Sweep Configuration Structs
 // ------------------------------------------------------------------------------------------------
@@ -130,6 +138,7 @@ pub fn validate_common_fields(
     account_config: &AccountConfig,
     transaction_config: &TransactionConfig,
     network_config: &NetworkConfig,
+    repeat_config: &RepeatConfig,
 ) -> Result<(), ConfigError> {
     if account_config.initial_balance <= 0 {
         return Err(ConfigError::ValidationError("Initial balance must be positive".into()));
@@ -166,6 +175,9 @@ pub fn validate_common_fields(
     if network_config.block_interval <= 0.0 {
         return Err(ConfigError::ValidationError("Block interval must be positive".into()));
     }
+    if repeat_config.num_runs == 0 {
+        return Err(ConfigError::ValidationError("Number of runs must be positive".into()));
+    }
     Ok(())
 }
 
@@ -188,7 +200,7 @@ impl NetworkConfig {
 impl Config {
     /// Validates the configuration
     pub fn validate(&self) -> Result<(), ConfigError> {
-        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config)
+        validate_common_fields(&self.account_config, &self.transaction_config, &self.network_config, &self.repeat_config)
     }
 
     /// Calculates estimated simulation duration

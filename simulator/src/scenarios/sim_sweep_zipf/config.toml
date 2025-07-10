@@ -47,5 +47,10 @@ allow_cat_pending_dependencies = false
 
 # Sweep parameters
 [sweep]
-num_simulations = 7 # Number of simulations to run
-zipf_step = 0.2 # Step size for Zipf parameter, starting from 0
+num_simulations = 4 # Number of simulations to run
+zipf_step = 0.5 # Step size for Zipf parameter
+
+# Repeat parameters
+[repeat_config]
+# Number of times to run each simulation (results will be averaged)
+num_runs = 1

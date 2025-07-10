@@ -47,5 +47,10 @@ allow_cat_pending_dependencies = false
 
 # Sweep parameters
 [sweep]
-num_simulations = 5 # Number of simulations to run
-cat_lifetime_step = 5 # Step size for CAT lifetime blocks 
+num_simulations = 4 # Number of simulations to run
+cat_lifetime_step = 5 # Step size for CAT lifetime
+
+# Repeat parameters
+[repeat_config]
+# Number of times to run each simulation (results will be averaged)
+num_runs = 1 

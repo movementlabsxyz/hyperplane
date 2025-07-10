@@ -47,8 +47,14 @@ allow_cat_pending_dependencies = false
 
 # Sweep parameters
 [sweep]
-num_simulations = 5 # Number of simulations to run
-block_interval_step = 0.02 # Step size for block interval parameter, starting from 0.02
+num_simulations = 4 # Number of simulations to run
+block_interval_step = 0.01 # Step size for block interval
+block_count = 50 # Number of blocks to simulate
+
+# Repeat parameters
+[repeat_config]
+# Number of times to run each simulation (results will be averaged)
+num_runs = 1
 
 # Reference chain delay duration in seconds
 # This value defines what the chain delay duration should be

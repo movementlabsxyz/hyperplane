@@ -44,3 +44,8 @@ initialization_wait_blocks = 2
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)
 allow_cat_pending_dependencies = false
+
+# Repeat parameters
+[repeat_config]
+# Number of times to run the simulation (results will be averaged)
+num_runs = 1

@@ -38,9 +38,7 @@ pub async fn run_simple_and_repeat_simulation() -> Result<(), crate::config::Con
     let config = load_config()?;
     
     // Get number of runs from config
-    let num_runs = config.repeat_config.as_ref()
-        .map(|rc| rc.num_runs)
-        .unwrap_or(1);
+    let num_runs = config.repeat_config.num_runs;
     
     // Display simulation name
     println!("Running Simple (repeated) Simulation with {} runs", num_runs);

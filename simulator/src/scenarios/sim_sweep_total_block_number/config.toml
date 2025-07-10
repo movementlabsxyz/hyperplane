@@ -47,5 +47,10 @@ allow_cat_pending_dependencies = false
 
 # Sweep parameters
 [sweep]
-num_simulations = 4 # Number of simulations to run (25 blocks, 50 blocks, 75 blocks, 100 blocks)
-duration_step = 25 # Step size for block number parameter, starting from 25 
+num_simulations = 4 # Number of simulations to run
+block_number_step = 25 # Step size for total block number
+
+# Repeat parameters
+[repeat_config]
+# Number of times to run each simulation (results will be averaged)
+num_runs = 1 
