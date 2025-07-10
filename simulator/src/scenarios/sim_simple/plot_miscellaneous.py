@@ -6,15 +6,20 @@ import numpy as np
 from scipy.stats import zipf
 import os
 
+# Global variable for the base data path
+BASE_DATA_PATH = 'simulator/results/sim_simple/data/sim_0/run_average'
+# Global variable for the output figures path
+FIGS_PATH = 'simulator/results/sim_simple/figs'
+
 def load_simulation_data():
-    with open('simulator/results/sim_simple/data/sim_0/run_average/simulation_stats.json', 'r') as f:
+    with open(f'{BASE_DATA_PATH}/simulation_stats.json', 'r') as f:
         return json.load(f)
 
 def plot_pending_transactions():
     try:
-        with open('simulator/results/sim_simple/data/sim_0/run_average/pending_transactions_chain_1.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/pending_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/sim_simple/data/sim_0/run_average/pending_transactions_chain_2.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/pending_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_pending']]
         chain_1_pending = [entry['count'] for entry in chain_1_data['chain_1_pending']]
@@ -23,14 +28,14 @@ def plot_pending_transactions():
         
         # Load CAT and regular pending data for chain 1
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_pending_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/cat_pending_transactions_chain_1.json', 'r') as f:
                 chain_1_cat_data = json.load(f)
             chain_1_cat_pending = [entry['count'] for entry in chain_1_cat_data['chain_1_cat_pending']]
         except:
             chain_1_cat_pending = [0] * len(chain_1_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_pending_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/regular_pending_transactions_chain_1.json', 'r') as f:
                 chain_1_regular_data = json.load(f)
             chain_1_regular_pending = [entry['count'] for entry in chain_1_regular_data['chain_1_regular_pending']]
         except:
@@ -38,14 +43,14 @@ def plot_pending_transactions():
         
         # Load CAT and regular pending data for chain 2
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_pending_transactions_chain_2.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/cat_pending_transactions_chain_2.json', 'r') as f:
                 chain_2_cat_data = json.load(f)
             chain_2_cat_pending = [entry['count'] for entry in chain_2_cat_data['chain_2_cat_pending']]
         except:
             chain_2_cat_pending = [0] * len(chain_2_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_pending_transactions_chain_2.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/regular_pending_transactions_chain_2.json', 'r') as f:
                 chain_2_regular_data = json.load(f)
             chain_2_regular_pending = [entry['count'] for entry in chain_2_regular_data['chain_2_regular_pending']]
         except:
@@ -62,7 +67,7 @@ def plot_pending_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_pending_chain1.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_pending_chain1.png')
         plt.close()
         # Plot chain 2 only with CAT and regular breakdown
         plt.figure(figsize=(12, 6))
@@ -75,7 +80,7 @@ def plot_pending_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_pending_chain2.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_pending_chain2.png')
         plt.close()
         # Plot both chains together (original combined plot)
         plt.figure(figsize=(12, 6))
@@ -87,7 +92,7 @@ def plot_pending_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_pending_all.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_pending_all.png')
         plt.close()
         
         # Plot CAT pending transactions only (combined from both chains)
@@ -100,7 +105,7 @@ def plot_pending_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_pending_cat.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_pending_cat.png')
         plt.close()
         
         # Plot regular pending transactions only (combined from both chains)
@@ -113,7 +118,7 @@ def plot_pending_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_pending_regular.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_pending_regular.png')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -122,9 +127,9 @@ def plot_pending_transactions():
 
 def plot_success_transactions():
     try:
-        with open('simulator/results/sim_simple/data/sim_0/run_average/success_transactions_chain_1.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/success_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/sim_simple/data/sim_0/run_average/success_transactions_chain_2.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/success_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_success']]
         chain_1_success = [entry['count'] for entry in chain_1_data['chain_1_success']]
@@ -133,14 +138,14 @@ def plot_success_transactions():
         
         # Load CAT and regular success data for chain 1
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_success_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/cat_success_transactions_chain_1.json', 'r') as f:
                 chain_1_cat_data = json.load(f)
             chain_1_cat_success = [entry['count'] for entry in chain_1_cat_data['chain_1_cat_success']]
         except:
             chain_1_cat_success = [0] * len(chain_1_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_success_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/regular_success_transactions_chain_1.json', 'r') as f:
                 chain_1_regular_data = json.load(f)
             chain_1_regular_success = [entry['count'] for entry in chain_1_regular_data['chain_1_regular_success']]
         except:
@@ -148,14 +153,14 @@ def plot_success_transactions():
         
         # Load CAT and regular success data for chain 2
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_success_transactions_chain_2.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/cat_success_transactions_chain_2.json', 'r') as f:
                 chain_2_cat_data = json.load(f)
             chain_2_cat_success = [entry['count'] for entry in chain_2_cat_data['chain_2_cat_success']]
         except:
             chain_2_cat_success = [0] * len(chain_2_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_success_transactions_chain_2.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/regular_success_transactions_chain_2.json', 'r') as f:
                 chain_2_regular_data = json.load(f)
             chain_2_regular_success = [entry['count'] for entry in chain_2_regular_data['chain_2_regular_success']]
         except:
@@ -172,7 +177,7 @@ def plot_success_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_success_chain1.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_success_chain1.png')
         plt.close()
         # Plot chain 2 only with CAT and regular breakdown
         plt.figure(figsize=(12, 6))
@@ -185,7 +190,7 @@ def plot_success_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_success_chain2.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_success_chain2.png')
         plt.close()
         # Plot both chains together (original combined plot)
         plt.figure(figsize=(12, 6))
@@ -197,7 +202,7 @@ def plot_success_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_success_all.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_success_all.png')
         plt.close()
         
         # Plot CAT success transactions only (combined from both chains)
@@ -210,7 +215,7 @@ def plot_success_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_success_cat.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_success_cat.png')
         plt.close()
         
         # Plot regular success transactions only (combined from both chains)
@@ -223,7 +228,7 @@ def plot_success_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_success_regular.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_success_regular.png')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -232,9 +237,9 @@ def plot_success_transactions():
 
 def plot_failure_transactions():
     try:
-        with open('simulator/results/sim_simple/data/sim_0/run_average/failure_transactions_chain_1.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/failure_transactions_chain_1.json', 'r') as f:
             chain_1_data = json.load(f)
-        with open('simulator/results/sim_simple/data/sim_0/run_average/failure_transactions_chain_2.json', 'r') as f:
+        with open(f'{BASE_DATA_PATH}/failure_transactions_chain_2.json', 'r') as f:
             chain_2_data = json.load(f)
         chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_failure']]
         chain_1_failure = [entry['count'] for entry in chain_1_data['chain_1_failure']]
@@ -243,14 +248,14 @@ def plot_failure_transactions():
         
         # Load CAT and regular failure data for chain 1
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_failure_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/cat_failure_transactions_chain_1.json', 'r') as f:
                 chain_1_cat_data = json.load(f)
             chain_1_cat_failure = [entry['count'] for entry in chain_1_cat_data['chain_1_cat_failure']]
         except:
             chain_1_cat_failure = [0] * len(chain_1_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_failure_transactions_chain_1.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/regular_failure_transactions_chain_1.json', 'r') as f:
                 chain_1_regular_data = json.load(f)
             chain_1_regular_failure = [entry['count'] for entry in chain_1_regular_data['chain_1_regular_failure']]
         except:
@@ -258,14 +263,14 @@ def plot_failure_transactions():
         
         # Load CAT and regular failure data for chain 2
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/cat_failure_transactions_chain_2.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/cat_failure_transactions_chain_2.json', 'r') as f:
                 chain_2_cat_data = json.load(f)
             chain_2_cat_failure = [entry['count'] for entry in chain_2_cat_data['chain_2_cat_failure']]
         except:
             chain_2_cat_failure = [0] * len(chain_2_blocks)
         
         try:
-            with open('simulator/results/sim_simple/data/sim_0/run_average/regular_failure_transactions_chain_2.json', 'r') as f:
+            with open(f'{BASE_DATA_PATH}/regular_failure_transactions_chain_2.json', 'r') as f:
                 chain_2_regular_data = json.load(f)
             chain_2_regular_failure = [entry['count'] for entry in chain_2_regular_data['chain_2_regular_failure']]
         except:
@@ -282,7 +287,7 @@ def plot_failure_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_failure_chain1.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_failure_chain1.png')
         plt.close()
         # Plot chain 2 only with CAT and regular breakdown
         plt.figure(figsize=(12, 6))
@@ -295,7 +300,7 @@ def plot_failure_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_failure_chain2.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_failure_chain2.png')
         plt.close()
         # Plot both chains together (original combined plot)
         plt.figure(figsize=(12, 6))
@@ -307,7 +312,7 @@ def plot_failure_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_failure_all.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_failure_all.png')
         plt.close()
         
         # Plot CAT failure transactions only (combined from both chains)
@@ -320,7 +325,7 @@ def plot_failure_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_failure_cat.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_failure_cat.png')
         plt.close()
         
         # Plot regular failure transactions only (combined from both chains)
@@ -333,7 +338,7 @@ def plot_failure_transactions():
         plt.xlim(left=0)
         plt.grid(True)
         plt.legend()
-        plt.savefig('simulator/results/sim_simple/figs/tx_count_failure_regular.png')
+        plt.savefig(f'{FIGS_PATH}/tx_count_failure_regular.png')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -345,7 +350,7 @@ def plot_parameters():
     params = data['parameters']
     
     # Create a text file with parameters
-    with open('simulator/results/sim_simple/figs/parameters.txt', 'w') as f:
+    with open(f'{FIGS_PATH}/parameters.txt', 'w') as f:
         f.write("Simulation Parameters:\n")
         f.write("=====================\n")
         f.write(f"Initial Balance: {params['initial_balance']}\n")
