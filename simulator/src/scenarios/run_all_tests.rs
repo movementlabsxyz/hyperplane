@@ -14,9 +14,9 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     crate::scenarios::sim_simple::simulation::run_with_plotting().await?;
     
     // 2. Simple repeated simulation
-    println!("\n------------ 2. Simple (repeated) Simulation -----------");
-    logging::log("SIMULATOR", "------------ 2. Simple (repeated) Simulation -----------");
-    crate::scenarios::sim_simple_repeated::simulation::run_with_plotting().await?;
+    println!("\n------------ 2. Simple Simulation -----------");
+    logging::log("SIMULATOR", "------------ 2. Simple Simulation -----------");
+    crate::scenarios::sim_simple::simulation::run_with_plotting().await?;
     
     // 3. CAT rate sweep
     println!("\n------------ 3. Sweep CAT Rate -----------");

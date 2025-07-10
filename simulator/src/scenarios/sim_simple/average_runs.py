@@ -5,11 +5,12 @@ import json
 import glob
 from collections import defaultdict
 import numpy as np
+import shutil
 
 def load_metadata():
     """Load metadata to get number of runs and parameters."""
     try:
-        with open('../../../results/sim_simple_repeated/data/metadata.json', 'r') as f:
+        with open('../../../results/sim_simple/data/metadata.json', 'r') as f:
             return json.load(f)
     except FileNotFoundError:
         print("Error: metadata.json not found. Cannot determine number of runs.")
@@ -141,7 +142,7 @@ def create_averaged_data():
         return False
     
     num_runs = metadata['num_runs']
-    base_dir = '../../../results/sim_simple_repeated/data'
+    base_dir = '../../../results/sim_simple/data'
     
     print(f"Averaging data from {num_runs} runs...")
     
@@ -160,7 +161,20 @@ def create_averaged_data():
     if not all_runs_data:
         print("Error: No run data found to average.")
         return False
-    
+
+    # If only one run, just copy its data to run_average
+    if len(all_runs_data) == 1:
+        avg_dir = os.path.join(base_dir, 'run_average')
+        os.makedirs(avg_dir, exist_ok=True)
+        # Copy all files from the single run's data directory
+        single_run_dir = os.path.join(base_dir, 'run_0', 'data')
+        for filename in os.listdir(single_run_dir):
+            src = os.path.join(single_run_dir, filename)
+            dst = os.path.join(avg_dir, filename)
+            shutil.copy2(src, dst)
+        print("Only one run found. Copied data to run_average.")
+        return True
+
     # Create run_average directory
     avg_dir = os.path.join(base_dir, 'run_average')
     os.makedirs(avg_dir, exist_ok=True)
@@ -232,9 +246,9 @@ def create_averaged_data():
 
 def main():
     """Main function to run the averaging process."""
-    if not os.path.exists('../../../results/sim_simple_repeated/data/metadata.json'):
-        print("Error: No repeated simulation data found.")
-        print("Please run the simple repeated simulation first.")
+    if not os.path.exists('../../../results/sim_simple/data/metadata.json'):
+        print("Error: No simple simulation data found.")
+        print("Please run the simple simulation first.")
         return
     
     success = create_averaged_data()

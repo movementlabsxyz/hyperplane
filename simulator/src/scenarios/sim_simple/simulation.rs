@@ -4,6 +4,7 @@ use chrono::Local;
 use hyperplane::utils::logging;
 use std::time::{Duration, Instant};
 use toml;
+use serde_json;
 
 // ------------------------------------------------------------------------------------------------
 // Configuration Loading
@@ -37,56 +38,93 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     // Load configuration
     let config = load_config()?;
     
+    // Get number of runs from config
+    let num_runs = config.repeat_config.num_runs;
+    
+    // Write metadata.json for Python averaging script
+    let metadata = serde_json::json!({
+        "num_runs": num_runs,
+        "num_simulations": 1,
+        "parameters": {
+            "initial_balance": config.account_config.initial_balance,
+            "num_accounts": config.account_config.num_accounts,
+            "target_tps": config.transaction_config.target_tps,
+            "sim_total_block_number": config.transaction_config.sim_total_block_number,
+            "zipf_parameter": config.transaction_config.zipf_parameter,
+            "ratio_cats": config.transaction_config.ratio_cats,
+            "block_interval": config.network_config.block_interval,
+            "cat_lifetime_blocks": config.transaction_config.cat_lifetime_blocks,
+            "chain_delays": config.network_config.chain_delays,
+        }
+    });
+    std::fs::write("simulator/results/sim_simple/data/metadata.json", 
+                   serde_json::to_string_pretty(&metadata).unwrap())
+        .expect("Failed to write metadata.json");
+    
     // Display simulation name and create progress bar
     println!("Running Simple Simulation");
     use indicatif::{ProgressBar, ProgressStyle};
-    let progress_bar = ProgressBar::new(1);
+    let progress_bar = ProgressBar::new(1); // 1 simulation, not num_runs
     progress_bar.set_style(ProgressStyle::default_bar()
         .template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
         .unwrap()
         .progress_chars("+>-"));
     
-    // Initialize simulation results from configuration
-    let mut results = initialize_simulation_results(&config);
+    // Store results for all runs
+    let mut all_results = Vec::new();
 
-    // Setup test nodes (with zero delays for funding)
-    let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
-        Duration::from_secs_f64(config.network_config.block_interval),
-        &[0, 0], // Zero delays for funding
-        config.transaction_config.allow_cat_pending_dependencies,
-        config.transaction_config.cat_lifetime_blocks,
-    ).await;
-    
-    // Initialize accounts with initial balance (with zero delays for fast processing)
-    crate::network::initialize_accounts(
-        &[cl_node.clone()], 
-        config.account_config.initial_balance.try_into().unwrap(), 
-        config.account_config.num_accounts.try_into().unwrap(),
-        Some(&[hig_node_1.clone(), hig_node_2.clone()]),
-        config.network_config.block_interval,
-        config.transaction_config.funding_wait_blocks,
-    ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
-    
-    // Now set the actual chain delays for the main simulation
-    logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
-    let delay_1_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[0] as f64);
-    let delay_2_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[1] as f64);
-    hig_node_1.lock().await.set_hs_message_delay(delay_1_time);
-    hig_node_2.lock().await.set_hs_message_delay(delay_2_time);
-    logging::log("SIMULATOR", &format!("Set chain 1 delay to {} blocks ({:?}) and chain 2 delay to {} blocks ({:?})", 
-        config.network_config.chain_delays[0], delay_1_time, config.network_config.chain_delays[1], delay_2_time));
+    // Run the simulation multiple times
+    for run in 1..=num_runs {
+        logging::log("SIMULATOR", &format!("=== Starting Run {}/{} ===", run, num_runs));
+        
+        // Initialize simulation results from configuration
+        let mut results = initialize_simulation_results(&config);
 
-    // Run simulation
-    crate::run_simulation::run_simulation(
-        cl_node,
-        vec![hig_node_1, hig_node_2],
-        &mut results,
-    ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+        // Setup test nodes (with zero delays for funding)
+        let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
+            Duration::from_secs_f64(config.network_config.block_interval),
+            &[0, 0], // Zero delays for funding
+            config.transaction_config.allow_cat_pending_dependencies,
+            config.transaction_config.cat_lifetime_blocks,
+        ).await;
+        
+        // Initialize accounts with initial balance (with zero delays for fast processing)
+        crate::network::initialize_accounts(
+            &[cl_node.clone()], 
+            config.account_config.initial_balance.try_into().unwrap(), 
+            config.account_config.num_accounts.try_into().unwrap(),
+            Some(&[hig_node_1.clone(), hig_node_2.clone()]),
+            config.network_config.block_interval,
+            config.transaction_config.funding_wait_blocks,
+        ).await.map_err(|e| crate::config::ConfigError::ValidationError(e.to_string()))?;
+        
+        // Now set the actual chain delays for the main simulation
+        logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
+        let delay_1_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[0] as f64);
+        let delay_2_time = Duration::from_secs_f64(config.network_config.block_interval * config.network_config.chain_delays[1] as f64);
+        hig_node_1.lock().await.set_hs_message_delay(delay_1_time);
+        hig_node_2.lock().await.set_hs_message_delay(delay_2_time);
+        logging::log("SIMULATOR", &format!("Set chain 1 delay to {} blocks ({:?}) and chain 2 delay to {} blocks ({:?})", 
+            config.network_config.chain_delays[0], delay_1_time, config.network_config.chain_delays[1], delay_2_time));
 
-    // Save results
-    results.save().await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+        // Run simulation with run message
+        let run_message = format!("Run {}/{}", run, num_runs);
+        crate::run_simulation::run_simulation_with_message(
+            cl_node,
+            vec![hig_node_1, hig_node_2],
+            &mut results,
+            Some(run_message),
+        ).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
 
-    // Complete progress bar
+        // Save this run's results to its own directory
+        let run_dir = format!("simulator/results/sim_simple/data/run_{}", run - 1);
+        results.save_to_directory(&run_dir).await.map_err(|e| crate::config::ConfigError::ValidationError(e))?;
+
+        all_results.push(results);
+        logging::log("SIMULATOR", &format!("=== Completed Run {}/{} ===", run, num_runs));
+    }
+
+    // Complete progress bar (increment once per simulation, not per run)
     progress_bar.inc(1);
     progress_bar.set_message("Simple Simulation Complete");
     progress_bar.finish_with_message("Simple Simulation Complete");
@@ -94,9 +132,12 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     // Show completion status
     println!("Simple simulation complete");
     logging::log("SIMULATOR", "=== Simple Simulation Complete ===");
-    logging::log("SIMULATOR", &format!("Total transactions sent: {}", results.transactions_sent));
-    logging::log("SIMULATOR", &format!("CAT transactions: {}", results.cat_transactions));
-    logging::log("SIMULATOR", &format!("Regular transactions: {}", results.regular_transactions));
+    logging::log("SIMULATOR", &format!("Total runs completed: {}", all_results.len()));
+    if let Some(last_result) = all_results.last() {
+        logging::log("SIMULATOR", &format!("Total transactions sent: {}", last_result.transactions_sent));
+        logging::log("SIMULATOR", &format!("CAT transactions: {}", last_result.cat_transactions));
+        logging::log("SIMULATOR", &format!("Regular transactions: {}", last_result.regular_transactions));
+    }
 
     Ok(())
 }
@@ -146,7 +187,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
     results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
     results.target_tps = config.transaction_config.target_tps as u64;
-            results.sim_total_block_number = config.transaction_config.sim_total_block_number.try_into().unwrap();
+    results.sim_total_block_number = config.transaction_config.sim_total_block_number.try_into().unwrap();
     results.zipf_parameter = config.transaction_config.zipf_parameter;
     results.ratio_cats = config.transaction_config.ratio_cats;
     results.block_interval = config.network_config.block_interval;

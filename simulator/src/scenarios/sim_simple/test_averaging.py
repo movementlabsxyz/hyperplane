@@ -23,7 +23,7 @@ def test_averaging_workflow():
     print("=" * 60)
     
     # Check if metadata exists
-    metadata_path = 'simulator/results/sim_simple_repeated/data/metadata.json'
+    metadata_path = 'simulator/results/sim_simple/data/metadata.json'
     if not os.path.exists(metadata_path):
         print("❌ No metadata.json found. Please run the simple repeated simulation first.")
         return False
@@ -31,7 +31,7 @@ def test_averaging_workflow():
     print("✅ Found metadata.json")
     
     # Check if individual run directories exist
-    base_dir = 'simulator/results/sim_simple_repeated/data'
+    base_dir = 'simulator/results/sim_simple/data'
     run_dirs = [d for d in os.listdir(base_dir) if d.startswith('run_') and os.path.isdir(os.path.join(base_dir, d))]
     
     if not run_dirs:
