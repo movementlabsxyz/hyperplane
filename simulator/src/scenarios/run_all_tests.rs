@@ -13,40 +13,40 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     logging::log("SIMULATOR", "------------ 1. Simple Simulation -----------");
     crate::scenarios::sim_simple::simulation::run_with_plotting().await?;
     
-    // 2. CAT rate sweep
-    println!("\n------------ 2. Sweep CAT Rate -----------");
-    logging::log("SIMULATOR", "------------ 2. Sweep CAT Rate -----------");
-    crate::scenarios::sim_sweep_cat_rate::simulation::run_with_plotting().await?;
-    
-    // 3. CAT pending dependencies sweep
-    println!("\n------------ 3. Sweep CAT Pending Dependencies -----------");
-    logging::log("SIMULATOR", "------------ 3. Sweep CAT Pending Dependencies -----------");
-    crate::scenarios::sim_sweep_cat_pending_dependencies::simulation::run_with_plotting().await?;
-    
-    // 4. Block interval constant time delay sweep
-    println!("\n------------ 4. Sweep Block Interval (Constant Time Delay) -----------");
-    logging::log("SIMULATOR", "------------ 4. Sweep Block Interval (Constant Time Delay) -----------");
-    crate::scenarios::sim_sweep_block_interval_constant_time_delay::simulation::run_with_plotting().await?;
-    
-    // 5. Block interval constant block delay sweep
-    println!("\n------------ 5. Sweep Block Interval (Constant Block Delay) -----------");
-    logging::log("SIMULATOR", "------------ 5. Sweep Block Interval (Constant Block Delay) -----------");
+    // 2. Block interval constant block delay sweep
+    println!("\n------------ 2. Sweep Block Interval (Constant Block Delay) -----------");
+    logging::log("SIMULATOR", "------------ 2. Sweep Block Interval (Constant Block Delay) -----------");
     crate::scenarios::sim_sweep_block_interval_constant_block_delay::simulation::run_with_plotting().await?;
     
-    // 6. CAT lifetime sweep
-    println!("\n------------ 6. Sweep CAT Lifetime -----------");
-    logging::log("SIMULATOR", "------------ 6. Sweep CAT Lifetime -----------");
+    // 3. Block interval constant time delay sweep
+    println!("\n------------ 3. Sweep Block Interval (Constant Time Delay) -----------");
+    logging::log("SIMULATOR", "------------ 3. Sweep Block Interval (Constant Time Delay) -----------");
+    crate::scenarios::sim_sweep_block_interval_constant_time_delay::simulation::run_with_plotting().await?;
+    
+    // 4. CAT lifetime sweep
+    println!("\n------------ 4. Sweep CAT Lifetime -----------");
+    logging::log("SIMULATOR", "------------ 4. Sweep CAT Lifetime -----------");
     crate::scenarios::sim_sweep_cat_lifetime::simulation::run_with_plotting().await?;
     
-    // 7. Total block number sweep
-    println!("\n------------ 7. Sweep Total Block Number -----------");
-    logging::log("SIMULATOR", "------------ 7. Sweep Total Block Number -----------");
-    crate::scenarios::sim_sweep_total_block_number::simulation::run_with_plotting().await?;
+    // 5. CAT pending dependencies sweep
+    println!("\n------------ 5. Sweep CAT Pending Dependencies -----------");
+    logging::log("SIMULATOR", "------------ 5. Sweep CAT Pending Dependencies -----------");
+    crate::scenarios::sim_sweep_cat_pending_dependencies::simulation::run_with_plotting().await?;
     
-    // 8. Chain delay sweep
-    println!("\n------------ 8. Sweep Chain Delay -----------");
-    logging::log("SIMULATOR", "------------ 8. Sweep Chain Delay -----------");
+    // 6. CAT rate sweep
+    println!("\n------------ 6. Sweep CAT Rate -----------");
+    logging::log("SIMULATOR", "------------ 6. Sweep CAT Rate -----------");
+    crate::scenarios::sim_sweep_cat_rate::simulation::run_with_plotting().await?;
+    
+    // 7. Chain delay sweep
+    println!("\n------------ 7. Sweep Chain Delay -----------");
+    logging::log("SIMULATOR", "------------ 7. Sweep Chain Delay -----------");
     crate::scenarios::sim_sweep_chain_delay::simulation::run_with_plotting().await?;
+    
+    // 8. Total block number sweep
+    println!("\n------------ 8. Sweep Total Block Number -----------");
+    logging::log("SIMULATOR", "------------ 8. Sweep Total Block Number -----------");
+    crate::scenarios::sim_sweep_total_block_number::simulation::run_with_plotting().await?;
     
     // 9. Zipf sweep
     println!("\n------------ 9. Sweep Zipf Distribution -----------");
