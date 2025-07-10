@@ -22,6 +22,100 @@ def create_color_gradient(num_simulations: int) -> np.ndarray:
     """Create a color gradient from red (0) to blue (max)"""
     return plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
 
+def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
+    """Create sweep data structure from run_average directories."""
+    base_dir = f'simulator/results/{results_dir_name}/data'
+    
+    # Load metadata to get parameter values
+    with open(f'{base_dir}/metadata.json', 'r') as f:
+        metadata = json.load(f)
+    
+    param_values = metadata['parameter_values']
+    param_name = metadata['parameter_name']
+    
+    # Create sweep summary
+    sweep_summary = {
+        'num_simulations': metadata['num_simulations'],
+        param_name: param_values,
+        'total_transactions': [],
+        'cat_transactions': [],
+        'regular_transactions': []
+    }
+    
+    # Create individual results
+    individual_results = []
+    
+    for sim_index, param_value in enumerate(param_values):
+        # Load averaged stats for this simulation
+        stats_file = f'{base_dir}/sim_{sim_index}/run_average/simulation_stats.json'
+        if os.path.exists(stats_file):
+            with open(stats_file, 'r') as f:
+                stats = json.load(f)
+            
+            # Add to sweep summary
+            sweep_summary['total_transactions'].append(stats['results']['total_transactions'])
+            sweep_summary['cat_transactions'].append(stats['results']['cat_transactions'])
+            sweep_summary['regular_transactions'].append(stats['results']['regular_transactions'])
+            
+            # Create individual result entry
+            result_entry = {
+                param_name: param_value,
+                'total_transactions': stats['results']['total_transactions'],
+                'cat_transactions': stats['results']['cat_transactions'],
+                'regular_transactions': stats['results']['regular_transactions']
+            }
+            
+            # Load time series data
+            time_series_files = [
+                ('pending_transactions_chain_1.json', 'chain_1_pending'),
+                ('pending_transactions_chain_2.json', 'chain_2_pending'),
+                ('success_transactions_chain_1.json', 'chain_1_success'),
+                ('success_transactions_chain_2.json', 'chain_2_success'),
+                ('failure_transactions_chain_1.json', 'chain_1_failure'),
+                ('failure_transactions_chain_2.json', 'chain_2_failure'),
+                ('cat_pending_transactions_chain_1.json', 'chain_1_cat_pending'),
+                ('cat_pending_transactions_chain_2.json', 'chain_2_cat_pending'),
+                ('cat_success_transactions_chain_1.json', 'chain_1_cat_success'),
+                ('cat_success_transactions_chain_2.json', 'chain_2_cat_success'),
+                ('cat_failure_transactions_chain_1.json', 'chain_1_cat_failure'),
+                ('cat_failure_transactions_chain_2.json', 'chain_2_cat_failure'),
+                ('regular_pending_transactions_chain_1.json', 'chain_1_regular_pending'),
+                ('regular_pending_transactions_chain_2.json', 'chain_2_regular_pending'),
+                ('regular_success_transactions_chain_1.json', 'chain_1_regular_success'),
+                ('regular_success_transactions_chain_2.json', 'chain_2_regular_success'),
+                ('regular_failure_transactions_chain_1.json', 'chain_1_regular_failure'),
+                ('regular_failure_transactions_chain_2.json', 'chain_2_regular_failure'),
+                ('locked_keys_chain_1.json', 'chain_1_locked_keys'),
+                ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
+            ]
+            
+            for filename, key_name in time_series_files:
+                file_path = f'{base_dir}/sim_{sim_index}/run_average/{filename}'
+                if os.path.exists(file_path):
+                    with open(file_path, 'r') as f:
+                        data = json.load(f)
+                        # Convert from dict format to list of tuples for plotting
+                        if key_name in data:
+                            time_series_data = []
+                            for entry in data[key_name]:
+                                time_series_data.append((entry['height'], entry['count']))
+                            result_entry[key_name] = time_series_data
+            
+            individual_results.append(result_entry)
+    
+    # Create the complete data structure
+    sweep_data = {
+        'sweep_summary': sweep_summary,
+        'individual_results': individual_results
+    }
+    
+    # Save the combined data for plotting
+    output_file = f'{base_dir}/sweep_results_averaged.json'
+    with open(output_file, 'w') as f:
+        json.dump(sweep_data, f, indent=2)
+    
+    return output_file
+
 def load_sweep_data(results_path: str) -> Dict[str, Any]:
     """Load the combined sweep results data from a given path"""
     try:
@@ -407,6 +501,32 @@ def generate_all_plots(
     sweep_type: str
 ) -> None:
     """Generate all plots for a sweep simulation"""
+    import subprocess
+    
+    # First, run the averaging script to create averaged data
+    print("Running averaging script...")
+    try:
+        # Extract the results directory name from the full path
+        results_dir_name = results_dir.replace('simulator/results/', '')
+        # The average_runs.py script is in simulator/src/
+        average_script_path = os.path.join(os.path.dirname(__file__), '..', 'average_runs.py')
+        # Use relative path from simulator directory (where the script runs from)
+        results_path = f'results/{results_dir_name}'
+        # Run from the simulator root directory
+        simulator_root = os.path.join(os.path.dirname(__file__), '..', '..')
+        subprocess.run([sys.executable, average_script_path, results_path], 
+                      check=True, cwd=simulator_root)
+        print("Averaging completed successfully!")
+    except subprocess.CalledProcessError as e:
+        print(f"Error running averaging script: {e}")
+        return
+    except Exception as e:
+        print(f"Error during averaging: {e}")
+        return
+    
+    # Create sweep data from averaged runs
+    results_path = create_sweep_data_from_averaged_runs(results_dir_name)
+    
     # Load data
     data = load_sweep_data(results_path)
     

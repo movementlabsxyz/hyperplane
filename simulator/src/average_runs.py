@@ -11,6 +11,9 @@ def load_metadata(results_dir):
     """Load metadata to get number of runs and parameters."""
     try:
         metadata_path = os.path.join(results_dir, 'data', 'metadata.json')
+        print(f"[DEBUG] Current working directory: {os.getcwd()}")
+        print(f"[DEBUG] Looking for metadata at: {metadata_path}")
+        print(f"[DEBUG] File exists: {os.path.exists(metadata_path)}")
         with open(metadata_path, 'r') as f:
             return json.load(f)
     except FileNotFoundError:

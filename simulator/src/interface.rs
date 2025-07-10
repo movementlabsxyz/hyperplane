@@ -211,7 +211,7 @@ impl SimulatorInterface {
             ("9. Sweep Zipf Distribution", "sweep_zipf", "simulator/src/scenarios/sim_sweep_zipf/plot_results.py"),
         ];
         
-        for (title, name, script) in &plot_scripts {
+        for (title, _name, script) in &plot_scripts {
             println!("\n------------ {} -----------", title);
             let status = Command::new("python3")
                 .arg(script)
