@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from plot_utils import generate_all_plots
 
 def main():
-    """Main function"""
+    """Main function to generate plots for Zipf parameter sweep simulation."""
     # Configuration for this specific sweep
     results_path = 'simulator/results/sim_sweep_zipf/data/sweep_results.json'
     param_name = 'zipf_parameter'

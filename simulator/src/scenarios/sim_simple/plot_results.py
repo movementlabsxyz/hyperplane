@@ -118,6 +118,7 @@ def plot_locked_keys_with_pending():
         return
 
 def main():
+    """Main function to run all plotting functions for the simple simulation."""
     # Check if simple simulation data exists (try multiple possible paths)
     metadata_paths = [
         '../../../results/sim_simple/data/metadata.json',  # From sim_simple directory

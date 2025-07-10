@@ -60,7 +60,7 @@ SWEEP_CONFIGS = {
 }
 
 def main():
-    """Main function"""
+    """Main function to parse command line arguments and generate sweep plots."""
     parser = argparse.ArgumentParser(description='Generate plots for sweep simulations')
     parser.add_argument('sweep_type', choices=list(SWEEP_CONFIGS.keys()), 
                        help='Type of sweep to plot')

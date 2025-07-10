@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from plot_utils import generate_all_plots
 
 def main():
-    """Main function"""
+    """Main function to generate plots for block interval sweep simulation (constant block delay)."""
     # Configuration for this specific sweep
     results_path = 'simulator/results/sim_sweep_block_interval_constant_block_delay/data/sweep_results.json'
     param_name = 'block_interval'

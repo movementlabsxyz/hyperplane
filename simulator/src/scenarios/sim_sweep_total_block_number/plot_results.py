@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from plot_utils import generate_all_plots
 
 def main():
-    """Main function"""
+    """Main function to generate plots for total block number sweep simulation."""
     # Configuration for this specific sweep
     results_path = 'simulator/results/sim_sweep_total_block_number/data/sweep_results.json'
     param_name = 'duration'

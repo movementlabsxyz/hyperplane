@@ -12,6 +12,7 @@ BASE_DATA_PATH = 'simulator/results/sim_simple/data/sim_0/run_average'
 FIGS_PATH = 'simulator/results/sim_simple/figs'
 
 def load_simulation_data():
+    """Load simulation statistics from the averaged results."""
     with open(f'{BASE_DATA_PATH}/simulation_stats.json', 'r') as f:
         return json.load(f)
 
@@ -170,6 +171,7 @@ def plot_failure_transactions():
     plot_transaction_type('failure')
 
 def plot_parameters():
+    """Create a text file with simulation parameters for reference."""
     data = load_simulation_data()
     params = data['parameters']
     
