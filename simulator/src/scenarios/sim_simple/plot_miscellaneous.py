@@ -110,7 +110,7 @@ def plot_transaction_type(transaction_type):
         ],
         f'{tx_type_capitalized} Transactions by Height (Chain 1)',
         f'Number of {tx_type_capitalized} Transactions',
-        f'tx_{transaction_type}_chain1.png'
+        f'tx_{transaction_type}__chain1.png'
     )
     
     # Plot chain 2 with breakdown
@@ -123,7 +123,7 @@ def plot_transaction_type(transaction_type):
         ],
         f'{tx_type_capitalized} Transactions by Height (Chain 2)',
         f'Number of {tx_type_capitalized} Transactions',
-        f'tx_{transaction_type}_chain2.png'
+        f'tx_{transaction_type}__chain2.png'
     )
     
     # Plot both chains together
@@ -162,15 +162,15 @@ def plot_transaction_type(transaction_type):
         f'tx_{transaction_type}_regular.png'
     )
 
-def plot_pending_transactions():
+def plot_tx_pending():
     """Plot pending transactions using the generic function."""
     plot_transaction_type('pending')
 
-def plot_success_transactions():
+def plot_tx_success():
     """Plot success transactions using the generic function."""
     plot_transaction_type('success')
 
-def plot_failure_transactions():
+def plot_tx_failure():
     """Plot failure transactions using the generic function."""
     plot_transaction_type('failure')
 
@@ -196,7 +196,7 @@ def plot_parameters():
         f.write(f"Block Interval: {params['block_interval']}\n")
         f.write(f"Chain Delays: {params['chain_delays']}\n")
 
-def plot_cat_comparison():
+def plot_tx_allStatus_cat():
     """
     Plot CAT transactions: pending, success, and failure rates in the same figure.
     """
@@ -243,7 +243,7 @@ def plot_cat_comparison():
     except Exception as e:
         print(f"Warning: Error creating CAT comparison plot: {e}")
 
-def plot_regular_comparison():
+def plot_tx_allStatus_regular():
     """
     Plot regular transactions: pending, success, and failure rates in the same figure.
     """
@@ -290,7 +290,7 @@ def plot_regular_comparison():
     except Exception as e:
         print(f"Warning: Error creating regular comparison plot: {e}")
 
-def plot_all_comparison():
+def plot_tx_allStatus_all():
     """
     Plot all transactions: pending, success, and failure rates in the same figure.
     All transactions are calculated as CAT + regular transactions.
