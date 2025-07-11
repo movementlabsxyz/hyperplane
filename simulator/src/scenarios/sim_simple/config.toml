@@ -45,19 +45,16 @@ allow_cat_pending_dependencies = false
 # Number of blocks to wait before starting transaction submission
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 2
-# Number of blocks to wait for account funding to complete
-# This ensures all accounts are properly funded before starting simulation
-funding_wait_blocks = 10
 # Maximum number of retry attempts for failed simulation runs
 # If a run fails this many times, the entire simulation will fail
 max_retries = 100
 # Number of times to run the simulation (results will be averaged)
-num_runs = 20
+num_runs = 1
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 50
+sim_total_block_number = 200
 
 # Logging control for the simulator
 [logging_config]
 # Whether to write logs to a file (true = write to file, false = no logging)
-log_to_file = true
+log_to_file = false
