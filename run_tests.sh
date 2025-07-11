@@ -91,6 +91,11 @@ TESTS=(
     hyper_ig::tests::timeouts::test_cat_success_should_not_timeout
     hyper_ig::tests::timeouts::test_status_update_before_timeout_should_process
     hyper_ig::tests::timeouts::test_status_update_at_timeout_boundary_should_process
+    hyper_ig::tests::preloaded_accounts::test_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_transactions_with_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_no_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_credit_with_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_simulation_with_preloaded_accounts
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -133,7 +138,11 @@ TESTS=(
 # Test specific tests
 TESTS2=(
 
-hyper_ig::tests::timeouts::test_cat_timeout_irreversible
+    hyper_ig::tests::preloaded_accounts::test_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_transactions_with_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_no_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_credit_with_preloaded_accounts
+    hyper_ig::tests::preloaded_accounts::test_simulation_with_preloaded_accounts
 
 )
 

@@ -54,7 +54,7 @@ pub use interface::{SimulatorInterface, SimulationType};
 
 // Configuration and network management
 pub use config::Config;
-pub use network::initialize_accounts;
+
 
 // Account selection and statistics
 pub use account_selection::AccountSelectionStats;

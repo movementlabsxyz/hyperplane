@@ -107,16 +107,12 @@ impl Default for LoggingConfig {
 /// Configuration for simulation execution parameters.
 /// 
 /// This struct defines parameters that control the simulation execution itself,
-/// including timing settings for initialization and funding, retry behavior,
-/// repeat settings, and sweep-specific parameters.
+/// including timing settings for initialization, repeat settings,
+/// and sweep-specific parameters.
 #[derive(Debug, Deserialize, Clone)]
 pub struct SimulationConfig {
     /// Number of blocks to wait after account initialization before starting transaction submission
     pub initialization_wait_blocks: u64,
-    /// Number of blocks to wait for account funding to complete before starting simulation
-    pub funding_wait_blocks: u64,
-    /// Maximum number of retry attempts for failed simulation runs
-    pub max_retries: usize,
     /// Number of times to run the simulation (results will be averaged)
     pub num_runs: u32,
     /// Total number of blocks to simulate (determines simulation duration)
@@ -154,8 +150,6 @@ impl Default for SimulationConfig {
     fn default() -> Self {
         Self {
             initialization_wait_blocks: 10,
-            funding_wait_blocks: 5,
-            max_retries: 3,
             num_runs: 1,
             num_simulations: None,
             cat_lifetime_step: None,
@@ -234,12 +228,6 @@ pub fn validate_common_fields(
     }
     if simulation_config.initialization_wait_blocks == 0 {
         return Err(ConfigError::ValidationError("Initialization wait blocks must be positive".into()));
-    }
-    if simulation_config.funding_wait_blocks == 0 {
-        return Err(ConfigError::ValidationError("Funding wait blocks must be positive".into()));
-    }
-    if simulation_config.max_retries == 0 {
-        return Err(ConfigError::ValidationError("Max retries must be positive".into()));
     }
     if simulation_config.num_runs == 0 {
         return Err(ConfigError::ValidationError("Number of runs must be positive".into()));
