@@ -59,3 +59,8 @@ chain_delay_step = 2
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 1000
+
+# Logging control for the simulator
+[logging_config]
+# Whether to write logs to a file (true = write to file, false = no file logging)
+log_to_file = false

@@ -38,8 +38,7 @@ use tokio::sync::Mutex;
 ///
 pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[u64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
-    // Initialize logging
-    logging::init_logging();
+    // Note: Logging should be initialized by the calling code before calling this function
 
     // Create channels for communication
     let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);

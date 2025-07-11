@@ -90,6 +90,7 @@ pub async fn run_sweep_cat_pending_dependencies_simulation() -> Result<(), crate
                         allow_cat_pending_dependencies: allow_cat_pending_dependencies,  // This is the parameter we're varying
                     },
                     simulation_config: base_config.simulation_config.clone(),
+                    logging_config: base_config.logging_config.clone(),
                 }
             })
         }),

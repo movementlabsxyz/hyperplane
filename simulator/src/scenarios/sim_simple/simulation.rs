@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use std::io::Write;
 use chrono::Local;
@@ -33,11 +32,11 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
     fs::create_dir_all("simulator/results/sim_simple/data").expect("Failed to create data directory");
     fs::create_dir_all("simulator/results/sim_simple/figs").expect("Failed to create figures directory");
     
-    // Setup logging
-    setup_logging();
-
     // Load configuration
     let config = load_config()?;
+    
+    // Setup logging with configuration
+    setup_logging(&config);
     
     // Get number of runs from config
     let num_runs = config.simulation_config.num_runs;
@@ -97,6 +96,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
             // Initialize simulation results from configuration
             let mut results = initialize_simulation_results(&config);
 
+            logging::log("SIMULATOR", "Setting up test nodes...");
             // Setup test nodes (with zero delays for funding)
             let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
                 Duration::from_secs_f64(config.network_config.block_interval),
@@ -105,6 +105,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
                 config.transaction_config.cat_lifetime_blocks,
             ).await;
             
+            logging::log("SIMULATOR", "Test nodes setup complete, initializing accounts...");
             // Initialize accounts with initial balance (with zero delays for fast processing)
             let account_init_result = crate::network::initialize_accounts(
                 &[cl_node.clone()], 
@@ -115,6 +116,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
                 config.simulation_config.funding_wait_blocks,
             ).await;
 
+            logging::log("SIMULATOR", "Account initialization complete, checking result...");
             // Check if account initialization failed
             if let Err(e) = account_init_result {
                 retry_count += 1;
@@ -225,10 +227,10 @@ pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
 // Logging Setup
 // ------------------------------------------------------------------------------------------------
 
-/// Sets up logging if ENABLE_LOGS environment variable is set
-fn setup_logging() {
-    if env::var("ENABLE_LOGS").is_ok() {
-        // Delete existing log file if it exists
+/// Sets up logging with configuration
+fn setup_logging(config: &crate::config::Config) {
+    // Delete existing log file if it exists and logging is enabled
+    if config.logging_config.log_to_file {
         let log_path = "simulator/results/sim_simple/simulation.log";
         if let Err(e) = fs::remove_file(log_path) {
             // Ignore error if file doesn't exist
@@ -237,11 +239,19 @@ fn setup_logging() {
             }
         }
 
-        // Initialize logging with simulation-specific log file
-        env::set_var("HYPERPLANE_LOGGING", "true");
-        env::set_var("HYPERPLANE_LOG_TO_FILE", "true");
-        env::set_var("HYPERPLANE_LOG_FILE", log_path);
-        logging::init_logging();
+        // Initialize logging with configuration
+        logging::init_logging_with_config(
+            true, // enabled
+            true, // log_to_file
+            Some(log_path.to_string())
+        );
+    } else {
+        // Initialize logging with configuration (no file logging)
+        logging::init_logging_with_config(
+            false, // enabled
+            false, // log_to_file
+            None
+        );
     }
 }
 
