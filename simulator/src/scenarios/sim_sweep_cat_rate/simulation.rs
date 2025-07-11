@@ -94,6 +94,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
                     simulation_config: base_config.simulation_config.clone(),
+                    logging_config: base_config.logging_config.clone(),
                 }
             })
         }),

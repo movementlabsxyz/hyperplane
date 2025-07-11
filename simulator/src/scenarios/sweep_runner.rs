@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use chrono::Local;
 use hyperplane::utils::logging;
@@ -137,11 +136,15 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         // Create results directory if it doesn't exist
         self.create_directories();
         
-        // Setup logging
-        self.setup_logging();
+        // Setup logging (will be configured after loading config)
+        // Note: setup_logging is called after config is loaded
 
         // Load sweep configuration
         let sweep_config = (self.config_loader)()?;
+
+        // Setup logging with the first config (we'll use the first simulation's config for logging)
+        let first_config = (self.config_modifier)(&sweep_config, self.parameter_values[0].clone());
+        self.setup_logging(&first_config);
 
         // Write metadata.json for Python averaging script
         let metadata_path = format!("simulator/results/{}/data/metadata.json", self.results_dir);
@@ -368,12 +371,12 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
 
     /// Sets up logging for the sweep simulation.
     /// 
-    /// This method configures logging if the ENABLE_LOGS environment variable is set.
+    /// This method configures logging based on the configuration file.
     /// It creates a simulation-specific log file and initializes the logging system
     /// with appropriate configuration for the sweep.
-    fn setup_logging(&self) {
-        if env::var("ENABLE_LOGS").is_ok() {
-            // Delete existing log file if it exists
+    fn setup_logging(&self, config: &crate::config::Config) {
+        // Delete existing log file if it exists and logging is enabled
+        if config.logging_config.log_to_file {
             let log_path = format!("simulator/results/{}/simulation.log", self.results_dir);
             if let Err(e) = fs::remove_file(&log_path) {
                 // Ignore error if file doesn't exist
@@ -382,11 +385,19 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                 }
             }
 
-            // Initialize logging with simulation-specific log file
-            env::set_var("HYPERPLANE_LOGGING", "true");
-            env::set_var("HYPERPLANE_LOG_TO_FILE", "true");
-            env::set_var("HYPERPLANE_LOG_FILE", log_path);
-            logging::init_logging();
+            // Initialize logging with configuration
+            logging::init_logging_with_config(
+                true, // enabled
+                true, // log_to_file
+                Some(log_path)
+            );
+        } else {
+            // Initialize logging with configuration (no file logging)
+            logging::init_logging_with_config(
+                false, // enabled
+                false, // log_to_file
+                None
+            );
         }
     }
 
@@ -631,6 +642,7 @@ where
         account_config: sweep_config.get_account_config().clone(),
         transaction_config: sweep_config.get_transaction_config().clone(),
         simulation_config: sweep_config.get_simulation_config().unwrap().clone(),
+        logging_config: crate::config::LoggingConfig::default(),
     };
     
     // Apply the field updater to create the modified config

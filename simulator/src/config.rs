@@ -29,6 +29,9 @@ pub struct Config {
     /// Simulation configuration including timing, retry settings, and execution parameters
     #[serde(default)]
     pub simulation_config: SimulationConfig,
+    /// Logging configuration for controlling output verbosity
+    #[serde(default)]
+    pub logging_config: LoggingConfig,
 }
 
 /// Configuration for network-related simulation parameters.
@@ -75,6 +78,30 @@ pub struct TransactionConfig {
     pub cat_lifetime_blocks: u64,
     /// Whether CATs can depend on locked keys from pending transactions (affects transaction ordering)
     pub allow_cat_pending_dependencies: bool,
+}
+
+/// Configuration for logging and output control.
+/// 
+/// This struct defines parameters that control the verbosity and output
+/// of the simulation, including log levels and output destinations.
+#[derive(Debug, Deserialize, Clone)]
+pub struct LoggingConfig {
+    /// Whether to log to file (true = write to file, false = no logging)
+    #[serde(default = "default_log_to_file")]
+    pub log_to_file: bool,
+}
+
+/// Default value for log to file
+fn default_log_to_file() -> bool {
+    false
+}
+
+impl Default for LoggingConfig {
+    fn default() -> Self {
+        Self {
+            log_to_file: false,
+        }
+    }
 }
 
 /// Configuration for simulation execution parameters.

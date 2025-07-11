@@ -41,6 +41,27 @@ pub fn init_logging() {
     }
 }
 
+/// Initializes logging with configuration from config file.
+/// 
+/// # Arguments
+/// * `enabled` - Whether logging is enabled
+/// * `log_to_file` - Whether to log to file
+/// * `log_file_path` - Optional log file path (if None, uses default)
+pub fn init_logging_with_config(enabled: bool, log_to_file: bool, log_file_path: Option<String>) {
+    *ENABLE_LOGGING.lock().unwrap() = enabled;
+    *LOG_TO_FILE.lock().unwrap() = log_to_file;
+
+    if enabled && log_to_file {
+        let log_file = log_file_path.unwrap_or_else(|| "hyperplane.log".to_string());
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_file)
+            .expect("Failed to open log file");
+        *LOG_FILE.lock().unwrap() = Some(file);
+    }
+}
+
 pub fn log(prefix: &str, message: &str) {
     if !*ENABLE_LOGGING.lock().unwrap() {
         return;

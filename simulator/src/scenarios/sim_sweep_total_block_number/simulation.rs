@@ -94,6 +94,7 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
                         sim_total_block_number: block_number,  // This is the parameter we're varying
                         ..base_config.simulation_config.clone()
                     },
+                    logging_config: base_config.logging_config.clone(),
                 }
             })
         }),

@@ -128,6 +128,7 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                         sim_total_block_number: block_count,  // Use block count from config
                         ..base_config.simulation_config.clone()
                     },
+                    logging_config: base_config.logging_config.clone(),
                 }
             })
         }),
