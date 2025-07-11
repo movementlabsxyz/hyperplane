@@ -55,6 +55,15 @@ impl MockVM {
     pub fn get_state(&self) -> &HashMap<u32, u32> {
         &self.state
     }
+
+    /// Preload an account with a specified balance
+    /// 
+    /// # Arguments
+    /// * `account_id` - The account ID to preload
+    /// * `balance` - The balance to set for the account
+    pub fn preload_account(&mut self, account_id: u32, balance: u32) {
+        self.state.insert(account_id, balance);
+    }
 }
 
 #[cfg(test)]

@@ -103,6 +103,8 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
                 &[0, 0], // Zero delays for funding
                 config.transaction_config.allow_cat_pending_dependencies,
                 config.transaction_config.cat_lifetime_blocks,
+                0, // No preloaded accounts for funding
+                0, // No preload value
             ).await;
             
             logging::log("SIMULATOR", "Test nodes setup complete, initializing accounts...");

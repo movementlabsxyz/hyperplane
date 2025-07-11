@@ -15,6 +15,13 @@ use tokio::sync::Mutex;
 /// Returns a tuple of the nodes and the current block number at the end of the setup
 pub async fn setup_test_nodes(block_interval: Duration) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
+    setup_test_nodes_with_preloaded_accounts(block_interval, 0, 0).await
+}
+
+/// Helper function to create test nodes with preloaded accounts
+/// Returns a tuple of the nodes and the current block number at the end of the setup
+pub async fn setup_test_nodes_with_preloaded_accounts(block_interval: Duration, num_accounts: u32, preload_value: u32) 
+-> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Initialize logging
     logging::init_logging();
     
@@ -31,8 +38,8 @@ pub async fn setup_test_nodes(block_interval: Duration)
         receiver_hs_to_cl,
         block_interval,
     ).expect("Failed to create confirmation node")));
-    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), 4, true)));
-    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), 4, true)));
+    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new_with_preloaded_accounts(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), 4, true, num_accounts, preload_value)));
+    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new_with_preloaded_accounts(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), 4, true, num_accounts, preload_value)));
 
     // Start the nodes
     HyperSchedulerNode::start(hs_node.clone()).await;

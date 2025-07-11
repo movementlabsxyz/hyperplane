@@ -90,6 +90,32 @@ impl HyperIGNode {
     /// # Returns
     /// A new HyperIGNode instance
     pub fn new(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId, cat_lifetime: u64, allow_cat_pending_dependencies: bool) -> Self {
+        Self::new_with_preloaded_accounts(receiver_cl_to_hig, sender_hig_to_hs, my_chain_id, cat_lifetime, allow_cat_pending_dependencies, 0, 0)
+    }
+
+    /// Creates a new HyperIGNode instance with preloaded accounts.
+    /// 
+    /// # Arguments
+    /// * `receiver_cl_to_hig` - Channel receiver for messages from Confirmation Layer
+    /// * `sender_hig_to_hs` - Channel sender for messages to Hyper Scheduler
+    /// * `my_chain_id` - The chain ID this node is responsible for
+    /// * `cat_lifetime` - The default lifetime for CATs in blocks
+    /// * `allow_cat_pending_dependencies` - Whether CATs can depend on pending transactions
+    /// * `num_accounts` - Number of accounts to preload
+    /// * `preload_value` - Value to preload each account with
+    /// 
+    /// # Returns
+    /// A new HyperIGNode instance with preloaded accounts
+    pub fn new_with_preloaded_accounts(receiver_cl_to_hig: mpsc::Receiver<SubBlock>, sender_hig_to_hs: mpsc::Sender<CATStatusUpdate>, my_chain_id: ChainId, cat_lifetime: u64, allow_cat_pending_dependencies: bool, num_accounts: u32, preload_value: u32) -> Self {
+        let mut vm = MockVM::new();
+        
+        // Preload accounts if specified
+        if num_accounts > 0 {
+            for account_id in 1..=num_accounts {
+                vm.preload_account(account_id, preload_value);
+            }
+        }
+        
         Self {
             state: Arc::new(Mutex::new(HyperIGState {
                 transaction_statuses: HashMap::new(),
@@ -101,7 +127,7 @@ impl HyperIGNode {
                 tx_depends_on_txs: HashMap::new(),
                 received_txs: HashMap::new(),
                 my_chain_id: my_chain_id.clone(),
-                vm: MockVM::new(),
+                vm,
                 pending_proposals: VecDeque::new(),
                 cat_max_lifetime: HashMap::new(),
                 cat_lifetime: cat_lifetime,

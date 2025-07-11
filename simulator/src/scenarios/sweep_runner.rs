@@ -207,6 +207,8 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                         &sim_config.network_config.chain_delays,
                         sim_config.transaction_config.allow_cat_pending_dependencies,
                         sim_config.transaction_config.cat_lifetime_blocks,
+                        0, // No preloaded accounts for sweep simulations
+                        0, // No preload value
                     ).await;
                     
                     // Initialize accounts with initial balance

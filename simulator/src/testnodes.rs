@@ -27,6 +27,9 @@ use tokio::sync::Mutex;
 /// * `block_interval` - The block interval to use for the confirmation layer node
 /// * `chain_delays` - The delays to use for the hyperig nodes (in blocks)
 /// * `allow_cat_pending_dependencies` - Whether to allow CATs to depend on locked keys
+/// * `cat_lifetime_blocks` - The default lifetime for CATs in blocks
+/// * `num_accounts` - Number of accounts to preload (0 for no preloading)
+/// * `preload_value` - Value to preload each account with
 ///
 /// # Returns
 ///
@@ -36,7 +39,7 @@ use tokio::sync::Mutex;
 /// * `hig_node_2` - The hyperig node for chain-2
 /// * `current_block` - The current block number at the end of the setup
 ///
-pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[u64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64) 
+pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[u64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64, num_accounts: u32, preload_value: u32) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Note: Logging should be initialized by the calling code before calling this function
 
@@ -53,8 +56,8 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[u64], al
         receiver_hs_to_cl,
         block_interval,
     ).expect("Failed to create confirmation node")));
-    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies)));
-    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies)));
+    let hig_node_1 = Arc::new(Mutex::new(HyperIGNode::new_with_preloaded_accounts(receiver_cl_to_hig1, sender_hig1_to_hs, ChainId("chain-1".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies, num_accounts, preload_value)));
+    let hig_node_2 = Arc::new(Mutex::new(HyperIGNode::new_with_preloaded_accounts(receiver_cl_to_hig2, sender_hig2_to_hs, ChainId("chain-2".to_string()), cat_lifetime_blocks, allow_cat_pending_dependencies, num_accounts, preload_value)));
 
     // Start the nodes
     HyperSchedulerNode::start(hs_node.clone()).await;
