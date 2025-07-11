@@ -196,7 +196,28 @@ def plot_transactions_overlay(
         # Plot each simulation's chain 1 transactions
         for i, result in enumerate(individual_results):
             param_value = extract_parameter_value(result, param_name)
-            chain_data = result[f'chain_1_{transaction_type}']
+            
+            # For main transaction types (pending, success, failure), calculate as CAT + regular
+            if transaction_type in ['pending', 'success', 'failure']:
+                cat_data = result.get(f'chain_1_cat_{transaction_type}', [])
+                regular_data = result.get(f'chain_1_regular_{transaction_type}', [])
+                
+                # Create a combined dataset by summing CAT and regular at each height
+                combined_data = {}
+                
+                # Add CAT data
+                for height, count in cat_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Add regular data
+                for height, count in regular_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Convert back to sorted list of tuples
+                chain_data = sorted(combined_data.items())
+            else:
+                # For CAT and regular specific types, use the data directly
+                chain_data = result[f'chain_1_{transaction_type}']
             
             if not chain_data:
                 continue
@@ -213,22 +234,22 @@ def plot_transactions_overlay(
         # Create title and filename based on transaction type
         if transaction_type in ['pending', 'success', 'failure']:
             # Combined totals
-            title = f'All {transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'{transaction_type}_all_transactions_overlay.png'
+            title = f'SumTypes {transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes.png'
         elif transaction_type.startswith('cat_'):
             # CAT transactions
             status = transaction_type.replace('cat_', '')
             title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'{status}_cat_transactions_overlay.png'
+            filename = f'tx_{status}_cat.png'
         elif transaction_type.startswith('regular_'):
             # Regular transactions
             status = transaction_type.replace('regular_', '')
             title = f'Regular {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'{status}_regular_transactions_overlay.png'
+            filename = f'tx_{status}_regular.png'
         else:
             # Fallback
             title = f'{transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'{transaction_type}_transactions_overlay.png'
+            filename = f'tx_{transaction_type}.png'
         
         plt.title(title)
         plt.xlabel('Block Height')

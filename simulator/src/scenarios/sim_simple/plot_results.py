@@ -11,10 +11,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from plot_account_selection import plot_account_selection
 from plot_miscellaneous import (
-    plot_pending_transactions,
-    plot_success_transactions,
-    plot_failure_transactions,
+    plot_tx_pending,
+    plot_tx_success,
+    plot_tx_failure,
     plot_parameters,
+    plot_tx_allStatus_cat,
+    plot_tx_allStatus_regular,
+    plot_tx_allStatus_all,
+    plot_comprehensive_comparison,
 )
 
 # Global variables for paths
@@ -110,7 +114,7 @@ def plot_locked_keys_with_pending():
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig(f'{FIGS_PATH}/locked_keys_vs_pending.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{FIGS_PATH}/locked_keys_and_tx_pending.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -166,16 +170,22 @@ def main():
     # Plot account selection distributions
     plot_account_selection()
     # Plot pending transactions
-    plot_pending_transactions()
+    plot_tx_pending()
     # Plot success transactions
-    plot_success_transactions()
+    plot_tx_success()
     # Plot failure transactions
-    plot_failure_transactions()
+    plot_tx_failure()
     # Plot simulation parameters
     plot_parameters()
     # Plot locked keys data
     plot_locked_keys()
     plot_locked_keys_with_pending()
+    
+    # Plot comparison charts
+    plot_tx_allStatus_cat()
+    plot_tx_allStatus_regular()
+    plot_tx_allStatus_all()
+    plot_comprehensive_comparison()
 
 if __name__ == "__main__":
     main() 
