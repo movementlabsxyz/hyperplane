@@ -15,6 +15,10 @@ from plot_miscellaneous import (
     plot_success_transactions,
     plot_failure_transactions,
     plot_parameters,
+    plot_cat_comparison,
+    plot_regular_comparison,
+    plot_all_comparison,
+    plot_comprehensive_comparison,
 )
 
 # Global variables for paths
@@ -110,7 +114,7 @@ def plot_locked_keys_with_pending():
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig(f'{FIGS_PATH}/locked_keys_vs_pending.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{FIGS_PATH}/locked_keys_and_tx_pending.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -176,6 +180,12 @@ def main():
     # Plot locked keys data
     plot_locked_keys()
     plot_locked_keys_with_pending()
+    
+    # Plot comparison charts
+    plot_cat_comparison()
+    plot_regular_comparison()
+    plot_all_comparison()
+    plot_comprehensive_comparison()
 
 if __name__ == "__main__":
     main() 
