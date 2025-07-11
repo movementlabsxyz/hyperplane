@@ -135,7 +135,7 @@ def plot_transaction_type(transaction_type):
         ],
         f'{tx_type_capitalized} Transactions by Height',
         f'Number of {tx_type_capitalized} Transactions',
-        f'tx_{transaction_type}_all.png'
+        f'tx_{transaction_type}_sumTypes.png'
     )
     
     # Plot CAT transactions only

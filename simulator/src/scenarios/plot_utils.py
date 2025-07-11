@@ -234,8 +234,8 @@ def plot_transactions_overlay(
         # Create title and filename based on transaction type
         if transaction_type in ['pending', 'success', 'failure']:
             # Combined totals
-            title = f'All {transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'tx_{transaction_type}_all.png'
+            title = f'SumTypes {transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes.png'
         elif transaction_type.startswith('cat_'):
             # CAT transactions
             status = transaction_type.replace('cat_', '')
