@@ -2,6 +2,7 @@ use std::fs;
 use std::io::Write;
 use chrono::Local;
 use hyperplane::utils::logging;
+use hyperplane::hyper_ig::HyperIG;
 use std::time::{Duration, Instant};
 use toml;
 use serde_json;
@@ -96,42 +97,54 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
             // Initialize simulation results from configuration
             let mut results = initialize_simulation_results(&config);
 
-            logging::log("SIMULATOR", "Setting up test nodes...");
-            // Setup test nodes (with zero delays for funding)
+            logging::log("SIMULATOR", "Setting up test nodes with preloaded accounts...");
+            // Setup test nodes with preloaded accounts from config
             let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
                 Duration::from_secs_f64(config.network_config.block_interval),
                 &[0, 0], // Zero delays for funding
                 config.transaction_config.allow_cat_pending_dependencies,
                 config.transaction_config.cat_lifetime_blocks,
-                0, // No preloaded accounts for funding
-                0, // No preload value
+                config.account_config.num_accounts.try_into().unwrap(), // Preload accounts from config
+                config.account_config.initial_balance.try_into().unwrap(), // Preload value from config
             ).await;
             
-            logging::log("SIMULATOR", "Test nodes setup complete, initializing accounts...");
-            // Initialize accounts with initial balance (with zero delays for fast processing)
-            let account_init_result = crate::network::initialize_accounts(
-                &[cl_node.clone()], 
-                config.account_config.initial_balance.try_into().unwrap(), 
-                config.account_config.num_accounts.try_into().unwrap(),
-                Some(&[hig_node_1.clone(), hig_node_2.clone()]),
-                config.network_config.block_interval,
-                config.simulation_config.funding_wait_blocks,
-            ).await;
-
-            logging::log("SIMULATOR", "Account initialization complete, checking result...");
-            // Check if account initialization failed
-            if let Err(e) = account_init_result {
-                retry_count += 1;
-                if retry_count > max_retries {
-                    let error_context = format!(
-                        "Simple simulation failed during run {}/{} after {} retries. Error: {}",
-                        run, num_runs, retry_count, e
-                    );
-                    return Err(crate::config::ConfigError::ValidationError(error_context));
-                }
-                logging::log("SIMULATOR", &format!("Account initialization failed, retrying... (attempt {}/{})", retry_count, max_retries));
-                continue;
+            logging::log("SIMULATOR", &format!("Test nodes setup complete with {} accounts preloaded with {} tokens each", 
+                config.account_config.num_accounts, config.account_config.initial_balance));
+            
+            // Query and log account balances to verify preloading
+            logging::log("SIMULATOR", "=== Verifying Preloaded Account Balances ===");
+            
+            // Check chain-1 account balances
+            let chain_1_state = hig_node_1.lock().await.get_chain_state().await.unwrap();
+            logging::log("SIMULATOR", &format!("Chain-1 state: {} accounts with balances", chain_1_state.len()));
+            
+            // Log first few account balances as examples
+            let mut sorted_accounts: Vec<_> = chain_1_state.iter().collect();
+            sorted_accounts.sort_by_key(|(account_id, _)| account_id.parse::<u32>().unwrap_or(0));
+            
+            for (account_id, balance) in sorted_accounts.iter().take(10) {
+                logging::log("SIMULATOR", &format!("Chain-1 Account {}: {} tokens", account_id, balance));
             }
+            if sorted_accounts.len() > 10 {
+                logging::log("SIMULATOR", &format!("... and {} more accounts", sorted_accounts.len() - 10));
+            }
+            
+            // Check chain-2 account balances
+            let chain_2_state = hig_node_2.lock().await.get_chain_state().await.unwrap();
+            logging::log("SIMULATOR", &format!("Chain-2 state: {} accounts with balances", chain_2_state.len()));
+            
+            // Log first few account balances as examples
+            let mut sorted_accounts: Vec<_> = chain_2_state.iter().collect();
+            sorted_accounts.sort_by_key(|(account_id, _)| account_id.parse::<u32>().unwrap_or(0));
+            
+            for (account_id, balance) in sorted_accounts.iter().take(10) {
+                logging::log("SIMULATOR", &format!("Chain-2 Account {}: {} tokens", account_id, balance));
+            }
+            if sorted_accounts.len() > 10 {
+                logging::log("SIMULATOR", &format!("... and {} more accounts", sorted_accounts.len() - 10));
+            }
+            
+            logging::log("SIMULATOR", "=== Account Balance Verification Complete ===");
             
             // Now set the actual chain delays for the main simulation
             logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");

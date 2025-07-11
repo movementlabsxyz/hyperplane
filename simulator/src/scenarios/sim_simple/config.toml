@@ -60,4 +60,4 @@ sim_total_block_number = 50
 # Logging control for the simulator
 [logging_config]
 # Whether to write logs to a file (true = write to file, false = no logging)
-log_to_file = false
+log_to_file = true
