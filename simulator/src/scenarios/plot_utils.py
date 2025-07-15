@@ -98,6 +98,8 @@ def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
                 ('regular_failure_transactions_chain_2.json', 'chain_2_regular_failure'),
                 ('locked_keys_chain_1.json', 'chain_1_locked_keys'),
                 ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
+                ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
+                ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
             ]
             
             for filename, key_name in time_series_files:
@@ -585,6 +587,9 @@ def generate_all_plots(
     plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
     plot_sweep_locked_keys_with_pending(data, param_name, results_dir, sweep_type)
     
+    # Plot transactions per block data
+    plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
+    
     print(f"{sweep_type} simulation plots generated successfully!") 
 
 # ------------------------------------------------------------------------------------------------
@@ -773,6 +778,103 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing sweep locked keys with pending data for {results_dir}: {e}")
         return 
+
+def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """
+    Plot transactions per block and TPS for sweep simulations.
+    
+    # Arguments
+    * `data` - The sweep data containing individual results
+    * `param_name` - Name of the parameter being swept
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `sweep_type` - Type of sweep simulation
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping transactions per block overlay plot")
+            return
+        
+        # Create figure with subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Plot each simulation's data
+        for i, result in enumerate(individual_results):
+            # Get the parameter value
+            param_value = None
+            for key, value in result.items():
+                if key not in ['total_transactions', 'cat_transactions', 'regular_transactions', 
+                              'chain_1_pending', 'chain_1_success', 'chain_1_failure',
+                              'chain_1_cat_pending', 'chain_1_cat_success', 'chain_1_cat_failure',
+                              'chain_1_regular_pending', 'chain_1_regular_success', 'chain_1_regular_failure',
+                              'chain_1_locked_keys', 'chain_2_locked_keys',
+                              'chain_1_tx_per_block', 'chain_2_tx_per_block']:
+                    param_value = value
+                    break
+            
+            if param_value is None:
+                continue
+            
+            # Get transactions per block data
+            tx_per_block_data = result.get('chain_1_tx_per_block', [])
+            if not tx_per_block_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            tx_per_block_data = trim_time_series_data(tx_per_block_data, 0.1)
+            
+            if not tx_per_block_data:
+                continue
+            
+            # Extract data - data is list of tuples (height, count)
+            heights = [entry[0] for entry in tx_per_block_data]
+            tx_per_block = [entry[1] for entry in tx_per_block_data]
+            
+            # Calculate TPS (assuming block_interval from first result)
+            # We'll get block_interval from the metadata
+            try:
+                metadata_file = f'simulator/results/{results_dir}/data/metadata.json'
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
+                block_interval = metadata['parameters']['block_interval']
+            except (FileNotFoundError, KeyError):
+                block_interval = 0.02  # Default fallback
+            
+            tps = [tx_count / block_interval for tx_count in tx_per_block]
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            ax1.plot(heights, tx_per_block, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+            ax2.plot(heights, tps, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Create titles
+        title = f'Transactions per Block (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        ax1.set_title(title)
+        ax1.set_ylabel('Number of Transactions')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        ax2.set_title(f'Transactions per Second (Chain 1) - {create_sweep_title(param_name, sweep_type)}')
+        ax2.set_xlabel('Block Height')
+        ax2.set_ylabel('TPS')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        plt.tight_layout()
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/transactions_per_block_overlay.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Warning: Error processing transactions per block data for sweep: {e}")
+        return
 
 # ------------------------------------------------------------------------------------------------
 # Generic Sweep Plotting

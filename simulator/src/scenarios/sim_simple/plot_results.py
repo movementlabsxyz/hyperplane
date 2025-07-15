@@ -121,6 +121,62 @@ def plot_locked_keys_with_pending():
         print(f"Warning: Error processing data for comparison plot: {e}")
         return
 
+def plot_transactions_per_block():
+    """
+    Plot transactions per block and TPS for both chains.
+    """
+    try:
+        # Load transactions per block data from chain 1
+        with open(f'{BASE_DATA_PATH}/tx_per_block_chain_1.json', 'r') as f:
+            chain_1_data = json.load(f)
+        chain_1_blocks = [entry['height'] for entry in chain_1_data['chain_1_tx_per_block']]
+        chain_1_tx_per_block = [entry['count'] for entry in chain_1_data['chain_1_tx_per_block']]
+        
+        # Load transactions per block data from chain 2
+        with open(f'{BASE_DATA_PATH}/tx_per_block_chain_2.json', 'r') as f:
+            chain_2_data = json.load(f)
+        chain_2_blocks = [entry['height'] for entry in chain_2_data['chain_2_tx_per_block']]
+        chain_2_tx_per_block = [entry['count'] for entry in chain_2_data['chain_2_tx_per_block']]
+        
+        # Load block interval from simulation stats to calculate TPS
+        with open(f'{BASE_DATA_PATH}/simulation_stats.json', 'r') as f:
+            stats_data = json.load(f)
+        block_interval = stats_data['parameters']['block_interval']  # in seconds
+        
+        # Calculate TPS (transactions per second)
+        chain_1_tps = [tx_count / block_interval for tx_count in chain_1_tx_per_block]
+        chain_2_tps = [tx_count / block_interval for tx_count in chain_2_tx_per_block]
+        
+        # Create subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+        
+        # Plot 1: Transactions per Block
+        ax1.plot(chain_1_blocks, chain_1_tx_per_block, 'b-', label='Chain 1', linewidth=2)
+        ax1.plot(chain_2_blocks, chain_2_tx_per_block, 'r--', label='Chain 2', linewidth=2)
+        ax1.set_title('Transactions per Block (Averaged)')
+        ax1.set_ylabel('Number of Transactions')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend()
+        
+        # Plot 2: TPS
+        ax2.plot(chain_1_blocks, chain_1_tps, 'b-', label='Chain 1', linewidth=2)
+        ax2.plot(chain_2_blocks, chain_2_tps, 'r--', label='Chain 2', linewidth=2)
+        ax2.set_title(f'Transactions per Second (Block Interval: {block_interval}s)')
+        ax2.set_xlabel('Block Height')
+        ax2.set_ylabel('TPS')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend()
+        
+        plt.tight_layout()
+        
+        # Save the plot
+        plt.savefig(f'{FIGS_PATH}/transactions_per_block.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing transactions per block data: {e}")
+        return
+
 def main():
     """Main function to run all plotting functions for the simple simulation."""
     # Check if simple simulation data exists (try multiple possible paths)
@@ -180,6 +236,9 @@ def main():
     # Plot locked keys data
     plot_locked_keys()
     plot_locked_keys_with_pending()
+    
+    # Plot transactions per block
+    plot_transactions_per_block()
     
     # Plot comparison charts
     plot_tx_allStatus_cat()

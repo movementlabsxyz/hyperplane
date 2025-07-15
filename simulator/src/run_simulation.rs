@@ -86,7 +86,7 @@ pub async fn run_simulation_with_message_and_retries(
     logging::log("SIMULATOR", &format!("Initialization complete, starting simulation at block {}", initial_block));
 
     // Record the start time for transaction sending (after initialization)
-    let transaction_start_time = Instant::now();
+    let transaction_spam_start_time = Instant::now();
 
     // Initialize random number generator
     let mut rng = rand::thread_rng();
@@ -130,9 +130,6 @@ pub async fn run_simulation_with_message_and_retries(
         .progress_chars("##-"));
     
 
-
-    // ------- main simulation loop -------
-
     // Now set the actual chain delays for the main simulation
     logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
     for (i, delay_blocks) in results.chain_delays.iter().enumerate() {
@@ -149,7 +146,9 @@ pub async fn run_simulation_with_message_and_retries(
     let chain_id_1 = chains[0].clone();
     let chain_id_2 = chains[1].clone();
     
-    // Main simulation loop
+    // ------- main simulation loop -------
+
+    // Main simulation loop - processes one transaction per iteration
     while current_block < target_simulation_block {
         // Get current block height first to check if we've reached the target
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
@@ -236,6 +235,14 @@ pub async fn run_simulation_with_message_and_retries(
         let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
         let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
         
+        // Get transactions per block for current block
+        let chain_1_tx_per_block = cl_node.lock().await.get_subblock(chain_id_1.clone(), new_block).await
+            .map(|subblock| subblock.transactions.len() as u64)
+            .unwrap_or(0);
+        let chain_2_tx_per_block = cl_node.lock().await.get_subblock(chain_id_2.clone(), new_block).await
+            .map(|subblock| subblock.transactions.len() as u64)
+            .unwrap_or(0);
+        
         // Calculate combined totals for backward compatibility
         let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
         let chain_1_success = chain_1_cat_success + chain_1_regular_success;
@@ -279,6 +286,10 @@ pub async fn run_simulation_with_message_and_retries(
             // Record locked keys data
             results.chain_1_locked_keys.push((new_block, chain_1_locked_keys));
             results.chain_2_locked_keys.push((new_block, chain_2_locked_keys));
+            
+            // Record transactions per block data
+            results.chain_1_tx_per_block.push((new_block, chain_1_tx_per_block));
+            results.chain_2_tx_per_block.push((new_block, chain_2_tx_per_block));
             current_block = new_block;
             
             // Update progress bar for new block
@@ -286,12 +297,12 @@ pub async fn run_simulation_with_message_and_retries(
             progress_bar.set_position(blocks_completed);
         }
         
-        // Calculate sleep time to maintain target TPS (using transaction start time)
-        let elapsed = transaction_start_time.elapsed();
-        let target_milliseconds = (results.transactions_sent as f64 / results.target_tps as f64) * 1000.0;
-        let target_elapsed = Duration::from_millis(target_milliseconds as u64);
-        if elapsed < target_elapsed {
-            tokio::time::sleep(target_elapsed - elapsed).await;
+        // Calculate how long we should sleep before sending next transaction to maintain target TPS
+        let elapsed_time = transaction_spam_start_time.elapsed(); // Total time since transaction creation started
+        let target_elapsed_time_milliseconds = (results.transactions_sent as f64 / results.target_tps as f64) * 1000.0; // Time that should have elapsed for all transactions sent so far
+        let target_elapsed_time = Duration::from_millis(target_elapsed_time_milliseconds as u64); // Convert to Duration
+        if elapsed_time < target_elapsed_time {
+            tokio::time::sleep(target_elapsed_time - elapsed_time).await; // Sleep only so long as needed to catch up to target rate
         }
     }
  

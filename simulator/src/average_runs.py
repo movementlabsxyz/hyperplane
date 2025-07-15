@@ -221,6 +221,8 @@ def create_averaged_data(results_dir):
             ('regular_failure_transactions_chain_2.json', 'chain_2_regular_failure'),
             ('locked_keys_chain_1.json', 'chain_1_locked_keys'),
             ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
+            ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
+            ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
         ]
         
         for filename, key_name in time_series_files:

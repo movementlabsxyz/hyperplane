@@ -60,6 +60,10 @@ pub struct SimulationResults {
     pub chain_1_locked_keys: Vec<(u64, u64)>,
     pub chain_2_locked_keys: Vec<(u64, u64)>,
     
+    // Chain data - Transactions per block
+    pub chain_1_tx_per_block: Vec<(u64, u64)>,
+    pub chain_2_tx_per_block: Vec<(u64, u64)>,
+    
     // Statistics
     pub account_stats: AccountSelectionStats,
     pub start_time: Instant,
@@ -105,6 +109,8 @@ impl Default for SimulationResults {
             chain_2_regular_failure: Vec::new(),
             chain_1_locked_keys: Vec::new(),
             chain_2_locked_keys: Vec::new(),
+            chain_1_tx_per_block: Vec::new(),
+            chain_2_tx_per_block: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -426,6 +432,32 @@ impl SimulationResults {
         let locked_keys_file_chain_2 = format!("{}/data/locked_keys_chain_2.json", base_dir);
         fs::write(&locked_keys_file_chain_2, serde_json::to_string_pretty(&locked_keys_chain_2).expect("Failed to serialize locked keys")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved locked keys data to {}", locked_keys_file_chain_2));
+
+        // Save transactions per block data from chain 1
+        let tx_per_block_chain_1 = serde_json::json!({
+            "chain_1_tx_per_block": self.chain_1_tx_per_block.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let tx_per_block_file_chain_1 = format!("{}/data/tx_per_block_chain_1.json", base_dir);
+        fs::write(&tx_per_block_file_chain_1, serde_json::to_string_pretty(&tx_per_block_chain_1).expect("Failed to serialize transactions per block")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved transactions per block data to {}", tx_per_block_file_chain_1));
+
+        // Save transactions per block data from chain 2
+        let tx_per_block_chain_2 = serde_json::json!({
+            "chain_2_tx_per_block": self.chain_2_tx_per_block.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let tx_per_block_file_chain_2 = format!("{}/data/tx_per_block_chain_2.json", base_dir);
+        fs::write(&tx_per_block_file_chain_2, serde_json::to_string_pretty(&tx_per_block_chain_2).expect("Failed to serialize transactions per block")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved transactions per block data to {}", tx_per_block_file_chain_2));
 
         // Save account selection data to files
         let (sender_json, receiver_json) = self.account_stats.to_json();
