@@ -168,6 +168,17 @@ def create_sweep_title(param_name: str, sweep_type: str) -> str:
     param_display = param_display.split(' (')[0]
     return f'{param_display} Sweep'
 
+def trim_time_series_data(time_series_data: List[Tuple[int, int]], cutoff_percentage: float = 0.1) -> List[Tuple[int, int]]:
+    """Trim the last cutoff_percentage of time series data to avoid edge effects"""
+    if not time_series_data:
+        return time_series_data
+    
+    # Calculate the cutoff point (remove last 10% by default)
+    cutoff_index = int(len(time_series_data) * (1 - cutoff_percentage))
+    
+    # Return data up to the cutoff point
+    return time_series_data[:cutoff_index]
+
 # ------------------------------------------------------------------------------------------------
 # Transaction Overlay Plotting
 # ------------------------------------------------------------------------------------------------
@@ -218,6 +229,12 @@ def plot_transactions_overlay(
             else:
                 # For CAT and regular specific types, use the data directly
                 chain_data = result[f'chain_1_{transaction_type}']
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
             
             if not chain_data:
                 continue
@@ -289,10 +306,14 @@ def plot_transaction_status_chart(ax: plt.Axes, data: Dict[str, Any], param_name
         for result in individual_results:
             param_values.append(extract_parameter_value(result, param_name))
             
-            # Calculate total success, failure, and pending from chain_1 data
-            success_total = sum(count for _, count in result['chain_1_success'])
-            failure_total = sum(count for _, count in result['chain_1_failure'])
-            pending_total = sum(count for _, count in result['chain_1_pending'])
+            # Calculate total success, failure, and pending from chain_1 data (trimmed)
+            success_data = trim_time_series_data(result['chain_1_success'], 0.1)
+            failure_data = trim_time_series_data(result['chain_1_failure'], 0.1)
+            pending_data = trim_time_series_data(result['chain_1_pending'], 0.1)
+            
+            success_total = sum(count for _, count in success_data)
+            failure_total = sum(count for _, count in failure_data)
+            pending_total = sum(count for _, count in pending_data)
             
             success_counts.append(success_total)
             failure_counts.append(failure_total)
@@ -332,9 +353,12 @@ def plot_failure_breakdown_chart(ax: plt.Axes, data: Dict[str, Any], param_name:
         for result in individual_results:
             param_values.append(extract_parameter_value(result, param_name))
             
-            # Calculate total CAT and regular failures from chain_1 data
-            cat_failure_total = sum(count for _, count in result.get('chain_1_cat_failure', []))
-            regular_failure_total = sum(count for _, count in result.get('chain_1_regular_failure', []))
+            # Calculate total CAT and regular failures from chain_1 data (trimmed)
+            cat_failure_data = trim_time_series_data(result.get('chain_1_cat_failure', []), 0.1)
+            regular_failure_data = trim_time_series_data(result.get('chain_1_regular_failure', []), 0.1)
+            
+            cat_failure_total = sum(count for _, count in cat_failure_data)
+            regular_failure_total = sum(count for _, count in regular_failure_data)
             
             cat_failure_counts.append(cat_failure_total)
             regular_failure_counts.append(regular_failure_total)
@@ -373,10 +397,14 @@ def plot_transaction_status_chart_separate(ax: plt.Axes, data: Dict[str, Any], p
         for result in individual_results:
             param_values.append(extract_parameter_value(result, param_name))
             
-            # Calculate totals from chain_1 data for the specified transaction type
-            success_total = sum(count for _, count in result.get(f'chain_1_{transaction_type}_success', []))
-            failure_total = sum(count for _, count in result.get(f'chain_1_{transaction_type}_failure', []))
-            pending_total = sum(count for _, count in result.get(f'chain_1_{transaction_type}_pending', []))
+            # Calculate totals from chain_1 data for the specified transaction type (trimmed)
+            success_data = trim_time_series_data(result.get(f'chain_1_{transaction_type}_success', []), 0.1)
+            failure_data = trim_time_series_data(result.get(f'chain_1_{transaction_type}_failure', []), 0.1)
+            pending_data = trim_time_series_data(result.get(f'chain_1_{transaction_type}_pending', []), 0.1)
+            
+            success_total = sum(count for _, count in success_data)
+            failure_total = sum(count for _, count in failure_data)
+            pending_total = sum(count for _, count in pending_data)
             
             success_counts.append(success_total)
             failure_counts.append(failure_total)
@@ -602,6 +630,12 @@ def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: s
                 continue
                 
             chain_data = result.get('chain_1_locked_keys', [])
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
             
             if not chain_data:
                 continue

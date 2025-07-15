@@ -11,6 +11,6 @@ This simulation scales the TPS inversely with the block interval to maintain a c
 
 ## Results
 
-The results are expected to degrade as the block interval gets too small. In particular, the block interval of 0.01s is a bad choice, as the results are off against the other runs.
+The results are expected to degrade as the block interval gets too small. For example in the below simulation, the block interval of 0.01s is a bad choice. We can also note that there appear to be steps visible in the plot for the block interval of 0.01s, which indicates that the hardware was not able to handle the simulation.
 
-![Block Interval (All Scaled) Sweep](./block_interval_all_scaled_sweep.png)
+![Failed CATs](./tx_failure_cat.png)
