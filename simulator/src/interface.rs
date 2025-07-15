@@ -193,7 +193,7 @@ impl SimulatorInterface {
                     }
                 }
                 None => {
-                    println!("Invalid choice. Please enter 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 0 to exit.");
+                    println!("Invalid choice. Please enter a valid choice or 0 to exit.");
                     println!("{}", self.get_menu_text());
                 }
             }

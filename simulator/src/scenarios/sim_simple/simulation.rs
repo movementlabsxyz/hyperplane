@@ -83,7 +83,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
 
         logging::log("SIMULATOR", "Setting up test nodes with preloaded accounts...");
         // Setup test nodes with preloaded accounts from config
-        let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
+        let (hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
             Duration::from_secs_f64(config.network_config.block_interval),
             &[0, 0], // Zero delays for funding
             config.transaction_config.allow_cat_pending_dependencies,
@@ -142,8 +142,8 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
         // Run simulation
         let run_message = format!("Run {}/{}", run, num_runs);
         let simulation_result = crate::run_simulation::run_simulation_with_message_and_retries(
-            cl_node,
-            vec![hig_node_1, hig_node_2],
+            cl_node.clone(),
+            vec![hig_node_1.clone(), hig_node_2.clone()],
             &mut results,
             Some(run_message),
             None, // No retry count needed
@@ -156,6 +156,23 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
                 run, num_runs, e
             );
             return Err(crate::config::ConfigError::ValidationError(error_context));
+        }
+
+        // Shutdown nodes between runs to prevent memory leak
+        if run < num_runs {
+            logging::log("SIMULATOR", "Shutting down nodes between runs to clear state...");
+            
+            // Shutdown HIG nodes
+            hyperplane::hyper_ig::node::HyperIGNode::shutdown(hig_node_1.clone()).await;
+            hyperplane::hyper_ig::node::HyperIGNode::shutdown(hig_node_2.clone()).await;
+            
+            // Shutdown CL node
+            hyperplane::confirmation_layer::node::ConfirmationLayerNode::shutdown(cl_node.clone()).await;
+            
+            // Shutdown HS node
+            hyperplane::hyper_scheduler::node::HyperSchedulerNode::shutdown(hs_node.clone()).await;
+            
+            logging::log("SIMULATOR", "Node shutdown complete");
         }
 
         // Save this run's results to its own directory

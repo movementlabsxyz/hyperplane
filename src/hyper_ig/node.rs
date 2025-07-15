@@ -243,6 +243,49 @@ impl HyperIGNode {
         tokio::spawn(async move { HyperIGNode::process_proposal_queue(node_for_queue).await.unwrap() });
     }
 
+    /// Shuts down the node by stopping background tasks and clearing state.
+    /// 
+    /// This method stops the background processing tasks and clears all state
+    /// to prevent state persistence between simulation runs.
+    /// 
+    /// # Arguments
+    /// * `node` - An Arc<Mutex<HyperIGNode>> containing the node instance
+    pub async fn shutdown(node: Arc<Mutex<HyperIGNode>>) {
+        let chain_id = node.lock().await.state.lock().await.my_chain_id.0.clone();
+        log(&format!("HIG-{}", chain_id), "Shutting down HyperIG node");
+        
+        // Stop the queue processor
+        {
+            let node_guard = node.lock().await;
+            let mut running = node_guard.queue_processor_running.lock().await;
+            *running = false;
+        }
+        
+        // Clear all state
+        {
+            let node_guard = node.lock().await;
+            let mut state = node_guard.state.lock().await;
+            
+            // Clear all state maps
+            state.received_txs.clear();
+            state.transaction_statuses.clear();
+            state.pending_transactions.clear();
+            state.cat_proposed_statuses.clear();
+            state.cat_to_tx_id.clear();
+            state.key_locked_by_tx.clear();
+            state.key_causes_dependencies_for_txs.clear();
+            state.tx_depends_on_txs.clear();
+            state.pending_proposals.clear();
+            state.cat_max_lifetime.clear();
+            state.current_block_height = 0;
+            
+            // Reset VM state
+            state.vm = MockVM::new();
+        }
+        
+        log(&format!("HIG-{}", chain_id), "HyperIG node shutdown complete");
+    }
+
     /// Processes the queue of pending CAT status proposals.
     /// 
     /// This function runs in a loop, continuously checking for new proposals

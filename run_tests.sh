@@ -58,6 +58,9 @@ TESTS=(
     confirmation_layer::tests::basic::test_submit_transaction_chain_not_registered
     confirmation_layer::tests::basic::test_submit_cl_transaction_for_two_chains
     confirmation_layer::tests::basic::test_dynamic_channel_registration
+    confirmation_layer::tests::shutdown::test_cl_node_shutdown
+    confirmation_layer::tests::shutdown::test_cl_node_shutdown_multiple_times
+    confirmation_layer::tests::shutdown::test_cl_node_restart_after_shutdown
 
     # Hyper IG tests
     hyper_ig::tests::basic::test_regular_transaction_success
@@ -96,6 +99,9 @@ TESTS=(
     hyper_ig::tests::preloaded_accounts::test_no_preloaded_accounts
     hyper_ig::tests::preloaded_accounts::test_credit_with_preloaded_accounts
     hyper_ig::tests::preloaded_accounts::test_simulation_with_preloaded_accounts
+    hyper_ig::tests::shutdown::test_hig_node_shutdown
+    hyper_ig::tests::shutdown::test_hig_node_shutdown_multiple_times
+    hyper_ig::tests::shutdown::test_hig_node_restart_after_shutdown
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -104,6 +110,9 @@ TESTS=(
     hyper_scheduler::tests::basic::test_duplicate_rejection
     hyper_scheduler::tests::basic::test_process_proposals_for_two_chain_cat
     hyper_scheduler::tests::basic::test_cannot_set_success_if_constituent_chains_dont_match
+    hyper_scheduler::tests::shutdown::test_hs_node_shutdown
+    hyper_scheduler::tests::shutdown::test_hs_node_shutdown_multiple_times
+    hyper_scheduler::tests::shutdown::test_hs_node_restart_after_shutdown
 
     # Integration tests: CL to HIG
     integration::cl_to_hig::test_process_subblock_with_regular_transaction_success
@@ -138,11 +147,16 @@ TESTS=(
 # Test specific tests
 TESTS2=(
 
-    hyper_ig::tests::preloaded_accounts::test_preloaded_accounts
-    hyper_ig::tests::preloaded_accounts::test_transactions_with_preloaded_accounts
-    hyper_ig::tests::preloaded_accounts::test_no_preloaded_accounts
-    hyper_ig::tests::preloaded_accounts::test_credit_with_preloaded_accounts
-    hyper_ig::tests::preloaded_accounts::test_simulation_with_preloaded_accounts
+    # Shutdown tests
+    confirmation_layer::tests::shutdown::test_cl_node_shutdown
+    confirmation_layer::tests::shutdown::test_cl_node_shutdown_multiple_times
+    confirmation_layer::tests::shutdown::test_cl_node_restart_after_shutdown
+    hyper_ig::tests::shutdown::test_hig_node_shutdown
+    hyper_ig::tests::shutdown::test_hig_node_shutdown_multiple_times
+    hyper_ig::tests::shutdown::test_hig_node_restart_after_shutdown
+    hyper_scheduler::tests::shutdown::test_hs_node_shutdown
+    hyper_scheduler::tests::shutdown::test_hs_node_shutdown_multiple_times
+    hyper_scheduler::tests::shutdown::test_hs_node_restart_after_shutdown
 
 )
 
