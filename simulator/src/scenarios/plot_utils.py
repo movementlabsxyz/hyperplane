@@ -583,6 +583,7 @@ def generate_all_plots(
     
     # Plot locked keys data
     plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
+    plot_sweep_locked_keys_with_pending(data, param_name, results_dir, sweep_type)
     
     print(f"{sweep_type} simulation plots generated successfully!") 
 
@@ -665,6 +666,112 @@ def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: s
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing sweep locked keys data for {results_dir}: {e}")
+        return
+
+def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """
+    Plot locked keys alongside pending transactions for sweep simulations.
+    Creates a two-panel plot similar to the simple simulation's locked_keys_and_tx_pending.
+    
+    # Arguments
+    * `data` - The sweep data containing individual results
+    * `param_name` - Name of the parameter being swept
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `sweep_type` - Type of sweep simulation
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping locked keys with pending plot")
+            return
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Create subplots
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+        
+        # Plot each simulation's data
+        for i, result in enumerate(individual_results):
+            # Get the parameter value
+            param_value = None
+            for key, value in result.items():
+                if key not in ['total_transactions', 'cat_transactions', 'regular_transactions', 
+                              'chain_1_pending', 'chain_1_success', 'chain_1_failure',
+                              'chain_1_cat_pending', 'chain_1_cat_success', 'chain_1_cat_failure',
+                              'chain_1_regular_pending', 'chain_1_regular_success', 'chain_1_regular_failure',
+                              'chain_1_locked_keys', 'chain_2_locked_keys']:
+                    param_value = value
+                    break
+            
+            if param_value is None:
+                continue
+            
+            # Get locked keys data
+            locked_keys_data = result.get('chain_1_locked_keys', [])
+            if not locked_keys_data:
+                continue
+            
+            # Get CAT pending data
+            cat_pending_data = result.get('chain_1_cat_pending', [])
+            if not cat_pending_data:
+                continue
+            
+            # Get regular pending data
+            regular_pending_data = result.get('chain_1_regular_pending', [])
+            if not regular_pending_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            locked_keys_data = trim_time_series_data(locked_keys_data, 0.1)
+            cat_pending_data = trim_time_series_data(cat_pending_data, 0.1)
+            regular_pending_data = trim_time_series_data(regular_pending_data, 0.1)
+            
+            if not locked_keys_data or not cat_pending_data or not regular_pending_data:
+                continue
+            
+            # Extract data - all data is list of tuples (height, count)
+            heights = [entry[0] for entry in locked_keys_data]
+            locked_keys = [entry[1] for entry in locked_keys_data]
+            cat_pending = [entry[1] for entry in cat_pending_data]
+            regular_pending = [entry[1] for entry in regular_pending_data]
+            
+            # Create label
+            label = create_parameter_label(param_name, param_value)
+            
+            # Plot locked keys vs CAT pending (top panel)
+            ax1.plot(heights, locked_keys, color=colors[i], alpha=0.7, 
+                    label=f'Locked Keys - {label}', linewidth=1.5)
+            ax1.plot(heights, cat_pending, color=colors[i], alpha=0.7, 
+                    linestyle='--', label=f'CAT Pending - {label}', linewidth=1.5)
+            
+            # Plot pending transactions breakdown (bottom panel)
+            ax2.plot(heights, cat_pending, color=colors[i], alpha=0.7, 
+                    label=f'CAT Pending - {label}', linewidth=1.5)
+            ax2.plot(heights, regular_pending, color=colors[i], alpha=0.7, 
+                    linestyle='--', label=f'Regular Pending - {label}', linewidth=1.5)
+        
+        # Set up top panel (locked keys vs CAT pending)
+        ax1.set_ylabel('Count')
+        ax1.set_title(f'Locked Keys vs Pending Transactions (Chain 1) - {create_sweep_title(param_name, sweep_type)}')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        # Set up bottom panel (pending transactions breakdown)
+        ax2.set_xlabel('Block Height')
+        ax2.set_ylabel('Number of Pending Transactions')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        
+        plt.tight_layout()
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/locked_keys_and_tx_pending.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing sweep locked keys with pending data for {results_dir}: {e}")
         return 
 
 # ------------------------------------------------------------------------------------------------
