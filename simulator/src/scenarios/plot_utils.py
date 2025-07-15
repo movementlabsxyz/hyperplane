@@ -986,7 +986,6 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             colors = create_color_gradient(len(run_dirs))
             
             # Plot each run's data
-            print(f"Processing {len(run_dirs)} runs for simulation {sim_index}: {run_dirs}")
             plotted_runs = 0
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
@@ -1041,7 +1040,6 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             # Save the plot
             plt.savefig(f'{sim_figs_dir}/tps.png', dpi=300, bbox_inches='tight')
             plt.close()
-            print(f"Saved TPS plot for simulation {sim_index} with {plotted_runs} runs")
             
     except Exception as e:
         print(f"Warning: Error processing individual TPS plots for sweep: {e}")

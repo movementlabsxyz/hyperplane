@@ -76,13 +76,17 @@ pub fn reset_logging() {
 }
 
 pub fn log(prefix: &str, message: &str) {
-    if !*ENABLE_LOGGING.lock().unwrap() {
+    // Check if logging is enabled first - avoid unnecessary work
+    let enabled = *ENABLE_LOGGING.lock().unwrap();
+    if !enabled {
         return;
     }
 
+    // Only do string formatting and further operations if logging is enabled
     let log_message = format!("  [{}]   {}\n", prefix, message);
     
-    if *LOG_TO_FILE.lock().unwrap() {
+    let log_to_file = *LOG_TO_FILE.lock().unwrap();
+    if log_to_file {
         if let Some(file) = &mut *LOG_FILE.lock().unwrap() {
             let _ = file.write_all(log_message.as_bytes());
             let _ = file.flush();
