@@ -100,12 +100,9 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                 let reference_delay = config.simulation_config.reference_chain_delay_duration.unwrap();
                 let delay_blocks = (reference_delay / block_interval).round() as u64;
                 
-                // Use the block number from the config
-                let block_count = config.simulation_config.sim_total_block_number;
-                
                 // Log the configuration for transparency
-                crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Block count: {}, Chain 2 delay: {} blocks (reference: {:.1}s at 0.1s)", 
-                    block_interval, block_count, delay_blocks, reference_delay));
+                crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Chain 2 delay: {} blocks (reference: {:.1}s at 0.1s)", 
+                    block_interval, delay_blocks, reference_delay));
                 
                 crate::config::Config {
                     network_config: crate::config::NetworkConfig {
@@ -124,10 +121,7 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,
                         allow_cat_pending_dependencies: base_config.transaction_config.allow_cat_pending_dependencies,
                     },
-                    simulation_config: crate::config::SimulationConfig {
-                        sim_total_block_number: block_count,  // Use block count from config
-                        ..base_config.simulation_config.clone()
-                    },
+                    simulation_config: base_config.simulation_config.clone(),
                     logging_config: base_config.logging_config.clone(),
                 }
             })
