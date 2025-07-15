@@ -148,9 +148,14 @@ pub async fn run_simulation_with_message_and_retries(
     
     // ------- main simulation loop -------
 
-    // Main simulation loop - processes one transaction per iteration
+    // Calculate transactions per block based on target TPS and block interval
+    let transactions_per_block = (results.target_tps as f64 * results.block_interval) as u64;
+    logging::log("SIMULATOR", &format!("Target TPS: {}, Block interval: {}s, Transactions per block: {}", 
+        results.target_tps, results.block_interval, transactions_per_block));
+    
+    // Main simulation loop - waits for new blocks and releases transactions in batches
     while current_block < target_simulation_block {
-        // Get current block height first to check if we've reached the target
+        // Get current block height from CL
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
         
         // Stop processing transactions if we've reached the target block
@@ -159,106 +164,44 @@ pub async fn run_simulation_with_message_and_retries(
             break;
         }
         
-        // // Log current chain delays at the start of each block
-        // if new_block != current_block {
-        //     logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
-        //     for (i, hig_node) in hig_nodes.iter().enumerate() {
-        //         let delay = hig_node.lock().await.get_hs_message_delay();
-        //         logging::log("SIMULATOR", &format!("Chain {} current delay: {:?}", i + 1, delay));
-        //     }
-        // }
-        
-        // Select accounts for transaction
-        let from_account = account_selector_sender.select_account(&mut rng);
-        let to_account = account_selector_receiver.select_account(&mut rng);
-        
-        // Record transaction in account statistics
-        results.account_stats.record_transaction(from_account as u64, to_account as u64);
-        
-        // Determine if this should be a CAT transaction based on configured ratio
-        let is_cat = rng.gen_bool(results.ratio_cats);
-        
-        // Create transaction data
-        let tx_data = format!("{}.send {} {} 1", 
-            if is_cat { "CAT" } else { "REGULAR" },
-            from_account,
-            to_account
-        );
-        
-        logging::log("SIMULATOR", &format!("Transaction data: '{}'", tx_data));
-
-        // Create and submit transaction
-        let cl_id = CLTransactionId(format!("cl-{}-tx_{}", 
-            if is_cat { "cat" } else { "reg" }, 
-            results.transactions_sent
-        ));
-        
-        let (success, _) = if is_cat {
-            results.cat_transactions += 1;
-            create_and_submit_cat_transaction(
-                &cl_node,
-                cl_id,
-                chain_id_1.clone(),
-                chain_id_2.clone(),
-                tx_data.clone(),
-            ).await?
-        } else {
-            results.regular_transactions += 1;
-            create_and_submit_regular_transaction(
-                &cl_node,
-                cl_id,
-                chain_id_1.clone(),
-                chain_id_2.clone(),
-                tx_data.clone(),
-            ).await?
-        };
-
-        if success {
-            logging::log("SIMULATOR", &format!("Transaction successful submitted to CL  : {}", tx_data));
-        } else {
-            logging::log("SIMULATOR", &format!("Transaction failed submitted to CL  : {}", tx_data));
-            // we should crash
-            panic!("Transaction failed submitted to CL");
-        }
-        
-        results.transactions_sent += 1;
-        
-        // Get CAT transaction status counts
-        let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
-        let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
-        
-        // Get regular transaction status counts
-        let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
-        let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
-        
-        // Get locked keys counts
-        let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
-        let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
-        
-        // Get transactions per block for current block
-        let chain_1_tx_per_block = cl_node.lock().await.get_subblock(chain_id_1.clone(), new_block).await
-            .map(|subblock| subblock.transactions.len() as u64)
-            .unwrap_or(0);
-        let chain_2_tx_per_block = cl_node.lock().await.get_subblock(chain_id_2.clone(), new_block).await
-            .map(|subblock| subblock.transactions.len() as u64)
-            .unwrap_or(0);
-        
-        // Calculate combined totals for backward compatibility
-        let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
-        let chain_1_success = chain_1_cat_success + chain_1_regular_success;
-        let chain_1_failure = chain_1_cat_failure + chain_1_regular_failure;
-        let chain_2_pending = chain_2_cat_pending + chain_2_regular_pending;
-        let chain_2_success = chain_2_cat_success + chain_2_regular_success;
-        let chain_2_failure = chain_2_cat_failure + chain_2_regular_failure;
-        
-        // Subtract initialization transactions from success counts
-        // Each account gets one initialization credit transaction per chain
-        let init_tx_count = results.num_accounts as u64;
-        let chain_1_success_filtered = chain_1_success.saturating_sub(init_tx_count);
-        let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
-        
-        // Only record counts if we've moved to a new block
+        // Check if we've moved to a new block
         if new_block != current_block {
+            logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
+            
+            // Get CAT transaction status counts
+            let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
+            let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
+            
+            // Get regular transaction status counts
+            let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+            let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+            
+            // Get locked keys counts
+            let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
+            let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
+            
+            // Calculate combined totals for backward compatibility
+            let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
+            let chain_1_success = chain_1_cat_success + chain_1_regular_success;
+            let chain_1_failure = chain_1_cat_failure + chain_1_regular_failure;
+            let chain_2_pending = chain_2_cat_pending + chain_2_regular_pending;
+            let chain_2_success = chain_2_cat_success + chain_2_regular_success;
+            let chain_2_failure = chain_2_cat_failure + chain_2_regular_failure;
+            
+            // Subtract initialization transactions from success counts
+            // Each account gets one initialization credit transaction per chain
+            let init_tx_count = results.num_accounts as u64;
+            let chain_1_success_filtered = chain_1_success.saturating_sub(init_tx_count);
+            let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
+            
+            // Get transactions per block for current block (only once per block)
+            let chain_1_tx_per_block = cl_node.lock().await.get_subblock(chain_id_1.clone(), new_block).await
+                .map(|subblock| subblock.transactions.len() as u64)
+                .unwrap_or(0);
+            let chain_2_tx_per_block = cl_node.lock().await.get_subblock(chain_id_2.clone(), new_block).await
+                .map(|subblock| subblock.transactions.len() as u64)
+                .unwrap_or(0);
+            
             // Record combined totals (for backward compatibility)
             results.chain_1_pending.push((new_block, chain_1_pending));    
             results.chain_2_pending.push((new_block, chain_2_pending));
@@ -290,19 +233,71 @@ pub async fn run_simulation_with_message_and_retries(
             // Record transactions per block data
             results.chain_1_tx_per_block.push((new_block, chain_1_tx_per_block));
             results.chain_2_tx_per_block.push((new_block, chain_2_tx_per_block));
+            
             current_block = new_block;
             
             // Update progress bar for new block
             let blocks_completed = new_block - initial_block;
             progress_bar.set_position(blocks_completed);
-        }
-        
-        // Calculate how long we should sleep before sending next transaction to maintain target TPS
-        let elapsed_time = transaction_spam_start_time.elapsed(); // Total time since transaction creation started
-        let target_elapsed_time_milliseconds = (results.transactions_sent as f64 / results.target_tps as f64) * 1000.0; // Time that should have elapsed for all transactions sent so far
-        let target_elapsed_time = Duration::from_millis(target_elapsed_time_milliseconds as u64); // Convert to Duration
-        if elapsed_time < target_elapsed_time {
-            tokio::time::sleep(target_elapsed_time - elapsed_time).await; // Sleep only so long as needed to catch up to target rate
+            
+            // Release all transactions for this block at once
+            for tx_index in 0..transactions_per_block {
+                // Select accounts for transaction
+                let from_account = account_selector_sender.select_account(&mut rng);
+                let to_account = account_selector_receiver.select_account(&mut rng);
+                
+                // Record transaction in account statistics
+                results.account_stats.record_transaction(from_account as u64, to_account as u64);
+                
+                // Determine if this should be a CAT transaction based on configured ratio
+                let is_cat = rng.gen_bool(results.ratio_cats);
+                
+                // Create transaction data
+                let tx_data = format!("{}.send {} {} 1", 
+                    if is_cat { "CAT" } else { "REGULAR" },
+                    from_account,
+                    to_account
+                );
+                
+                // Create and submit transaction
+                let cl_id = CLTransactionId(format!("cl-{}-tx_{}", 
+                    if is_cat { "cat" } else { "reg" }, 
+                    results.transactions_sent
+                ));
+                
+                let (success, _) = if is_cat {
+                    results.cat_transactions += 1;
+                    create_and_submit_cat_transaction(
+                        &cl_node,
+                        cl_id,
+                        chain_id_1.clone(),
+                        chain_id_2.clone(),
+                        tx_data.clone(),
+                    ).await?
+                } else {
+                    results.regular_transactions += 1;
+                    create_and_submit_regular_transaction(
+                        &cl_node,
+                        cl_id,
+                        chain_id_1.clone(),
+                        chain_id_2.clone(),
+                        tx_data.clone(),
+                    ).await?
+                };
+
+                if success {
+                    logging::log("SIMULATOR", &format!("Transaction {} successful: {}", tx_index + 1, tx_data));
+                } else {
+                    logging::log("SIMULATOR", &format!("Transaction {} failed: {}", tx_index + 1, tx_data));
+                    panic!("Transaction failed submitted to CL");
+                }
+                
+                results.transactions_sent += 1;
+            }
+        } else {
+            // Wait in small intervals (10ms) until next block
+            let wait_interval = Duration::from_millis(10); // 10ms wait interval
+            tokio::time::sleep(wait_interval).await;
         }
     }
  

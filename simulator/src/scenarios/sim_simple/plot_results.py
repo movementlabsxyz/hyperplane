@@ -170,7 +170,7 @@ def plot_transactions_per_block():
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig(f'{FIGS_PATH}/transactions_per_block.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{FIGS_PATH}/tps.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:

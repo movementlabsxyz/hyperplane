@@ -869,7 +869,7 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig(f'{results_dir}/figs/transactions_per_block_overlay.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{results_dir}/figs/tps.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except Exception as e:
