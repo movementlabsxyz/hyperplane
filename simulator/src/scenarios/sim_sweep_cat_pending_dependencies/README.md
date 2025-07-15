@@ -11,3 +11,12 @@ It tests exactly two values to understand the impact of CAT transaction restrict
 - Tests exactly 2 values (false/true) for the flag
 - Controls whether CAT transactions can depend on locked keys
 
+## Results
+
+We can see that the CAT failures are much higher for the case where we do not allow dependencies (`allow_cat_pending_dependencies = false`). However, the number of pending regular transactions is much more stable when dependencies are restricted, suggesting reduced contention in the system.
+
+![Failed CATs](./tx_failure_cat.png)
+
+![Pending Regular Transactions](./tx_pending_regular.png)
+
+**Figure Parameters:** CAT pending dependencies sweep (false/true), block interval=0.02s, TPS=500.0, 2 chains (delay of second chain 5 blocks), 10% CAT ratio, CAT lifetime=1000 blocks, 1000 accounts, 20 runs averaged.
