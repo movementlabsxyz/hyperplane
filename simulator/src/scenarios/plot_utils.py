@@ -834,15 +834,20 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
             heights = [entry[0] for entry in tx_per_block_data]
             tx_per_block = [entry[1] for entry in tx_per_block_data]
             
-            # Calculate TPS (assuming block_interval from first result)
-            # We'll get block_interval from the metadata
-            try:
-                metadata_file = f'simulator/results/{results_dir}/data/metadata.json'
-                with open(metadata_file, 'r') as f:
-                    metadata = json.load(f)
-                block_interval = metadata['parameters']['block_interval']
-            except (FileNotFoundError, KeyError):
-                block_interval = 0.02  # Default fallback
+            # Calculate TPS using the parameter value (block_interval) for this simulation
+            # For block interval sweeps, the parameter value IS the block interval
+            if param_name == 'block_interval':
+                block_interval = param_value
+            else:
+                # For other sweeps, try to get block_interval from metadata
+                try:
+                    metadata_file = f'simulator/results/{results_dir}/data/metadata.json'
+                    with open(metadata_file, 'r') as f:
+                        metadata = json.load(f)
+                    block_interval = metadata['parameters']['block_interval']
+                except (FileNotFoundError, KeyError) as e:
+                    raise ValueError(f"Could not determine block_interval for TPS calculation. "
+                                  f"Metadata file not found or missing block_interval parameter: {e}")
             
             tps = [tx_count / block_interval for tx_count in tx_per_block]
             
