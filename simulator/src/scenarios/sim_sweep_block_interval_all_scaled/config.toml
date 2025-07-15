@@ -48,7 +48,7 @@ initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
 num_runs = 3
 # Number of simulations to run in the sweep
-num_simulations = 3
+num_simulations = 4
 # Step size for block interval sweeps
 block_interval_step = 0.02
 # Total number of blocks to simulate

@@ -666,7 +666,7 @@ def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: s
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig(f'{results_dir}/figs/locked_keys_overlay.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{results_dir}/figs/locked_keys.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
@@ -839,15 +839,18 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
             if param_name == 'block_interval':
                 block_interval = param_value
             else:
-                # For other sweeps, try to get block_interval from metadata
+                # For other sweeps, try to get block_interval from simulation_stats.json
                 try:
-                    metadata_file = f'simulator/results/{results_dir}/data/metadata.json'
-                    with open(metadata_file, 'r') as f:
-                        metadata = json.load(f)
-                    block_interval = metadata['parameters']['block_interval']
+                    # Extract just the directory name from the full path
+                    results_dir_name = results_dir.replace('simulator/results/', '')
+                    # Use simulation_stats.json from the first simulation's run_average directory
+                    stats_file = f'simulator/results/{results_dir_name}/data/sim_0/run_average/simulation_stats.json'
+                    with open(stats_file, 'r') as f:
+                        stats_data = json.load(f)
+                    block_interval = stats_data['parameters']['block_interval']
                 except (FileNotFoundError, KeyError) as e:
                     raise ValueError(f"Could not determine block_interval for TPS calculation. "
-                                  f"Metadata file not found or missing block_interval parameter: {e}")
+                                  f"Simulation stats file not found or missing block_interval parameter: {e}")
             
             tps = [tx_count / block_interval for tx_count in tx_per_block]
             
