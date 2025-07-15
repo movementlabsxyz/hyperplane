@@ -168,71 +168,15 @@ pub async fn run_simulation_with_message_and_retries(
         if new_block != current_block {
             logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
             
-            // Get CAT transaction status counts
-            let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
-            let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
-            
-            // Get regular transaction status counts
-            let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
-            let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
-            
-            // Get locked keys counts
-            let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
-            let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
-            
-            // Calculate combined totals for backward compatibility
-            let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
-            let chain_1_success = chain_1_cat_success + chain_1_regular_success;
-            let chain_1_failure = chain_1_cat_failure + chain_1_regular_failure;
-            let chain_2_pending = chain_2_cat_pending + chain_2_regular_pending;
-            let chain_2_success = chain_2_cat_success + chain_2_regular_success;
-            let chain_2_failure = chain_2_cat_failure + chain_2_regular_failure;
-            
-            // Subtract initialization transactions from success counts
-            // Each account gets one initialization credit transaction per chain
-            let init_tx_count = results.num_accounts as u64;
-            let chain_1_success_filtered = chain_1_success.saturating_sub(init_tx_count);
-            let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
-            
-            // Get transactions per block for current block (only once per block)
-            let chain_1_tx_per_block = cl_node.lock().await.get_subblock(chain_id_1.clone(), new_block).await
-                .map(|subblock| subblock.transactions.len() as u64)
-                .unwrap_or(0);
-            let chain_2_tx_per_block = cl_node.lock().await.get_subblock(chain_id_2.clone(), new_block).await
-                .map(|subblock| subblock.transactions.len() as u64)
-                .unwrap_or(0);
-            
-            // Record combined totals (for backward compatibility)
-            results.chain_1_pending.push((new_block, chain_1_pending));    
-            results.chain_2_pending.push((new_block, chain_2_pending));
-            results.chain_1_success.push((new_block, chain_1_success_filtered));
-            results.chain_2_success.push((new_block, chain_2_success_filtered));
-            results.chain_1_failure.push((new_block, chain_1_failure));
-            results.chain_2_failure.push((new_block, chain_2_failure));
-            
-            // Record CAT transaction data
-            results.chain_1_cat_pending.push((new_block, chain_1_cat_pending));
-            results.chain_2_cat_pending.push((new_block, chain_2_cat_pending));
-            results.chain_1_cat_success.push((new_block, chain_1_cat_success));
-            results.chain_2_cat_success.push((new_block, chain_2_cat_success));
-            results.chain_1_cat_failure.push((new_block, chain_1_cat_failure));
-            results.chain_2_cat_failure.push((new_block, chain_2_cat_failure));
-            
-            // Record regular transaction data
-            results.chain_1_regular_pending.push((new_block, chain_1_regular_pending));
-            results.chain_2_regular_pending.push((new_block, chain_2_regular_pending));
-            results.chain_1_regular_success.push((new_block, chain_1_regular_success));
-            results.chain_2_regular_success.push((new_block, chain_2_regular_success));
-            results.chain_1_regular_failure.push((new_block, chain_1_regular_failure));
-            results.chain_2_regular_failure.push((new_block, chain_2_regular_failure));
-            
-            // Record locked keys data
-            results.chain_1_locked_keys.push((new_block, chain_1_locked_keys));
-            results.chain_2_locked_keys.push((new_block, chain_2_locked_keys));
-            
-            // Record transactions per block data
-            results.chain_1_tx_per_block.push((new_block, chain_1_tx_per_block));
-            results.chain_2_tx_per_block.push((new_block, chain_2_tx_per_block));
+            // Process and record all data for this block
+            process_block_data(
+                &cl_node,
+                &hig_nodes,
+                results,
+                new_block,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+            ).await?;
             
             current_block = new_block;
             
@@ -260,6 +204,88 @@ pub async fn run_simulation_with_message_and_retries(
  
     // Save results - removed for sweep simulations that handle their own saving
     // results.save().await?;
+    
+    Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------
+// Data Processing Functions
+// ------------------------------------------------------------------------------------------------
+
+/// Processes and records all data for a single block
+async fn process_block_data(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    hig_nodes: &[Arc<Mutex<HyperIGNode>>],
+    results: &mut SimulationResults,
+    block_height: u64,
+    chain_id_1: ChainId,
+    chain_id_2: ChainId,
+) -> Result<(), String> {
+    // Get CAT transaction status counts
+    let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
+    let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
+    
+    // Get regular transaction status counts
+    let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+    let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+    
+    // Get locked keys counts
+    let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
+    let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
+    
+    // Calculate combined totals for backward compatibility
+    let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
+    let chain_1_success = chain_1_cat_success + chain_1_regular_success;
+    let chain_1_failure = chain_1_cat_failure + chain_1_regular_failure;
+    let chain_2_pending = chain_2_cat_pending + chain_2_regular_pending;
+    let chain_2_success = chain_2_cat_success + chain_2_regular_success;
+    let chain_2_failure = chain_2_cat_failure + chain_2_regular_failure;
+    
+    // Subtract initialization transactions from success counts
+    // Each account gets one initialization credit transaction per chain
+    let init_tx_count = results.num_accounts as u64;
+    let chain_1_success_filtered = chain_1_success.saturating_sub(init_tx_count);
+    let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
+    
+    // Get transactions per block for current block (only once per block)
+    let chain_1_tx_per_block = cl_node.lock().await.get_subblock(chain_id_1.clone(), block_height).await
+        .map(|subblock| subblock.transactions.len() as u64)
+        .unwrap_or(0);
+    let chain_2_tx_per_block = cl_node.lock().await.get_subblock(chain_id_2.clone(), block_height).await
+        .map(|subblock| subblock.transactions.len() as u64)
+        .unwrap_or(0);
+    
+    // Record combined totals (for backward compatibility)
+    results.chain_1_pending.push((block_height, chain_1_pending));    
+    results.chain_2_pending.push((block_height, chain_2_pending));
+    results.chain_1_success.push((block_height, chain_1_success_filtered));
+    results.chain_2_success.push((block_height, chain_2_success_filtered));
+    results.chain_1_failure.push((block_height, chain_1_failure));
+    results.chain_2_failure.push((block_height, chain_2_failure));
+    
+    // Record CAT transaction data
+    results.chain_1_cat_pending.push((block_height, chain_1_cat_pending));
+    results.chain_2_cat_pending.push((block_height, chain_2_cat_pending));
+    results.chain_1_cat_success.push((block_height, chain_1_cat_success));
+    results.chain_2_cat_success.push((block_height, chain_2_cat_success));
+    results.chain_1_cat_failure.push((block_height, chain_1_cat_failure));
+    results.chain_2_cat_failure.push((block_height, chain_2_cat_failure));
+    
+    // Record regular transaction data
+    results.chain_1_regular_pending.push((block_height, chain_1_regular_pending));
+    results.chain_2_regular_pending.push((block_height, chain_2_regular_pending));
+    results.chain_1_regular_success.push((block_height, chain_1_regular_success));
+    results.chain_2_regular_success.push((block_height, chain_2_regular_success));
+    results.chain_1_regular_failure.push((block_height, chain_1_regular_failure));
+    results.chain_2_regular_failure.push((block_height, chain_2_regular_failure));
+    
+    // Record locked keys data
+    results.chain_1_locked_keys.push((block_height, chain_1_locked_keys));
+    results.chain_2_locked_keys.push((block_height, chain_2_locked_keys));
+    
+    // Record transactions per block data
+    results.chain_1_tx_per_block.push((block_height, chain_1_tx_per_block));
+    results.chain_2_tx_per_block.push((block_height, chain_2_tx_per_block));
     
     Ok(())
 }
