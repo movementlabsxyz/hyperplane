@@ -86,15 +86,15 @@ pub async fn run_simulation_with_message_and_retries(
     logging::log("SIMULATOR", &format!("Initialization complete, starting simulation at block {}", initial_block));
 
     // Record the start time for transaction sending (after initialization)
-    let transaction_spam_start_time = Instant::now();
+    let _transaction_spam_start_time = Instant::now();
 
     // Initialize random number generator
     let mut rng = rand::thread_rng();
     
     // Initialize sender account selector with uniform distribution
-    let account_selector_sender = AccountSelector::new(results.num_accounts, 0.0);    
+    let mut account_selector_sender = AccountSelector::new(results.num_accounts, 0.0);    
     // Initialize receiver account selector with Zipf distribution
-    let account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
+    let mut account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
     
     // Calculate target block number for simulation termination
     let target_simulation_block = initial_block + results.sim_total_block_number;
@@ -241,59 +241,16 @@ pub async fn run_simulation_with_message_and_retries(
             progress_bar.set_position(blocks_completed);
             
             // Release all transactions for this block at once
-            for tx_index in 0..transactions_per_block {
-                // Select accounts for transaction
-                let from_account = account_selector_sender.select_account(&mut rng);
-                let to_account = account_selector_receiver.select_account(&mut rng);
-                
-                // Record transaction in account statistics
-                results.account_stats.record_transaction(from_account as u64, to_account as u64);
-                
-                // Determine if this should be a CAT transaction based on configured ratio
-                let is_cat = rng.gen_bool(results.ratio_cats);
-                
-                // Create transaction data
-                let tx_data = format!("{}.send {} {} 1", 
-                    if is_cat { "CAT" } else { "REGULAR" },
-                    from_account,
-                    to_account
-                );
-                
-                // Create and submit transaction
-                let cl_id = CLTransactionId(format!("cl-{}-tx_{}", 
-                    if is_cat { "cat" } else { "reg" }, 
-                    results.transactions_sent
-                ));
-                
-                let (success, _) = if is_cat {
-                    results.cat_transactions += 1;
-                    create_and_submit_cat_transaction(
-                        &cl_node,
-                        cl_id,
-                        chain_id_1.clone(),
-                        chain_id_2.clone(),
-                        tx_data.clone(),
-                    ).await?
-                } else {
-                    results.regular_transactions += 1;
-                    create_and_submit_regular_transaction(
-                        &cl_node,
-                        cl_id,
-                        chain_id_1.clone(),
-                        chain_id_2.clone(),
-                        tx_data.clone(),
-                    ).await?
-                };
-
-                if success {
-                    logging::log("SIMULATOR", &format!("Transaction {} successful: {}", tx_index + 1, tx_data));
-                } else {
-                    logging::log("SIMULATOR", &format!("Transaction {} failed: {}", tx_index + 1, tx_data));
-                    panic!("Transaction failed submitted to CL");
-                }
-                
-                results.transactions_sent += 1;
-            }
+            release_transactions_for_block(
+                &cl_node,
+                &mut rng,
+                &mut account_selector_sender,
+                &mut account_selector_receiver,
+                results,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+                transactions_per_block,
+            ).await?;
         } else {
             // Wait in small intervals (10ms) until next block
             let wait_interval = Duration::from_millis(10); // 10ms wait interval
@@ -303,6 +260,78 @@ pub async fn run_simulation_with_message_and_retries(
  
     // Save results - removed for sweep simulations that handle their own saving
     // results.save().await?;
+    
+    Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------
+// Transaction Release Functions
+// ------------------------------------------------------------------------------------------------
+
+/// Releases all transactions for a single block
+async fn release_transactions_for_block(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    rng: &mut rand::rngs::ThreadRng,
+    account_selector_sender: &mut AccountSelector,
+    account_selector_receiver: &mut AccountSelector,
+    results: &mut SimulationResults,
+    chain_id_1: ChainId,
+    chain_id_2: ChainId,
+    transactions_per_block: u64,
+) -> Result<(), String> {
+    for tx_index in 0..transactions_per_block {
+        // Select accounts for transaction
+        let from_account = account_selector_sender.select_account(rng);
+        let to_account = account_selector_receiver.select_account(rng);
+        
+        // Record transaction in account statistics
+        results.account_stats.record_transaction(from_account as u64, to_account as u64);
+        
+        // Determine if this should be a CAT transaction based on configured ratio
+        let is_cat = rng.gen_bool(results.ratio_cats);
+        
+        // Create transaction data
+        let tx_data = format!("{}.send {} {} 1", 
+            if is_cat { "CAT" } else { "REGULAR" },
+            from_account,
+            to_account
+        );
+        
+        // Create and submit transaction
+        let cl_id = CLTransactionId(format!("cl-{}-tx_{}", 
+            if is_cat { "cat" } else { "reg" }, 
+            results.transactions_sent
+        ));
+        
+        let (success, _) = if is_cat {
+            results.cat_transactions += 1;
+            create_and_submit_cat_transaction(
+                cl_node,
+                cl_id,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+                tx_data.clone(),
+            ).await?
+        } else {
+            results.regular_transactions += 1;
+            create_and_submit_regular_transaction(
+                cl_node,
+                cl_id,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+                tx_data.clone(),
+            ).await?
+        };
+
+        if success {
+            logging::log("SIMULATOR", &format!("Transaction {} successful: {}", tx_index + 1, tx_data));
+        } else {
+            logging::log("SIMULATOR", &format!("Transaction {} failed: {}", tx_index + 1, tx_data));
+            panic!("Transaction failed submitted to CL");
+        }
+        
+        results.transactions_sent += 1;
+    }
     
     Ok(())
 }
