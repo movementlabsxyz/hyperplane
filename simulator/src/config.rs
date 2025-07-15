@@ -144,6 +144,9 @@ pub struct SimulationConfig {
     /// Reference chain delay duration in seconds (for block interval constant time delay sweeps)
     #[serde(default)]
     pub reference_chain_delay_duration: Option<f64>,
+    /// Reference TPS for scaling (for block interval all scaled sweeps)
+    #[serde(default)]
+    pub reference_tps: Option<f64>,
 }
 
 impl Default for SimulationConfig {
@@ -160,6 +163,7 @@ impl Default for SimulationConfig {
             block_number_step: None,
             block_count: None,
             reference_chain_delay_duration: None,
+            reference_tps: None,
             sim_total_block_number: 1000, // Default value for sim_total_block_number
         }
     }

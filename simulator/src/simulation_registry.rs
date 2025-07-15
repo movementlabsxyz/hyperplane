@@ -18,6 +18,7 @@ use crate::scenarios::{
     sim_sweep_cat_lifetime,
     sim_sweep_block_interval_constant_block_delay,
     sim_sweep_block_interval_constant_time_delay,
+    sim_sweep_block_interval_all_scaled,
     sim_sweep_cat_pending_dependencies,
     run_all_tests::run_all_tests,
 };
@@ -85,6 +86,9 @@ impl SimulationRegistry {
         simulations.insert(sim_type, sim_config);
         
         let (sim_type, sim_config) = sim_sweep_block_interval_constant_time_delay::simulation::register();
+        simulations.insert(sim_type, sim_config);
+        
+        let (sim_type, sim_config) = sim_sweep_block_interval_all_scaled::simulation::register();
         simulations.insert(sim_type, sim_config);
         
         let (sim_type, sim_config) = sim_sweep_cat_pending_dependencies::simulation::register();

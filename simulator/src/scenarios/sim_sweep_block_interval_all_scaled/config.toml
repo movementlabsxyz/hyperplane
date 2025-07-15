@@ -1,4 +1,4 @@
-# Sweep CAT Lifetime Simulation Configuration
+# Sweep Block Interval with Scaled TPS Simulation Configuration
 
 # Network parameters
 [network_config]
@@ -7,8 +7,8 @@ num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 chain_delays = [0, 5]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
-# Block interval in seconds
-block_interval = 0.02
+# Block interval in seconds (will be varied in sweep)
+block_interval = 0.1
 
 # Account parameters
 [account_config]
@@ -23,14 +23,15 @@ num_accounts = 1000
 [transaction_config]
 # Target transactions per second to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-target_tps = 500.0
+# NOTE: This will be scaled to maintain constant transactions per block
+target_tps = 100.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
 # Must be greater than or equal to 0
 zipf_parameter = 1.0
 # Ratio of transactions that will be CATs
-ratio_cats = 0.03
+ratio_cats = 0.1
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 10
@@ -45,16 +46,21 @@ allow_cat_pending_dependencies = false
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 20
+num_runs = 30
 # Number of simulations to run in the sweep
-num_simulations = 4
-# Step size for CAT lifetime sweeps
-cat_lifetime_step = 5
+num_simulations = 6
+# Step size for block interval sweeps
+block_interval_step = 0.01
+# Number of blocks to simulate
+block_count = 50
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 1000
+sim_total_block_number = 300
+# Reference TPS for scaling (TPS at 1 second block interval)
+# Note, we scale the TPS inversaly, since we want to keep the transaction number constant per block
+reference_tps = 10.0
 
 # Logging control for the simulator
 [logging_config]
 # Whether to write logs to a file (true = write to file, false = no file logging)
-log_to_file = false
+log_to_file = false 
