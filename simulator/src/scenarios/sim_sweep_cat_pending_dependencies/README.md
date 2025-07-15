@@ -19,8 +19,10 @@ We can see that the CAT failures are much higher for the case where we do not al
 
 The number of pending regular transactions is insignificant, when dependencies are restricted, suggesting reduced contention in the system. In contrast, when dependencies are allowed, the number of pending regular transactions is continuously increasing, as CATs are queued up (i.e. are pending) before the regular transactions.
 
-Finally, the simulation is becoming instable as the number of pending regular transactions becomes too high.
-
 ![Pending Regular Transactions](./tx_pending_regular.png)
+
+Finally, the simulation is becoming unstable as the number of pending regular transactions becomes too high. In particular, the TPS drops significantly.
+
+![TPS](./tps.png)
 
 **Figure Parameters:** CAT pending dependencies sweep (false/true), block interval=0.05s, TPS=500.0, 2 chains (delay of second chain 5 blocks), 10% CAT ratio, CAT lifetime=1000 blocks, 1000 accounts, 20 runs averaged.

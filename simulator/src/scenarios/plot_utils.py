@@ -590,6 +590,9 @@ def generate_all_plots(
     # Plot transactions per block data
     plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
     
+    # Plot individual TPS plots for each simulation
+    plot_individual_sweep_tps(data, param_name, results_dir, sweep_type)
+    
     print(f"{sweep_type} simulation plots generated successfully!") 
 
 # ------------------------------------------------------------------------------------------------
@@ -882,6 +885,166 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
         
     except Exception as e:
         print(f"Warning: Error processing transactions per block data for sweep: {e}")
+        return
+
+def calculate_running_average(data: List[float], window_size: int = 10) -> List[float]:
+    """
+    Calculate a running average over a window of specified size.
+    
+    # Arguments
+    * `data` - List of values to average
+    * `window_size` - Size of the averaging window (default: 10)
+    
+    # Returns
+    * List of averaged values (same length as input, with edge handling)
+    """
+    if len(data) < window_size:
+        return data  # Return original data if too short
+    
+    averaged_data = []
+    half_window = window_size // 2
+    
+    for i in range(len(data)):
+        start = max(0, i - half_window)
+        end = min(len(data), i + half_window + 1)
+        window_data = data[start:end]
+        averaged_data.append(sum(window_data) / len(window_data))
+    
+    return averaged_data
+
+def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """
+    Plot individual TPS plots for each simulation in the sweep, showing separate curves for each run.
+    
+    # Arguments
+    * `data` - The sweep data containing individual results
+    * `param_name` - Name of the parameter being swept
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `sweep_type` - Type of sweep simulation
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping individual TPS plots")
+            return
+        
+        # Extract just the directory name from the full path
+        results_dir_name = results_dir.replace('simulator/results/', '')
+        
+        # Get block interval from simulation stats
+        try:
+            stats_file = f'simulator/results/{results_dir_name}/data/sim_0/run_average/simulation_stats.json'
+            with open(stats_file, 'r') as f:
+                stats_data = json.load(f)
+            block_interval = stats_data['parameters']['block_interval']
+        except (FileNotFoundError, KeyError) as e:
+            print(f"Warning: Could not determine block_interval for individual TPS plots: {e}")
+            return
+        
+        # Create individual plots for each simulation
+        for sim_index, result in enumerate(individual_results):
+            # Get the parameter value
+            param_value = None
+            for key, value in result.items():
+                if key not in ['total_transactions', 'cat_transactions', 'regular_transactions', 
+                              'chain_1_pending', 'chain_1_success', 'chain_1_failure',
+                              'chain_1_cat_pending', 'chain_1_cat_success', 'chain_1_cat_failure',
+                              'chain_1_regular_pending', 'chain_1_regular_success', 'chain_1_regular_failure',
+                              'chain_1_locked_keys', 'chain_2_locked_keys',
+                              'chain_1_tx_per_block', 'chain_2_tx_per_block']:
+                    param_value = value
+                    break
+            
+            if param_value is None:
+                continue
+            
+            # Create subdirectory for this simulation
+            sim_figs_dir = f'{results_dir}/figs/sim_{sim_index}'
+            os.makedirs(sim_figs_dir, exist_ok=True)
+            
+            # Load individual run data for this simulation
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Check if the simulation directory exists
+            if not os.path.exists(sim_data_dir):
+                continue
+            
+            # Get all run directories (exclude run_average)
+            run_dirs = [d for d in os.listdir(sim_data_dir) 
+                       if d.startswith('run_') and d != 'run_average' and os.path.isdir(os.path.join(sim_data_dir, d))]
+            # Sort numerically by run number
+            run_dirs.sort(key=lambda x: int(x.split('_')[1]) if '_' in x else 0)
+            
+            if not run_dirs:
+                continue
+            
+            # Create figure with subplots
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+            
+            # Create color gradient for runs
+            colors = create_color_gradient(len(run_dirs))
+            
+            # Plot each run's data
+            print(f"Processing {len(run_dirs)} runs for simulation {sim_index}: {run_dirs}")
+            plotted_runs = 0
+            for run_idx, run_dir in enumerate(run_dirs):
+                try:
+                    # Load transactions per block data for this run
+                    tx_per_block_file = os.path.join(sim_data_dir, run_dir, 'data', 'tx_per_block_chain_1.json')
+                    if not os.path.exists(tx_per_block_file):
+                        print(f"Warning: {tx_per_block_file} not found")
+                        continue
+                    
+                    with open(tx_per_block_file, 'r') as f:
+                        run_data = json.load(f)
+                    
+                    # Extract data
+                    blocks = [entry['height'] for entry in run_data['chain_1_tx_per_block']]
+                    tx_per_block = [entry['count'] for entry in run_data['chain_1_tx_per_block']]
+                    
+                    # Calculate TPS
+                    tps = [tx_count / block_interval for tx_count in tx_per_block]
+                    
+                    # Apply 20-block running average to both transactions per block and TPS
+                    tx_per_block_smoothed = calculate_running_average(tx_per_block, 20)
+                    tps_smoothed = calculate_running_average(tps, 20)
+                    
+                    # Plot with color based on run
+                    label = f'Run {run_idx + 1}'
+                    ax1.plot(blocks, tx_per_block_smoothed, color=colors[run_idx], alpha=0.7, 
+                            label=label, linewidth=1.5)
+                    ax2.plot(blocks, tps_smoothed, color=colors[run_idx], alpha=0.7, 
+                            label=label, linewidth=1.5)
+                    plotted_runs += 1
+                    
+                except Exception as e:
+                    print(f"Warning: Error processing run {run_dir} for simulation {sim_index}: {e}")
+                    continue
+            
+            # Create titles
+            param_label = create_parameter_label(param_name, param_value)
+            title = f'Transactions per Block (Chain 1) - {param_label} (20-block running average)'
+            ax1.set_title(title)
+            ax1.set_ylabel('Number of Transactions')
+            ax1.grid(True, alpha=0.3)
+            ax1.legend()
+            
+            ax2.set_title(f'Transactions per Second (Chain 1) - {param_label} (Block Interval: {block_interval}s, 20-block running average)')
+            ax2.set_xlabel('Block Height')
+            ax2.set_ylabel('TPS')
+            ax2.grid(True, alpha=0.3)
+            ax2.legend()
+            
+            plt.tight_layout()
+            
+            # Save the plot
+            plt.savefig(f'{sim_figs_dir}/tps.png', dpi=300, bbox_inches='tight')
+            plt.close()
+            print(f"Saved TPS plot for simulation {sim_index} with {plotted_runs} runs")
+            
+    except Exception as e:
+        print(f"Warning: Error processing individual TPS plots for sweep: {e}")
         return
 
 # ------------------------------------------------------------------------------------------------

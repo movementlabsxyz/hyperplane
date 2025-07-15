@@ -16,5 +16,3 @@ The results are expected to degrade as the block interval gets too small. For ex
 ![Failed CATs](./tx_failure_cat.png)
 
 **Figure Parameters:** Block interval sweep (0.01-0.06s), reference TPS at 1s blocks=10.0, 2 chains (delay of second chain 5 blocks), 10% CAT ratio, CAT lifetime=10 blocks, 1000 accounts, 30 runs averaged.
-
-
