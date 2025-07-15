@@ -74,6 +74,7 @@ pub use scenarios::sim_sweep_total_block_number::simulation::run_sweep_total_blo
 pub use scenarios::sim_sweep_cat_lifetime::simulation::run_sweep_cat_lifetime_simulation;
 pub use scenarios::sim_sweep_block_interval_constant_block_delay::simulation::run_sweep_block_interval_constant_block_delay;
 pub use scenarios::sim_sweep_block_interval_constant_time_delay::simulation::run_sweep_block_interval_constant_time_delay;
+pub use scenarios::sim_sweep_block_interval_all_scaled::simulation::run_sweep_block_interval_all_scaled;
 pub use scenarios::sim_sweep_cat_pending_dependencies::simulation::run_sweep_cat_pending_dependencies_simulation;
 
 // Test orchestration
