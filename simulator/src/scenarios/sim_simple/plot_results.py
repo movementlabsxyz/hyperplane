@@ -214,6 +214,43 @@ def plot_memory_usage():
         print(f"Warning: Error processing memory usage data: {e}")
         return
 
+def plot_cpu_usage():
+    """
+    Plot CPU usage over time.
+    """
+    try:
+        # Load CPU usage data
+        with open(f'{BASE_DATA_PATH}/cpu_usage.json', 'r') as f:
+            cpu_data = json.load(f)
+        
+        # Extract CPU usage data
+        if 'cpu_usage' in cpu_data:
+            cpu_entries = cpu_data['cpu_usage']
+            if cpu_entries:
+                # Extract block heights and CPU usage values
+                heights = [entry['height'] for entry in cpu_entries]
+                cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.plot(heights, cpu_values, 'r-', linewidth=2)
+                plt.title('CPU Usage Over Time (Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('CPU Usage (%)')
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/cpu_usage.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No CPU usage data found")
+        else:
+            print("Warning: CPU usage data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing CPU usage data: {e}")
+        return
+
 def main():
     """Main function to run all plotting functions for the simple simulation."""
     # Check if simple simulation data exists (try multiple possible paths)
@@ -279,6 +316,9 @@ def main():
     
     # Plot memory usage
     plot_memory_usage()
+    
+    # Plot CPU usage
+    plot_cpu_usage()
     
     # Plot comparison charts
     plot_tx_allStatus_cat()

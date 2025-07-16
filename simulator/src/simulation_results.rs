@@ -7,8 +7,21 @@ use std::fs;
 use serde_json;
 use crate::account_selection::AccountSelectionStats;
 use hyperplane::utils::logging;
-#[cfg(target_os = "macos")]
-use libc;
+use sysinfo::System;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
+
+// ------------------------------------------------------------------------------------------------
+// Global System Instance
+// ------------------------------------------------------------------------------------------------
+
+lazy_static! {
+    static ref SYSTEM: Mutex<System> = Mutex::new(System::new_all());
+}
+
+fn get_system() -> &'static Mutex<System> {
+    &SYSTEM
+}
 
 // ------------------------------------------------------------------------------------------------
 // Data Structures
@@ -66,8 +79,11 @@ pub struct SimulationResults {
     pub chain_1_tx_per_block: Vec<(u64, u64)>,
     pub chain_2_tx_per_block: Vec<(u64, u64)>,
     
-    // Memory usage tracking
+        // Memory usage tracking
     pub memory_usage: Vec<(u64, u64)>, // (block_height, memory_usage_bytes)
+    
+    // CPU usage tracking
+    pub cpu_usage: Vec<(u64, f64)>, // (block_height, cpu_usage_percent)
     
     // Statistics
     pub account_stats: AccountSelectionStats,
@@ -117,6 +133,7 @@ impl Default for SimulationResults {
             chain_1_tx_per_block: Vec::new(),
             chain_2_tx_per_block: Vec::new(),
             memory_usage: Vec::new(),
+            cpu_usage: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -192,6 +209,23 @@ impl SimulationResults {
             // Fallback: return 0 for now
             0
         }
+    }
+
+    /// Gets the current CPU usage as a percentage
+    /// Uses sysinfo crate for accurate cross-platform CPU measurement
+    pub fn get_current_cpu_usage() -> f64 {
+        let system = get_system();
+        if let Ok(mut sys) = system.lock() {
+            // Refresh CPU information
+            sys.refresh_cpu();
+            
+            // Get overall CPU usage percentage
+            let cpu_usage = sys.global_cpu_info().cpu_usage();
+            return cpu_usage as f64;
+        }
+        
+        // Fallback if we can't get system info
+        0.0
     }
 
     /// Saves results to the default directory
@@ -556,6 +590,19 @@ impl SimulationResults {
         let memory_usage_file = format!("{}/data/memory_usage.json", base_dir);
         fs::write(&memory_usage_file, serde_json::to_string_pretty(&memory_usage_data).expect("Failed to serialize memory usage")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved memory usage data to {}", memory_usage_file));
+
+        // Save CPU usage data
+        let cpu_usage_data = serde_json::json!({
+            "cpu_usage": self.cpu_usage.iter().map(|(height, percent)| {
+                serde_json::json!({
+                    "height": height,
+                    "percent": percent
+                })
+            }).collect::<Vec<_>>()
+        });
+        let cpu_usage_file = format!("{}/data/cpu_usage.json", base_dir);
+        fs::write(&cpu_usage_file, serde_json::to_string_pretty(&cpu_usage_data).expect("Failed to serialize CPU usage")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved CPU usage data to {}", cpu_usage_file));
 
         Ok(())
     }

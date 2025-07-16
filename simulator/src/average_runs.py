@@ -59,6 +59,8 @@ def average_time_series_data(all_runs_data, key_name):
                         value = entry['count']
                     elif 'bytes' in entry:
                         value = entry['bytes']
+                    elif 'percent' in entry:
+                        value = entry['percent']
                     else:
                         # Skip entries without expected value field
                         continue
@@ -76,6 +78,11 @@ def average_time_series_data(all_runs_data, key_name):
             averaged_data.append({
                 'height': height,
                 'bytes': avg_value
+            })
+        elif key_name == 'cpu_usage':
+            averaged_data.append({
+                'height': height,
+                'percent': avg_value
             })
         else:
             averaged_data.append({
@@ -239,6 +246,7 @@ def create_averaged_data(results_dir):
             ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
             ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
             ('memory_usage.json', 'memory_usage'),
+            ('cpu_usage.json', 'cpu_usage'),
         ]
         
         for filename, key_name in time_series_files:
