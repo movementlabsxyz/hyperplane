@@ -50,7 +50,7 @@ num_runs = 20
 # Number of simulations to run in the sweep
 num_simulations = 4
 # Step size for block interval sweeps
-block_interval_step = 0.02
+block_interval_step = 0.01
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 1000
