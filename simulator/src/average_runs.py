@@ -84,7 +84,7 @@ def average_time_series_data(all_runs_data, key_name):
                 'height': height,
                 'percent': avg_value
             })
-        elif key_name == 'system_total_ram':
+        elif key_name == 'system_total_memory':
             averaged_data.append({
                 'height': height,
                 'bytes': avg_value
@@ -251,7 +251,7 @@ def create_averaged_data(results_dir):
             ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
             ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
             ('system_memory.json', 'system_memory'),
-            ('system_total_ram.json', 'system_total_ram'),
+            ('system_total_memory.json', 'system_total_memory'),
             ('system_cpu.json', 'system_cpu'),
         ]
         

@@ -596,8 +596,8 @@ def generate_all_plots(
     # Plot system memory usage over time
     plot_system_memory(data, param_name, results_dir, sweep_type)
     
-    # Plot system total RAM usage over time
-    plot_system_total_ram(data, param_name, results_dir, sweep_type)
+        # Plot system total memory usage over time
+    plot_system_total_memory(data, param_name, results_dir, sweep_type)
     
     # Plot system CPU usage over time
     plot_system_cpu(data, param_name, results_dir, sweep_type)
@@ -1106,7 +1106,7 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
                     # Load system total RAM usage data for this run
-                    ram_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_ram.json')
+                    ram_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_memory.json')
                     if not os.path.exists(ram_file):
                         print(f"Warning: {ram_file} not found")
                         continue
@@ -1115,8 +1115,8 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
                         run_data = json.load(f)
                     
                     # Extract system total RAM usage data
-                    if 'system_total_ram' in run_data:
-                        ram_entries = run_data['system_total_ram']
+                    if 'system_total_memory' in run_data:
+                        ram_entries = run_data['system_total_memory']
                         if ram_entries:
                             # Extract block heights and RAM usage values
                             heights = [entry['height'] for entry in ram_entries]
@@ -1143,7 +1143,7 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             plt.tight_layout()
             
             # Save the system total RAM usage plot
-            plt.savefig(f'{sim_figs_dir}/system_total_ram.png', dpi=300, bbox_inches='tight')
+            plt.savefig(f'{sim_figs_dir}/system_total_memory.png', dpi=300, bbox_inches='tight')
             plt.close()
             
             # Create system CPU usage plot for this simulation
@@ -1278,7 +1278,7 @@ def plot_system_memory(data: Dict[str, Any], param_name: str, results_dir: str, 
         import traceback
         traceback.print_exc()
 
-def plot_system_total_ram(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+def plot_system_total_memory(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
     """Plot system total RAM usage over time for each simulation"""
     try:
         individual_results = data['individual_results']
@@ -1304,53 +1304,53 @@ def plot_system_total_ram(data: Dict[str, Any], param_name: str, results_dir: st
             results_dir_name = results_dir.replace('simulator/results/', '')
             sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
             
-            # Use averaged system total RAM usage data
-            system_total_ram_file = f'{sim_data_dir}/run_average/system_total_ram.json'
-            if os.path.exists(system_total_ram_file):
-                with open(system_total_ram_file, 'r') as f:
-                    system_total_ram_data = json.load(f)
+            # Use averaged system total memory usage data
+            system_total_memory_file = f'{sim_data_dir}/run_average/system_total_memory.json'
+            if os.path.exists(system_total_memory_file):
+                with open(system_total_memory_file, 'r') as f:
+                    system_total_memory_data = json.load(f)
                 
-                # Extract system total RAM usage data
-                if 'system_total_ram' in system_total_ram_data:
-                    system_total_ram_entries = system_total_ram_data['system_total_ram']
-                    if system_total_ram_entries:
-                        # Extract block heights and system total RAM usage values
-                        heights = [entry['height'] for entry in system_total_ram_entries]
-                        system_total_ram_values = [entry['bytes'] / (1024 * 1024 * 1024) for entry in system_total_ram_entries]  # Convert to GB
+                # Extract system total memory usage data
+                if 'system_total_memory' in system_total_memory_data:
+                    system_total_memory_entries = system_total_memory_data['system_total_memory']
+                    if system_total_memory_entries:
+                        # Extract block heights and system total memory usage values
+                        heights = [entry['height'] for entry in system_total_memory_entries]
+                        system_total_memory_values = [entry['bytes'] / (1024 * 1024 * 1024) for entry in system_total_memory_entries]  # Convert to GB
                         
-                        # Ensure heights and system_total_ram_values have the same length
-                        if len(heights) != len(system_total_ram_values):
-                            print(f"Warning: Heights ({len(heights)}) and system total RAM values ({len(system_total_ram_values)}) have different lengths for simulation {sim_index}")
+                        # Ensure heights and system_total_memory_values have the same length
+                        if len(heights) != len(system_total_memory_values):
+                            print(f"Warning: Heights ({len(heights)}) and system total memory values ({len(system_total_memory_values)}) have different lengths for simulation {sim_index}")
                             # Use the shorter length
-                            min_length = min(len(heights), len(system_total_ram_values))
+                            min_length = min(len(heights), len(system_total_memory_values))
                             heights = heights[:min_length]
-                            system_total_ram_values = system_total_ram_values[:min_length]
+                            system_total_memory_values = system_total_memory_values[:min_length]
                         
                         # Plot the averaged data directly (no additional smoothing needed)
-                        ax.plot(heights, system_total_ram_values, color=color, alpha=0.7, linewidth=2)
+                        ax.plot(heights, system_total_memory_values, color=color, alpha=0.7, linewidth=2)
                     else:
-                        print(f"Warning: No system total RAM entries found for simulation {sim_index}")
+                        print(f"Warning: No system total memory entries found for simulation {sim_index}")
                 else:
-                    print(f"Warning: No system_total_ram key found in {system_total_ram_file}")
+                    print(f"Warning: No system_total_memory key found in {system_total_memory_file}")
             else:
-                print(f"Warning: System total RAM file not found: {system_total_ram_file}")
+                print(f"Warning: System total memory file not found: {system_total_memory_file}")
             
             # Add legend entry for this parameter value
             ax.plot([], [], color=color, label=label, linewidth=2)
         
         # Customize plot
         ax.set_xlabel('Block Height')
-        ax.set_ylabel('System Total RAM Usage (GB)')
-        ax.set_title(f'System Total RAM Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
+        ax.set_ylabel('System Total Memory Usage (GB)')
+        ax.set_title(f'System Total Memory Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
         ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         ax.grid(True, alpha=0.3)
         
         # Save the plot
-        plt.savefig(f'{results_dir}/figs/system_total_ram.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{results_dir}/figs/system_total_memory.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except Exception as e:
-        print(f"Error plotting system total RAM data: {e}")
+        print(f"Error plotting system total memory data: {e}")
         import traceback
         traceback.print_exc()
 

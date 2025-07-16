@@ -214,41 +214,41 @@ def plot_system_memory():
         print(f"Warning: Error processing system memory data: {e}")
         return
 
-def plot_system_total_ram():
+def plot_system_total_memory():
     """
     Plot system total RAM usage over time.
     """
     try:
-        # Load system total RAM usage data
-        with open(f'{BASE_DATA_PATH}/system_total_ram.json', 'r') as f:
-            system_total_ram_data = json.load(f)
+        # Load system total memory usage data
+        with open(f'{BASE_DATA_PATH}/system_total_memory.json', 'r') as f:
+            system_total_memory_data = json.load(f)
         
-        # Extract system total RAM usage data
-        if 'system_total_ram' in system_total_ram_data:
-            system_total_ram_entries = system_total_ram_data['system_total_ram']
-            if system_total_ram_entries:
-                # Extract block heights and system total RAM usage values
-                heights = [entry['height'] for entry in system_total_ram_entries]
-                system_total_ram_values = [entry['bytes'] / (1024 * 1024 * 1024) for entry in system_total_ram_entries]  # Convert to GB
+        # Extract system total memory usage data
+        if 'system_total_memory' in system_total_memory_data:
+            system_total_memory_entries = system_total_memory_data['system_total_memory']
+            if system_total_memory_entries:
+                # Extract block heights and system total memory usage values
+                heights = [entry['height'] for entry in system_total_memory_entries]
+                system_total_memory_values = [entry['bytes'] / (1024 * 1024 * 1024) for entry in system_total_memory_entries]  # Convert to GB
                 
                 # Create the plot
                 plt.figure(figsize=(12, 6))
-                plt.plot(heights, system_total_ram_values, 'm-', linewidth=2)
-                plt.title('System Total RAM Usage Over Time (Averaged)')
+                plt.plot(heights, system_total_memory_values, 'm-', linewidth=2)
+                plt.title('System Total Memory Usage Over Time (Averaged)')
                 plt.xlabel('Block Height')
-                plt.ylabel('System Total RAM Usage (GB)')
+                plt.ylabel('System Total Memory Usage (GB)')
                 plt.grid(True, alpha=0.3)
                 
                 # Save the plot
-                plt.savefig(f'{FIGS_PATH}/system_total_ram.png', dpi=300, bbox_inches='tight')
+                plt.savefig(f'{FIGS_PATH}/system_total_memory.png', dpi=300, bbox_inches='tight')
                 plt.close()
             else:
-                print("Warning: No system total RAM data found")
+                print("Warning: No system total memory data found")
         else:
-            print("Warning: System total RAM data not found in expected format")
+            print("Warning: System total memory data not found in expected format")
             
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-        print(f"Warning: Error processing system total RAM data: {e}")
+        print(f"Warning: Error processing system total memory data: {e}")
         return
 
 def plot_system_cpu():
@@ -354,8 +354,8 @@ def main():
     # Plot system memory usage
     plot_system_memory()
     
-    # Plot system total RAM usage
-    plot_system_total_ram()
+    # Plot system total memory usage
+    plot_system_total_memory()
     
     # Plot system CPU usage
     plot_system_cpu()

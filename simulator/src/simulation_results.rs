@@ -81,7 +81,7 @@ pub struct SimulationResults {
     
         // Memory usage tracking
     pub memory_usage: Vec<(u64, u64)>, // (block_height, memory_usage_bytes)
-    pub total_ram_usage: Vec<(u64, u64)>, // (block_height, total_ram_usage_bytes)
+    pub total_memory: Vec<(u64, u64)>, // (block_height, total_memory_bytes)
     
     // CPU usage tracking
     pub cpu_usage: Vec<(u64, f64)>, // (block_height, cpu_usage_percent)
@@ -134,7 +134,7 @@ impl Default for SimulationResults {
             chain_1_tx_per_block: Vec::new(),
             chain_2_tx_per_block: Vec::new(),
             memory_usage: Vec::new(),
-            total_ram_usage: Vec::new(),
+            total_memory: Vec::new(),
             cpu_usage: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
@@ -214,13 +214,13 @@ impl SimulationResults {
     }
 
     /// Gets the current total RAM usage in bytes
-    pub fn get_current_total_ram_usage() -> u64 {
+    pub fn get_current_total_memory() -> u64 {
         let system = get_system();
         if let Ok(mut sys) = system.lock() {
             // Refresh memory information
             sys.refresh_memory();
             
-            return sys.used_memory() * 1024; // Convert KB to bytes
+            return sys.used_memory(); // sysinfo returns bytes directly
         }
         
         // Fallback if we can't get system info
@@ -607,18 +607,18 @@ impl SimulationResults {
         fs::write(&system_memory_file, serde_json::to_string_pretty(&system_memory_data).expect("Failed to serialize system memory")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved system memory data to {}", system_memory_file));
 
-        // Save system total RAM usage data
-        let system_total_ram_data = serde_json::json!({
-            "system_total_ram": self.total_ram_usage.iter().map(|(height, bytes)| {
+        // Save system total memory usage data
+        let system_total_memory_data = serde_json::json!({
+            "system_total_memory": self.total_memory.iter().map(|(height, bytes)| {
                 serde_json::json!({
                     "height": height,
                     "bytes": bytes
                 })
             }).collect::<Vec<_>>()
         });
-        let system_total_ram_file = format!("{}/data/system_total_ram.json", base_dir);
-        fs::write(&system_total_ram_file, serde_json::to_string_pretty(&system_total_ram_data).expect("Failed to serialize system total RAM")).map_err(|e| e.to_string())?;
-        logging::log("SIMULATOR", &format!("Saved system total RAM data to {}", system_total_ram_file));
+        let system_total_memory_file = format!("{}/data/system_total_memory.json", base_dir);
+        fs::write(&system_total_memory_file, serde_json::to_string_pretty(&system_total_memory_data).expect("Failed to serialize system total memory")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system total memory data to {}", system_total_memory_file));
 
         // Save system CPU usage data
         let system_cpu_data = serde_json::json!({

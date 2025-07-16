@@ -292,8 +292,8 @@ async fn process_block_data(
     results.memory_usage.push((block_height, memory_usage));
     
     // Record total RAM usage for this block
-    let total_ram_usage = crate::SimulationResults::get_current_total_ram_usage();
-    results.total_ram_usage.push((block_height, total_ram_usage));
+            let total_memory = crate::SimulationResults::get_current_total_memory();
+        results.total_memory.push((block_height, total_memory));
     
     // Record CPU usage for this block
     let cpu_usage = crate::SimulationResults::get_current_cpu_usage();
