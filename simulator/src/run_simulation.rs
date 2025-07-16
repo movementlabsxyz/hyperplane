@@ -97,7 +97,7 @@ pub async fn run_simulation_with_message_and_retries(
     let mut account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
     
     // Calculate target block number for simulation termination
-    let target_simulation_block = initial_block + results.sim_total_block_number;
+    let final_simulation_block = initial_block + results.sim_total_block_number;
     
     // Create progress bar for blocks
     let progress_bar = ProgressBar::new(results.sim_total_block_number);
@@ -154,13 +154,13 @@ pub async fn run_simulation_with_message_and_retries(
         results.target_tps, results.block_interval, transactions_per_block));
     
     // Main simulation loop - waits for new blocks and releases transactions in batches
-    while current_block < target_simulation_block {
+    while current_block < final_simulation_block {
         // Get current block height from CL
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
         
         // Stop processing transactions if we've reached the target block
-        if new_block >= target_simulation_block {
-            logging::log("SIMULATOR", &format!("Reached target block {}, stopping transaction processing", target_simulation_block));
+        if new_block >= final_simulation_block {
+            logging::log("SIMULATOR", &format!("Reached target block {}, stopping transaction processing", final_simulation_block));
             break;
         }
         
@@ -196,8 +196,8 @@ pub async fn run_simulation_with_message_and_retries(
                 transactions_per_block,
             ).await?;
         } else {
-            // Wait in small intervals (10ms) until next block
-            let wait_interval = Duration::from_millis(10); // 10ms wait interval
+            // Wait in intervals of 1/5 of the block interval until next block
+            let wait_interval = Duration::from_secs_f64(results.block_interval / 5.0);
             tokio::time::sleep(wait_interval).await;
         }
     }
@@ -286,6 +286,10 @@ async fn process_block_data(
     // Record transactions per block data
     results.chain_1_tx_per_block.push((block_height, chain_1_tx_per_block));
     results.chain_2_tx_per_block.push((block_height, chain_2_tx_per_block));
+    
+    // Record memory usage for this block
+    let memory_usage = crate::SimulationResults::get_current_memory_usage();
+    results.memory_usage.push((block_height, memory_usage));
     
     Ok(())
 }

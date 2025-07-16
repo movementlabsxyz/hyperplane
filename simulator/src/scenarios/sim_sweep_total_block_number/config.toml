@@ -45,14 +45,14 @@ allow_cat_pending_dependencies = false
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 20
+num_runs = 10
 # Number of simulations to run in the sweep
 num_simulations = 4
 # Step size for total block number sweeps
 block_number_step = 25
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 1000
+sim_total_block_number = 300
 
 # Logging control for the simulator
 [logging_config]

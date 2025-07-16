@@ -62,6 +62,11 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
                    serde_json::to_string_pretty(&metadata).unwrap())
         .expect("Failed to write metadata.json");
     
+    // Copy config.toml to data directory for reference
+    std::fs::copy("simulator/src/scenarios/sim_simple/config.toml", 
+                  "simulator/results/sim_simple/data/config.toml")
+        .expect("Failed to copy config.toml");
+    
     // Display simulation name and create progress bar
     println!("Running Simple Simulation");
     use indicatif::{ProgressBar, ProgressStyle};

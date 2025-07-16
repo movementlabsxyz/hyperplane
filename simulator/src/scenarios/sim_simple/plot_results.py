@@ -177,6 +177,43 @@ def plot_transactions_per_block():
         print(f"Warning: Error processing transactions per block data: {e}")
         return
 
+def plot_memory_usage():
+    """
+    Plot memory usage over time.
+    """
+    try:
+        # Load memory usage data
+        with open(f'{BASE_DATA_PATH}/memory_usage.json', 'r') as f:
+            memory_data = json.load(f)
+        
+        # Extract memory usage data
+        if 'memory_usage' in memory_data:
+            memory_entries = memory_data['memory_usage']
+            if memory_entries:
+                # Extract block heights and memory usage values
+                heights = [entry['height'] for entry in memory_entries]
+                memory_values = [entry['bytes'] / (1024 * 1024) for entry in memory_entries]  # Convert to MB
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.plot(heights, memory_values, 'g-', linewidth=2)
+                plt.title('Memory Usage Over Time (Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('Memory Usage (MB)')
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/memory_usage.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No memory usage data found")
+        else:
+            print("Warning: Memory usage data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing memory usage data: {e}")
+        return
+
 def main():
     """Main function to run all plotting functions for the simple simulation."""
     # Check if simple simulation data exists (try multiple possible paths)
@@ -239,6 +276,9 @@ def main():
     
     # Plot transactions per block
     plot_transactions_per_block()
+    
+    # Plot memory usage
+    plot_memory_usage()
     
     # Plot comparison charts
     plot_tx_allStatus_cat()

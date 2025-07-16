@@ -593,6 +593,9 @@ def generate_all_plots(
     # Plot individual TPS plots for each simulation
     plot_individual_sweep_tps(data, param_name, results_dir, sweep_type)
     
+    # Plot memory usage over time
+    plot_memory_usage(data, param_name, results_dir, sweep_type)
+    
     print(f"{sweep_type} simulation plots generated successfully!") 
 
 # ------------------------------------------------------------------------------------------------
@@ -1041,6 +1044,54 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             plt.savefig(f'{sim_figs_dir}/tps.png', dpi=300, bbox_inches='tight')
             plt.close()
             
+            # Create memory usage plot for this simulation
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # Plot each run's memory usage data
+            plotted_runs = 0
+            for run_idx, run_dir in enumerate(run_dirs):
+                try:
+                    # Load memory usage data for this run
+                    memory_file = os.path.join(sim_data_dir, run_dir, 'data', 'memory_usage.json')
+                    if not os.path.exists(memory_file):
+                        print(f"Warning: {memory_file} not found")
+                        continue
+                    
+                    with open(memory_file, 'r') as f:
+                        run_data = json.load(f)
+                    
+                    # Extract memory usage data
+                    if 'memory_usage' in run_data:
+                        memory_entries = run_data['memory_usage']
+                        if memory_entries:
+                            # Extract block heights and memory usage values
+                            heights = [entry['height'] for entry in memory_entries]
+                            memory_values = [entry['bytes'] / (1024 * 1024) for entry in memory_entries]  # Convert to MB
+                            
+                            # Plot with color based on run
+                            label = f'Run {run_idx + 1}'
+                            ax.plot(heights, memory_values, color=colors[run_idx], alpha=0.7, 
+                                    label=label, linewidth=1.5)
+                            plotted_runs += 1
+                    
+                except Exception as e:
+                    print(f"Warning: Error processing memory usage for run {run_dir} in simulation {sim_index}: {e}")
+                    continue
+            
+            # Create title
+            param_label = create_parameter_label(param_name, param_value)
+            ax.set_title(f'Memory Usage Over Time - {param_label}')
+            ax.set_xlabel('Block Height')
+            ax.set_ylabel('Memory Usage (MB)')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            plt.tight_layout()
+            
+            # Save the memory usage plot
+            plt.savefig(f'{sim_figs_dir}/memory_usage.png', dpi=300, bbox_inches='tight')
+            plt.close()
+            
     except Exception as e:
         print(f"Warning: Error processing individual TPS plots for sweep: {e}")
         return
@@ -1048,6 +1099,82 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
 # ------------------------------------------------------------------------------------------------
 # Generic Sweep Plotting
 # ------------------------------------------------------------------------------------------------
+
+def plot_memory_usage(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot memory usage over time for each simulation"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping memory usage plot")
+            return
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Get parameter values for coloring
+        param_values = [result[param_name] for result in individual_results]
+        colors = create_color_gradient(len(param_values))
+        
+        # Plot each simulation's memory usage data
+        for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
+            param_value = result[param_name]
+            label = create_parameter_label(param_name, param_value)
+            
+            # Load memory usage data for this simulation
+            # Extract just the directory name from the full path
+            results_dir_name = results_dir.replace('simulator/results/', '')
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Use averaged memory usage data
+            memory_file = f'{sim_data_dir}/run_average/memory_usage.json'
+            if os.path.exists(memory_file):
+                with open(memory_file, 'r') as f:
+                    memory_data = json.load(f)
+                
+                # Extract memory usage data
+                if 'memory_usage' in memory_data:
+                    memory_entries = memory_data['memory_usage']
+                    if memory_entries:
+                        # Extract block heights and memory usage values
+                        heights = [entry['height'] for entry in memory_entries]
+                        memory_values = [entry['bytes'] / (1024 * 1024) for entry in memory_entries]  # Convert to MB
+                        
+                        # Ensure heights and memory_values have the same length
+                        if len(heights) != len(memory_values):
+                            print(f"Warning: Heights ({len(heights)}) and memory values ({len(memory_values)}) have different lengths for simulation {sim_index}")
+                            # Use the shorter length
+                            min_length = min(len(heights), len(memory_values))
+                            heights = heights[:min_length]
+                            memory_values = memory_values[:min_length]
+                        
+                        # Plot the averaged data directly (no additional smoothing needed)
+                        ax.plot(heights, memory_values, color=color, alpha=0.7, linewidth=2)
+                    else:
+                        print(f"Warning: No memory usage entries found for simulation {sim_index}")
+                else:
+                    print(f"Warning: No memory_usage key found in {memory_file}")
+            else:
+                print(f"Warning: Memory usage file not found: {memory_file}")
+            
+            # Add legend entry for this parameter value
+            ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Customize plot
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('Memory Usage (MB)')
+        ax.set_title(f'Memory Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.grid(True, alpha=0.3)
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/memory_usage.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error plotting memory usage data: {e}")
+        import traceback
+        traceback.print_exc()
 
 def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     """

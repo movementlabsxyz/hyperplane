@@ -156,6 +156,12 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             "parameter_values": self.parameter_values,
         });
         std::fs::write(&metadata_path, serde_json::to_string_pretty(&metadata).unwrap()).expect("Failed to write metadata.json");
+        
+        // Copy config.toml to data directory for reference
+        let config_source = format!("simulator/src/scenarios/{}/config.toml", self.results_dir);
+        let config_dest = format!("simulator/results/{}/data/config.toml", self.results_dir);
+        std::fs::copy(&config_source, &config_dest)
+            .expect("Failed to copy config.toml");
 
         // Log sweep start
         self.log_sweep_start(&sweep_config);

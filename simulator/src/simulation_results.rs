@@ -7,6 +7,8 @@ use std::fs;
 use serde_json;
 use crate::account_selection::AccountSelectionStats;
 use hyperplane::utils::logging;
+#[cfg(target_os = "macos")]
+use libc;
 
 // ------------------------------------------------------------------------------------------------
 // Data Structures
@@ -64,6 +66,9 @@ pub struct SimulationResults {
     pub chain_1_tx_per_block: Vec<(u64, u64)>,
     pub chain_2_tx_per_block: Vec<(u64, u64)>,
     
+    // Memory usage tracking
+    pub memory_usage: Vec<(u64, u64)>, // (block_height, memory_usage_bytes)
+    
     // Statistics
     pub account_stats: AccountSelectionStats,
     pub start_time: Instant,
@@ -111,6 +116,7 @@ impl Default for SimulationResults {
             chain_2_locked_keys: Vec::new(),
             chain_1_tx_per_block: Vec::new(),
             chain_2_tx_per_block: Vec::new(),
+            memory_usage: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -118,6 +124,76 @@ impl Default for SimulationResults {
 }
 
 impl SimulationResults {
+    /// Gets the current memory usage in bytes
+    pub fn get_current_memory_usage() -> u64 {
+        // Use sysinfo crate or similar for more accurate memory measurement
+        // For now, use a simple approximation based on process memory
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/status") {
+                for line in contents.lines() {
+                    if line.starts_with("VmRSS:") {
+                        if let Some(kb_str) = line.split_whitespace().nth(1) {
+                            if let Ok(kb) = kb_str.parse::<u64>() {
+                                return kb * 1024; // Convert KB to bytes
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS, try to get memory usage using libc
+            #[allow(deprecated)]
+            unsafe {
+                use std::mem;
+                let mut info: libc::mach_task_basic_info = mem::zeroed();
+                let mut count = mem::size_of::<libc::mach_task_basic_info>() as libc::mach_msg_type_number_t;
+                
+                let result = libc::task_info(
+                    libc::mach_task_self(),
+                    libc::MACH_TASK_BASIC_INFO,
+                    &mut info as *mut _ as *mut i32,
+                    &mut count,
+                );
+                
+                if result == libc::KERN_SUCCESS {
+                    return info.resident_size;
+                }
+            }
+            
+            // Fallback: try to read from /proc/self/statm if available
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
+                if let Some(first) = contents.split_whitespace().next() {
+                    if let Ok(pages) = first.parse::<u64>() {
+                        return pages * 4096; // Convert pages to bytes (assuming 4KB pages)
+                    }
+                }
+            }
+            
+            // Final fallback: return a reasonable estimate
+            // Since we can't easily get heap usage, return 0 for now
+            0
+        }
+        
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            // On other platforms, try to read from /proc/self/statm if available
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
+                if let Some(first) = contents.split_whitespace().next() {
+                    if let Ok(pages) = first.parse::<u64>() {
+                        return pages * 4096; // Convert pages to bytes (assuming 4KB pages)
+                    }
+                }
+            }
+            
+            // Fallback: return 0 for now
+            0
+        }
+    }
+
     /// Saves results to the default directory
     pub async fn save(&self) -> Result<(), String> {
         self.save_to_directory("simulator/results/sim_simple").await
@@ -467,6 +543,19 @@ impl SimulationResults {
         let receiver_file = format!("{}/data/account_receiver_selection.json", base_dir);
         fs::write(&receiver_file, serde_json::to_string_pretty(&receiver_json).expect("Failed to serialize receiver stats")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved receiver selection data to {}", receiver_file));
+
+        // Save memory usage data
+        let memory_usage_data = serde_json::json!({
+            "memory_usage": self.memory_usage.iter().map(|(height, bytes)| {
+                serde_json::json!({
+                    "height": height,
+                    "bytes": bytes
+                })
+            }).collect::<Vec<_>>()
+        });
+        let memory_usage_file = format!("{}/data/memory_usage.json", base_dir);
+        fs::write(&memory_usage_file, serde_json::to_string_pretty(&memory_usage_data).expect("Failed to serialize memory usage")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved memory usage data to {}", memory_usage_file));
 
         Ok(())
     }
