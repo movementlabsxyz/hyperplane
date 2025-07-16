@@ -54,19 +54,51 @@ def average_time_series_data(all_runs_data, key_name):
             if key_name in file_data:
                 for entry in file_data[key_name]:
                     height = entry['height']
-                    count = entry['count']
-                    height_data[height].append(count)
+                    # Handle different value field names
+                    if 'count' in entry:
+                        value = entry['count']
+                    elif 'bytes' in entry:
+                        value = entry['bytes']
+                    elif 'percent' in entry:
+                        value = entry['percent']
+                    else:
+                        # Skip entries without expected value field
+                        continue
+                    height_data[height].append(value)
                 break  # Found the file, no need to check others
     
     # Calculate averages and sort by block height
     averaged_data = []
     for height in sorted(height_data.keys()):
-        counts = height_data[height]
-        avg_count = np.mean(counts)
-        averaged_data.append({
-            'height': height,
-            'count': avg_count
-        })
+        values = height_data[height]
+        avg_value = np.mean(values)
+        
+        # Use the same field name as the original data
+        if key_name == 'system_memory':
+            averaged_data.append({
+                'height': height,
+                'bytes': avg_value
+            })
+        elif key_name == 'system_cpu':
+            averaged_data.append({
+                'height': height,
+                'percent': avg_value
+            })
+        elif key_name == 'system_total_cpu':
+            averaged_data.append({
+                'height': height,
+                'percent': avg_value
+            })
+        elif key_name == 'system_total_memory':
+            averaged_data.append({
+                'height': height,
+                'bytes': avg_value
+            })
+        else:
+            averaged_data.append({
+                'height': height,
+                'count': avg_value
+            })
     
     return averaged_data
 
@@ -221,6 +253,13 @@ def create_averaged_data(results_dir):
             ('regular_failure_transactions_chain_2.json', 'chain_2_regular_failure'),
             ('locked_keys_chain_1.json', 'chain_1_locked_keys'),
             ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
+            ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
+            ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
+            ('system_memory.json', 'system_memory'),
+            ('system_total_memory.json', 'system_total_memory'),
+            ('system_cpu.json', 'system_cpu'),
+            ('system_total_cpu.json', 'system_total_cpu'),
+            ('loop_steps_without_tx_issuance.json', 'loop_steps_without_tx_issuance'),
         ]
         
         for filename, key_name in time_series_files:

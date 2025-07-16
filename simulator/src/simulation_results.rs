@@ -7,6 +7,21 @@ use std::fs;
 use serde_json;
 use crate::account_selection::AccountSelectionStats;
 use hyperplane::utils::logging;
+use sysinfo::System;
+use std::sync::Mutex;
+use lazy_static::lazy_static;
+
+// ------------------------------------------------------------------------------------------------
+// Global System Instance
+// ------------------------------------------------------------------------------------------------
+
+lazy_static! {
+    static ref SYSTEM: Mutex<System> = Mutex::new(System::new_all());
+}
+
+fn get_system() -> &'static Mutex<System> {
+    &SYSTEM
+}
 
 // ------------------------------------------------------------------------------------------------
 // Data Structures
@@ -60,6 +75,21 @@ pub struct SimulationResults {
     pub chain_1_locked_keys: Vec<(u64, u64)>,
     pub chain_2_locked_keys: Vec<(u64, u64)>,
     
+    // Chain data - Transactions per block
+    pub chain_1_tx_per_block: Vec<(u64, u64)>,
+    pub chain_2_tx_per_block: Vec<(u64, u64)>,
+    
+        // Memory usage tracking
+    pub memory_usage: Vec<(u64, u64)>, // (block_height, memory_usage_bytes)
+    pub total_memory: Vec<(u64, u64)>, // (block_height, total_memory_bytes)
+    
+    // CPU usage tracking
+    pub cpu_usage: Vec<(u64, f64)>, // (block_height, process_cpu_usage_percent)
+    pub total_cpu_usage: Vec<(u64, f64)>, // (block_height, total_system_cpu_usage_percent)
+    
+    // Loop steps without transaction issuance tracking
+    pub loop_steps_without_tx_issuance: Vec<(u64, u64)>, // (block_height, loop_steps_count)
+    
     // Statistics
     pub account_stats: AccountSelectionStats,
     pub start_time: Instant,
@@ -105,6 +135,13 @@ impl Default for SimulationResults {
             chain_2_regular_failure: Vec::new(),
             chain_1_locked_keys: Vec::new(),
             chain_2_locked_keys: Vec::new(),
+            chain_1_tx_per_block: Vec::new(),
+            chain_2_tx_per_block: Vec::new(),
+            memory_usage: Vec::new(),
+            total_memory: Vec::new(),
+            cpu_usage: Vec::new(),
+            total_cpu_usage: Vec::new(),
+            loop_steps_without_tx_issuance: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -112,6 +149,128 @@ impl Default for SimulationResults {
 }
 
 impl SimulationResults {
+    /// Gets the current memory usage in bytes
+    pub fn get_current_memory_usage() -> u64 {
+        // Use sysinfo crate or similar for more accurate memory measurement
+        // For now, use a simple approximation based on process memory
+        #[cfg(target_os = "linux")]
+        {
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/status") {
+                for line in contents.lines() {
+                    if line.starts_with("VmRSS:") {
+                        if let Some(kb_str) = line.split_whitespace().nth(1) {
+                            if let Ok(kb) = kb_str.parse::<u64>() {
+                                return kb * 1024; // Convert KB to bytes
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS, try to get memory usage using libc
+            #[allow(deprecated)]
+            unsafe {
+                use std::mem;
+                let mut info: libc::mach_task_basic_info = mem::zeroed();
+                let mut count = mem::size_of::<libc::mach_task_basic_info>() as libc::mach_msg_type_number_t;
+                
+                let result = libc::task_info(
+                    libc::mach_task_self(),
+                    libc::MACH_TASK_BASIC_INFO,
+                    &mut info as *mut _ as *mut i32,
+                    &mut count,
+                );
+                
+                if result == libc::KERN_SUCCESS {
+                    return info.resident_size;
+                }
+            }
+            
+            // Fallback: try to read from /proc/self/statm if available
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
+                if let Some(first) = contents.split_whitespace().next() {
+                    if let Ok(pages) = first.parse::<u64>() {
+                        return pages * 4096; // Convert pages to bytes (assuming 4KB pages)
+                    }
+                }
+            }
+            
+            // Final fallback: return a reasonable estimate
+            // Since we can't easily get heap usage, return 0 for now
+            0
+        }
+        
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            // On other platforms, try to read from /proc/self/statm if available
+            if let Ok(contents) = std::fs::read_to_string("/proc/self/statm") {
+                if let Some(first) = contents.split_whitespace().next() {
+                    if let Ok(pages) = first.parse::<u64>() {
+                        return pages * 4096; // Convert pages to bytes (assuming 4KB pages)
+                    }
+                }
+            }
+            
+            // Fallback: return 0 for now
+            0
+        }
+    }
+
+    /// Gets the current total RAM usage in bytes
+    pub fn get_current_total_memory() -> u64 {
+        let system = get_system();
+        if let Ok(mut sys) = system.lock() {
+            // Refresh memory information
+            sys.refresh_memory();
+            
+            return sys.used_memory(); // sysinfo returns bytes directly
+        }
+        
+        // Fallback if we can't get system info
+        0
+    }
+
+    /// Gets the current process CPU usage as a percentage
+    /// Uses sysinfo crate for accurate cross-platform CPU measurement
+    pub fn get_current_cpu_usage() -> f64 {
+        let system = get_system();
+        if let Ok(mut sys) = system.lock() {
+            // Refresh process information
+            sys.refresh_processes();
+            
+            // Get current process ID
+            let pid = sysinfo::Pid::from(std::process::id() as usize);
+            
+            // Get process CPU usage percentage
+            if let Some(process) = sys.process(pid) {
+                return process.cpu_usage() as f64;
+            }
+        }
+        
+        // Fallback if we can't get process info
+        0.0
+    }
+
+    /// Gets the current total system CPU usage as a percentage
+    /// Uses sysinfo crate for accurate cross-platform CPU measurement
+    pub fn get_current_total_cpu_usage() -> f64 {
+        let system = get_system();
+        if let Ok(mut sys) = system.lock() {
+            // Refresh CPU information
+            sys.refresh_cpu();
+            
+            // Get overall CPU usage percentage
+            let cpu_usage = sys.global_cpu_info().cpu_usage();
+            return cpu_usage as f64;
+        }
+        
+        // Fallback if we can't get system info
+        0.0
+    }
+
     /// Saves results to the default directory
     pub async fn save(&self) -> Result<(), String> {
         self.save_to_directory("simulator/results/sim_simple").await
@@ -427,6 +586,32 @@ impl SimulationResults {
         fs::write(&locked_keys_file_chain_2, serde_json::to_string_pretty(&locked_keys_chain_2).expect("Failed to serialize locked keys")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved locked keys data to {}", locked_keys_file_chain_2));
 
+        // Save transactions per block data from chain 1
+        let tx_per_block_chain_1 = serde_json::json!({
+            "chain_1_tx_per_block": self.chain_1_tx_per_block.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let tx_per_block_file_chain_1 = format!("{}/data/tx_per_block_chain_1.json", base_dir);
+        fs::write(&tx_per_block_file_chain_1, serde_json::to_string_pretty(&tx_per_block_chain_1).expect("Failed to serialize transactions per block")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved transactions per block data to {}", tx_per_block_file_chain_1));
+
+        // Save transactions per block data from chain 2
+        let tx_per_block_chain_2 = serde_json::json!({
+            "chain_2_tx_per_block": self.chain_2_tx_per_block.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let tx_per_block_file_chain_2 = format!("{}/data/tx_per_block_chain_2.json", base_dir);
+        fs::write(&tx_per_block_file_chain_2, serde_json::to_string_pretty(&tx_per_block_chain_2).expect("Failed to serialize transactions per block")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved transactions per block data to {}", tx_per_block_file_chain_2));
+
         // Save account selection data to files
         let (sender_json, receiver_json) = self.account_stats.to_json();
         let sender_file = format!("{}/data/account_sender_selection.json", base_dir);
@@ -435,6 +620,71 @@ impl SimulationResults {
         let receiver_file = format!("{}/data/account_receiver_selection.json", base_dir);
         fs::write(&receiver_file, serde_json::to_string_pretty(&receiver_json).expect("Failed to serialize receiver stats")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved receiver selection data to {}", receiver_file));
+
+        // Save system memory usage data
+        let system_memory_data = serde_json::json!({
+            "system_memory": self.memory_usage.iter().map(|(height, bytes)| {
+                serde_json::json!({
+                    "height": height,
+                    "bytes": bytes
+                })
+            }).collect::<Vec<_>>()
+        });
+        let system_memory_file = format!("{}/data/system_memory.json", base_dir);
+        fs::write(&system_memory_file, serde_json::to_string_pretty(&system_memory_data).expect("Failed to serialize system memory")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system memory data to {}", system_memory_file));
+
+        // Save system total memory usage data
+        let system_total_memory_data = serde_json::json!({
+            "system_total_memory": self.total_memory.iter().map(|(height, bytes)| {
+                serde_json::json!({
+                    "height": height,
+                    "bytes": bytes
+                })
+            }).collect::<Vec<_>>()
+        });
+        let system_total_memory_file = format!("{}/data/system_total_memory.json", base_dir);
+        fs::write(&system_total_memory_file, serde_json::to_string_pretty(&system_total_memory_data).expect("Failed to serialize system total memory")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system total memory data to {}", system_total_memory_file));
+
+        // Save system CPU usage data
+        let system_cpu_data = serde_json::json!({
+            "system_cpu": self.cpu_usage.iter().map(|(height, percent)| {
+                serde_json::json!({
+                    "height": height,
+                    "percent": percent
+                })
+            }).collect::<Vec<_>>()
+        });
+        let system_cpu_file = format!("{}/data/system_cpu.json", base_dir);
+        fs::write(&system_cpu_file, serde_json::to_string_pretty(&system_cpu_data).expect("Failed to serialize system CPU")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system CPU data to {}", system_cpu_file));
+
+        // Save system total CPU usage data
+        let system_total_cpu_data = serde_json::json!({
+            "system_total_cpu": self.total_cpu_usage.iter().map(|(height, percent)| {
+                serde_json::json!({
+                    "height": height,
+                    "percent": percent
+                })
+            }).collect::<Vec<_>>()
+        });
+        let system_total_cpu_file = format!("{}/data/system_total_cpu.json", base_dir);
+        fs::write(&system_total_cpu_file, serde_json::to_string_pretty(&system_total_cpu_data).expect("Failed to serialize system total CPU")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system total CPU data to {}", system_total_cpu_file));
+
+        // Save loop steps without transaction issuance data
+        let loop_steps_data = serde_json::json!({
+            "loop_steps_without_tx_issuance": self.loop_steps_without_tx_issuance.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let loop_steps_file = format!("{}/data/loop_steps_without_tx_issuance.json", base_dir);
+        fs::write(&loop_steps_file, serde_json::to_string_pretty(&loop_steps_data).expect("Failed to serialize loop steps data")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved loop steps data to {}", loop_steps_file));
 
         Ok(())
     }

@@ -62,14 +62,31 @@ pub fn init_logging_with_config(enabled: bool, log_to_file: bool, log_file_path:
     }
 }
 
+/// Resets the logging state by closing the current log file and clearing static state.
+/// This prevents state persistence between simulation runs.
+pub fn reset_logging() {
+    // Close the current log file if it exists
+    if let Some(_) = &mut *LOG_FILE.lock().unwrap() {
+        *LOG_FILE.lock().unwrap() = None;
+    }
+    
+    // Reset the logging flags to defaults
+    *ENABLE_LOGGING.lock().unwrap() = true;
+    *LOG_TO_FILE.lock().unwrap() = true;
+}
+
 pub fn log(prefix: &str, message: &str) {
-    if !*ENABLE_LOGGING.lock().unwrap() {
+    // Check if logging is enabled first - avoid unnecessary work
+    let enabled = *ENABLE_LOGGING.lock().unwrap();
+    if !enabled {
         return;
     }
 
+    // Only do string formatting and further operations if logging is enabled
     let log_message = format!("  [{}]   {}\n", prefix, message);
     
-    if *LOG_TO_FILE.lock().unwrap() {
+    let log_to_file = *LOG_TO_FILE.lock().unwrap();
+    if log_to_file {
         if let Some(file) = &mut *LOG_FILE.lock().unwrap() {
             let _ = file.write_all(log_message.as_bytes());
             let _ = file.flush();

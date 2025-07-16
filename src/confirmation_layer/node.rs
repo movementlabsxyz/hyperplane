@@ -229,6 +229,37 @@ impl ConfirmationLayerNode {
         tokio::spawn(async move { Self::process_messages_and_create_blocks(node).await });
     }
 
+    /// Shuts down the node by stopping background tasks and clearing state.
+    /// 
+    /// This method stops the background processing tasks and clears all state
+    /// to prevent state persistence between simulation runs.
+    /// 
+    /// # Arguments
+    /// * `node` - An Arc<Mutex<ConfirmationLayerNode>> containing the node instance
+    pub async fn shutdown(node: Arc<Mutex<Self>>) {
+        log("CL", "Shutting down ConfirmationLayer node");
+        
+        // Clear all state
+        {
+            let node_guard = node.lock().await;
+            let mut state = node_guard.state.lock().await;
+            
+            // Clear all state
+            state.registered_chains.clear();
+            state.current_block_height = 0;
+            state.pending_transactions.clear();
+            state.processed_cltransactions.clear();
+            state.processed_cltransaction_ids.clear();
+            state.processed_transactions.clear();
+            state.blocks.clear();
+            state.blocks_cltransactions.clear();
+            state.blocks_transactions.clear();
+            state.subblocks_transactions.clear();
+        }
+        
+        log("CL", "ConfirmationLayer node shutdown complete");
+    }
+
     async fn get_pending_transactions(&self) -> Result<usize, ConfirmationLayerError> {
         let state = self.state.lock().await;
         Ok(state.pending_transactions.len())

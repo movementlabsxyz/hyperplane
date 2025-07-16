@@ -11,10 +11,18 @@ This simulation scales the TPS inversely with the block interval to maintain a c
 
 ## Results
 
-The results are expected to degrade as the block interval gets too small. For example in the below simulation, the block interval of 0.01s is a bad choice. We can also note that there appear to be steps visible in the plot for the block interval of 0.01s, which indicates that the hardware was not able to handle the simulation.
+The results are expected to degrade as the block interval gets too small. For example in the below simulation, the block interval of 0.01s is not a good choice.
 
 ![Failed CATs](./tx_failure_cat.png)
 
+The reason, why the simulation for low block interval (0.01s) performs poorly, is that the tps cannot be maintained. We can see this in the plot below, where we can see that the block interval of 0.01s is not able to keep up with the transaction issuance rate.
+
+![tps](./tps.png)
+
+We can further track this down by looking at the loop steps without transaction issuance. We can see that the number of times the waiting loop before sending the transaction batch is entered, decreases with the block height. This indicates that the result recording takes an increasing amount of time. Once the steps per block hits zero, the simulation is unable to keep up with the transaction issuance rate. This is also true for the other cases, although less pronounced.
+
+> *Note:* Until resolved, we should not run too many blocks in total.
+
+![loop steps without transaction issuance](./loop_steps_without_tx_issuance.png)
+
 **Figure Parameters:** Block interval sweep (0.01-0.06s), reference TPS at 1s blocks=10.0, 2 chains (delay of second chain 5 blocks), 10% CAT ratio, CAT lifetime=10 blocks, 1000 accounts, 30 runs averaged.
-
-

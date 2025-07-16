@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Plotting script for Duration Sweep Simulation
+Plotting script for Total Block Number Sweep Simulation
 
-This script generates plots for the duration sweep using the generic
+This script generates plots for the total block number sweep using the generic
 plotting utilities to eliminate code duplication.
 """
 
@@ -17,9 +17,9 @@ def main():
     """Main function to generate plots for total block number sweep simulation."""
     # Configuration for this specific sweep
     results_path = 'simulator/results/sim_sweep_total_block_number/data/sweep_results.json'
-    param_name = 'duration'
+    param_name = 'total_block_number'
     results_dir = 'simulator/results/sim_sweep_total_block_number'
-    sweep_type = 'Duration'
+    sweep_type = 'Total Block Number'
     
     # Generate all plots using the generic utility
     generate_all_plots(results_path, param_name, results_dir, sweep_type)

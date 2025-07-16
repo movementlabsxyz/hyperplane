@@ -98,6 +98,14 @@ Or if you've already cloned the repository:
 git submodule update --init --recursive
 ```
 
+#### Setup on EC2
+
+See [setup_on_ec2.sh](setup_on_ec2.sh) for the setup script.
+
+```bash
+./setup_on_ec2.sh
+```
+
 ### Current Features
 
 - Basic type definitions and core data structures

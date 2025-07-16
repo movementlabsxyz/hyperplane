@@ -156,6 +156,12 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
             "parameter_values": self.parameter_values,
         });
         std::fs::write(&metadata_path, serde_json::to_string_pretty(&metadata).unwrap()).expect("Failed to write metadata.json");
+        
+        // Copy config.toml to data directory for reference
+        let config_source = format!("simulator/src/scenarios/{}/config.toml", self.results_dir);
+        let config_dest = format!("simulator/results/{}/data/config.toml", self.results_dir);
+        std::fs::copy(&config_source, &config_dest)
+            .expect("Failed to copy config.toml");
 
         // Log sweep start
         self.log_sweep_start(&sweep_config);
@@ -184,6 +190,13 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
 
             // Run this parameter set multiple times
             for run in 1..=num_runs {
+                // Reset logging state between runs to prevent state persistence
+                if run > 1 {
+                    logging::reset_logging();
+                    // Re-initialize logging for this run
+                    self.setup_logging(&sim_config);
+                }
+                
                 logging::log("SIMULATOR", &format!("=== Starting Run {}/{} for parameter {}: {:?} ===", 
                     run, num_runs, self.parameter_name, param_value));
 
@@ -191,7 +204,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                 let mut results = self.initialize_simulation_results(&sim_config, sim_index, param_value);
 
                 // Setup test nodes with preloaded accounts from config
-                let (_hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
+                let (hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
                     Duration::from_secs_f64(sim_config.network_config.block_interval),
                     &sim_config.network_config.chain_delays,
                     sim_config.transaction_config.allow_cat_pending_dependencies,
@@ -243,8 +256,8 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                 // Run simulation
                 let run_message = format!("Sim {} Run {}/{}", sim_index + 1, run, num_runs);
                 let simulation_result = crate::run_simulation::run_simulation_with_message_and_retries(
-                    cl_node,
-                    vec![hig_node_1, hig_node_2],
+                    cl_node.clone(),
+                    vec![hig_node_1.clone(), hig_node_2.clone()],
                     &mut results,
                     Some(run_message),
                     None, // No retry count needed
@@ -264,6 +277,23 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                         e
                     );
                     return Err(crate::config::ConfigError::ValidationError(error_context));
+                }
+
+                // Shutdown nodes between runs to prevent state persistence
+                if run < num_runs {
+                    logging::log("SIMULATOR", "Shutting down nodes between runs to clear state...");
+                    
+                    // Shutdown HIG nodes
+                    hyperplane::hyper_ig::node::HyperIGNode::shutdown(hig_node_1.clone()).await;
+                    hyperplane::hyper_ig::node::HyperIGNode::shutdown(hig_node_2.clone()).await;
+                    
+                    // Shutdown CL node
+                    hyperplane::confirmation_layer::node::ConfirmationLayerNode::shutdown(cl_node.clone()).await;
+                    
+                    // Shutdown HS node
+                    hyperplane::hyper_scheduler::node::HyperSchedulerNode::shutdown(hs_node.clone()).await;
+                    
+                    logging::log("SIMULATOR", "Node shutdown complete");
                 }
 
                 // Save this run's results to its own directory

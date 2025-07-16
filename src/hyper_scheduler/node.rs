@@ -126,7 +126,7 @@ impl HyperSchedulerNode {
         log("HS", &format!("Message processing loop exiting for chain {}", chain_id));
     }
 
-    /// Start the message processing loop for all registered chains
+    /// Start the message processing loop
     pub async fn start(node: Arc<Mutex<Self>>) {
         log("HS", "Starting message processing loop");
         let chain_ids = {
@@ -148,6 +148,37 @@ impl HyperSchedulerNode {
                 Self::process_messages_with_receiver(node_clone, chain_id, receiver).await;
             });
         }
+    }
+
+    /// Shuts down the node by stopping background tasks and clearing state.
+    /// 
+    /// This method stops the background processing tasks and clears all state
+    /// to prevent state persistence between simulation runs.
+    /// 
+    /// # Arguments
+    /// * `node` - An Arc<Mutex<HyperSchedulerNode>> containing the node instance
+    pub async fn shutdown(node: Arc<Mutex<Self>>) {
+        log("HS", "Shutting down HyperScheduler node");
+        
+        // Clear all state
+        {
+            let node_guard = node.lock().await;
+            let mut state = node_guard.state.lock().await;
+            
+            // Clear all state
+            state.registered_chains.clear();
+            state.constituent_chains.clear();
+            state.cat_statuses.clear();
+            state.cat_chainwise_statuses.clear();
+        }
+        
+        // Clear receivers separately to avoid borrowing conflict
+        {
+            let mut node_guard = node.lock().await;
+            node_guard.receivers_from_hig.clear();
+        }
+        
+        log("HS", "HyperScheduler node shutdown complete");
     }
 
     /// Submit a transaction to the confirmation layer

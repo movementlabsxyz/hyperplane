@@ -138,9 +138,7 @@ pub struct SimulationConfig {
     /// Step size for total block number sweeps
     #[serde(default)]
     pub block_number_step: Option<u64>,
-    /// Number of blocks to simulate (for block interval sweeps)
-    #[serde(default)]
-    pub block_count: Option<u64>,
+
     /// Reference chain delay duration in seconds (for block interval constant time delay sweeps)
     #[serde(default)]
     pub reference_chain_delay_duration: Option<f64>,
@@ -161,7 +159,6 @@ impl Default for SimulationConfig {
             block_interval_step: None,
             zipf_step: None,
             block_number_step: None,
-            block_count: None,
             reference_chain_delay_duration: None,
             reference_tps: None,
             sim_total_block_number: 1000, // Default value for sim_total_block_number

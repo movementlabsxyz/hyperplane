@@ -86,18 +86,18 @@ pub async fn run_simulation_with_message_and_retries(
     logging::log("SIMULATOR", &format!("Initialization complete, starting simulation at block {}", initial_block));
 
     // Record the start time for transaction sending (after initialization)
-    let transaction_start_time = Instant::now();
+    let _transaction_spam_start_time = Instant::now();
 
     // Initialize random number generator
     let mut rng = rand::thread_rng();
     
     // Initialize sender account selector with uniform distribution
-    let account_selector_sender = AccountSelector::new(results.num_accounts, 0.0);    
+    let mut account_selector_sender = AccountSelector::new(results.num_accounts, 0.0);    
     // Initialize receiver account selector with Zipf distribution
-    let account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
+    let mut account_selector_receiver = AccountSelector::new(results.num_accounts, results.zipf_parameter);
     
     // Calculate target block number for simulation termination
-    let target_simulation_block = initial_block + results.sim_total_block_number;
+    let final_simulation_block = initial_block + results.sim_total_block_number;
     
     // Create progress bar for blocks
     let progress_bar = ProgressBar::new(results.sim_total_block_number);
@@ -130,9 +130,6 @@ pub async fn run_simulation_with_message_and_retries(
         .progress_chars("##-"));
     
 
-
-    // ------- main simulation loop -------
-
     // Now set the actual chain delays for the main simulation
     logging::log("SIMULATOR", "Setting actual chain delays for main simulation...");
     for (i, delay_blocks) in results.chain_delays.iter().enumerate() {
@@ -149,29 +146,198 @@ pub async fn run_simulation_with_message_and_retries(
     let chain_id_1 = chains[0].clone();
     let chain_id_2 = chains[1].clone();
     
-    // Main simulation loop
-    while current_block < target_simulation_block {
-        // Get current block height first to check if we've reached the target
+    // ------- main simulation loop -------
+
+    // Calculate transactions per block based on target TPS and block interval
+    let transactions_per_block = (results.target_tps as f64 * results.block_interval) as u64;
+    logging::log("SIMULATOR", &format!("Target TPS: {}, Block interval: {}s, Transactions per block: {}", 
+        results.target_tps, results.block_interval, transactions_per_block));
+    
+
+    // a counter to track how many times we have entered the following block without releasing transactions
+    let mut block_counter = 0;
+
+    // Main simulation loop - waits for new blocks and releases transactions in batches
+    while current_block < final_simulation_block {
+        // Get current block height from CL
         let new_block = cl_node.lock().await.get_current_block().await.map_err(|e| e.to_string())?;
         
         // Stop processing transactions if we've reached the target block
-        if new_block >= target_simulation_block {
-            logging::log("SIMULATOR", &format!("Reached target block {}, stopping transaction processing", target_simulation_block));
+        if new_block >= final_simulation_block {
+            logging::log("SIMULATOR", &format!("Reached target block {}, stopping transaction processing", final_simulation_block));
             break;
         }
-        
-        // // Log current chain delays at the start of each block
-        // if new_block != current_block {
-        //     logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
-        //     for (i, hig_node) in hig_nodes.iter().enumerate() {
-        //         let delay = hig_node.lock().await.get_hs_message_delay();
-        //         logging::log("SIMULATOR", &format!("Chain {} current delay: {:?}", i + 1, delay));
-        //     }
-        // }
-        
+
+        // Check if we've moved to a new block
+        if new_block != current_block {
+
+            // Record the block counter for the previous block before resetting it
+            results.loop_steps_without_tx_issuance.push((current_block, block_counter));
+            // reset the block counter
+            block_counter = 0;
+
+            logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
+            
+            // Process and record all data for this block
+            process_block_data(
+                &cl_node,
+                &hig_nodes,
+                results,
+                new_block,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+            ).await?;
+            
+            current_block = new_block;
+            
+            // Update progress bar for new block
+            let blocks_completed = new_block - initial_block;
+            progress_bar.set_position(blocks_completed);
+            
+            // Release all transactions for this block at once
+            release_transactions_for_block(
+                &cl_node,
+                &mut rng,
+                &mut account_selector_sender,
+                &mut account_selector_receiver,
+                results,
+                chain_id_1.clone(),
+                chain_id_2.clone(),
+                transactions_per_block,
+            ).await?;
+        } else {
+            // increment the block counter
+            block_counter += 1;
+
+            // Wait in intervals of 1/5 of the block interval until next block
+            let wait_interval = Duration::from_secs_f64(results.block_interval / 5.0);
+            tokio::time::sleep(wait_interval).await;
+        }
+    }
+ 
+    // Save results - removed for sweep simulations that handle their own saving
+    // results.save().await?;
+    
+    Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------
+// Data Processing Functions
+// ------------------------------------------------------------------------------------------------
+
+/// Processes and records all data for a single block
+async fn process_block_data(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    hig_nodes: &[Arc<Mutex<HyperIGNode>>],
+    results: &mut SimulationResults,
+    block_height: u64,
+    chain_id_1: ChainId,
+    chain_id_2: ChainId,
+) -> Result<(), String> {
+    // Get CAT transaction status counts
+    let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
+    let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
+    
+    // Get regular transaction status counts
+    let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+    let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
+    
+    // Get locked keys counts
+    let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
+    let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
+    
+    // Calculate combined totals for backward compatibility
+    let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
+    let chain_1_success = chain_1_cat_success + chain_1_regular_success;
+    let chain_1_failure = chain_1_cat_failure + chain_1_regular_failure;
+    let chain_2_pending = chain_2_cat_pending + chain_2_regular_pending;
+    let chain_2_success = chain_2_cat_success + chain_2_regular_success;
+    let chain_2_failure = chain_2_cat_failure + chain_2_regular_failure;
+    
+    // Subtract initialization transactions from success counts
+    // Each account gets one initialization credit transaction per chain
+    let init_tx_count = results.num_accounts as u64;
+    let chain_1_success_filtered = chain_1_success.saturating_sub(init_tx_count);
+    let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
+    
+    // Get transactions per block for current block (only once per block)
+    let chain_1_tx_per_block = cl_node.lock().await.get_subblock(chain_id_1.clone(), block_height).await
+        .map(|subblock| subblock.transactions.len() as u64)
+        .unwrap_or(0);
+    let chain_2_tx_per_block = cl_node.lock().await.get_subblock(chain_id_2.clone(), block_height).await
+        .map(|subblock| subblock.transactions.len() as u64)
+        .unwrap_or(0);
+    
+    // Record combined totals (for backward compatibility)
+    results.chain_1_pending.push((block_height, chain_1_pending));    
+    results.chain_2_pending.push((block_height, chain_2_pending));
+    results.chain_1_success.push((block_height, chain_1_success_filtered));
+    results.chain_2_success.push((block_height, chain_2_success_filtered));
+    results.chain_1_failure.push((block_height, chain_1_failure));
+    results.chain_2_failure.push((block_height, chain_2_failure));
+    
+    // Record CAT transaction data
+    results.chain_1_cat_pending.push((block_height, chain_1_cat_pending));
+    results.chain_2_cat_pending.push((block_height, chain_2_cat_pending));
+    results.chain_1_cat_success.push((block_height, chain_1_cat_success));
+    results.chain_2_cat_success.push((block_height, chain_2_cat_success));
+    results.chain_1_cat_failure.push((block_height, chain_1_cat_failure));
+    results.chain_2_cat_failure.push((block_height, chain_2_cat_failure));
+    
+    // Record regular transaction data
+    results.chain_1_regular_pending.push((block_height, chain_1_regular_pending));
+    results.chain_2_regular_pending.push((block_height, chain_2_regular_pending));
+    results.chain_1_regular_success.push((block_height, chain_1_regular_success));
+    results.chain_2_regular_success.push((block_height, chain_2_regular_success));
+    results.chain_1_regular_failure.push((block_height, chain_1_regular_failure));
+    results.chain_2_regular_failure.push((block_height, chain_2_regular_failure));
+    
+    // Record locked keys data
+    results.chain_1_locked_keys.push((block_height, chain_1_locked_keys));
+    results.chain_2_locked_keys.push((block_height, chain_2_locked_keys));
+    
+    // Record transactions per block data
+    results.chain_1_tx_per_block.push((block_height, chain_1_tx_per_block));
+    results.chain_2_tx_per_block.push((block_height, chain_2_tx_per_block));
+    
+    // Record memory usage for this block
+    let memory_usage = crate::SimulationResults::get_current_memory_usage();
+    results.memory_usage.push((block_height, memory_usage));
+    
+    // Record total RAM usage for this block
+            let total_memory = crate::SimulationResults::get_current_total_memory();
+        results.total_memory.push((block_height, total_memory));
+    
+    // Record process CPU usage for this block
+    let cpu_usage = crate::SimulationResults::get_current_cpu_usage();
+    results.cpu_usage.push((block_height, cpu_usage));
+    
+    // Record total system CPU usage for this block
+    let total_cpu_usage = crate::SimulationResults::get_current_total_cpu_usage();
+    results.total_cpu_usage.push((block_height, total_cpu_usage));
+    
+    Ok(())
+}
+
+// ------------------------------------------------------------------------------------------------
+// Transaction Release Functions
+// ------------------------------------------------------------------------------------------------
+
+/// Releases all transactions for a single block
+async fn release_transactions_for_block(
+    cl_node: &Arc<Mutex<ConfirmationLayerNode>>,
+    rng: &mut rand::rngs::ThreadRng,
+    account_selector_sender: &mut AccountSelector,
+    account_selector_receiver: &mut AccountSelector,
+    results: &mut SimulationResults,
+    chain_id_1: ChainId,
+    chain_id_2: ChainId,
+    transactions_per_block: u64,
+) -> Result<(), String> {
+    for tx_index in 0..transactions_per_block {
         // Select accounts for transaction
-        let from_account = account_selector_sender.select_account(&mut rng);
-        let to_account = account_selector_receiver.select_account(&mut rng);
+        let from_account = account_selector_sender.select_account(rng);
+        let to_account = account_selector_receiver.select_account(rng);
         
         // Record transaction in account statistics
         results.account_stats.record_transaction(from_account as u64, to_account as u64);
@@ -186,8 +352,6 @@ pub async fn run_simulation_with_message_and_retries(
             to_account
         );
         
-        logging::log("SIMULATOR", &format!("Transaction data: '{}'", tx_data));
-
         // Create and submit transaction
         let cl_id = CLTransactionId(format!("cl-{}-tx_{}", 
             if is_cat { "cat" } else { "reg" }, 
@@ -197,7 +361,7 @@ pub async fn run_simulation_with_message_and_retries(
         let (success, _) = if is_cat {
             results.cat_transactions += 1;
             create_and_submit_cat_transaction(
-                &cl_node,
+                cl_node,
                 cl_id,
                 chain_id_1.clone(),
                 chain_id_2.clone(),
@@ -206,7 +370,7 @@ pub async fn run_simulation_with_message_and_retries(
         } else {
             results.regular_transactions += 1;
             create_and_submit_regular_transaction(
-                &cl_node,
+                cl_node,
                 cl_id,
                 chain_id_1.clone(),
                 chain_id_2.clone(),
@@ -215,88 +379,14 @@ pub async fn run_simulation_with_message_and_retries(
         };
 
         if success {
-            logging::log("SIMULATOR", &format!("Transaction successful submitted to CL  : {}", tx_data));
+            logging::log("SIMULATOR", &format!("Transaction {} successful: {}", tx_index + 1, tx_data));
         } else {
-            logging::log("SIMULATOR", &format!("Transaction failed submitted to CL  : {}", tx_data));
-            // we should crash
+            logging::log("SIMULATOR", &format!("Transaction {} failed: {}", tx_index + 1, tx_data));
             panic!("Transaction failed submitted to CL");
         }
         
         results.transactions_sent += 1;
-        
-        // Get CAT transaction status counts
-        let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
-        let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
-        
-        // Get regular transaction status counts
-        let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
-        let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
-        
-        // Get locked keys counts
-        let chain_1_locked_keys = hig_nodes[0].lock().await.get_total_locked_keys_count().await;
-        let chain_2_locked_keys = hig_nodes[1].lock().await.get_total_locked_keys_count().await;
-        
-        // Calculate combined totals for backward compatibility
-        let chain_1_pending = chain_1_cat_pending + chain_1_regular_pending;
-        let chain_1_success = chain_1_cat_success + chain_1_regular_success;
-        let chain_1_failure = chain_1_cat_failure + chain_1_regular_failure;
-        let chain_2_pending = chain_2_cat_pending + chain_2_regular_pending;
-        let chain_2_success = chain_2_cat_success + chain_2_regular_success;
-        let chain_2_failure = chain_2_cat_failure + chain_2_regular_failure;
-        
-        // Subtract initialization transactions from success counts
-        // Each account gets one initialization credit transaction per chain
-        let init_tx_count = results.num_accounts as u64;
-        let chain_1_success_filtered = chain_1_success.saturating_sub(init_tx_count);
-        let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
-        
-        // Only record counts if we've moved to a new block
-        if new_block != current_block {
-            // Record combined totals (for backward compatibility)
-            results.chain_1_pending.push((new_block, chain_1_pending));    
-            results.chain_2_pending.push((new_block, chain_2_pending));
-            results.chain_1_success.push((new_block, chain_1_success_filtered));
-            results.chain_2_success.push((new_block, chain_2_success_filtered));
-            results.chain_1_failure.push((new_block, chain_1_failure));
-            results.chain_2_failure.push((new_block, chain_2_failure));
-            
-            // Record CAT transaction data
-            results.chain_1_cat_pending.push((new_block, chain_1_cat_pending));
-            results.chain_2_cat_pending.push((new_block, chain_2_cat_pending));
-            results.chain_1_cat_success.push((new_block, chain_1_cat_success));
-            results.chain_2_cat_success.push((new_block, chain_2_cat_success));
-            results.chain_1_cat_failure.push((new_block, chain_1_cat_failure));
-            results.chain_2_cat_failure.push((new_block, chain_2_cat_failure));
-            
-            // Record regular transaction data
-            results.chain_1_regular_pending.push((new_block, chain_1_regular_pending));
-            results.chain_2_regular_pending.push((new_block, chain_2_regular_pending));
-            results.chain_1_regular_success.push((new_block, chain_1_regular_success));
-            results.chain_2_regular_success.push((new_block, chain_2_regular_success));
-            results.chain_1_regular_failure.push((new_block, chain_1_regular_failure));
-            results.chain_2_regular_failure.push((new_block, chain_2_regular_failure));
-            
-            // Record locked keys data
-            results.chain_1_locked_keys.push((new_block, chain_1_locked_keys));
-            results.chain_2_locked_keys.push((new_block, chain_2_locked_keys));
-            current_block = new_block;
-            
-            // Update progress bar for new block
-            let blocks_completed = new_block - initial_block;
-            progress_bar.set_position(blocks_completed);
-        }
-        
-        // Calculate sleep time to maintain target TPS (using transaction start time)
-        let elapsed = transaction_start_time.elapsed();
-        let target_milliseconds = (results.transactions_sent as f64 / results.target_tps as f64) * 1000.0;
-        let target_elapsed = Duration::from_millis(target_milliseconds as u64);
-        if elapsed < target_elapsed {
-            tokio::time::sleep(target_elapsed - elapsed).await;
-        }
     }
- 
-    // Save results - removed for sweep simulations that handle their own saving
-    // results.save().await?;
     
     Ok(())
 }

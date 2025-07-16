@@ -35,7 +35,7 @@ define_sweep_config!(
     "sim_sweep_total_block_number",
     SweepTotalBlockNumberConfig,
     validate_sweep_specific = |self_: &Self| {
-        // Need duration_step to generate the sequence of block counts to test
+        // Need block_number_step to generate the sequence of block counts to test
         if self_.simulation_config.block_number_step.unwrap_or(0) == 0 {
             return Err(crate::config::ConfigError::ValidationError("Block number step must be positive".into()));
         }
@@ -58,20 +58,23 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
     let sweep_config = load_config()?;
     
     // Calculate block numbers for each simulation using the helper function
-    // Creates a sequence of block numbers: 25, 50, 75, 100, etc.
+    // Creates a sequence starting from block_number_step and stepping by block_number_step
     // Each value represents the total number of blocks to simulate
+    let step_size = sweep_config.simulation_config.block_number_step.unwrap();
+    let num_sims = sweep_config.simulation_config.num_simulations.unwrap();
+    
     let block_numbers = generate_u64_sequence(
-        25,  // Start at 25 blocks
-        sweep_config.simulation_config.block_number_step.unwrap(),
-        sweep_config.simulation_config.num_simulations.unwrap()
+        step_size,          // Start at the step size (e.g., 250 blocks)
+        step_size,          // Step by the configured step size
+        num_sims            // Number of simulations from config
     );
 
     // Create the generic sweep runner that handles all the common functionality
     // This eliminates code duplication across different sweep types
     let runner = SweepRunner::new(
-        "Duration",                    // Human-readable name for logging
+        "Total Block Number",          // Human-readable name for logging
         "sim_sweep_total_block_number",          // Directory name for results
-        "duration",                    // Parameter name for JSON output
+        "total_block_number",          // Parameter name for JSON output
         block_numbers,                 // List of parameter values to test
         // Function to load the sweep configuration
         Box::new(|| {
@@ -100,7 +103,7 @@ pub async fn run_sweep_total_block_number() -> Result<(), crate::config::ConfigE
         }),
         // Function to save the combined results from all simulations
         Box::new(|results_dir, all_results| {
-            save_generic_sweep_results(results_dir, "duration", all_results)
+            save_generic_sweep_results(results_dir, "total_block_number", all_results)
         }),
     );
 
@@ -134,11 +137,11 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
 // Run with Plotting
 // ------------------------------------------------------------------------------------------------
 
-/// Runs the duration sweep simulation with automatic plotting.
+/// Runs the total block number sweep simulation with automatic plotting.
 pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
     run_simulation_with_plotting(
         || run_sweep_total_block_number(),
-        "Duration Sweep",
+        "Total Block Number Sweep",
         "simulator/src/scenarios/sim_sweep_total_block_number/plot_results.py"
     ).await
 } 
