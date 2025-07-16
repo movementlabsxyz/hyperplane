@@ -166,6 +166,7 @@ impl SimulationResults {
                     }
                 }
             }
+            0 // Fallback if we can't read the file or find VmRSS
         }
         
         #[cfg(target_os = "macos")]
