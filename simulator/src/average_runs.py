@@ -258,7 +258,8 @@ def create_averaged_data(results_dir):
             ('system_memory.json', 'system_memory'),
             ('system_total_memory.json', 'system_total_memory'),
             ('system_cpu.json', 'system_cpu'),
-        ('system_total_cpu.json', 'system_total_cpu'),
+            ('system_total_cpu.json', 'system_total_cpu'),
+            ('loop_steps_without_tx_issuance.json', 'loop_steps_without_tx_issuance'),
         ]
         
         for filename, key_name in time_series_files:

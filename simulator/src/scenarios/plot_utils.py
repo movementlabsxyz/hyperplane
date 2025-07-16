@@ -608,6 +608,9 @@ def generate_all_plots(
     # Plot system total CPU usage over time
     plot_system_total_cpu(data, param_name, results_dir, sweep_type)
     
+    # Plot loop steps without transaction issuance
+    plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
+    
     print(f"{sweep_type} simulation plots generated successfully!") 
 
 # ------------------------------------------------------------------------------------------------
@@ -1654,6 +1657,82 @@ def plot_system_total_cpu(data: Dict[str, Any], param_name: str, results_dir: st
         
     except Exception as e:
         print(f"Error plotting system total CPU data: {e}")
+        import traceback
+        traceback.print_exc()
+
+def plot_loop_steps_without_tx_issuance(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot loop steps without transaction issuance over time for each simulation"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping loop steps plot")
+            return
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Get parameter values for coloring
+        param_values = [result[param_name] for result in individual_results]
+        colors = create_color_gradient(len(param_values))
+        
+        # Plot each simulation's loop steps data
+        for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
+            param_value = result[param_name]
+            label = create_parameter_label(param_name, param_value)
+            
+            # Load loop steps data for this simulation
+            # Extract just the directory name from the full path
+            results_dir_name = results_dir.replace('simulator/results/', '')
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Use averaged loop steps data
+            loop_steps_file = f'{sim_data_dir}/run_average/loop_steps_without_tx_issuance.json'
+            if os.path.exists(loop_steps_file):
+                with open(loop_steps_file, 'r') as f:
+                    loop_steps_data = json.load(f)
+                
+                # Extract loop steps data
+                if 'loop_steps_without_tx_issuance' in loop_steps_data:
+                    loop_steps_entries = loop_steps_data['loop_steps_without_tx_issuance']
+                    if loop_steps_entries:
+                        # Extract block heights and loop steps values
+                        heights = [entry['height'] for entry in loop_steps_entries]
+                        loop_steps_values = [entry['count'] for entry in loop_steps_entries]
+                        
+                        # Ensure heights and loop_steps_values have the same length
+                        if len(heights) != len(loop_steps_values):
+                            print(f"Warning: Heights ({len(heights)}) and loop steps values ({len(loop_steps_values)}) have different lengths for simulation {sim_index}")
+                            # Use the shorter length
+                            min_length = min(len(heights), len(loop_steps_values))
+                            heights = heights[:min_length]
+                            loop_steps_values = loop_steps_values[:min_length]
+                        
+                        # Plot the averaged data directly (no additional smoothing needed)
+                        ax.plot(heights, loop_steps_values, color=color, alpha=0.7, linewidth=2)
+                    else:
+                        print(f"Warning: No loop steps entries found for simulation {sim_index}")
+                else:
+                    print(f"Warning: No loop_steps_without_tx_issuance key found in {loop_steps_file}")
+            else:
+                print(f"Warning: Loop steps file not found: {loop_steps_file}")
+            
+            # Add legend entry for this parameter value
+            ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Customize plot
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('Loop Steps Count')
+        ax.set_title(f'Loop Steps Without Transaction Issuance Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.grid(True, alpha=0.3)
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/loop_steps_without_tx_issuance.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error plotting loop steps data: {e}")
         import traceback
         traceback.print_exc()
 

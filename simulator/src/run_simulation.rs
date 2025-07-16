@@ -153,6 +153,10 @@ pub async fn run_simulation_with_message_and_retries(
     logging::log("SIMULATOR", &format!("Target TPS: {}, Block interval: {}s, Transactions per block: {}", 
         results.target_tps, results.block_interval, transactions_per_block));
     
+
+    // a counter to track how many times we have entered the following block without releasing transactions
+    let mut block_counter = 0;
+
     // Main simulation loop - waits for new blocks and releases transactions in batches
     while current_block < final_simulation_block {
         // Get current block height from CL
@@ -163,9 +167,15 @@ pub async fn run_simulation_with_message_and_retries(
             logging::log("SIMULATOR", &format!("Reached target block {}, stopping transaction processing", final_simulation_block));
             break;
         }
-        
+
         // Check if we've moved to a new block
         if new_block != current_block {
+
+            // Record the block counter for the previous block before resetting it
+            results.loop_steps_without_tx_issuance.push((current_block, block_counter));
+            // reset the block counter
+            block_counter = 0;
+
             logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
             
             // Process and record all data for this block
@@ -196,6 +206,9 @@ pub async fn run_simulation_with_message_and_retries(
                 transactions_per_block,
             ).await?;
         } else {
+            // increment the block counter
+            block_counter += 1;
+
             // Wait in intervals of 1/5 of the block interval until next block
             let wait_interval = Duration::from_secs_f64(results.block_interval / 5.0);
             tokio::time::sleep(wait_interval).await;

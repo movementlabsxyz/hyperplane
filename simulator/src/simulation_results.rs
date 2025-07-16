@@ -87,6 +87,9 @@ pub struct SimulationResults {
     pub cpu_usage: Vec<(u64, f64)>, // (block_height, process_cpu_usage_percent)
     pub total_cpu_usage: Vec<(u64, f64)>, // (block_height, total_system_cpu_usage_percent)
     
+    // Loop steps without transaction issuance tracking
+    pub loop_steps_without_tx_issuance: Vec<(u64, u64)>, // (block_height, loop_steps_count)
+    
     // Statistics
     pub account_stats: AccountSelectionStats,
     pub start_time: Instant,
@@ -138,6 +141,7 @@ impl Default for SimulationResults {
             total_memory: Vec::new(),
             cpu_usage: Vec::new(),
             total_cpu_usage: Vec::new(),
+            loop_steps_without_tx_issuance: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -668,6 +672,19 @@ impl SimulationResults {
         let system_total_cpu_file = format!("{}/data/system_total_cpu.json", base_dir);
         fs::write(&system_total_cpu_file, serde_json::to_string_pretty(&system_total_cpu_data).expect("Failed to serialize system total CPU")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved system total CPU data to {}", system_total_cpu_file));
+
+        // Save loop steps without transaction issuance data
+        let loop_steps_data = serde_json::json!({
+            "loop_steps_without_tx_issuance": self.loop_steps_without_tx_issuance.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let loop_steps_file = format!("{}/data/loop_steps_without_tx_issuance.json", base_dir);
+        fs::write(&loop_steps_file, serde_json::to_string_pretty(&loop_steps_data).expect("Failed to serialize loop steps data")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved loop steps data to {}", loop_steps_file));
 
         Ok(())
     }

@@ -380,6 +380,51 @@ def create_per_run_plots():
     plt.tight_layout()
     plt.savefig(f'{sim_figs_dir}/system_total_cpu.png', dpi=300, bbox_inches='tight')
     plt.close()
+    
+    # Create loop steps without transaction issuance plot
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Plot each run's loop steps data
+    plotted_runs = 0
+    for run_idx, run_dir in enumerate(run_dirs):
+        try:
+            # Load loop steps data for this run
+            loop_steps_file = os.path.join(sim_data_dir, run_dir, 'data', 'loop_steps_without_tx_issuance.json')
+            if not os.path.exists(loop_steps_file):
+                print(f"Warning: {loop_steps_file} not found")
+                continue
+            
+            with open(loop_steps_file, 'r') as f:
+                run_data = json.load(f)
+            
+            # Extract loop steps data
+            if 'loop_steps_without_tx_issuance' in run_data:
+                loop_steps_entries = run_data['loop_steps_without_tx_issuance']
+                if loop_steps_entries:
+                    # Extract block heights and loop steps values
+                    heights = [entry['height'] for entry in loop_steps_entries]
+                    loop_steps_values = [entry['count'] for entry in loop_steps_entries]
+                    
+                    # Plot with color based on run
+                    label = f'Run {run_idx + 1}'
+                    ax.plot(heights, loop_steps_values, color=colors[run_idx], alpha=0.7, 
+                            label=label, linewidth=1.5)
+                    plotted_runs += 1
+            
+        except Exception as e:
+            print(f"Warning: Error processing loop steps for run {run_dir}: {e}")
+            continue
+    
+    # Create title for loop steps plot
+    ax.set_title('Loop Steps Without Transaction Issuance Over Time - Simple Simulation')
+    ax.set_xlabel('Block Height')
+    ax.set_ylabel('Loop Steps Count')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig(f'{sim_figs_dir}/loop_steps_without_tx_issuance.png', dpi=300, bbox_inches='tight')
+    plt.close()
 
 # ------------------------------------------------------------------------------------------------
 # Locked Keys Plotting Functions
@@ -727,6 +772,43 @@ def plot_system_total_cpu():
         print(f"Warning: Error processing system total CPU data: {e}")
         return
 
+def plot_loop_steps_without_tx_issuance():
+    """
+    Plot loop steps without transaction issuance over time.
+    """
+    try:
+        # Load loop steps data
+        with open(f'{BASE_DATA_PATH}/loop_steps_without_tx_issuance.json', 'r') as f:
+            loop_steps_data = json.load(f)
+        
+        # Extract loop steps data
+        if 'loop_steps_without_tx_issuance' in loop_steps_data:
+            loop_steps_entries = loop_steps_data['loop_steps_without_tx_issuance']
+            if loop_steps_entries:
+                # Extract block heights and loop steps values
+                heights = [entry['height'] for entry in loop_steps_entries]
+                loop_steps_values = [entry['count'] for entry in loop_steps_entries]
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.plot(heights, loop_steps_values, 'purple', linewidth=2)
+                plt.title('Loop Steps Without Transaction Issuance Over Time (Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('Loop Steps Count')
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/loop_steps_without_tx_issuance.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No loop steps data found")
+        else:
+            print("Warning: Loop steps data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing loop steps data: {e}")
+        return
+
 def main():
     """Main function to run all plotting functions for the simple simulation."""
     # Check if simple simulation data exists (try multiple possible paths)
@@ -802,6 +884,9 @@ def main():
     
     # Plot system total CPU usage
     plot_system_total_cpu()
+    
+    # Plot loop steps without transaction issuance
+    plot_loop_steps_without_tx_issuance()
     
     # Create per-run plots in sim_0 directory
     create_per_run_plots()
