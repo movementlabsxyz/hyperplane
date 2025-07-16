@@ -1261,6 +1261,102 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             plt.savefig(f'{sim_figs_dir}/system_cpu_filtered.png', dpi=300, bbox_inches='tight')
             plt.close()
             
+            # Create system total CPU usage plot for this simulation
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # Plot each run's system total CPU usage data
+            plotted_runs = 0
+            for run_idx, run_dir in enumerate(run_dirs):
+                try:
+                    # Load system total CPU usage data for this run
+                    total_cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_cpu.json')
+                    if not os.path.exists(total_cpu_file):
+                        print(f"Warning: {total_cpu_file} not found")
+                        continue
+                    
+                    with open(total_cpu_file, 'r') as f:
+                        run_data = json.load(f)
+                    
+                    # Extract system total CPU usage data
+                    if 'system_total_cpu' in run_data:
+                        total_cpu_entries = run_data['system_total_cpu']
+                        if total_cpu_entries:
+                            # Extract block heights and total CPU usage values
+                            heights = [entry['height'] for entry in total_cpu_entries]
+                            total_cpu_values = [entry['percent'] for entry in total_cpu_entries]  # Already in percent
+                            
+                            # Plot with color based on run
+                            label = f'Run {run_idx + 1}'
+                            ax.plot(heights, total_cpu_values, color=colors[run_idx], alpha=0.7, 
+                                    label=label, linewidth=1.5)
+                            plotted_runs += 1
+                    
+                except Exception as e:
+                    print(f"Warning: Error processing system total CPU for run {run_dir} in simulation {sim_index}: {e}")
+                    continue
+            
+            # Create title
+            param_label = create_parameter_label(param_name, param_value)
+            ax.set_title(f'System Total CPU Usage Over Time - {param_label}')
+            ax.set_xlabel('Block Height')
+            ax.set_ylabel('System Total CPU Usage (%)')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            plt.tight_layout()
+            
+            # Save the system total CPU usage plot
+            plt.savefig(f'{sim_figs_dir}/system_total_cpu.png', dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            # Create loop steps without transaction issuance plot for this simulation
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # Plot each run's loop steps data
+            plotted_runs = 0
+            for run_idx, run_dir in enumerate(run_dirs):
+                try:
+                    # Load loop steps data for this run
+                    loop_steps_file = os.path.join(sim_data_dir, run_dir, 'data', 'loop_steps_without_tx_issuance.json')
+                    if not os.path.exists(loop_steps_file):
+                        print(f"Warning: {loop_steps_file} not found")
+                        continue
+                    
+                    with open(loop_steps_file, 'r') as f:
+                        run_data = json.load(f)
+                    
+                    # Extract loop steps data
+                    if 'loop_steps_without_tx_issuance' in run_data:
+                        loop_steps_entries = run_data['loop_steps_without_tx_issuance']
+                        if loop_steps_entries:
+                            # Extract block heights and loop steps values
+                            heights = [entry['height'] for entry in loop_steps_entries]
+                            loop_steps_values = [entry['count'] for entry in loop_steps_entries]
+                            
+                            # Plot with color based on run
+                            label = f'Run {run_idx + 1}'
+                            ax.plot(heights, loop_steps_values, color=colors[run_idx], alpha=0.7, 
+                                    label=label, linewidth=1.5)
+                            plotted_runs += 1
+                    
+                except Exception as e:
+                    print(f"Warning: Error processing loop steps for run {run_dir} in simulation {sim_index}: {e}")
+                    continue
+            
+            # Create title
+            param_label = create_parameter_label(param_name, param_value)
+            ax.set_title(f'Loop Steps Without Transaction Issuance Over Time - {param_label}')
+            ax.set_xlabel('Block Height')
+            ax.set_ylabel('Loop Steps Count')
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            plt.tight_layout()
+            
+            # Save the loop steps plot
+            plt.savefig(f'{sim_figs_dir}/loop_steps_without_tx_issuance.png', dpi=300, bbox_inches='tight')
+            plt.close()
+            
     except Exception as e:
         print(f"Warning: Error processing individual TPS plots for sweep: {e}")
         return
