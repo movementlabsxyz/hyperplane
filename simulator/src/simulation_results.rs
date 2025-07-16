@@ -84,7 +84,8 @@ pub struct SimulationResults {
     pub total_memory: Vec<(u64, u64)>, // (block_height, total_memory_bytes)
     
     // CPU usage tracking
-    pub cpu_usage: Vec<(u64, f64)>, // (block_height, cpu_usage_percent)
+    pub cpu_usage: Vec<(u64, f64)>, // (block_height, process_cpu_usage_percent)
+    pub total_cpu_usage: Vec<(u64, f64)>, // (block_height, total_system_cpu_usage_percent)
     
     // Statistics
     pub account_stats: AccountSelectionStats,
@@ -136,6 +137,7 @@ impl Default for SimulationResults {
             memory_usage: Vec::new(),
             total_memory: Vec::new(),
             cpu_usage: Vec::new(),
+            total_cpu_usage: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -227,9 +229,30 @@ impl SimulationResults {
         0
     }
 
-    /// Gets the current CPU usage as a percentage
+    /// Gets the current process CPU usage as a percentage
     /// Uses sysinfo crate for accurate cross-platform CPU measurement
     pub fn get_current_cpu_usage() -> f64 {
+        let system = get_system();
+        if let Ok(mut sys) = system.lock() {
+            // Refresh process information
+            sys.refresh_processes();
+            
+            // Get current process ID
+            let pid = sysinfo::Pid::from(std::process::id() as usize);
+            
+            // Get process CPU usage percentage
+            if let Some(process) = sys.process(pid) {
+                return process.cpu_usage() as f64;
+            }
+        }
+        
+        // Fallback if we can't get process info
+        0.0
+    }
+
+    /// Gets the current total system CPU usage as a percentage
+    /// Uses sysinfo crate for accurate cross-platform CPU measurement
+    pub fn get_current_total_cpu_usage() -> f64 {
         let system = get_system();
         if let Ok(mut sys) = system.lock() {
             // Refresh CPU information
@@ -632,6 +655,19 @@ impl SimulationResults {
         let system_cpu_file = format!("{}/data/system_cpu.json", base_dir);
         fs::write(&system_cpu_file, serde_json::to_string_pretty(&system_cpu_data).expect("Failed to serialize system CPU")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved system CPU data to {}", system_cpu_file));
+
+        // Save system total CPU usage data
+        let system_total_cpu_data = serde_json::json!({
+            "system_total_cpu": self.total_cpu_usage.iter().map(|(height, percent)| {
+                serde_json::json!({
+                    "height": height,
+                    "percent": percent
+                })
+            }).collect::<Vec<_>>()
+        });
+        let system_total_cpu_file = format!("{}/data/system_total_cpu.json", base_dir);
+        fs::write(&system_total_cpu_file, serde_json::to_string_pretty(&system_total_cpu_data).expect("Failed to serialize system total CPU")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system total CPU data to {}", system_total_cpu_file));
 
         Ok(())
     }

@@ -596,11 +596,17 @@ def generate_all_plots(
     # Plot system memory usage over time
     plot_system_memory(data, param_name, results_dir, sweep_type)
     
-        # Plot system total memory usage over time
+    # Plot system total memory usage over time
     plot_system_total_memory(data, param_name, results_dir, sweep_type)
     
     # Plot system CPU usage over time
     plot_system_cpu(data, param_name, results_dir, sweep_type)
+    
+    # Plot filtered system CPU usage over time (removes spikes above 30%)
+    plot_system_cpu_filtered(data, param_name, results_dir, sweep_type)
+    
+    # Plot system total CPU usage over time
+    plot_system_total_cpu(data, param_name, results_dir, sweep_type)
     
     print(f"{sweep_type} simulation plots generated successfully!") 
 
@@ -1194,6 +1200,64 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             plt.savefig(f'{sim_figs_dir}/system_cpu.png', dpi=300, bbox_inches='tight')
             plt.close()
             
+            # Create filtered system CPU usage plot for this simulation (removes spikes above 30%)
+            fig, ax = plt.subplots(figsize=(12, 8))
+            
+            # Plot each run's filtered system CPU usage data
+            plotted_runs = 0
+            for run_idx, run_dir in enumerate(run_dirs):
+                try:
+                    # Load system CPU usage data for this run
+                    cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_cpu.json')
+                    if not os.path.exists(cpu_file):
+                        print(f"Warning: {cpu_file} not found")
+                        continue
+                    
+                    with open(cpu_file, 'r') as f:
+                        run_data = json.load(f)
+                    
+                    # Extract system CPU usage data
+                    if 'system_cpu' in run_data:
+                        cpu_entries = run_data['system_cpu']
+                        if cpu_entries:
+                            # Extract block heights and CPU usage values
+                            heights = [entry['height'] for entry in cpu_entries]
+                            cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                            
+                            # Filter out spikes above 30%
+                            filtered_heights = []
+                            filtered_cpu_values = []
+                            for height, cpu_value in zip(heights, cpu_values):
+                                if cpu_value <= 30.0:
+                                    filtered_heights.append(height)
+                                    filtered_cpu_values.append(cpu_value)
+                            
+                            # Plot filtered data with color based on run
+                            if filtered_heights and filtered_cpu_values:
+                                label = f'Run {run_idx + 1}'
+                                ax.plot(filtered_heights, filtered_cpu_values, color=colors[run_idx], alpha=0.7, 
+                                        label=label, linewidth=1.5)
+                                plotted_runs += 1
+                    
+                except Exception as e:
+                    print(f"Warning: Error processing filtered system CPU for run {run_dir} in simulation {sim_index}: {e}")
+                    continue
+            
+            # Create title
+            param_label = create_parameter_label(param_name, param_value)
+            ax.set_title(f'System CPU Usage Over Time (Filtered ≤30%) - {param_label}')
+            ax.set_xlabel('Block Height')
+            ax.set_ylabel('System CPU Usage (%)')
+
+            ax.grid(True, alpha=0.3)
+            ax.legend()
+            
+            plt.tight_layout()
+            
+            # Save the filtered system CPU usage plot
+            plt.savefig(f'{sim_figs_dir}/system_cpu_filtered.png', dpi=300, bbox_inches='tight')
+            plt.close()
+            
     except Exception as e:
         print(f"Warning: Error processing individual TPS plots for sweep: {e}")
         return
@@ -1427,6 +1491,169 @@ def plot_system_cpu(data: Dict[str, Any], param_name: str, results_dir: str, swe
         
     except Exception as e:
         print(f"Error plotting system CPU data: {e}")
+        import traceback
+        traceback.print_exc()
+
+def plot_system_cpu_filtered(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot system CPU usage over time for each simulation with spikes above 30% filtered out"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping filtered system CPU plot")
+            return
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Get parameter values for coloring
+        param_values = [result[param_name] for result in individual_results]
+        colors = create_color_gradient(len(param_values))
+        
+        # Plot each simulation's system CPU usage data
+        for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
+            param_value = result[param_name]
+            label = create_parameter_label(param_name, param_value)
+            
+            # Load system CPU usage data for this simulation
+            # Extract just the directory name from the full path
+            results_dir_name = results_dir.replace('simulator/results/', '')
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Use averaged system CPU usage data
+            cpu_file = f'{sim_data_dir}/run_average/system_cpu.json'
+            if os.path.exists(cpu_file):
+                with open(cpu_file, 'r') as f:
+                    cpu_data = json.load(f)
+                
+                # Extract system CPU usage data
+                if 'system_cpu' in cpu_data:
+                    cpu_entries = cpu_data['system_cpu']
+                    if cpu_entries:
+                        # Extract block heights and CPU usage values
+                        heights = [entry['height'] for entry in cpu_entries]
+                        cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                        
+                        # Filter out spikes above 30%
+                        filtered_heights = []
+                        filtered_cpu_values = []
+                        for height, cpu_value in zip(heights, cpu_values):
+                            if cpu_value <= 30.0:
+                                filtered_heights.append(height)
+                                filtered_cpu_values.append(cpu_value)
+                        
+                        # Ensure heights and cpu_values have the same length
+                        if len(filtered_heights) != len(filtered_cpu_values):
+                            print(f"Warning: Heights ({len(filtered_heights)}) and filtered CPU values ({len(filtered_cpu_values)}) have different lengths for simulation {sim_index}")
+                            # Use the shorter length
+                            min_length = min(len(filtered_heights), len(filtered_cpu_values))
+                            filtered_heights = filtered_heights[:min_length]
+                            filtered_cpu_values = filtered_cpu_values[:min_length]
+                        
+                        # Plot the filtered data
+                        if filtered_heights and filtered_cpu_values:
+                            ax.plot(filtered_heights, filtered_cpu_values, color=color, alpha=0.7, linewidth=2)
+                    else:
+                        print(f"Warning: No system CPU entries found for simulation {sim_index}")
+                else:
+                    print(f"Warning: No system_cpu key found in {cpu_file}")
+            else:
+                print(f"Warning: System CPU file not found: {cpu_file}")
+            
+            # Add legend entry for this parameter value
+            ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Customize plot
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('System CPU Usage (%)')
+        ax.set_title(f'System CPU Usage Over Time (Filtered ≤30%) by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.grid(True, alpha=0.3)
+        
+
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/system_cpu_filtered.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error plotting filtered system CPU data: {e}")
+        import traceback
+        traceback.print_exc()
+
+def plot_system_total_cpu(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot system total CPU usage over time for each simulation"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping system total CPU plot")
+            return
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Get parameter values for coloring
+        param_values = [result[param_name] for result in individual_results]
+        colors = create_color_gradient(len(param_values))
+        
+        # Plot each simulation's system total CPU usage data
+        for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
+            param_value = result[param_name]
+            label = create_parameter_label(param_name, param_value)
+            
+            # Load system total CPU usage data for this simulation
+            # Extract just the directory name from the full path
+            results_dir_name = results_dir.replace('simulator/results/', '')
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Use averaged system total CPU usage data
+            cpu_file = f'{sim_data_dir}/run_average/system_total_cpu.json'
+            if os.path.exists(cpu_file):
+                with open(cpu_file, 'r') as f:
+                    cpu_data = json.load(f)
+                
+                # Extract system total CPU usage data
+                if 'system_total_cpu' in cpu_data:
+                    cpu_entries = cpu_data['system_total_cpu']
+                    if cpu_entries:
+                        # Extract block heights and CPU usage values
+                        heights = [entry['height'] for entry in cpu_entries]
+                        cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                        
+                        # Ensure heights and cpu_values have the same length
+                        if len(heights) != len(cpu_values):
+                            print(f"Warning: Heights ({len(heights)}) and total CPU values ({len(cpu_values)}) have different lengths for simulation {sim_index}")
+                            # Use the shorter length
+                            min_length = min(len(heights), len(cpu_values))
+                            heights = heights[:min_length]
+                            cpu_values = cpu_values[:min_length]
+                        
+                        # Plot the averaged data directly (no additional smoothing needed)
+                        ax.plot(heights, cpu_values, color=color, alpha=0.7, linewidth=2)
+                    else:
+                        print(f"Warning: No system total CPU entries found for simulation {sim_index}")
+                else:
+                    print(f"Warning: No system_total_cpu key found in {cpu_file}")
+            else:
+                print(f"Warning: System total CPU file not found: {cpu_file}")
+            
+            # Add legend entry for this parameter value
+            ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Customize plot
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('System Total CPU Usage (%)')
+        ax.set_title(f'System Total CPU Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.grid(True, alpha=0.3)
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/system_total_cpu.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error plotting system total CPU data: {e}")
         import traceback
         traceback.print_exc()
 

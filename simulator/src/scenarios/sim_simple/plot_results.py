@@ -280,6 +280,106 @@ def create_per_run_plots():
     plt.tight_layout()
     plt.savefig(f'{sim_figs_dir}/system_cpu.png', dpi=300, bbox_inches='tight')
     plt.close()
+    
+    # Create filtered system CPU usage plot (removes spikes above 30%)
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Plot each run's filtered system CPU usage data
+    plotted_runs = 0
+    for run_idx, run_dir in enumerate(run_dirs):
+        try:
+            # Load system CPU usage data for this run
+            cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_cpu.json')
+            if not os.path.exists(cpu_file):
+                print(f"Warning: {cpu_file} not found")
+                continue
+            
+            with open(cpu_file, 'r') as f:
+                run_data = json.load(f)
+            
+            # Extract system CPU usage data
+            if 'system_cpu' in run_data:
+                cpu_entries = run_data['system_cpu']
+                if cpu_entries:
+                    # Extract block heights and CPU usage values
+                    heights = [entry['height'] for entry in cpu_entries]
+                    cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                    
+                    # Filter out spikes above 30%
+                    filtered_heights = []
+                    filtered_cpu_values = []
+                    for height, cpu_value in zip(heights, cpu_values):
+                        if cpu_value <= 30.0:
+                            filtered_heights.append(height)
+                            filtered_cpu_values.append(cpu_value)
+                    
+                    # Plot filtered data with color based on run
+                    if filtered_heights and filtered_cpu_values:
+                        label = f'Run {run_idx + 1}'
+                        ax.plot(filtered_heights, filtered_cpu_values, color=colors[run_idx], alpha=0.7, 
+                                label=label, linewidth=1.5)
+                        plotted_runs += 1
+            
+        except Exception as e:
+            print(f"Warning: Error processing filtered system CPU for run {run_dir}: {e}")
+            continue
+    
+    # Create title for filtered system CPU plot
+    ax.set_title('System CPU Usage Over Time (Filtered ≤30%) - Simple Simulation')
+    ax.set_xlabel('Block Height')
+    ax.set_ylabel('System CPU Usage (%)')
+
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig(f'{sim_figs_dir}/system_cpu_filtered.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    # Create system total CPU usage plot
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Plot each run's system total CPU usage data
+    plotted_runs = 0
+    for run_idx, run_dir in enumerate(run_dirs):
+        try:
+            # Load system total CPU usage data for this run
+            cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_cpu.json')
+            if not os.path.exists(cpu_file):
+                print(f"Warning: {cpu_file} not found")
+                continue
+            
+            with open(cpu_file, 'r') as f:
+                run_data = json.load(f)
+            
+            # Extract system total CPU usage data
+            if 'system_total_cpu' in run_data:
+                cpu_entries = run_data['system_total_cpu']
+                if cpu_entries:
+                    # Extract block heights and CPU usage values
+                    heights = [entry['height'] for entry in cpu_entries]
+                    cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                    
+                    # Plot with color based on run
+                    label = f'Run {run_idx + 1}'
+                    ax.plot(heights, cpu_values, color=colors[run_idx], alpha=0.7, 
+                            label=label, linewidth=1.5)
+                    plotted_runs += 1
+            
+        except Exception as e:
+            print(f"Warning: Error processing system total CPU for run {run_dir}: {e}")
+            continue
+    
+    # Create title for system total CPU plot
+    ax.set_title('System Total CPU Usage Over Time - Simple Simulation')
+    ax.set_xlabel('Block Height')
+    ax.set_ylabel('System Total CPU Usage (%)')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    
+    plt.tight_layout()
+    plt.savefig(f'{sim_figs_dir}/system_total_cpu.png', dpi=300, bbox_inches='tight')
+    plt.close()
 
 # ------------------------------------------------------------------------------------------------
 # Locked Keys Plotting Functions
@@ -544,6 +644,89 @@ def plot_system_cpu():
         print(f"Warning: Error processing system CPU data: {e}")
         return
 
+def plot_system_cpu_filtered():
+    """
+    Plot system CPU usage over time with spikes above 30% filtered out.
+    """
+    try:
+        # Load system CPU usage data
+        with open(f'{BASE_DATA_PATH}/system_cpu.json', 'r') as f:
+            cpu_data = json.load(f)
+        
+        # Extract system CPU usage data
+        if 'system_cpu' in cpu_data:
+            cpu_entries = cpu_data['system_cpu']
+            if cpu_entries:
+                # Extract block heights and CPU usage values
+                heights = [entry['height'] for entry in cpu_entries]
+                cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                
+                # Filter out spikes above 30%
+                filtered_heights = []
+                filtered_cpu_values = []
+                for height, cpu_value in zip(heights, cpu_values):
+                    if cpu_value <= 30.0:
+                        filtered_heights.append(height)
+                        filtered_cpu_values.append(cpu_value)
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.plot(filtered_heights, filtered_cpu_values, 'r-', linewidth=2)
+                plt.title('System CPU Usage Over Time (Filtered ≤30%, Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('System CPU Usage (%)')
+
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/system_cpu_filtered.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No system CPU data found")
+        else:
+            print("Warning: System CPU data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing filtered system CPU data: {e}")
+        return
+
+def plot_system_total_cpu():
+    """
+    Plot system total CPU usage over time.
+    """
+    try:
+        # Load system total CPU usage data
+        with open(f'{BASE_DATA_PATH}/system_total_cpu.json', 'r') as f:
+            cpu_data = json.load(f)
+        
+        # Extract system total CPU usage data
+        if 'system_total_cpu' in cpu_data:
+            cpu_entries = cpu_data['system_total_cpu']
+            if cpu_entries:
+                # Extract block heights and CPU usage values
+                heights = [entry['height'] for entry in cpu_entries]
+                cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.plot(heights, cpu_values, 'orange', linewidth=2)
+                plt.title('System Total CPU Usage Over Time (Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('System Total CPU Usage (%)')
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/system_total_cpu.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No system total CPU data found")
+        else:
+            print("Warning: System total CPU data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing system total CPU data: {e}")
+        return
+
 def main():
     """Main function to run all plotting functions for the simple simulation."""
     # Check if simple simulation data exists (try multiple possible paths)
@@ -615,6 +798,10 @@ def main():
     
     # Plot system CPU usage
     plot_system_cpu()
+    plot_system_cpu_filtered() # Added this line
+    
+    # Plot system total CPU usage
+    plot_system_total_cpu()
     
     # Create per-run plots in sim_0 directory
     create_per_run_plots()

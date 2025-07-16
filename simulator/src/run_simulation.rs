@@ -295,9 +295,13 @@ async fn process_block_data(
             let total_memory = crate::SimulationResults::get_current_total_memory();
         results.total_memory.push((block_height, total_memory));
     
-    // Record CPU usage for this block
+    // Record process CPU usage for this block
     let cpu_usage = crate::SimulationResults::get_current_cpu_usage();
     results.cpu_usage.push((block_height, cpu_usage));
+    
+    // Record total system CPU usage for this block
+    let total_cpu_usage = crate::SimulationResults::get_current_total_cpu_usage();
+    results.total_cpu_usage.push((block_height, total_cpu_usage));
     
     Ok(())
 }

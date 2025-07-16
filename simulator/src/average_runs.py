@@ -84,6 +84,11 @@ def average_time_series_data(all_runs_data, key_name):
                 'height': height,
                 'percent': avg_value
             })
+        elif key_name == 'system_total_cpu':
+            averaged_data.append({
+                'height': height,
+                'percent': avg_value
+            })
         elif key_name == 'system_total_memory':
             averaged_data.append({
                 'height': height,
@@ -253,6 +258,7 @@ def create_averaged_data(results_dir):
             ('system_memory.json', 'system_memory'),
             ('system_total_memory.json', 'system_total_memory'),
             ('system_cpu.json', 'system_cpu'),
+        ('system_total_cpu.json', 'system_total_cpu'),
         ]
         
         for filename, key_name in time_series_files:
