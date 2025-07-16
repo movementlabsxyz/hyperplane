@@ -74,15 +74,20 @@ def average_time_series_data(all_runs_data, key_name):
         avg_value = np.mean(values)
         
         # Use the same field name as the original data
-        if key_name == 'memory_usage':
+        if key_name == 'system_memory':
             averaged_data.append({
                 'height': height,
                 'bytes': avg_value
             })
-        elif key_name == 'cpu_usage':
+        elif key_name == 'system_cpu':
             averaged_data.append({
                 'height': height,
                 'percent': avg_value
+            })
+        elif key_name == 'system_total_ram':
+            averaged_data.append({
+                'height': height,
+                'bytes': avg_value
             })
         else:
             averaged_data.append({
@@ -245,8 +250,9 @@ def create_averaged_data(results_dir):
             ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
             ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
             ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
-            ('memory_usage.json', 'memory_usage'),
-            ('cpu_usage.json', 'cpu_usage'),
+            ('system_memory.json', 'system_memory'),
+            ('system_total_ram.json', 'system_total_ram'),
+            ('system_cpu.json', 'system_cpu'),
         ]
         
         for filename, key_name in time_series_files:

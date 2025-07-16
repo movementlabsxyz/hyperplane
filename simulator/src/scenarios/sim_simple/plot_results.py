@@ -177,18 +177,18 @@ def plot_transactions_per_block():
         print(f"Warning: Error processing transactions per block data: {e}")
         return
 
-def plot_memory_usage():
+def plot_system_memory():
     """
-    Plot memory usage over time.
+    Plot system memory usage over time.
     """
     try:
-        # Load memory usage data
-        with open(f'{BASE_DATA_PATH}/memory_usage.json', 'r') as f:
+        # Load system memory usage data
+        with open(f'{BASE_DATA_PATH}/system_memory.json', 'r') as f:
             memory_data = json.load(f)
         
-        # Extract memory usage data
-        if 'memory_usage' in memory_data:
-            memory_entries = memory_data['memory_usage']
+        # Extract system memory usage data
+        if 'system_memory' in memory_data:
+            memory_entries = memory_data['system_memory']
             if memory_entries:
                 # Extract block heights and memory usage values
                 heights = [entry['height'] for entry in memory_entries]
@@ -197,35 +197,72 @@ def plot_memory_usage():
                 # Create the plot
                 plt.figure(figsize=(12, 6))
                 plt.plot(heights, memory_values, 'g-', linewidth=2)
-                plt.title('Memory Usage Over Time (Averaged)')
+                plt.title('System Memory Usage Over Time (Averaged)')
                 plt.xlabel('Block Height')
-                plt.ylabel('Memory Usage (MB)')
+                plt.ylabel('System Memory Usage (MB)')
                 plt.grid(True, alpha=0.3)
                 
                 # Save the plot
-                plt.savefig(f'{FIGS_PATH}/memory_usage.png', dpi=300, bbox_inches='tight')
+                plt.savefig(f'{FIGS_PATH}/system_memory.png', dpi=300, bbox_inches='tight')
                 plt.close()
             else:
-                print("Warning: No memory usage data found")
+                print("Warning: No system memory data found")
         else:
-            print("Warning: Memory usage data not found in expected format")
+            print("Warning: System memory data not found in expected format")
             
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-        print(f"Warning: Error processing memory usage data: {e}")
+        print(f"Warning: Error processing system memory data: {e}")
         return
 
-def plot_cpu_usage():
+def plot_system_total_ram():
     """
-    Plot CPU usage over time.
+    Plot system total RAM usage over time.
     """
     try:
-        # Load CPU usage data
-        with open(f'{BASE_DATA_PATH}/cpu_usage.json', 'r') as f:
+        # Load system total RAM usage data
+        with open(f'{BASE_DATA_PATH}/system_total_ram.json', 'r') as f:
+            system_total_ram_data = json.load(f)
+        
+        # Extract system total RAM usage data
+        if 'system_total_ram' in system_total_ram_data:
+            system_total_ram_entries = system_total_ram_data['system_total_ram']
+            if system_total_ram_entries:
+                # Extract block heights and system total RAM usage values
+                heights = [entry['height'] for entry in system_total_ram_entries]
+                system_total_ram_values = [entry['bytes'] / (1024 * 1024 * 1024) for entry in system_total_ram_entries]  # Convert to GB
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.plot(heights, system_total_ram_values, 'm-', linewidth=2)
+                plt.title('System Total RAM Usage Over Time (Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('System Total RAM Usage (GB)')
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/system_total_ram.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No system total RAM data found")
+        else:
+            print("Warning: System total RAM data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing system total RAM data: {e}")
+        return
+
+def plot_system_cpu():
+    """
+    Plot system CPU usage over time.
+    """
+    try:
+        # Load system CPU usage data
+        with open(f'{BASE_DATA_PATH}/system_cpu.json', 'r') as f:
             cpu_data = json.load(f)
         
-        # Extract CPU usage data
-        if 'cpu_usage' in cpu_data:
-            cpu_entries = cpu_data['cpu_usage']
+        # Extract system CPU usage data
+        if 'system_cpu' in cpu_data:
+            cpu_entries = cpu_data['system_cpu']
             if cpu_entries:
                 # Extract block heights and CPU usage values
                 heights = [entry['height'] for entry in cpu_entries]
@@ -234,21 +271,21 @@ def plot_cpu_usage():
                 # Create the plot
                 plt.figure(figsize=(12, 6))
                 plt.plot(heights, cpu_values, 'r-', linewidth=2)
-                plt.title('CPU Usage Over Time (Averaged)')
+                plt.title('System CPU Usage Over Time (Averaged)')
                 plt.xlabel('Block Height')
-                plt.ylabel('CPU Usage (%)')
+                plt.ylabel('System CPU Usage (%)')
                 plt.grid(True, alpha=0.3)
                 
                 # Save the plot
-                plt.savefig(f'{FIGS_PATH}/cpu_usage.png', dpi=300, bbox_inches='tight')
+                plt.savefig(f'{FIGS_PATH}/system_cpu.png', dpi=300, bbox_inches='tight')
                 plt.close()
             else:
-                print("Warning: No CPU usage data found")
+                print("Warning: No system CPU data found")
         else:
-            print("Warning: CPU usage data not found in expected format")
+            print("Warning: System CPU data not found in expected format")
             
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-        print(f"Warning: Error processing CPU usage data: {e}")
+        print(f"Warning: Error processing system CPU data: {e}")
         return
 
 def main():
@@ -314,11 +351,14 @@ def main():
     # Plot transactions per block
     plot_transactions_per_block()
     
-    # Plot memory usage
-    plot_memory_usage()
+    # Plot system memory usage
+    plot_system_memory()
     
-    # Plot CPU usage
-    plot_cpu_usage()
+    # Plot system total RAM usage
+    plot_system_total_ram()
+    
+    # Plot system CPU usage
+    plot_system_cpu()
     
     # Plot comparison charts
     plot_tx_allStatus_cat()

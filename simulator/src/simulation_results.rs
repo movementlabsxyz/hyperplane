@@ -81,6 +81,7 @@ pub struct SimulationResults {
     
         // Memory usage tracking
     pub memory_usage: Vec<(u64, u64)>, // (block_height, memory_usage_bytes)
+    pub total_ram_usage: Vec<(u64, u64)>, // (block_height, total_ram_usage_bytes)
     
     // CPU usage tracking
     pub cpu_usage: Vec<(u64, f64)>, // (block_height, cpu_usage_percent)
@@ -133,6 +134,7 @@ impl Default for SimulationResults {
             chain_1_tx_per_block: Vec::new(),
             chain_2_tx_per_block: Vec::new(),
             memory_usage: Vec::new(),
+            total_ram_usage: Vec::new(),
             cpu_usage: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
@@ -209,6 +211,20 @@ impl SimulationResults {
             // Fallback: return 0 for now
             0
         }
+    }
+
+    /// Gets the current total RAM usage in bytes
+    pub fn get_current_total_ram_usage() -> u64 {
+        let system = get_system();
+        if let Ok(mut sys) = system.lock() {
+            // Refresh memory information
+            sys.refresh_memory();
+            
+            return sys.used_memory() * 1024; // Convert KB to bytes
+        }
+        
+        // Fallback if we can't get system info
+        0
     }
 
     /// Gets the current CPU usage as a percentage
@@ -578,31 +594,44 @@ impl SimulationResults {
         fs::write(&receiver_file, serde_json::to_string_pretty(&receiver_json).expect("Failed to serialize receiver stats")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved receiver selection data to {}", receiver_file));
 
-        // Save memory usage data
-        let memory_usage_data = serde_json::json!({
-            "memory_usage": self.memory_usage.iter().map(|(height, bytes)| {
+        // Save system memory usage data
+        let system_memory_data = serde_json::json!({
+            "system_memory": self.memory_usage.iter().map(|(height, bytes)| {
                 serde_json::json!({
                     "height": height,
                     "bytes": bytes
                 })
             }).collect::<Vec<_>>()
         });
-        let memory_usage_file = format!("{}/data/memory_usage.json", base_dir);
-        fs::write(&memory_usage_file, serde_json::to_string_pretty(&memory_usage_data).expect("Failed to serialize memory usage")).map_err(|e| e.to_string())?;
-        logging::log("SIMULATOR", &format!("Saved memory usage data to {}", memory_usage_file));
+        let system_memory_file = format!("{}/data/system_memory.json", base_dir);
+        fs::write(&system_memory_file, serde_json::to_string_pretty(&system_memory_data).expect("Failed to serialize system memory")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system memory data to {}", system_memory_file));
 
-        // Save CPU usage data
-        let cpu_usage_data = serde_json::json!({
-            "cpu_usage": self.cpu_usage.iter().map(|(height, percent)| {
+        // Save system total RAM usage data
+        let system_total_ram_data = serde_json::json!({
+            "system_total_ram": self.total_ram_usage.iter().map(|(height, bytes)| {
+                serde_json::json!({
+                    "height": height,
+                    "bytes": bytes
+                })
+            }).collect::<Vec<_>>()
+        });
+        let system_total_ram_file = format!("{}/data/system_total_ram.json", base_dir);
+        fs::write(&system_total_ram_file, serde_json::to_string_pretty(&system_total_ram_data).expect("Failed to serialize system total RAM")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system total RAM data to {}", system_total_ram_file));
+
+        // Save system CPU usage data
+        let system_cpu_data = serde_json::json!({
+            "system_cpu": self.cpu_usage.iter().map(|(height, percent)| {
                 serde_json::json!({
                     "height": height,
                     "percent": percent
                 })
             }).collect::<Vec<_>>()
         });
-        let cpu_usage_file = format!("{}/data/cpu_usage.json", base_dir);
-        fs::write(&cpu_usage_file, serde_json::to_string_pretty(&cpu_usage_data).expect("Failed to serialize CPU usage")).map_err(|e| e.to_string())?;
-        logging::log("SIMULATOR", &format!("Saved CPU usage data to {}", cpu_usage_file));
+        let system_cpu_file = format!("{}/data/system_cpu.json", base_dir);
+        fs::write(&system_cpu_file, serde_json::to_string_pretty(&system_cpu_data).expect("Failed to serialize system CPU")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved system CPU data to {}", system_cpu_file));
 
         Ok(())
     }
