@@ -13,20 +13,20 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     logging::log("SIMULATOR", "------------ 1. Simple Simulation -----------");
     crate::scenarios::sim_simple::simulation::run_with_plotting().await?;
     
-    // 2. Block interval constant block delay sweep
-    println!("\n------------ 2. Sweep Block Interval (Constant Block Delay) -----------");
-    logging::log("SIMULATOR", "------------ 2. Sweep Block Interval (Constant Block Delay) -----------");
+    // 2. Block interval all scaled sweep
+    println!("\n------------ 2. Sweep Block Interval (All Scaled) -----------");
+    logging::log("SIMULATOR", "------------ 2. Sweep Block Interval (All Scaled) -----------");
+    crate::scenarios::sim_sweep_block_interval_all_scaled::simulation::run_with_plotting().await?;
+    
+    // 3. Block interval constant block delay sweep
+    println!("\n------------ 3. Sweep Block Interval (Constant Block Delay) -----------");
+    logging::log("SIMULATOR", "------------ 3. Sweep Block Interval (Constant Block Delay) -----------");
     crate::scenarios::sim_sweep_block_interval_constant_block_delay::simulation::run_with_plotting().await?;
     
-    // 3. Block interval constant time delay sweep
-    println!("\n------------ 3. Sweep Block Interval (Constant Time Delay) -----------");
-    logging::log("SIMULATOR", "------------ 3. Sweep Block Interval (Constant Time Delay) -----------");
+    // 4. Block interval constant time delay sweep
+    println!("\n------------ 4. Sweep Block Interval (Constant Time Delay) -----------");
+    logging::log("SIMULATOR", "------------ 4. Sweep Block Interval (Constant Time Delay) -----------");
     crate::scenarios::sim_sweep_block_interval_constant_time_delay::simulation::run_with_plotting().await?;
-    
-    // 4. Block interval all scaled sweep
-    println!("\n------------ 4. Sweep Block Interval (All Scaled) -----------");
-    logging::log("SIMULATOR", "------------ 4. Sweep Block Interval (All Scaled) -----------");
-    crate::scenarios::sim_sweep_block_interval_all_scaled::simulation::run_with_plotting().await?;
     
     // 5. CAT lifetime sweep
     println!("\n------------ 5. Sweep CAT Lifetime -----------");
