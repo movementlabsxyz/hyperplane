@@ -20,15 +20,21 @@ It's crucial to monitor several key metrics to ensure simulation validity and id
 
 **TPS (Transactions Per Second)**: Monitors the actual transaction throughput achieved by the system. Once the previous metric reaches zero, the TPS can now longer be sustained.
 
-![TPS Over Time](./tps.png)
+![TPS](./tps.png)
+
+We can see that the individual runs are pretty consistent, thus making the average a good estimate of the system performance.
+
+![TPS (Individual Runs)](./tps_individual_runs.png)
 
 **System CPU Usage (Filtered)**: Tracks CPU utilization with spikes above 30% filtered out to show baseline system load. High or increasing CPU usage may indicate system stress.
 
-![System CPU Usage (Filtered)](./system_cpu_filtered.png)
+![System CPU Usage (Filtered)](./system_cpu_filtered_individual_runs.png)
 
 **System Memory Usage**: Monitors memory consumption during simulation. Excessive memory growth can indicate resource leaks or system overload.
 
-![System Memory Usage](./system_memory.png)
+From the memory usage plot we can see that the memory increases over time, but the increase is small compared to the total memory usage.
+
+![System Memory Usage (Individual Runs)](./system_memory_individual_runs.png)
 
 #### Simulation Degradation
 
