@@ -513,19 +513,31 @@ def plot_sweep_summary(
 # ------------------------------------------------------------------------------------------------
 
 def generate_all_plots(
-    results_path: str,
-    param_name: str,
     results_dir: str,
+    param_name: str,
     sweep_type: str
 ) -> None:
-    """Generate all plots for a sweep simulation"""
+    """
+    Generate all plots for a sweep simulation.
+    
+    This function:
+    1. Runs the averaging script to create run_average folders from individual runs
+    2. Creates a combined sweep_results_averaged.json from the run_average data
+    3. Generates all plots from the combined data
+    
+    Args:
+        results_dir: The full path to the results directory (e.g., 'simulator/results/sim_sweep_cat_rate')
+        param_name: The parameter name being swept (e.g., 'cat_rate')
+        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+    """
     import subprocess
     
-    # First, run the averaging script to create averaged data
+    # Extract the results directory name from the full path
+    results_dir_name = results_dir.replace('simulator/results/', '')
+    
+    # First, run the averaging script to create averaged data from run_average folders
     print("Running averaging script...")
     try:
-        # Extract the results directory name from the full path
-        results_dir_name = results_dir.replace('simulator/results/', '')
         # The average_runs.py script is in simulator/src/
         average_script_path = os.path.join(os.path.dirname(__file__), '..', 'average_runs.py')
         # Use relative path from simulator directory (where the script runs from)
@@ -551,11 +563,11 @@ def generate_all_plots(
         print(f"Error during averaging: {e}")
         return
     
-    # Create sweep data from averaged runs
-    results_path = create_sweep_data_from_averaged_runs(results_dir_name)
+    # Create combined sweep data from run_average folders
+    sweep_data_path = create_sweep_data_from_averaged_runs(results_dir_name)
     
-    # Load data
-    data = load_sweep_data(results_path)
+    # Load the combined data for plotting
+    data = load_sweep_data(sweep_data_path)
     
     # Check if we have any data to plot
     if not data.get('individual_results'):
@@ -1902,15 +1914,20 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     """
     Generic function to run plots for any sweep simulation.
     
+    This function:
+    1. Runs the averaging script to create run_average folders from individual runs
+    2. Creates a combined sweep_results_averaged.json from the run_average data
+    3. Generates all plots from the combined data
+    
     Args:
         sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_rate')
         param_name: The parameter name being swept (e.g., 'cat_rate')
         sweep_type: The display name for the sweep (e.g., 'CAT Rate')
     """
-    results_path = f'simulator/results/{sweep_name}/data/sweep_results.json'
     results_dir = f'simulator/results/{sweep_name}'
     
     # Generate all plots using the generic utility
-    generate_all_plots(results_path, param_name, results_dir, sweep_type)
+    # Data flow: run_average folders -> sweep_results_averaged.json -> plots
+    generate_all_plots(results_dir, param_name, sweep_type)
 
  

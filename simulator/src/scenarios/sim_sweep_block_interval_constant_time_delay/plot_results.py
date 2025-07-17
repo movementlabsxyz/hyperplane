@@ -16,13 +16,13 @@ from plot_utils import generate_all_plots
 def main():
     """Main function to generate plots for block interval sweep simulation (constant time delay)."""
     # Configuration for this specific sweep
-    results_path = 'simulator/results/sim_sweep_block_interval_constant_time_delay/data/sweep_results.json'
     param_name = 'block_interval'
     results_dir = 'simulator/results/sim_sweep_block_interval_constant_time_delay'
     sweep_type = 'Block Interval (Constant Time Delay)'
     
     # Generate all plots using the generic utility
-    generate_all_plots(results_path, param_name, results_dir, sweep_type)
+    # Data flow: run_average folders -> sweep_results_averaged.json -> plots
+    generate_all_plots(results_dir, param_name, sweep_type)
 
 if __name__ == "__main__":
     main() 

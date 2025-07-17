@@ -16,13 +16,13 @@ from plot_utils import generate_all_plots
 def main():
     """Main function to generate plots for total block number sweep simulation."""
     # Configuration for this specific sweep
-    results_path = 'simulator/results/sim_sweep_total_block_number/data/sweep_results.json'
     param_name = 'total_block_number'
     results_dir = 'simulator/results/sim_sweep_total_block_number'
     sweep_type = 'Total Block Number'
     
     # Generate all plots using the generic utility
-    generate_all_plots(results_path, param_name, results_dir, sweep_type)
+    # Data flow: run_average folders -> sweep_results_averaged.json -> plots
+    generate_all_plots(results_dir, param_name, sweep_type)
 
 if __name__ == "__main__":
     main() 
