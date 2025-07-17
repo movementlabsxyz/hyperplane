@@ -60,8 +60,8 @@ impl SimulationType {
             "9" => Some(SimulationType::SweepTotalBlockNumber),
             "10" => Some(SimulationType::SweepZipf),
             "11" => Some(SimulationType::RunAllTests),
-            "12" => Some(SimulationType::RunAllPlots),
-            "13" => Some(SimulationType::RunMissingTests),
+            "12" => Some(SimulationType::RunMissingTests),
+            "13" => Some(SimulationType::RunAllPlots),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -83,7 +83,7 @@ impl SimulatorInterface {
 
     /// Returns the menu text for available simulation types
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT rate\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Rerun All Plots Only\n 13. Run Missing Tests Only\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT rate\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Run Missing Tests Only\n 13. Rerun All Plots Only\n  0. Exit"
     }
 
     /// Displays the simulator menu

@@ -1405,6 +1405,186 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             plt.savefig(f'{sim_figs_dir}/loop_steps_without_tx_issuance.png', dpi=300, bbox_inches='tight')
             plt.close()
             
+            # Create transaction plots for this simulation
+            # Define transaction types to plot with their file names and data keys
+            transaction_types = [
+                ('pending_transactions_chain_1', 'pending__chain1'),
+                ('success_transactions_chain_1', 'success__chain1'), 
+                ('failure_transactions_chain_1', 'failure__chain1'),
+                ('cat_pending_transactions_chain_1', 'pending_cat'),
+                ('cat_success_transactions_chain_1', 'success_cat'),
+                ('cat_failure_transactions_chain_1', 'failure_cat'),
+                ('regular_pending_transactions_chain_1', 'pending_regular'),
+                ('regular_success_transactions_chain_1', 'success_regular'),
+                ('regular_failure_transactions_chain_1', 'failure_regular'),
+                ('pending_transactions_chain_2', 'pending__chain2'),
+                ('success_transactions_chain_2', 'success__chain2'),
+                ('failure_transactions_chain_2', 'failure__chain2')
+            ]
+            
+            # Create plots for each transaction type
+            for file_name, tx_type in transaction_types:
+                fig, ax = plt.subplots(figsize=(12, 8))
+                
+                # Plot each run's transaction data
+                plotted_runs = 0
+                missing_files = []
+                for run_idx, run_dir in enumerate(run_dirs):
+                    try:
+                        # Load transaction data for this run
+                        tx_file = os.path.join(sim_data_dir, run_dir, 'data', f'{file_name}.json')
+                        if not os.path.exists(tx_file):
+                            missing_files.append(tx_file)
+                            continue
+                        
+                        with open(tx_file, 'r') as f:
+                            run_data = json.load(f)
+                        
+                        # Extract transaction data - the data is stored as a list of objects with height and count fields
+                        # Handle different naming patterns
+                        if '__' in tx_type:
+                            # For chain_1 and chain_2 plots
+                            chain_num = tx_type.split('__')[1]
+                            base_type = tx_type.split('__')[0]
+                            data_key = f'chain_1_{base_type}' if chain_num == 'chain1' else f'chain_2_{base_type}'
+                        elif tx_type.startswith('pending_') or tx_type.startswith('success_') or tx_type.startswith('failure_'):
+                            # For regular transaction plots
+                            base_type = tx_type.split('_')[0]
+                            data_key = f'chain_1_regular_{base_type}'
+                        else:
+                            # For CAT transaction plots
+                            base_type = tx_type.split('_')[1]
+                            data_key = f'chain_1_cat_{base_type}'
+                        
+                        if data_key in run_data:
+                            tx_entries = run_data[data_key]
+                            if tx_entries:
+                                # Extract block heights and transaction counts
+                                heights = [entry['height'] for entry in tx_entries]
+                                tx_counts = [entry['count'] for entry in tx_entries]
+                                
+                                # Plot with color based on run
+                                label = f'Run {run_idx + 1}'
+                                ax.plot(heights, tx_counts, color=colors[run_idx], alpha=0.7, 
+                                        label=label, linewidth=1.5)
+                                plotted_runs += 1
+                        
+                    except Exception as e:
+                        print(f"Warning: Error processing {tx_type} for run {run_dir} in simulation {sim_index}: {e}")
+                        continue
+                
+                # Print summary warning for missing files
+                if missing_files:
+                    print(f"Warning: {len(missing_files)} {file_name}.json files not found for simulation {sim_index}")
+                
+                # Create title
+                param_label = create_parameter_label(param_name, param_value)
+                tx_type_display = tx_type.replace('_', ' ').title()
+                ax.set_title(f'{tx_type_display} Transactions Over Time - {param_label}')
+                ax.set_xlabel('Block Height')
+                ax.set_ylabel(f'Number of {tx_type_display} Transactions')
+                ax.grid(True, alpha=0.3)
+                if plotted_runs > 0:
+                    ax.legend()
+                
+                plt.tight_layout()
+                
+                # Save the transaction plot
+                plt.savefig(f'{sim_figs_dir}/tx_{tx_type}.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            
+            # Create combined transaction plots (sumTypes) that combine CAT and regular transactions
+            combined_types = [
+                ('pending', 'pending_sumTypes'),
+                ('success', 'success_sumTypes'),
+                ('failure', 'failure_sumTypes')
+            ]
+            
+            for base_type, combined_name in combined_types:
+                fig, ax = plt.subplots(figsize=(12, 8))
+                
+                # Plot each run's combined transaction data
+                plotted_runs = 0
+                missing_files = []
+                for run_idx, run_dir in enumerate(run_dirs):
+                    try:
+                        # Load CAT and regular transaction data for this run
+                        cat_file = os.path.join(sim_data_dir, run_dir, 'data', f'cat_{base_type}_transactions_chain_1.json')
+                        regular_file = os.path.join(sim_data_dir, run_dir, 'data', f'regular_{base_type}_transactions_chain_1.json')
+                        
+                        if not os.path.exists(cat_file) or not os.path.exists(regular_file):
+                            missing_files.extend([cat_file, regular_file])
+                            continue
+                        
+                        # Load CAT data
+                        with open(cat_file, 'r') as f:
+                            cat_data = json.load(f)
+                        
+                        # Load regular data
+                        with open(regular_file, 'r') as f:
+                            regular_data = json.load(f)
+                        
+                        # Combine the data
+                        cat_key = f'chain_1_{base_type}'
+                        regular_key = f'chain_1_regular_{base_type}'
+                        
+                        if cat_key in cat_data and regular_key in regular_data:
+                            cat_entries = cat_data[cat_key]
+                            regular_entries = regular_data[regular_key]
+                            
+                            if cat_entries and regular_entries:
+                                # Create a combined dataset by summing CAT and regular at each height
+                                combined_data = {}
+                                
+                                # Add CAT data
+                                for entry in cat_entries:
+                                    height = entry['height']
+                                    count = entry['count']
+                                    combined_data[height] = combined_data.get(height, 0) + count
+                                
+                                # Add regular data
+                                for entry in regular_entries:
+                                    height = entry['height']
+                                    count = entry['count']
+                                    combined_data[height] = combined_data.get(height, 0) + count
+                                
+                                # Convert back to sorted list of tuples
+                                combined_entries = sorted(combined_data.items())
+                                
+                                # Extract block heights and transaction counts
+                                heights = [entry[0] for entry in combined_entries]
+                                tx_counts = [entry[1] for entry in combined_entries]
+                                
+                                # Plot with color based on run
+                                label = f'Run {run_idx + 1}'
+                                ax.plot(heights, tx_counts, color=colors[run_idx], alpha=0.7, 
+                                        label=label, linewidth=1.5)
+                                plotted_runs += 1
+                        
+                    except Exception as e:
+                        print(f"Warning: Error processing combined {base_type} for run {run_dir} in simulation {sim_index}: {e}")
+                        continue
+                
+                # Print summary warning for missing files
+                if missing_files:
+                    print(f"Warning: {len(missing_files)} files not found for combined {base_type} in simulation {sim_index}")
+                
+                # Create title
+                param_label = create_parameter_label(param_name, param_value)
+                base_type_display = base_type.replace('_', ' ').title()
+                ax.set_title(f'{base_type_display} Transactions (CAT + Regular) Over Time - {param_label}')
+                ax.set_xlabel('Block Height')
+                ax.set_ylabel(f'Number of {base_type_display} Transactions')
+                ax.grid(True, alpha=0.3)
+                if plotted_runs > 0:
+                    ax.legend()
+                
+                plt.tight_layout()
+                
+                # Save the combined transaction plot
+                plt.savefig(f'{sim_figs_dir}/tx_{combined_name}.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            
     except Exception as e:
         print(f"Warning: Error processing individual TPS plots for sweep: {e}")
         return
