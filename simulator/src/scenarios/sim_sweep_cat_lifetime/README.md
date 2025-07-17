@@ -11,7 +11,11 @@ Explores how different Cross-Chain Atomic Transaction (CAT) lifetimes affect sys
 
 ## Results
 
-We can see that the number of failed CATs increases substantially if the CAT lifetime is too short. This is particularly pronounced in the below figure when the CAT lifetime is in the range of the delay of one of the chains.
+This scenario illustrates the two types of failures that can occur with CATs:
+
+The number of failed CATs increases substantially if the CAT lifetime is too short. When the CAT lifetime is in the range of the delay of one of the chains (here 5 blocks), the number of failed CATs increases significantly as CATs are rejected due to timeouts.
+
+On the other hand if the CAT lifetime is above the delay of the chains (here 5 blocks), the number of failed CATs is the same for the different parameter sets. This is because the failed CATs are all rejected due to locked keys.
 
 ![Failed CATs](./tx_failure_cat.png)
 
