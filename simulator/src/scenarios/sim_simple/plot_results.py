@@ -10,9 +10,9 @@ import numpy as np
 # Add the current directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Import the reusable run plotting module
+# Import the reusable individual curves plotting module
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-from run_plots import create_per_run_plots as create_per_run_plots_reusable
+from individual_curves_plots import create_per_run_plots as create_per_run_plots_reusable
 
 from plot_account_selection import plot_account_selection
 from plot_miscellaneous import (

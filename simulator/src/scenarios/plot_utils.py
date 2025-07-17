@@ -291,145 +291,7 @@ def plot_transactions_overlay(
 # Summary Chart Plotting
 # ------------------------------------------------------------------------------------------------
 
-def plot_transaction_status_chart(ax: plt.Axes, data: Dict[str, Any], param_name: str) -> None:
-    """Create a line chart showing failed/success/pending data vs parameter"""
-    try:
-        individual_results = data['individual_results']
-        
-        if not individual_results:
-            return
-        
-        # Extract data for the chart
-        param_values = []
-        success_counts = []
-        failure_counts = []
-        pending_counts = []
-        
-        for result in individual_results:
-            param_values.append(extract_parameter_value(result, param_name))
-            
-            # Calculate total success, failure, and pending from chain_1 data (trimmed)
-            success_data = trim_time_series_data(result['chain_1_success'], 0.1)
-            failure_data = trim_time_series_data(result['chain_1_failure'], 0.1)
-            pending_data = trim_time_series_data(result['chain_1_pending'], 0.1)
-            
-            success_total = sum(count for _, count in success_data)
-            failure_total = sum(count for _, count in failure_data)
-            pending_total = sum(count for _, count in pending_data)
-            
-            success_counts.append(success_total)
-            failure_counts.append(failure_total)
-            pending_counts.append(pending_total)
-        
-        # Create the line chart
-        ax.plot(param_values, success_counts, 'go-', linewidth=2, markersize=6, label='Success')
-        ax.plot(param_values, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
-        ax.plot(param_values, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
-        
-        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
-        ax.set_title(f'Transaction Status vs {xlabel}')
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel('Number of Transactions')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        ax.set_ylim(bottom=0)
-        
-    except (KeyError, IndexError) as e:
-        print(f"Warning: Error creating transaction status chart: {e}")
-        ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
-        ax.axis('off')
-
-def plot_failure_breakdown_chart(ax: plt.Axes, data: Dict[str, Any], param_name: str) -> None:
-    """Create a line chart showing CAT vs regular failure breakdown vs parameter"""
-    try:
-        individual_results = data['individual_results']
-        
-        if not individual_results:
-            return
-        
-        # Extract data for the chart
-        param_values = []
-        cat_failure_counts = []
-        regular_failure_counts = []
-        
-        for result in individual_results:
-            param_values.append(extract_parameter_value(result, param_name))
-            
-            # Calculate total CAT and regular failures from chain_1 data (trimmed)
-            cat_failure_data = trim_time_series_data(result.get('chain_1_cat_failure', []), 0.1)
-            regular_failure_data = trim_time_series_data(result.get('chain_1_regular_failure', []), 0.1)
-            
-            cat_failure_total = sum(count for _, count in cat_failure_data)
-            regular_failure_total = sum(count for _, count in regular_failure_data)
-            
-            cat_failure_counts.append(cat_failure_total)
-            regular_failure_counts.append(regular_failure_total)
-        
-        # Create the line chart
-        ax.plot(param_values, cat_failure_counts, 'ro-', linewidth=2, markersize=6, label='CAT Failures')
-        ax.plot(param_values, regular_failure_counts, 'mo-', linewidth=2, markersize=6, label='Regular Failures')
-        
-        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
-        ax.set_title(f'Failure Breakdown vs {xlabel}')
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel('Number of Failed Transactions')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        ax.set_ylim(bottom=0)
-        
-    except (KeyError, IndexError) as e:
-        print(f"Warning: Error creating failure breakdown chart: {e}")
-        ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
-        ax.axis('off')
-
-def plot_transaction_status_chart_separate(ax: plt.Axes, data: Dict[str, Any], param_name: str, transaction_type: str) -> None:
-    """Create a line chart showing pending/success/failure data vs parameter for CAT or regular transactions"""
-    try:
-        individual_results = data['individual_results']
-        
-        if not individual_results:
-            return
-        
-        # Extract data for the chart
-        param_values = []
-        success_counts = []
-        failure_counts = []
-        pending_counts = []
-        
-        for result in individual_results:
-            param_values.append(extract_parameter_value(result, param_name))
-            
-            # Calculate totals from chain_1 data for the specified transaction type (trimmed)
-            success_data = trim_time_series_data(result.get(f'chain_1_{transaction_type}_success', []), 0.1)
-            failure_data = trim_time_series_data(result.get(f'chain_1_{transaction_type}_failure', []), 0.1)
-            pending_data = trim_time_series_data(result.get(f'chain_1_{transaction_type}_pending', []), 0.1)
-            
-            success_total = sum(count for _, count in success_data)
-            failure_total = sum(count for _, count in failure_data)
-            pending_total = sum(count for _, count in pending_data)
-            
-            success_counts.append(success_total)
-            failure_counts.append(failure_total)
-            pending_counts.append(pending_total)
-        
-        # Create the line chart
-        ax.plot(param_values, success_counts, 'go-', linewidth=2, markersize=6, label='Success')
-        ax.plot(param_values, failure_counts, 'ro-', linewidth=2, markersize=6, label='Failed')
-        ax.plot(param_values, pending_counts, 'yo-', linewidth=2, markersize=6, label='Pending')
-        
-        xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
-        transaction_display = transaction_type.replace('_', ' ').title()
-        ax.set_title(f'{transaction_display} Transaction Status vs {xlabel}')
-        ax.set_xlabel(xlabel)
-        ax.set_ylabel('Number of Transactions')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        ax.set_ylim(bottom=0)
-        
-    except (KeyError, IndexError) as e:
-        print(f"Warning: Error creating {transaction_type} transaction status chart: {e}")
-        ax.text(0.5, 0.5, 'Error creating chart', ha='center', va='center', transform=ax.transAxes)
-        ax.axis('off')
+# Note: Transaction status chart functions removed - now using individual_curves_plots.py
 
 # ------------------------------------------------------------------------------------------------
 # Sweep Summary Plotting
@@ -463,8 +325,8 @@ def plot_sweep_summary(
         cat_transactions = sweep_summary['cat_transactions']
         regular_transactions = sweep_summary['regular_transactions']
         
-        # Create subplots - 3x2 grid for more detailed analysis
-        fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(15, 15))
+        # Create subplots - 1x2 grid for summary analysis
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
         
         xlabel = PARAM_DISPLAY_NAMES.get(param_name, param_name.replace('_', ' ').title())
         
@@ -485,17 +347,8 @@ def plot_sweep_summary(
         ax2.grid(True, alpha=0.3)
         ax2.set_ylim(bottom=0)
         
-        # Plot 3: Combined transaction status chart
-        plot_transaction_status_chart(ax3, data, param_name)
-        
-        # Plot 4: Failure breakdown chart
-        plot_failure_breakdown_chart(ax4, data, param_name)
-        
-        # Plot 5: CAT transaction status chart
-        plot_transaction_status_chart_separate(ax5, data, param_name, 'cat')
-        
-        # Plot 6: Regular transaction status chart
-        plot_transaction_status_chart_separate(ax6, data, param_name, 'regular')
+        # Note: Individual transaction plots are now generated by generate_individual_curves_plots
+        # instead of these summary charts to maintain consistency with simple simulation
         
         plt.tight_layout()
         
@@ -577,7 +430,7 @@ def generate_all_plots(
     # Create results directory only if we have data
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
-    # Plot all transaction overlays (combined totals)
+    # Plot all transaction overlays (combined totals) - these show how transactions change across parameter values
     plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'failure', results_dir, sweep_type)
@@ -602,8 +455,8 @@ def generate_all_plots(
     # Plot transactions per block data
     plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
     
-    # Plot individual TPS and system resource plots for each simulation
-    plot_individual_sweep_tps(data, param_name, results_dir, sweep_type)
+    # Note: Individual curves plots are now generated by generate_individual_curves_plots
+    # instead of plot_individual_sweep_tps to maintain consistency with simple simulation
     
     # Plot system memory usage over time
     plot_system_memory(data, param_name, results_dir, sweep_type)
@@ -622,6 +475,9 @@ def generate_all_plots(
     
     # Plot loop steps without transaction issuance
     plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
+    
+    # Generate individual curves plots for each simulation in the sweep
+    generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
     
     print(f"{sweep_type} simulation plots generated successfully!") 
 
@@ -942,652 +798,8 @@ def calculate_running_average(data: List[float], window_size: int = 10) -> List[
     
     return averaged_data
 
-def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
-    """
-    Plot individual TPS and system resource plots for each simulation in the sweep, showing separate curves for each run.
-    
-    # Arguments
-    * `data` - The sweep data containing individual results
-    * `param_name` - Name of the parameter being swept
-    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
-    * `sweep_type` - Type of sweep simulation
-    """
-    try:
-        individual_results = data['individual_results']
-        
-        if not individual_results:
-            print("Warning: No individual results found, skipping individual TPS plots")
-            return
-        
-        # Extract just the directory name from the full path
-        results_dir_name = results_dir.replace('simulator/results/', '')
-        
-        # Get block interval from simulation stats
-        try:
-            stats_file = f'simulator/results/{results_dir_name}/data/sim_0/run_average/simulation_stats.json'
-            with open(stats_file, 'r') as f:
-                stats_data = json.load(f)
-            block_interval = stats_data['parameters']['block_interval']
-        except (FileNotFoundError, KeyError) as e:
-            print(f"Warning: Could not determine block_interval for individual TPS plots: {e}")
-            return
-        
-        # Create individual plots for each simulation
-        for sim_index, result in enumerate(individual_results):
-            # Get the parameter value
-            param_value = None
-            for key, value in result.items():
-                if key not in ['total_transactions', 'cat_transactions', 'regular_transactions', 
-                              'chain_1_pending', 'chain_1_success', 'chain_1_failure',
-                              'chain_1_cat_pending', 'chain_1_cat_success', 'chain_1_cat_failure',
-                              'chain_1_regular_pending', 'chain_1_regular_success', 'chain_1_regular_failure',
-                              'chain_1_locked_keys', 'chain_2_locked_keys',
-                              'chain_1_tx_per_block', 'chain_2_tx_per_block']:
-                    param_value = value
-                    break
-            
-            if param_value is None:
-                continue
-            
-            # Create subdirectory for this simulation
-            sim_figs_dir = f'{results_dir}/figs/sim_{sim_index}'
-            os.makedirs(sim_figs_dir, exist_ok=True)
-            
-            # Load individual run data for this simulation
-            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
-            
-            # Check if the simulation directory exists
-            if not os.path.exists(sim_data_dir):
-                continue
-            
-            # Get all run directories (exclude run_average)
-            run_dirs = [d for d in os.listdir(sim_data_dir) 
-                       if d.startswith('run_') and d != 'run_average' and os.path.isdir(os.path.join(sim_data_dir, d))]
-            # Sort numerically by run number
-            run_dirs.sort(key=lambda x: int(x.split('_')[1]) if '_' in x else 0)
-            
-            if not run_dirs:
-                continue
-            
-            # Create figure with subplots
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
-            
-            # Create color gradient for runs
-            colors = create_color_gradient(len(run_dirs))
-            
-            # Plot each run's data
-            plotted_runs = 0
-            for run_idx, run_dir in enumerate(run_dirs):
-                try:
-                    # Load transactions per block data for this run
-                    tx_per_block_file = os.path.join(sim_data_dir, run_dir, 'data', 'tx_per_block_chain_1.json')
-                    if not os.path.exists(tx_per_block_file):
-                        print(f"Warning: {tx_per_block_file} not found")
-                        continue
-                    
-                    with open(tx_per_block_file, 'r') as f:
-                        run_data = json.load(f)
-                    
-                    # Extract data
-                    blocks = [entry['height'] for entry in run_data['chain_1_tx_per_block']]
-                    tx_per_block = [entry['count'] for entry in run_data['chain_1_tx_per_block']]
-                    
-                    # Calculate TPS
-                    tps = [tx_count / block_interval for tx_count in tx_per_block]
-                    
-                    # Apply 20-block running average to both transactions per block and TPS
-                    tx_per_block_smoothed = calculate_running_average(tx_per_block, 20)
-                    tps_smoothed = calculate_running_average(tps, 20)
-                    
-                    # Plot with color based on run
-                    label = f'Run {run_idx + 1}'
-                    ax1.plot(blocks, tx_per_block_smoothed, color=colors[run_idx], alpha=0.7, 
-                            label=label, linewidth=1.5)
-                    ax2.plot(blocks, tps_smoothed, color=colors[run_idx], alpha=0.7, 
-                            label=label, linewidth=1.5)
-                    plotted_runs += 1
-                    
-                except Exception as e:
-                    print(f"Warning: Error processing run {run_dir} for simulation {sim_index}: {e}")
-                    continue
-            
-            # Create titles
-            param_label = create_parameter_label(param_name, param_value)
-            title = f'Transactions per Block (Chain 1) - {param_label} (20-block running average)'
-            ax1.set_title(title)
-            ax1.set_ylabel('Number of Transactions')
-            ax1.grid(True, alpha=0.3)
-            ax1.legend()
-            
-            ax2.set_title(f'Transactions per Second (Chain 1) - {param_label} (Block Interval: {block_interval}s, 20-block running average)')
-            ax2.set_xlabel('Block Height')
-            ax2.set_ylabel('TPS')
-            ax2.grid(True, alpha=0.3)
-            ax2.legend()
-            
-            plt.tight_layout()
-            
-            # Save the plot
-            plt.savefig(f'{sim_figs_dir}/tps.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Create system memory usage plot for this simulation
-            fig, ax = plt.subplots(figsize=(12, 8))
-            
-            # Plot each run's system memory usage data
-            plotted_runs = 0
-            missing_files = []
-            for run_idx, run_dir in enumerate(run_dirs):
-                try:
-                    # Load system memory usage data for this run
-                    memory_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_memory.json')
-                    if not os.path.exists(memory_file):
-                        missing_files.append(memory_file)
-                        continue
-                    
-                    with open(memory_file, 'r') as f:
-                        run_data = json.load(f)
-                    
-                    # Extract system memory usage data
-                    if 'system_memory' in run_data:
-                        memory_entries = run_data['system_memory']
-                        if memory_entries:
-                            # Extract block heights and memory usage values
-                            heights = [entry['height'] for entry in memory_entries]
-                            memory_values = [entry['bytes'] / (1024 * 1024) for entry in memory_entries]  # Convert to MB
-                            
-                            # Plot with color based on run
-                            label = f'Run {run_idx + 1}'
-                            ax.plot(heights, memory_values, color=colors[run_idx], alpha=0.7, 
-                                    label=label, linewidth=1.5)
-                            plotted_runs += 1
-                    
-                except Exception as e:
-                    print(f"Warning: Error processing system memory for run {run_dir} in simulation {sim_index}: {e}")
-                    continue
-            
-            # Print summary warning for missing files
-            if missing_files:
-                print(f"Warning: {len(missing_files)} system_memory.json files not found for simulation {sim_index}")
-            
-            # Create title
-            param_label = create_parameter_label(param_name, param_value)
-            ax.set_title(f'System Memory Usage Over Time - {param_label}')
-            ax.set_xlabel('Block Height')
-            ax.set_ylabel('System Memory Usage (MB)')
-            ax.grid(True, alpha=0.3)
-            if plotted_runs > 0:
-                ax.legend()
-            
-            plt.tight_layout()
-            
-            # Save the system memory usage plot
-            plt.savefig(f'{sim_figs_dir}/system_memory.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Create system total RAM usage plot for this simulation
-            fig, ax = plt.subplots(figsize=(12, 8))
-            
-            # Plot each run's system total RAM usage data
-            plotted_runs = 0
-            missing_files = []
-            for run_idx, run_dir in enumerate(run_dirs):
-                try:
-                    # Load system total RAM usage data for this run
-                    ram_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_memory.json')
-                    if not os.path.exists(ram_file):
-                        missing_files.append(ram_file)
-                        continue
-                    
-                    with open(ram_file, 'r') as f:
-                        run_data = json.load(f)
-                    
-                    # Extract system total RAM usage data
-                    if 'system_total_memory' in run_data:
-                        ram_entries = run_data['system_total_memory']
-                        if ram_entries:
-                            # Extract block heights and RAM usage values
-                            heights = [entry['height'] for entry in ram_entries]
-                            ram_values = [entry['bytes'] / (1024 * 1024 * 1024) for entry in ram_entries]  # Convert to GB
-                            
-                            # Plot with color based on run
-                            label = f'Run {run_idx + 1}'
-                            ax.plot(heights, ram_values, color=colors[run_idx], alpha=0.7, 
-                                    label=label, linewidth=1.5)
-                            plotted_runs += 1
-                    
-                except Exception as e:
-                    print(f"Warning: Error processing system total RAM for run {run_dir} in simulation {sim_index}: {e}")
-                    continue
-            
-            # Print summary warning for missing files
-            if missing_files:
-                print(f"Warning: {len(missing_files)} system_total_memory.json files not found for simulation {sim_index}")
-            
-            # Create title
-            param_label = create_parameter_label(param_name, param_value)
-            ax.set_title(f'System Total RAM Usage Over Time - {param_label}')
-            ax.set_xlabel('Block Height')
-            ax.set_ylabel('System Total RAM Usage (GB)')
-            ax.grid(True, alpha=0.3)
-            if plotted_runs > 0:
-                ax.legend()
-            
-            plt.tight_layout()
-            
-            # Save the system total RAM usage plot
-            plt.savefig(f'{sim_figs_dir}/system_total_memory.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Create system CPU usage plot for this simulation
-            fig, ax = plt.subplots(figsize=(12, 8))
-            
-            # Plot each run's system CPU usage data
-            plotted_runs = 0
-            missing_files = []
-            for run_idx, run_dir in enumerate(run_dirs):
-                try:
-                    # Load system CPU usage data for this run
-                    cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_cpu.json')
-                    if not os.path.exists(cpu_file):
-                        missing_files.append(cpu_file)
-                        continue
-                    
-                    with open(cpu_file, 'r') as f:
-                        run_data = json.load(f)
-                    
-                    # Extract system CPU usage data
-                    if 'system_cpu' in run_data:
-                        cpu_entries = run_data['system_cpu']
-                        if cpu_entries:
-                            # Extract block heights and CPU usage values
-                            heights = [entry['height'] for entry in cpu_entries]
-                            cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
-                            
-                            # Plot with color based on run
-                            label = f'Run {run_idx + 1}'
-                            ax.plot(heights, cpu_values, color=colors[run_idx], alpha=0.7, 
-                                    label=label, linewidth=1.5)
-                            plotted_runs += 1
-                    
-                except Exception as e:
-                    print(f"Warning: Error processing system CPU for run {run_dir} in simulation {sim_index}: {e}")
-                    continue
-            
-            # Print summary warning for missing files
-            if missing_files:
-                print(f"Warning: {len(missing_files)} system_cpu.json files not found for simulation {sim_index}")
-            
-            # Create title
-            param_label = create_parameter_label(param_name, param_value)
-            ax.set_title(f'System CPU Usage Over Time - {param_label}')
-            ax.set_xlabel('Block Height')
-            ax.set_ylabel('System CPU Usage (%)')
-            ax.grid(True, alpha=0.3)
-            if plotted_runs > 0:
-                ax.legend()
-            
-            plt.tight_layout()
-            
-            # Save the system CPU usage plot
-            plt.savefig(f'{sim_figs_dir}/system_cpu.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Create filtered system CPU usage plot for this simulation (removes spikes above 30%)
-            fig, ax = plt.subplots(figsize=(12, 8))
-            
-            # Plot each run's filtered system CPU usage data
-            plotted_runs = 0
-            missing_files = []
-            for run_idx, run_dir in enumerate(run_dirs):
-                try:
-                    # Load system CPU usage data for this run
-                    cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_cpu.json')
-                    if not os.path.exists(cpu_file):
-                        missing_files.append(cpu_file)
-                        continue
-                    
-                    with open(cpu_file, 'r') as f:
-                        run_data = json.load(f)
-                    
-                    # Extract system CPU usage data
-                    if 'system_cpu' in run_data:
-                        cpu_entries = run_data['system_cpu']
-                        if cpu_entries:
-                            # Extract block heights and CPU usage values
-                            heights = [entry['height'] for entry in cpu_entries]
-                            cpu_values = [entry['percent'] for entry in cpu_entries]  # Already in percent
-                            
-                            # Filter out spikes above 30%
-                            filtered_heights = []
-                            filtered_cpu_values = []
-                            for height, cpu_value in zip(heights, cpu_values):
-                                if cpu_value <= 30.0:
-                                    filtered_heights.append(height)
-                                    filtered_cpu_values.append(cpu_value)
-                            
-                            # Plot filtered data with color based on run
-                            if filtered_heights and filtered_cpu_values:
-                                label = f'Run {run_idx + 1}'
-                                ax.plot(filtered_heights, filtered_cpu_values, color=colors[run_idx], alpha=0.7, 
-                                        label=label, linewidth=1.5)
-                                plotted_runs += 1
-                    
-                except Exception as e:
-                    print(f"Warning: Error processing filtered system CPU for run {run_dir} in simulation {sim_index}: {e}")
-                    continue
-            
-            # Print summary warning for missing files
-            if missing_files:
-                print(f"Warning: {len(missing_files)} system_cpu.json files not found for simulation {sim_index}")
-            
-            # Create title
-            param_label = create_parameter_label(param_name, param_value)
-            ax.set_title(f'System CPU Usage Over Time (Filtered ≤30%) - {param_label}')
-            ax.set_xlabel('Block Height')
-            ax.set_ylabel('System CPU Usage (%)')
-
-            ax.grid(True, alpha=0.3)
-            if plotted_runs > 0:
-                ax.legend()
-            
-            plt.tight_layout()
-            
-            # Save the filtered system CPU usage plot
-            plt.savefig(f'{sim_figs_dir}/system_cpu_filtered.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Create system total CPU usage plot for this simulation
-            fig, ax = plt.subplots(figsize=(12, 8))
-            
-            # Plot each run's system total CPU usage data
-            plotted_runs = 0
-            missing_files = []
-            for run_idx, run_dir in enumerate(run_dirs):
-                try:
-                    # Load system total CPU usage data for this run
-                    total_cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_cpu.json')
-                    if not os.path.exists(total_cpu_file):
-                        missing_files.append(total_cpu_file)
-                        continue
-                    
-                    with open(total_cpu_file, 'r') as f:
-                        run_data = json.load(f)
-                    
-                    # Extract system total CPU usage data
-                    if 'system_total_cpu' in run_data:
-                        total_cpu_entries = run_data['system_total_cpu']
-                        if total_cpu_entries:
-                            # Extract block heights and total CPU usage values
-                            heights = [entry['height'] for entry in total_cpu_entries]
-                            total_cpu_values = [entry['percent'] for entry in total_cpu_entries]  # Already in percent
-                            
-                            # Plot with color based on run
-                            label = f'Run {run_idx + 1}'
-                            ax.plot(heights, total_cpu_values, color=colors[run_idx], alpha=0.7, 
-                                    label=label, linewidth=1.5)
-                            plotted_runs += 1
-                    
-                except Exception as e:
-                    print(f"Warning: Error processing system total CPU for run {run_dir} in simulation {sim_index}: {e}")
-                    continue
-            
-            # Print summary warning for missing files
-            if missing_files:
-                print(f"Warning: {len(missing_files)} system_total_cpu.json files not found for simulation {sim_index}")
-            
-            # Create title
-            param_label = create_parameter_label(param_name, param_value)
-            ax.set_title(f'System Total CPU Usage Over Time - {param_label}')
-            ax.set_xlabel('Block Height')
-            ax.set_ylabel('System Total CPU Usage (%)')
-            ax.grid(True, alpha=0.3)
-            if plotted_runs > 0:
-                ax.legend()
-            
-            plt.tight_layout()
-            
-            # Save the system total CPU usage plot
-            plt.savefig(f'{sim_figs_dir}/system_total_cpu.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Create loop steps without transaction issuance plot for this simulation
-            fig, ax = plt.subplots(figsize=(12, 8))
-            
-            # Plot each run's loop steps data
-            plotted_runs = 0
-            missing_files = []
-            for run_idx, run_dir in enumerate(run_dirs):
-                try:
-                    # Load loop steps data for this run
-                    loop_steps_file = os.path.join(sim_data_dir, run_dir, 'data', 'loop_steps_without_tx_issuance.json')
-                    if not os.path.exists(loop_steps_file):
-                        missing_files.append(loop_steps_file)
-                        continue
-                    
-                    with open(loop_steps_file, 'r') as f:
-                        run_data = json.load(f)
-                    
-                    # Extract loop steps data
-                    if 'loop_steps_without_tx_issuance' in run_data:
-                        loop_steps_entries = run_data['loop_steps_without_tx_issuance']
-                        if loop_steps_entries:
-                            # Extract block heights and loop steps values
-                            heights = [entry['height'] for entry in loop_steps_entries]
-                            loop_steps_values = [entry['count'] for entry in loop_steps_entries]
-                            
-                            # Plot with color based on run
-                            label = f'Run {run_idx + 1}'
-                            ax.plot(heights, loop_steps_values, color=colors[run_idx], alpha=0.7, 
-                                    label=label, linewidth=1.5)
-                            plotted_runs += 1
-                    
-                except Exception as e:
-                    print(f"Warning: Error processing loop steps for run {run_dir} in simulation {sim_index}: {e}")
-                    continue
-            
-            # Print summary warning for missing files
-            if missing_files:
-                print(f"Warning: {len(missing_files)} loop_steps_without_tx_issuance.json files not found for simulation {sim_index}")
-            
-            # Create title
-            param_label = create_parameter_label(param_name, param_value)
-            ax.set_title(f'Loop Steps Without Transaction Issuance Over Time - {param_label}')
-            ax.set_xlabel('Block Height')
-            ax.set_ylabel('Loop Steps Count')
-            ax.grid(True, alpha=0.3)
-            if plotted_runs > 0:
-                ax.legend()
-            
-            plt.tight_layout()
-            
-            # Save the loop steps plot
-            plt.savefig(f'{sim_figs_dir}/loop_steps_without_tx_issuance.png', dpi=300, bbox_inches='tight')
-            plt.close()
-            
-            # Create transaction plots for this simulation
-            # Define transaction types to plot with their file names and data keys
-            transaction_types = [
-                ('pending_transactions_chain_1', 'pending__chain1'),
-                ('success_transactions_chain_1', 'success__chain1'), 
-                ('failure_transactions_chain_1', 'failure__chain1'),
-                ('cat_pending_transactions_chain_1', 'pending_cat'),
-                ('cat_success_transactions_chain_1', 'success_cat'),
-                ('cat_failure_transactions_chain_1', 'failure_cat'),
-                ('regular_pending_transactions_chain_1', 'pending_regular'),
-                ('regular_success_transactions_chain_1', 'success_regular'),
-                ('regular_failure_transactions_chain_1', 'failure_regular'),
-                ('pending_transactions_chain_2', 'pending__chain2'),
-                ('success_transactions_chain_2', 'success__chain2'),
-                ('failure_transactions_chain_2', 'failure__chain2')
-            ]
-            
-            # Create plots for each transaction type
-            for file_name, tx_type in transaction_types:
-                fig, ax = plt.subplots(figsize=(12, 8))
-                
-                # Plot each run's transaction data
-                plotted_runs = 0
-                missing_files = []
-                for run_idx, run_dir in enumerate(run_dirs):
-                    try:
-                        # Load transaction data for this run
-                        tx_file = os.path.join(sim_data_dir, run_dir, 'data', f'{file_name}.json')
-                        if not os.path.exists(tx_file):
-                            missing_files.append(tx_file)
-                            continue
-                        
-                        with open(tx_file, 'r') as f:
-                            run_data = json.load(f)
-                        
-                        # Extract transaction data - the data is stored as a list of objects with height and count fields
-                        # Handle different naming patterns
-                        if '__' in tx_type:
-                            # For chain_1 and chain_2 plots
-                            chain_num = tx_type.split('__')[1]
-                            base_type = tx_type.split('__')[0]
-                            data_key = f'chain_1_{base_type}' if chain_num == 'chain1' else f'chain_2_{base_type}'
-                        elif tx_type.startswith('pending_') or tx_type.startswith('success_') or tx_type.startswith('failure_'):
-                            # For regular transaction plots
-                            base_type = tx_type.split('_')[0]
-                            data_key = f'chain_1_regular_{base_type}'
-                        else:
-                            # For CAT transaction plots
-                            base_type = tx_type.split('_')[1]
-                            data_key = f'chain_1_cat_{base_type}'
-                        
-                        if data_key in run_data:
-                            tx_entries = run_data[data_key]
-                            if tx_entries:
-                                # Extract block heights and transaction counts
-                                heights = [entry['height'] for entry in tx_entries]
-                                tx_counts = [entry['count'] for entry in tx_entries]
-                                
-                                # Plot with color based on run
-                                label = f'Run {run_idx + 1}'
-                                ax.plot(heights, tx_counts, color=colors[run_idx], alpha=0.7, 
-                                        label=label, linewidth=1.5)
-                                plotted_runs += 1
-                        
-                    except Exception as e:
-                        print(f"Warning: Error processing {tx_type} for run {run_dir} in simulation {sim_index}: {e}")
-                        continue
-                
-                # Print summary warning for missing files
-                if missing_files:
-                    print(f"Warning: {len(missing_files)} {file_name}.json files not found for simulation {sim_index}")
-                
-                # Create title
-                param_label = create_parameter_label(param_name, param_value)
-                tx_type_display = tx_type.replace('_', ' ').title()
-                ax.set_title(f'{tx_type_display} Transactions Over Time - {param_label}')
-                ax.set_xlabel('Block Height')
-                ax.set_ylabel(f'Number of {tx_type_display} Transactions')
-                ax.grid(True, alpha=0.3)
-                if plotted_runs > 0:
-                    ax.legend()
-                
-                plt.tight_layout()
-                
-                # Save the transaction plot
-                plt.savefig(f'{sim_figs_dir}/tx_{tx_type}.png', dpi=300, bbox_inches='tight')
-                plt.close()
-            
-            # Create combined transaction plots (sumTypes) that combine CAT and regular transactions
-            combined_types = [
-                ('pending', 'pending_sumTypes'),
-                ('success', 'success_sumTypes'),
-                ('failure', 'failure_sumTypes')
-            ]
-            
-            for base_type, combined_name in combined_types:
-                fig, ax = plt.subplots(figsize=(12, 8))
-                
-                # Plot each run's combined transaction data
-                plotted_runs = 0
-                missing_files = []
-                for run_idx, run_dir in enumerate(run_dirs):
-                    try:
-                        # Load CAT and regular transaction data for this run
-                        cat_file = os.path.join(sim_data_dir, run_dir, 'data', f'cat_{base_type}_transactions_chain_1.json')
-                        regular_file = os.path.join(sim_data_dir, run_dir, 'data', f'regular_{base_type}_transactions_chain_1.json')
-                        
-                        if not os.path.exists(cat_file) or not os.path.exists(regular_file):
-                            missing_files.extend([cat_file, regular_file])
-                            continue
-                        
-                        # Load CAT data
-                        with open(cat_file, 'r') as f:
-                            cat_data = json.load(f)
-                        
-                        # Load regular data
-                        with open(regular_file, 'r') as f:
-                            regular_data = json.load(f)
-                        
-                        # Combine the data
-                        cat_key = f'chain_1_{base_type}'
-                        regular_key = f'chain_1_regular_{base_type}'
-                        
-                        if cat_key in cat_data and regular_key in regular_data:
-                            cat_entries = cat_data[cat_key]
-                            regular_entries = regular_data[regular_key]
-                            
-                            if cat_entries and regular_entries:
-                                # Create a combined dataset by summing CAT and regular at each height
-                                combined_data = {}
-                                
-                                # Add CAT data
-                                for entry in cat_entries:
-                                    height = entry['height']
-                                    count = entry['count']
-                                    combined_data[height] = combined_data.get(height, 0) + count
-                                
-                                # Add regular data
-                                for entry in regular_entries:
-                                    height = entry['height']
-                                    count = entry['count']
-                                    combined_data[height] = combined_data.get(height, 0) + count
-                                
-                                # Convert back to sorted list of tuples
-                                combined_entries = sorted(combined_data.items())
-                                
-                                # Extract block heights and transaction counts
-                                heights = [entry[0] for entry in combined_entries]
-                                tx_counts = [entry[1] for entry in combined_entries]
-                                
-                                # Plot with color based on run
-                                label = f'Run {run_idx + 1}'
-                                ax.plot(heights, tx_counts, color=colors[run_idx], alpha=0.7, 
-                                        label=label, linewidth=1.5)
-                                plotted_runs += 1
-                        
-                    except Exception as e:
-                        print(f"Warning: Error processing combined {base_type} for run {run_dir} in simulation {sim_index}: {e}")
-                        continue
-                
-                # Print summary warning for missing files
-                if missing_files:
-                    print(f"Warning: {len(missing_files)} files not found for combined {base_type} in simulation {sim_index}")
-                
-                # Create title
-                param_label = create_parameter_label(param_name, param_value)
-                base_type_display = base_type.replace('_', ' ').title()
-                ax.set_title(f'{base_type_display} Transactions (CAT + Regular) Over Time - {param_label}')
-                ax.set_xlabel('Block Height')
-                ax.set_ylabel(f'Number of {base_type_display} Transactions')
-                ax.grid(True, alpha=0.3)
-                if plotted_runs > 0:
-                    ax.legend()
-                
-                plt.tight_layout()
-                
-                # Save the combined transaction plot
-                plt.savefig(f'{sim_figs_dir}/tx_{combined_name}.png', dpi=300, bbox_inches='tight')
-                plt.close()
-            
-    except Exception as e:
-        print(f"Warning: Error processing individual TPS plots for sweep: {e}")
-        return
+# Note: plot_individual_sweep_tps function removed - now using generate_individual_curves_plots
+# The old function created sim_x/ directories which are no longer needed
 
 # ------------------------------------------------------------------------------------------------
 # Generic Sweep Plotting
@@ -2087,6 +1299,65 @@ def plot_loop_steps_without_tx_issuance(data: Dict[str, Any], param_name: str, r
         
     except Exception as e:
         print(f"Error plotting loop steps data: {e}")
+        import traceback
+        traceback.print_exc()
+
+def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """
+    Generate individual curves plots for each simulation in the sweep.
+    
+    This function uses the individual_curves_plots module to create per-run plots
+    for each simulation in the sweep, showing individual runs with different colors.
+    
+    Args:
+        data: The sweep data containing individual results
+        param_name: The parameter name being swept
+        results_dir: The full path to the results directory
+        sweep_type: The display name for the sweep
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping individual curves plots")
+            return
+        
+        # Import the individual curves plotting module
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
+        from individual_curves_plots import create_per_run_plots
+        
+        # Extract the results directory name from the full path
+        results_dir_name = results_dir.replace('simulator/results/', '')
+        
+        # Generate individual curves plots for each simulation
+        for sim_index, result in enumerate(individual_results):
+            print(f"Generating individual curves plots for simulation {sim_index}...")
+            
+            # Get the parameter value for this simulation
+            param_value = result[param_name]
+            
+            # Set up paths for this simulation
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            sim_figs_dir = f'{results_dir}/figs/sim_{sim_index}'
+            
+            # Load block interval from simulation stats to calculate TPS
+            block_interval = None
+            try:
+                stats_file = f'{sim_data_dir}/run_average/simulation_stats.json'
+                if os.path.exists(stats_file):
+                    with open(stats_file, 'r') as f:
+                        stats_data = json.load(f)
+                    block_interval = stats_data['parameters']['block_interval']  # in seconds
+            except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+                print(f"Warning: Could not load block interval for simulation {sim_index}: {e}")
+            
+            # Create individual curves plots for this simulation
+            create_per_run_plots(sim_data_dir, sim_figs_dir, block_interval)
+            
+        print(f"Individual curves plots generated for all simulations in {sweep_type} sweep!")
+        
+    except Exception as e:
+        print(f"Error generating individual curves plots: {e}")
         import traceback
         traceback.print_exc()
 
