@@ -16,13 +16,13 @@ from plot_utils import generate_all_plots
 def main():
     """Main function to generate plots for CAT pending dependencies sweep simulation."""
     # Configuration for this specific sweep
-    results_path = 'simulator/results/sim_sweep_cat_pending_dependencies/data/sweep_results.json'
     param_name = 'allow_cat_pending_dependencies'
     results_dir = 'simulator/results/sim_sweep_cat_pending_dependencies'
     sweep_type = 'CAT Pending Dependencies'
     
     # Generate all plots using the generic utility
-    generate_all_plots(results_path, param_name, results_dir, sweep_type)
+    # Data flow: run_average folders -> sweep_results_averaged.json -> plots
+    generate_all_plots(results_dir, param_name, sweep_type)
 
 if __name__ == "__main__":
     main() 

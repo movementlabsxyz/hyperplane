@@ -5,6 +5,7 @@
 use std::io::{self, Write};
 use std::process::Command;
 use std::hash::Hash;
+use std::path::Path;
 
 // ------------------------------------------------------------------------------------------------
 // Simulation Type Enum
@@ -37,6 +38,8 @@ pub enum SimulationType {
     RunAllTests,
     /// Regenerate all plots
     RunAllPlots,
+    /// Run only tests that don't have existing data
+    RunMissingTests,
     /// Exit the simulator
     Exit,
 }
@@ -58,6 +61,7 @@ impl SimulationType {
             "10" => Some(SimulationType::SweepZipf),
             "11" => Some(SimulationType::RunAllTests),
             "12" => Some(SimulationType::RunAllPlots),
+            "13" => Some(SimulationType::RunMissingTests),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -79,7 +83,7 @@ impl SimulatorInterface {
 
     /// Returns the menu text for available simulation types
     pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT rate\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Rerun All Plots Only\n  0. Exit"
+        "Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT rate\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Rerun All Plots Only\n 13. Run Missing Tests Only\n  0. Exit"
     }
 
     /// Displays the simulator menu
@@ -97,6 +101,108 @@ impl SimulatorInterface {
         io::stdin().read_line(&mut input).expect("Failed to read input");
         
         SimulationType::from_input(&input)
+    }
+
+    /// Checks if data exists for a specific simulation type
+    pub fn data_exists(&self, simulation_type: &str) -> bool {
+        let data_path = match simulation_type {
+            "simple" => "simulator/results/sim_simple/data",
+            "sweep_cat_rate" => "simulator/results/sim_sweep_cat_rate/data",
+            "sweep_cat_pending_dependencies" => "simulator/results/sim_sweep_cat_pending_dependencies/data",
+            "sweep_block_interval_constant_time_delay" => "simulator/results/sim_sweep_block_interval_constant_time_delay/data",
+            "sweep_block_interval_constant_block_delay" => "simulator/results/sim_sweep_block_interval_constant_block_delay/data",
+            "sweep_block_interval_all_scaled" => "simulator/results/sim_sweep_block_interval_all_scaled/data",
+            "sweep_cat_lifetime" => "simulator/results/sim_sweep_cat_lifetime/data",
+            "sweep_total_block_number" => "simulator/results/sim_sweep_total_block_number/data",
+            "sweep_chain_delay" => "simulator/results/sim_sweep_chain_delay/data",
+            "sweep_zipf" => "simulator/results/sim_sweep_zipf/data",
+            _ => return false,
+        };
+        
+        Path::new(data_path).exists()
+    }
+
+    /// Runs only simulations that don't have existing data
+    pub async fn run_missing_tests(&self) -> Result<(), String> {
+        let simulation_types = vec![
+            ("simple", "Simple Simulation"),
+            ("sweep_cat_rate", "CAT Rate Sweep"),
+            ("sweep_cat_pending_dependencies", "CAT Pending Dependencies Sweep"),
+            ("sweep_block_interval_constant_time_delay", "Block Interval (Constant Time Delay) Sweep"),
+            ("sweep_block_interval_constant_block_delay", "Block Interval (Constant Block Delay) Sweep"),
+            ("sweep_block_interval_all_scaled", "Block Interval (All Scaled) Sweep"),
+            ("sweep_cat_lifetime", "CAT Lifetime Sweep"),
+            ("sweep_total_block_number", "Total Block Number Sweep"),
+            ("sweep_chain_delay", "Chain Delay Sweep"),
+            ("sweep_zipf", "Zipf Distribution Sweep"),
+        ];
+
+        let mut missing_tests = Vec::new();
+        
+        // Check which tests don't have data
+        for (sim_type, name) in &simulation_types {
+            if !self.data_exists(sim_type) {
+                missing_tests.push((*sim_type, *name));
+            }
+        }
+
+        if missing_tests.is_empty() {
+            println!("All tests have existing data. No tests to run.");
+            return Ok(());
+        }
+
+        println!("Found {} tests without data:", missing_tests.len());
+        for (_, name) in &missing_tests {
+            println!("  - {}", name);
+        }
+        println!();
+
+        // Run each missing test
+        for (sim_type, name) in missing_tests {
+            println!("Running {}...", name);
+            
+            // Map simulation type to SimulationType enum
+            let simulation_type = match sim_type {
+                "simple" => SimulationType::Simple,
+                "sweep_cat_rate" => SimulationType::SweepCatRate,
+                "sweep_cat_pending_dependencies" => SimulationType::SweepCatPendingDependencies,
+                "sweep_block_interval_constant_time_delay" => SimulationType::SweepBlockIntervalConstantTimeDelay,
+                "sweep_block_interval_constant_block_delay" => SimulationType::SweepBlockIntervalConstantBlockDelay,
+                "sweep_block_interval_all_scaled" => SimulationType::SweepBlockIntervalAllScaled,
+                "sweep_cat_lifetime" => SimulationType::SweepCatLifetime,
+                "sweep_total_block_number" => SimulationType::SweepTotalBlockNumber,
+                "sweep_chain_delay" => SimulationType::SweepChainDelay,
+                "sweep_zipf" => SimulationType::SweepZipf,
+                _ => continue,
+            };
+
+            // Use the registry to run the simulation
+            let registry = crate::simulation_registry::get_registry().await;
+            let registry_guard = registry.lock().await;
+            
+            if let Some(config) = registry_guard.get(&simulation_type) {
+                // Run the simulation
+                let run_future = (config.run_fn)();
+                if let Err(e) = run_future.await {
+                    return Err(format!("Failed to run {}: {}", name, e));
+                }
+                
+                // Generate plots if a script is specified
+                if !config.plot_script.is_empty() {
+                    println!("Generating plots for {}...", name);
+                    if let Err(e) = self.generate_plots(sim_type) {
+                        return Err(format!("Plot generation failed for {}: {}", name, e));
+                    }
+                }
+                
+                println!("{} completed successfully!", name);
+            } else {
+                return Err(format!("Unknown simulation type: {}", sim_type));
+            }
+        }
+
+        println!("All missing tests completed successfully!");
+        Ok(())
     }
 
     /// Generates plots for a specific simulation type
@@ -148,6 +254,13 @@ impl SimulatorInterface {
                         return Err(format!("Plot rerun failed: {}", e));
                     }
                     println!("All plot scripts rerun successfully!");
+                    break;
+                }
+                Some(SimulationType::RunMissingTests) => {
+                    if let Err(e) = self.run_missing_tests().await {
+                        return Err(format!("Missing tests failed: {}", e));
+                    }
+                    println!("All missing tests completed successfully!");
                     break;
                 }
                 Some(simulation_type) => {

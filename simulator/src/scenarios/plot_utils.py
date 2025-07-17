@@ -513,19 +513,31 @@ def plot_sweep_summary(
 # ------------------------------------------------------------------------------------------------
 
 def generate_all_plots(
-    results_path: str,
-    param_name: str,
     results_dir: str,
+    param_name: str,
     sweep_type: str
 ) -> None:
-    """Generate all plots for a sweep simulation"""
+    """
+    Generate all plots for a sweep simulation.
+    
+    This function:
+    1. Runs the averaging script to create run_average folders from individual runs
+    2. Creates a combined sweep_results_averaged.json from the run_average data
+    3. Generates all plots from the combined data
+    
+    Args:
+        results_dir: The full path to the results directory (e.g., 'simulator/results/sim_sweep_cat_rate')
+        param_name: The parameter name being swept (e.g., 'cat_rate')
+        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+    """
     import subprocess
     
-    # First, run the averaging script to create averaged data
+    # Extract the results directory name from the full path
+    results_dir_name = results_dir.replace('simulator/results/', '')
+    
+    # First, run the averaging script to create averaged data from run_average folders
     print("Running averaging script...")
     try:
-        # Extract the results directory name from the full path
-        results_dir_name = results_dir.replace('simulator/results/', '')
         # The average_runs.py script is in simulator/src/
         average_script_path = os.path.join(os.path.dirname(__file__), '..', 'average_runs.py')
         # Use relative path from simulator directory (where the script runs from)
@@ -551,11 +563,11 @@ def generate_all_plots(
         print(f"Error during averaging: {e}")
         return
     
-    # Create sweep data from averaged runs
-    results_path = create_sweep_data_from_averaged_runs(results_dir_name)
+    # Create combined sweep data from run_average folders
+    sweep_data_path = create_sweep_data_from_averaged_runs(results_dir_name)
     
-    # Load data
-    data = load_sweep_data(results_path)
+    # Load the combined data for plotting
+    data = load_sweep_data(sweep_data_path)
     
     # Check if we have any data to plot
     if not data.get('individual_results'):
@@ -1064,12 +1076,13 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             
             # Plot each run's system memory usage data
             plotted_runs = 0
+            missing_files = []
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
                     # Load system memory usage data for this run
                     memory_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_memory.json')
                     if not os.path.exists(memory_file):
-                        print(f"Warning: {memory_file} not found")
+                        missing_files.append(memory_file)
                         continue
                     
                     with open(memory_file, 'r') as f:
@@ -1093,13 +1106,18 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
                     print(f"Warning: Error processing system memory for run {run_dir} in simulation {sim_index}: {e}")
                     continue
             
+            # Print summary warning for missing files
+            if missing_files:
+                print(f"Warning: {len(missing_files)} system_memory.json files not found for simulation {sim_index}")
+            
             # Create title
             param_label = create_parameter_label(param_name, param_value)
             ax.set_title(f'System Memory Usage Over Time - {param_label}')
             ax.set_xlabel('Block Height')
             ax.set_ylabel('System Memory Usage (MB)')
             ax.grid(True, alpha=0.3)
-            ax.legend()
+            if plotted_runs > 0:
+                ax.legend()
             
             plt.tight_layout()
             
@@ -1112,12 +1130,13 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             
             # Plot each run's system total RAM usage data
             plotted_runs = 0
+            missing_files = []
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
                     # Load system total RAM usage data for this run
                     ram_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_memory.json')
                     if not os.path.exists(ram_file):
-                        print(f"Warning: {ram_file} not found")
+                        missing_files.append(ram_file)
                         continue
                     
                     with open(ram_file, 'r') as f:
@@ -1141,13 +1160,18 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
                     print(f"Warning: Error processing system total RAM for run {run_dir} in simulation {sim_index}: {e}")
                     continue
             
+            # Print summary warning for missing files
+            if missing_files:
+                print(f"Warning: {len(missing_files)} system_total_memory.json files not found for simulation {sim_index}")
+            
             # Create title
             param_label = create_parameter_label(param_name, param_value)
             ax.set_title(f'System Total RAM Usage Over Time - {param_label}')
             ax.set_xlabel('Block Height')
             ax.set_ylabel('System Total RAM Usage (GB)')
             ax.grid(True, alpha=0.3)
-            ax.legend()
+            if plotted_runs > 0:
+                ax.legend()
             
             plt.tight_layout()
             
@@ -1160,12 +1184,13 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             
             # Plot each run's system CPU usage data
             plotted_runs = 0
+            missing_files = []
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
                     # Load system CPU usage data for this run
                     cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_cpu.json')
                     if not os.path.exists(cpu_file):
-                        print(f"Warning: {cpu_file} not found")
+                        missing_files.append(cpu_file)
                         continue
                     
                     with open(cpu_file, 'r') as f:
@@ -1189,13 +1214,18 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
                     print(f"Warning: Error processing system CPU for run {run_dir} in simulation {sim_index}: {e}")
                     continue
             
+            # Print summary warning for missing files
+            if missing_files:
+                print(f"Warning: {len(missing_files)} system_cpu.json files not found for simulation {sim_index}")
+            
             # Create title
             param_label = create_parameter_label(param_name, param_value)
             ax.set_title(f'System CPU Usage Over Time - {param_label}')
             ax.set_xlabel('Block Height')
             ax.set_ylabel('System CPU Usage (%)')
             ax.grid(True, alpha=0.3)
-            ax.legend()
+            if plotted_runs > 0:
+                ax.legend()
             
             plt.tight_layout()
             
@@ -1208,12 +1238,13 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             
             # Plot each run's filtered system CPU usage data
             plotted_runs = 0
+            missing_files = []
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
                     # Load system CPU usage data for this run
                     cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_cpu.json')
                     if not os.path.exists(cpu_file):
-                        print(f"Warning: {cpu_file} not found")
+                        missing_files.append(cpu_file)
                         continue
                     
                     with open(cpu_file, 'r') as f:
@@ -1246,6 +1277,10 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
                     print(f"Warning: Error processing filtered system CPU for run {run_dir} in simulation {sim_index}: {e}")
                     continue
             
+            # Print summary warning for missing files
+            if missing_files:
+                print(f"Warning: {len(missing_files)} system_cpu.json files not found for simulation {sim_index}")
+            
             # Create title
             param_label = create_parameter_label(param_name, param_value)
             ax.set_title(f'System CPU Usage Over Time (Filtered ≤30%) - {param_label}')
@@ -1253,7 +1288,8 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             ax.set_ylabel('System CPU Usage (%)')
 
             ax.grid(True, alpha=0.3)
-            ax.legend()
+            if plotted_runs > 0:
+                ax.legend()
             
             plt.tight_layout()
             
@@ -1266,12 +1302,13 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             
             # Plot each run's system total CPU usage data
             plotted_runs = 0
+            missing_files = []
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
                     # Load system total CPU usage data for this run
                     total_cpu_file = os.path.join(sim_data_dir, run_dir, 'data', 'system_total_cpu.json')
                     if not os.path.exists(total_cpu_file):
-                        print(f"Warning: {total_cpu_file} not found")
+                        missing_files.append(total_cpu_file)
                         continue
                     
                     with open(total_cpu_file, 'r') as f:
@@ -1295,13 +1332,18 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
                     print(f"Warning: Error processing system total CPU for run {run_dir} in simulation {sim_index}: {e}")
                     continue
             
+            # Print summary warning for missing files
+            if missing_files:
+                print(f"Warning: {len(missing_files)} system_total_cpu.json files not found for simulation {sim_index}")
+            
             # Create title
             param_label = create_parameter_label(param_name, param_value)
             ax.set_title(f'System Total CPU Usage Over Time - {param_label}')
             ax.set_xlabel('Block Height')
             ax.set_ylabel('System Total CPU Usage (%)')
             ax.grid(True, alpha=0.3)
-            ax.legend()
+            if plotted_runs > 0:
+                ax.legend()
             
             plt.tight_layout()
             
@@ -1314,12 +1356,13 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
             
             # Plot each run's loop steps data
             plotted_runs = 0
+            missing_files = []
             for run_idx, run_dir in enumerate(run_dirs):
                 try:
                     # Load loop steps data for this run
                     loop_steps_file = os.path.join(sim_data_dir, run_dir, 'data', 'loop_steps_without_tx_issuance.json')
                     if not os.path.exists(loop_steps_file):
-                        print(f"Warning: {loop_steps_file} not found")
+                        missing_files.append(loop_steps_file)
                         continue
                     
                     with open(loop_steps_file, 'r') as f:
@@ -1343,13 +1386,18 @@ def plot_individual_sweep_tps(data: Dict[str, Any], param_name: str, results_dir
                     print(f"Warning: Error processing loop steps for run {run_dir} in simulation {sim_index}: {e}")
                     continue
             
+            # Print summary warning for missing files
+            if missing_files:
+                print(f"Warning: {len(missing_files)} loop_steps_without_tx_issuance.json files not found for simulation {sim_index}")
+            
             # Create title
             param_label = create_parameter_label(param_name, param_value)
             ax.set_title(f'Loop Steps Without Transaction Issuance Over Time - {param_label}')
             ax.set_xlabel('Block Height')
             ax.set_ylabel('Loop Steps Count')
             ax.grid(True, alpha=0.3)
-            ax.legend()
+            if plotted_runs > 0:
+                ax.legend()
             
             plt.tight_layout()
             
@@ -1382,6 +1430,7 @@ def plot_system_memory(data: Dict[str, Any], param_name: str, results_dir: str, 
         colors = create_color_gradient(len(param_values))
         
         # Plot each simulation's system memory usage data
+        missing_files = []
         for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
             param_value = result[param_name]
             label = create_parameter_label(param_name, param_value)
@@ -1420,10 +1469,14 @@ def plot_system_memory(data: Dict[str, Any], param_name: str, results_dir: str, 
                 else:
                     print(f"Warning: No system_memory key found in {memory_file}")
             else:
-                print(f"Warning: System memory file not found: {memory_file}")
+                missing_files.append(memory_file)
             
             # Add legend entry for this parameter value
             ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} system_memory.json files not found across all simulations")
         
         # Customize plot
         ax.set_xlabel('Block Height')
@@ -1458,6 +1511,7 @@ def plot_system_total_memory(data: Dict[str, Any], param_name: str, results_dir:
         colors = create_color_gradient(len(param_values))
         
         # Plot each simulation's system total RAM usage data
+        missing_files = []
         for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
             param_value = result[param_name]
             label = create_parameter_label(param_name, param_value)
@@ -1496,10 +1550,14 @@ def plot_system_total_memory(data: Dict[str, Any], param_name: str, results_dir:
                 else:
                     print(f"Warning: No system_total_memory key found in {system_total_memory_file}")
             else:
-                print(f"Warning: System total memory file not found: {system_total_memory_file}")
+                missing_files.append(system_total_memory_file)
             
             # Add legend entry for this parameter value
             ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} system_total_memory.json files not found across all simulations")
         
         # Customize plot
         ax.set_xlabel('Block Height')
@@ -1534,6 +1592,7 @@ def plot_system_cpu(data: Dict[str, Any], param_name: str, results_dir: str, swe
         colors = create_color_gradient(len(param_values))
         
         # Plot each simulation's system CPU usage data
+        missing_files = []
         for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
             param_value = result[param_name]
             label = create_parameter_label(param_name, param_value)
@@ -1572,10 +1631,14 @@ def plot_system_cpu(data: Dict[str, Any], param_name: str, results_dir: str, swe
                 else:
                     print(f"Warning: No system_cpu key found in {cpu_file}")
             else:
-                print(f"Warning: System CPU file not found: {cpu_file}")
+                missing_files.append(cpu_file)
             
             # Add legend entry for this parameter value
             ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} system_cpu.json files not found across all simulations")
         
         # Customize plot
         ax.set_xlabel('Block Height')
@@ -1610,6 +1673,7 @@ def plot_system_cpu_filtered(data: Dict[str, Any], param_name: str, results_dir:
         colors = create_color_gradient(len(param_values))
         
         # Plot each simulation's system CPU usage data
+        missing_files = []
         for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
             param_value = result[param_name]
             label = create_parameter_label(param_name, param_value)
@@ -1657,10 +1721,14 @@ def plot_system_cpu_filtered(data: Dict[str, Any], param_name: str, results_dir:
                 else:
                     print(f"Warning: No system_cpu key found in {cpu_file}")
             else:
-                print(f"Warning: System CPU file not found: {cpu_file}")
+                missing_files.append(cpu_file)
             
             # Add legend entry for this parameter value
             ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} system_cpu.json files not found across all simulations")
         
         # Customize plot
         ax.set_xlabel('Block Height')
@@ -1697,6 +1765,7 @@ def plot_system_total_cpu(data: Dict[str, Any], param_name: str, results_dir: st
         colors = create_color_gradient(len(param_values))
         
         # Plot each simulation's system total CPU usage data
+        missing_files = []
         for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
             param_value = result[param_name]
             label = create_parameter_label(param_name, param_value)
@@ -1735,10 +1804,14 @@ def plot_system_total_cpu(data: Dict[str, Any], param_name: str, results_dir: st
                 else:
                     print(f"Warning: No system_total_cpu key found in {cpu_file}")
             else:
-                print(f"Warning: System total CPU file not found: {cpu_file}")
+                missing_files.append(cpu_file)
             
             # Add legend entry for this parameter value
             ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} system_total_cpu.json files not found across all simulations")
         
         # Customize plot
         ax.set_xlabel('Block Height')
@@ -1773,6 +1846,7 @@ def plot_loop_steps_without_tx_issuance(data: Dict[str, Any], param_name: str, r
         colors = create_color_gradient(len(param_values))
         
         # Plot each simulation's loop steps data
+        missing_files = []
         for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
             param_value = result[param_name]
             label = create_parameter_label(param_name, param_value)
@@ -1811,10 +1885,14 @@ def plot_loop_steps_without_tx_issuance(data: Dict[str, Any], param_name: str, r
                 else:
                     print(f"Warning: No loop_steps_without_tx_issuance key found in {loop_steps_file}")
             else:
-                print(f"Warning: Loop steps file not found: {loop_steps_file}")
+                missing_files.append(loop_steps_file)
             
             # Add legend entry for this parameter value
             ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} loop_steps_without_tx_issuance.json files not found across all simulations")
         
         # Customize plot
         ax.set_xlabel('Block Height')
@@ -1836,15 +1914,20 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     """
     Generic function to run plots for any sweep simulation.
     
+    This function:
+    1. Runs the averaging script to create run_average folders from individual runs
+    2. Creates a combined sweep_results_averaged.json from the run_average data
+    3. Generates all plots from the combined data
+    
     Args:
         sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_rate')
         param_name: The parameter name being swept (e.g., 'cat_rate')
         sweep_type: The display name for the sweep (e.g., 'CAT Rate')
     """
-    results_path = f'simulator/results/{sweep_name}/data/sweep_results.json'
     results_dir = f'simulator/results/{sweep_name}'
     
     # Generate all plots using the generic utility
-    generate_all_plots(results_path, param_name, results_dir, sweep_type)
+    # Data flow: run_average folders -> sweep_results_averaged.json -> plots
+    generate_all_plots(results_dir, param_name, sweep_type)
 
  
