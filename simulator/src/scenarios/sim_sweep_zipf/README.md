@@ -12,16 +12,12 @@ This scenario explores how different Zipf distribution parameters affect system 
 
 ## Results
 
-Unsurprisingly, higher Zipf values (more concentration) lead to increased failure of CATs.
+Unsurprisingly, higher Zipf values (more concentration) lead to increased failure of CATs, as the number of CATs attempting to lock the same keys increases.
 
 ![Failed CAT Transactions](./tx_failure_cat.png)
 
 A higher Zipf value also leads to increased pending regular transactions.
 
 ![Pending Regular Transactions](./tx_pending_regular.png)
-
-Finally, the simulation degrades and TPS cannot be maintained after a certain block number currently. Thus simulation results must be taken with a grain of salt.
-
-![TPS Over Time](./tps.png)
 
 **Figure Parameters:** Zipf parameter sweep (0.0-2.0), block interval=0.05s, TPS=500.0, 2 chains (delay of second chain 5 blocks), 10% CAT ratio, 1000 accounts, 20 runs averaged.
