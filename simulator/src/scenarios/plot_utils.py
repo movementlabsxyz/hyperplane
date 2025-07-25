@@ -478,10 +478,16 @@ def generate_all_plots(
     
     # Plot CAT success percentage over time
     # Import and call from plot_utils_percentage.py
-    from plot_utils_percentage import plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage
+    from plot_utils_percentage import (
+        plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
+        plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage
+    )
     plot_cat_success_percentage(data, param_name, results_dir, sweep_type)
     plot_cat_failure_percentage(data, param_name, results_dir, sweep_type)
     plot_cat_pending_percentage(data, param_name, results_dir, sweep_type)
+    plot_regular_success_percentage(data, param_name, results_dir, sweep_type)
+    plot_regular_failure_percentage(data, param_name, results_dir, sweep_type)
+    plot_regular_pending_percentage(data, param_name, results_dir, sweep_type)
     
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)

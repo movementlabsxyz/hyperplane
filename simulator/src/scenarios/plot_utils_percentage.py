@@ -157,3 +157,118 @@ def plot_cat_failure_percentage(data: Dict[str, Any], param_name: str, results_d
 def plot_cat_pending_percentage(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
     """Plot CAT pending percentage over time."""
     plot_cat_percentage(data, param_name, results_dir, sweep_type, 'pending') 
+
+def plot_regular_percentage(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, percentage_type: str) -> None:
+    """
+    Plot regular transaction percentage over time for each simulation.
+    
+    This function calculates the percentage of a specific regular transaction state (success, pending, or failure)
+    compared to total regular transactions (success + pending + failure) as block number increases.
+    
+    Args:
+        data: The sweep data containing individual results
+        param_name: Name of the parameter being swept
+        results_dir: Directory to save the plot
+        sweep_type: Type of sweep simulation
+        percentage_type: One of 'success', 'pending', or 'failure'
+    """
+    try:
+        individual_results = data.get('individual_results', [])
+        if not individual_results:
+            print(f"Warning: No individual results found for regular {percentage_type} percentage plot")
+            return
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        plt.figure(figsize=(12, 6))
+        
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # Get regular transaction data for all states
+            regular_success_data = result.get('chain_1_regular_success', [])
+            regular_pending_data = result.get('chain_1_regular_pending', [])
+            regular_failure_data = result.get('chain_1_regular_failure', [])
+            
+            if not regular_success_data or not regular_pending_data or not regular_failure_data:
+                continue
+            
+            # Create dictionaries to map height to count for each state
+            success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
+            pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
+            failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
+            
+            # Get all unique heights
+            all_heights = set(success_by_height.keys()) | set(pending_by_height.keys()) | set(failure_by_height.keys())
+            heights = sorted(all_heights)
+            
+            # Calculate cumulative totals and percentages
+            percentages = []
+            
+            for height in heights:
+                # Calculate cumulative totals up to this height (inclusive)
+                cumulative_success = sum(success_by_height.get(h, 0) for h in range(min(heights), height + 1))
+                cumulative_pending = sum(pending_by_height.get(h, 0) for h in range(min(heights), height + 1))
+                cumulative_failure = sum(failure_by_height.get(h, 0) for h in range(min(heights), height + 1))
+                
+                # Calculate total regular transactions so far
+                total_regular = cumulative_success + cumulative_pending + cumulative_failure
+                
+                # Calculate percentage based on type (avoid division by zero)
+                if total_regular > 0:
+                    if percentage_type == 'success':
+                        percentage = (cumulative_success / total_regular) * 100
+                    elif percentage_type == 'pending':
+                        percentage = (cumulative_pending / total_regular) * 100
+                    elif percentage_type == 'failure':
+                        percentage = (cumulative_failure / total_regular) * 100
+                    else:
+                        percentage = 0
+                else:
+                    percentage = 0
+                
+                percentages.append(percentage)
+            
+            # Trim the last 10% of data to avoid edge effects
+            if len(heights) > 10:
+                trim_index = int(len(heights) * 0.9)
+                heights = heights[:trim_index]
+                percentages = percentages[:trim_index]
+            
+            if not heights:
+                continue
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, percentages, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        plt.title(f'Regular {percentage_type.title()} Percentage Over Time - {create_sweep_title(param_name, sweep_type)}')
+        plt.xlabel('Block Height')
+        plt.ylabel(f'Regular {percentage_type.title()} Percentage (%)')
+        plt.xlim(left=0)
+        plt.grid(True, alpha=0.3)
+        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.tight_layout()
+        
+        # Save plot
+        plt.savefig(f'{results_dir}/figs/tx_{percentage_type}_regular_percentage.png', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Warning: Error creating regular {percentage_type} percentage plot: {e}")
+        return
+
+def plot_regular_success_percentage(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot regular success percentage over time."""
+    plot_regular_percentage(data, param_name, results_dir, sweep_type, 'success')
+
+def plot_regular_failure_percentage(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot regular failure percentage over time."""
+    plot_regular_percentage(data, param_name, results_dir, sweep_type, 'failure')
+
+def plot_regular_pending_percentage(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot regular pending percentage over time."""
+    plot_regular_percentage(data, param_name, results_dir, sweep_type, 'pending') 
