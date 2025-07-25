@@ -476,6 +476,11 @@ def generate_all_plots(
     # Plot loop steps without transaction issuance
     plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
     
+    # Plot CAT success percentage over time
+    # Import and call from plot_utils_percentage.py
+    from plot_utils_percentage import plot_cat_success_percentage
+    plot_cat_success_percentage(data, param_name, results_dir, sweep_type)
+    
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
     
@@ -1360,6 +1365,8 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
         print(f"Error generating individual curves plots: {e}")
         import traceback
         traceback.print_exc()
+
+
 
 def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     """
