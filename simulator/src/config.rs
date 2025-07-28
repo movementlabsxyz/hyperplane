@@ -44,7 +44,7 @@ pub struct NetworkConfig {
     /// Number of chains in the multi-chain network
     pub num_chains: usize,
     /// Delay in blocks for each chain (order corresponds to chain-1, chain-2, etc.)
-    pub chain_delays: Vec<u64>,
+    pub chain_delays: Vec<f64>,
     /// Block interval in seconds (time between block productions)
     pub block_interval: f64,
 }
@@ -128,7 +128,7 @@ pub struct SimulationConfig {
     pub cat_rate_step: Option<f64>,
     /// Step size for chain delay sweeps
     #[serde(default)]
-    pub chain_delay_step: Option<u64>,
+    pub chain_delay_step: Option<f64>,
     /// Step size for block interval sweeps
     #[serde(default)]
     pub block_interval_step: Option<f64>,

@@ -6,9 +6,10 @@
 num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0, 5]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
+chain_delays = [0.0, 5.5]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
+
 # Block interval in seconds
-block_interval = 0.05
+block_interval = 0.1
 
 # Account parameters
 [account_config]
@@ -47,7 +48,7 @@ initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
 num_runs = 1
 # Number of simulations to run in the sweep
-num_simulations = 5
+num_simulations = 3
 # Step size for CAT lifetime sweeps
 cat_lifetime_step = 1
 # Total number of blocks to simulate

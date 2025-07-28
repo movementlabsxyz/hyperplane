@@ -39,7 +39,7 @@ use tokio::sync::Mutex;
 /// * `hig_node_2` - The hyperig node for chain-2
 /// * `current_block` - The current block number at the end of the setup
 ///
-pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[u64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64, num_accounts: u32, preload_value: u32) 
+pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[f64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64, num_accounts: u32, preload_value: u32) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Note: Logging should be initialized by the calling code before calling this function
 
@@ -100,8 +100,8 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[u64], al
     logging::log("NODES SETUP", &format!("Nodes setup complete, current block: {}", current_block));
 
     // Set the provided delays (convert from blocks to time)
-    let time_delay_1 = Duration::from_secs_f64(block_interval.as_secs_f64() * chain_delays[0] as f64);
-    let time_delay_2 = Duration::from_secs_f64(block_interval.as_secs_f64() * chain_delays[1] as f64);
+    let time_delay_1 = Duration::from_secs_f64(block_interval.as_secs_f64() * chain_delays[0]);
+    let time_delay_2 = Duration::from_secs_f64(block_interval.as_secs_f64() * chain_delays[1]);
     hig_node_1.lock().await.set_hs_message_delay(time_delay_1);
     hig_node_2.lock().await.set_hs_message_delay(time_delay_2);
 
