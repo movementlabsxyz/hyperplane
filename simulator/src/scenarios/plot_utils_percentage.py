@@ -52,7 +52,10 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
     Plot transaction percentage over time for each simulation.
     
     This function calculates the percentage of a specific transaction state (success, pending, or failure)
-    compared to total transactions as block number increases.
+    as block number increases.
+    
+    For success and failure percentages: uses (success + failure) as denominator
+    For pending percentage: uses (success + pending + failure) as denominator
     
     Args:
         data: The sweep data containing individual results
@@ -122,22 +125,32 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     total_transactions = total_success + total_pending + total_failure
                     
                     # Calculate percentage based on type (avoid division by zero)
-                    if total_transactions > 0:
-                        if percentage_type == 'success':
-                            percentage = (total_success / total_transactions) * 100
-                        elif percentage_type == 'pending':
+                    if percentage_type == 'pending':
+                        # For pending, use total transactions (success + pending + failure)
+                        if total_transactions > 0:
                             percentage = (total_pending / total_transactions) * 100
-                        elif percentage_type == 'failure':
-                            percentage = (total_failure / total_transactions) * 100
                         else:
                             percentage = 0
                     else:
-                        percentage = 0
+                        # For success and failure, use only (success + failure) as denominator
+                        success_failure_total = total_success + total_failure
+                        if success_failure_total > 0:
+                            if percentage_type == 'success':
+                                percentage = (total_success / success_failure_total) * 100
+                            elif percentage_type == 'failure':
+                                percentage = (total_failure / success_failure_total) * 100
+                            else:
+                                percentage = 0
+                        else:
+                            percentage = 0
                     
                     percentages.append(percentage)
                 
                 # Create title and filename
-                title = f'All Transactions {percentage_type.title()} Percentage Over Time - {create_sweep_title(param_name, sweep_type)}'
+                if percentage_type in ['success', 'failure']:
+                    title = f'All Transactions {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                else:
+                    title = f'All Transactions {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
                 filename = f'tx_{percentage_type}_sumtypes_percentage.png'
                 
             else:
@@ -171,29 +184,45 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     total_transactions = cumulative_success + cumulative_pending + cumulative_failure
                     
                     # Calculate percentage based on type (avoid division by zero)
-                    if total_transactions > 0:
-                        if percentage_type == 'success':
-                            percentage = (cumulative_success / total_transactions) * 100
-                        elif percentage_type == 'pending':
+                    if percentage_type == 'pending':
+                        # For pending, use total transactions (success + pending + failure)
+                        if total_transactions > 0:
                             percentage = (cumulative_pending / total_transactions) * 100
-                        elif percentage_type == 'failure':
-                            percentage = (cumulative_failure / total_transactions) * 100
                         else:
                             percentage = 0
                     else:
-                        percentage = 0
+                        # For success and failure, use only (success + failure) as denominator
+                        success_failure_total = cumulative_success + cumulative_failure
+                        if success_failure_total > 0:
+                            if percentage_type == 'success':
+                                percentage = (cumulative_success / success_failure_total) * 100
+                            elif percentage_type == 'failure':
+                                percentage = (cumulative_failure / success_failure_total) * 100
+                            else:
+                                percentage = 0
+                        else:
+                            percentage = 0
                     
                     percentages.append(percentage)
                 
                 # Create title and filename based on transaction type
                 if transaction_type == 'cat':
-                    title = f'CAT {percentage_type.title()} Percentage Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    if percentage_type in ['success', 'failure']:
+                        title = f'CAT {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    else:
+                        title = f'CAT {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
                     filename = f'tx_{percentage_type}_cat_percentage.png'
                 elif transaction_type == 'regular':
-                    title = f'Regular {percentage_type.title()} Percentage Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    if percentage_type in ['success', 'failure']:
+                        title = f'Regular {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    else:
+                        title = f'Regular {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
                     filename = f'tx_{percentage_type}_regular_percentage.png'
                 else:
-                    title = f'{transaction_type.title()} {percentage_type.title()} Percentage Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    if percentage_type in ['success', 'failure']:
+                        title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    else:
+                        title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
                     filename = f'tx_{percentage_type}_{transaction_type}_percentage.png'
             
             # Trim the last 10% of data to avoid edge effects
