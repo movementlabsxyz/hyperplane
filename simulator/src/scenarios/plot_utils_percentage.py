@@ -11,8 +11,8 @@ import numpy as np
 from typing import Dict, List, Tuple, Any
 
 def create_color_gradient(num_simulations: int) -> np.ndarray:
-    """Create a color gradient from red (0) to blue (max)"""
-    return plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
+    """Create a color gradient from blue to red with better visibility"""
+    return plt.cm.viridis(np.linspace(0, 1, num_simulations))
 
 def extract_parameter_value(result: Dict[str, Any], param_name: str) -> float:
     """Extract parameter value from result dict"""

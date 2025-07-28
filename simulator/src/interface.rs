@@ -263,47 +263,130 @@ impl SimulatorInterface {
                     println!("All missing tests completed successfully!");
                     break;
                 }
+
                 Some(simulation_type) => {
-                    // Use the registry to run the simulation
-                    let registry = crate::simulation_registry::get_registry().await;
-                    let registry_guard = registry.lock().await;
+                    // Check if this is a sweep simulation
+                    let is_sweep = matches!(simulation_type, 
+                        SimulationType::SweepBlockIntervalAllScaled |
+                        SimulationType::SweepBlockIntervalConstantBlockDelay |
+                        SimulationType::SweepBlockIntervalConstantTimeDelay |
+                        SimulationType::SweepCatLifetime |
+                        SimulationType::SweepCatPendingDependencies |
+                        SimulationType::SweepCatRate |
+                        SimulationType::SweepChainDelay |
+                        SimulationType::SweepTotalBlockNumber |
+                        SimulationType::SweepZipf
+                    );
                     
-                    if let Some(config) = registry_guard.get(&simulation_type) {
-                        println!("Running {}...", config.name);
+                    if is_sweep {
+                        // Show sub-menu for sweep simulations
+                        println!("\nSweep options:");
+                        println!("  1) Run simulation");
+                        println!("  2) Rerun plots");
+                        print!("Select option: ");
+                        io::stdout().flush().unwrap();
                         
-                        // Run the simulation
-                        let run_future = (config.run_fn)();
-                        if let Err(e) = run_future.await {
-                            return Err(e);
-                        }
+                        let mut sub_input = String::new();
+                        io::stdin().read_line(&mut sub_input).expect("Failed to read input");
                         
-                        // Generate plots if a script is specified
-                        if !config.plot_script.is_empty() {
-                            println!("Generating plots...");
-                            let plot_type = match simulation_type {
-                                SimulationType::Simple => "simple",
-                                SimulationType::SweepBlockIntervalAllScaled => "sweep_block_interval_all_scaled",
-                                SimulationType::SweepBlockIntervalConstantBlockDelay => "sweep_block_interval_constant_block_delay",
-                                SimulationType::SweepBlockIntervalConstantTimeDelay => "sweep_block_interval_constant_time_delay",
-                                SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
-                                SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
-                                SimulationType::SweepCatRate => "sweep_cat_rate",
-                                SimulationType::SweepChainDelay => "sweep_chain_delay",
-                                SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
-                                SimulationType::SweepZipf => "sweep_zipf",
-                                _ => "unknown",
-                            };
-                            
-                            if let Err(e) = self.generate_plots(plot_type) {
-                                return Err(format!("Plot generation failed: {}", e));
+                        match sub_input.trim() {
+                            "1" => {
+                                // Run the simulation
+                                let registry = crate::simulation_registry::get_registry().await;
+                                let registry_guard = registry.lock().await;
+                                
+                                if let Some(config) = registry_guard.get(&simulation_type) {
+                                    println!("Running {}...", config.name);
+                                    
+                                    let run_future = (config.run_fn)();
+                                    if let Err(e) = run_future.await {
+                                        return Err(e);
+                                    }
+                                    
+                                    // Generate plots if a script is specified
+                                    if !config.plot_script.is_empty() {
+                                        println!("Generating plots...");
+                                        let plot_type = match simulation_type {
+                                            SimulationType::Simple => "simple",
+                                            SimulationType::SweepBlockIntervalAllScaled => "sweep_block_interval_all_scaled",
+                                            SimulationType::SweepBlockIntervalConstantBlockDelay => "sweep_block_interval_constant_block_delay",
+                                            SimulationType::SweepBlockIntervalConstantTimeDelay => "sweep_block_interval_constant_time_delay",
+                                            SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
+                                            SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
+                                            SimulationType::SweepCatRate => "sweep_cat_rate",
+                                            SimulationType::SweepChainDelay => "sweep_chain_delay",
+                                            SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
+                                            SimulationType::SweepZipf => "sweep_zipf",
+                                            _ => "unknown",
+                                        };
+                                        
+                                        if let Err(e) = self.generate_plots(plot_type) {
+                                            return Err(format!("Plot generation failed: {}", e));
+                                        }
+                                    }
+                                    
+                                    println!("{} completed successfully!", config.name);
+                                } else {
+                                    return Err(format!("Unknown simulation type: {:?}", simulation_type));
+                                }
+                            }
+                            "2" => {
+                                // Rerun plots
+                                let plot_type = match simulation_type {
+                                    SimulationType::SweepBlockIntervalAllScaled => "sweep_block_interval_all_scaled",
+                                    SimulationType::SweepBlockIntervalConstantBlockDelay => "sweep_block_interval_constant_block_delay",
+                                    SimulationType::SweepBlockIntervalConstantTimeDelay => "sweep_block_interval_constant_time_delay",
+                                    SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
+                                    SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
+                                    SimulationType::SweepCatRate => "sweep_cat_rate",
+                                    SimulationType::SweepChainDelay => "sweep_chain_delay",
+                                    SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
+                                    SimulationType::SweepZipf => "sweep_zipf",
+                                    _ => "unknown",
+                                };
+                                
+                                if let Err(e) = self.generate_plots(plot_type) {
+                                    return Err(format!("Plot generation failed: {}", e));
+                                }
+                                println!("Plots rerun successfully!");
+                            }
+
+                            _ => {
+                                println!("Invalid option. Please enter '1' or '2'.");
                             }
                         }
-                        
-                        println!("{} completed successfully!", config.name);
-                        break;
                     } else {
-                        return Err(format!("Unknown simulation type: {:?}", simulation_type));
+                        // For non-sweep simulations (like Simple), run directly
+                        let registry = crate::simulation_registry::get_registry().await;
+                        let registry_guard = registry.lock().await;
+                        
+                        if let Some(config) = registry_guard.get(&simulation_type) {
+                            println!("Running {}...", config.name);
+                            
+                            let run_future = (config.run_fn)();
+                            if let Err(e) = run_future.await {
+                                return Err(e);
+                            }
+                            
+                            // Generate plots if a script is specified
+                            if !config.plot_script.is_empty() {
+                                println!("Generating plots...");
+                                let plot_type = match simulation_type {
+                                    SimulationType::Simple => "simple",
+                                    _ => "unknown",
+                                };
+                                
+                                if let Err(e) = self.generate_plots(plot_type) {
+                                    return Err(format!("Plot generation failed: {}", e));
+                                }
+                            }
+                            
+                            println!("{} completed successfully!", config.name);
+                        } else {
+                            return Err(format!("Unknown simulation type: {:?}", simulation_type));
+                        }
                     }
+                    break;
                 }
                 None => {
                     println!("Invalid choice. Please enter a valid choice or 0 to exit.");
@@ -342,4 +425,6 @@ impl SimulatorInterface {
         }
         Ok(())
     }
+
+
 } 
