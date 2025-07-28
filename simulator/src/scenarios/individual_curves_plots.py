@@ -4,6 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Dict, Any, Tuple
 
+# Global colormap setting - easily switch between different colormaps
+# Options: 'viridis', 'RdYlBu_r', 'plasma', 'inferno', 'magma', 'cividis'
+COLORMAP = 'viridis'  # Change this to switch colormaps globally
+
 
 def calculate_running_average(data: List[float], window_size: int = 10) -> List[float]:
     """
@@ -72,7 +76,7 @@ def create_per_run_plots(sim_data_dir: str, sim_figs_dir: str, block_interval: f
         return
     
     # Create color gradient for runs
-    colors = plt.cm.viridis(np.linspace(0, 1, len(run_dirs)))
+    colors = plt.cm.get_cmap(COLORMAP)(np.linspace(0, 1, len(run_dirs)))
     
     # Plot TPS if block_interval is provided
     if block_interval is not None:

@@ -14,6 +14,10 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 from typing import Dict, List, Tuple, Any, Optional
 
+# Global colormap setting - easily switch between different colormaps
+# Options: 'viridis', 'RdYlBu_r', 'plasma', 'inferno', 'magma', 'cividis'
+COLORMAP = 'viridis'  # Change this to switch colormaps globally
+
 # ------------------------------------------------------------------------------------------------
 # Utility Functions
 # ------------------------------------------------------------------------------------------------
@@ -30,8 +34,8 @@ PARAM_DISPLAY_NAMES = {
 }
 
 def create_color_gradient(num_simulations: int) -> np.ndarray:
-    """Create a color gradient from red (0) to blue (max)"""
-    return plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
+    """Create a color gradient using the global COLORMAP setting"""
+    return plt.cm.get_cmap(COLORMAP)(np.linspace(0, 1, num_simulations))
 
 def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
     """Create sweep data structure from run_average directories."""
@@ -475,6 +479,23 @@ def generate_all_plots(
     
     # Plot loop steps without transaction issuance
     plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
+    
+    # Plot CAT success percentage over time
+    # Import and call from plot_utils_percentage.py
+    from plot_utils_percentage import (
+        plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
+        plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage,
+        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage
+    )
+    plot_cat_success_percentage(data, param_name, results_dir, sweep_type)
+    plot_cat_failure_percentage(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_percentage(data, param_name, results_dir, sweep_type)
+    plot_regular_success_percentage(data, param_name, results_dir, sweep_type)
+    plot_regular_failure_percentage(data, param_name, results_dir, sweep_type)
+    plot_regular_pending_percentage(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_success_percentage(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_failure_percentage(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_pending_percentage(data, param_name, results_dir, sweep_type)
     
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
@@ -1360,6 +1381,8 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
         print(f"Error generating individual curves plots: {e}")
         import traceback
         traceback.print_exc()
+
+
 
 def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     """

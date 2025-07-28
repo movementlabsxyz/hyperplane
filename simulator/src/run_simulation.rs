@@ -204,6 +204,7 @@ pub async fn run_simulation_with_message_and_retries(
                 chain_id_1.clone(),
                 chain_id_2.clone(),
                 transactions_per_block,
+                new_block,
             ).await?;
         } else {
             // increment the block counter
@@ -333,6 +334,7 @@ async fn release_transactions_for_block(
     chain_id_1: ChainId,
     chain_id_2: ChainId,
     transactions_per_block: u64,
+    current_block: u64,
 ) -> Result<(), String> {
     for tx_index in 0..transactions_per_block {
         // Select accounts for transaction
