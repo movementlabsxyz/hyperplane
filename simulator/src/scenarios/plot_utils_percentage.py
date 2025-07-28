@@ -10,9 +10,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import Dict, List, Tuple, Any
 
+# Global colormap setting - easily switch between different colormaps
+# Options: 'viridis', 'RdYlBu_r', 'plasma', 'inferno', 'magma', 'cividis'
+COLORMAP = 'viridis'  # Change this to switch colormaps globally
+
 def create_color_gradient(num_simulations: int) -> np.ndarray:
-    """Create a color gradient from blue to red with better visibility"""
-    return plt.cm.viridis(np.linspace(0, 1, num_simulations))
+    """Create a color gradient using the global COLORMAP setting"""
+    return plt.cm.get_cmap(COLORMAP)(np.linspace(0, 1, num_simulations))
 
 def extract_parameter_value(result: Dict[str, Any], param_name: str) -> float:
     """Extract parameter value from result dict"""

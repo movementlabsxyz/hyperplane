@@ -14,6 +14,10 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 from typing import Dict, List, Tuple, Any, Optional
 
+# Global colormap setting - easily switch between different colormaps
+# Options: 'viridis', 'RdYlBu_r', 'plasma', 'inferno', 'magma', 'cividis'
+COLORMAP = 'viridis'  # Change this to switch colormaps globally
+
 # ------------------------------------------------------------------------------------------------
 # Utility Functions
 # ------------------------------------------------------------------------------------------------
@@ -30,8 +34,8 @@ PARAM_DISPLAY_NAMES = {
 }
 
 def create_color_gradient(num_simulations: int) -> np.ndarray:
-    """Create a color gradient from red (0) to blue (max)"""
-    return plt.cm.RdYlBu_r(np.linspace(0, 1, num_simulations))
+    """Create a color gradient using the global COLORMAP setting"""
+    return plt.cm.get_cmap(COLORMAP)(np.linspace(0, 1, num_simulations))
 
 def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
     """Create sweep data structure from run_average directories."""
