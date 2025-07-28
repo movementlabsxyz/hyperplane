@@ -204,6 +204,7 @@ pub async fn run_simulation_with_message_and_retries(
                 chain_id_1.clone(),
                 chain_id_2.clone(),
                 transactions_per_block,
+                new_block,
             ).await?;
         } else {
             // increment the block counter
@@ -333,6 +334,7 @@ async fn release_transactions_for_block(
     chain_id_1: ChainId,
     chain_id_2: ChainId,
     transactions_per_block: u64,
+    current_block: u64,
 ) -> Result<(), String> {
     for tx_index in 0..transactions_per_block {
         // Select accounts for transaction
@@ -342,8 +344,12 @@ async fn release_transactions_for_block(
         // Record transaction in account statistics
         results.account_stats.record_transaction(from_account as u64, to_account as u64);
         
-        // Determine if this should be a CAT transaction based on configured ratio
-        let is_cat = rng.gen_bool(results.ratio_cats);
+        // Determine if this should be a CAT transaction based on configured ratio and cat_lifetime
+        let is_cat = if current_block >= results.cat_lifetime {
+            rng.gen_bool(results.ratio_cats)
+        } else {
+            false // Don't create CATs before cat_lifetime
+        };
         
         // Create transaction data
         let tx_data = format!("{}.send {} {} 1", 

@@ -45,10 +45,10 @@ pub async fn run_sweep_cat_lifetime_simulation() -> Result<(), crate::config::Co
     let sweep_config = load_config()?;
     
     // Calculate CAT lifetimes for each simulation using the helper function
-    // Creates a sequence of lifetimes: 1 block, 2 blocks, 3 blocks, etc.
+    // Creates a sequence starting from cat_lifetime_blocks and stepping by cat_lifetime_step
     // Each value represents the number of blocks a CAT remains valid
     let cat_lifetimes = generate_u64_sequence(
-        sweep_config.simulation_config.cat_lifetime_step.unwrap(),
+        sweep_config.transaction_config.cat_lifetime_blocks,  // Start from the configured cat_lifetime_blocks
         sweep_config.simulation_config.cat_lifetime_step.unwrap(),
         sweep_config.simulation_config.num_simulations.unwrap_or(1)
     );
