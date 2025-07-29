@@ -31,7 +31,7 @@ target_tps = 100.0
 # Must be greater than or equal to 0
 zipf_parameter = 1.0
 # Ratio of transactions that will be CATs
-ratio_cats = 0.1
+ratio_cats = 0.3
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 6

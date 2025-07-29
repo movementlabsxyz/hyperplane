@@ -202,6 +202,11 @@ impl HyperIGNode {
             log(&format!("HIG-{}", chain_id), &format!("⏰ TIMEOUT: CAT '{}' timed out at block height {} (created at block {}, lived for {} blocks, max_lifetime: {}, cat_lifetime: {})", 
                 cat_id.0, current_block_height, cat_creation_block, blocks_since_creation, max_lifetime, state.cat_lifetime));
             
+            // Ensure the transaction exists in received_txs before setting status
+            if !state.received_txs.contains_key(&tx_id) {
+                panic!("TIMEOUT BUG: Transaction {} not found in received_txs when setting timeout failure status", tx_id.0);
+            }
+            
             // Update transaction status to Failure
             state.transaction_statuses.insert(tx_id.clone(), TransactionStatus::Failure);
             
