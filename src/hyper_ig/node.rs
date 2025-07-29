@@ -57,6 +57,55 @@ struct HyperIGState {
     current_block_height: u64,
     /// Flag to control whether CATs can depend on pending transactions
     allow_cat_pending_dependencies: bool,
+    /// CAT transaction counters
+    cat_pending_count: u64,
+    cat_success_count: u64,
+    cat_failure_count: u64,
+    /// Regular transaction counters
+    regular_pending_count: u64,
+    regular_success_count: u64,
+    regular_failure_count: u64,
+}
+
+impl HyperIGState {
+    /// Updates CAT counters based on status change
+    fn update_cat_counters(&mut self, new_status: TransactionStatus) {
+        match new_status {
+            TransactionStatus::Pending => self.cat_pending_count += 1,
+            TransactionStatus::Success => {
+                self.cat_pending_count = self.cat_pending_count.saturating_sub(1);
+                self.cat_success_count += 1;
+            }
+            TransactionStatus::Failure => {
+                self.cat_pending_count = self.cat_pending_count.saturating_sub(1);
+                self.cat_failure_count += 1;
+            }
+        }
+    }
+
+    /// Updates regular transaction counters based on status change
+    fn update_regular_counters(&mut self, new_status: TransactionStatus) {
+        match new_status {
+            TransactionStatus::Pending => self.regular_pending_count += 1,
+            TransactionStatus::Success => {
+                self.regular_pending_count = self.regular_pending_count.saturating_sub(1);
+                self.regular_success_count += 1;
+            }
+            TransactionStatus::Failure => {
+                self.regular_pending_count = self.regular_pending_count.saturating_sub(1);
+                self.regular_failure_count += 1;
+            }
+        }
+    }
+
+    /// Updates counters based on transaction type and status
+    fn update_counters(&mut self, new_status: TransactionStatus, is_cat: bool) {
+        if is_cat {
+            self.update_cat_counters(new_status);
+        } else {
+            self.update_regular_counters(new_status);
+        }
+    }
 }
 
 /// Node implementation of the Hyper Information Gateway
@@ -133,6 +182,12 @@ impl HyperIGNode {
                 cat_lifetime: cat_lifetime,
                 current_block_height: 0,
                 allow_cat_pending_dependencies,
+                cat_pending_count: 0,
+                cat_success_count: 0,
+                cat_failure_count: 0,
+                regular_pending_count: 0,
+                regular_success_count: 0,
+                regular_failure_count: 0,
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
@@ -210,6 +265,9 @@ impl HyperIGNode {
             // Update transaction status to Failure
             state.transaction_statuses.insert(tx_id.clone(), TransactionStatus::Failure);
             
+            // Update CAT counters using state method
+            state.update_counters(TransactionStatus::Failure, true);
+            
             // Remove from pending transactions
             state.pending_transactions.remove(&tx_id);
             
@@ -283,6 +341,14 @@ impl HyperIGNode {
             state.pending_proposals.clear();
             state.cat_max_lifetime.clear();
             state.current_block_height = 0;
+            
+            // Reset CAT counters
+            state.cat_pending_count = 0;
+            state.cat_success_count = 0;
+            state.cat_failure_count = 0;
+            state.regular_pending_count = 0;
+            state.regular_success_count = 0;
+            state.regular_failure_count = 0;
             
             // Reset VM state
             state.vm = MockVM::new();
@@ -571,6 +637,12 @@ impl HyperIGNode {
         self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
         // Add to pending transactions set
         self.state.lock().await.pending_transactions.insert(tx.id.clone());
+        
+        // Update CAT counters (new CAT transaction with Pending status)
+        {
+            let mut state = self.state.lock().await;
+            state.update_counters(TransactionStatus::Pending, true);
+        }
 
         // Extract the command part between the dots
         let command = tx.data.split('.').nth(1)
@@ -596,6 +668,12 @@ impl HyperIGNode {
                             drop(state); // Release lock before async call
                             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
                             self.state.lock().await.pending_transactions.remove(&tx.id);
+                            
+                            // Update CAT counters (from Pending to Failure)
+                            {
+                                let mut state = self.state.lock().await;
+                                state.update_counters(TransactionStatus::Failure, true);
+                            }
                             
                             // Store the mapping from CAT ID to transaction ID for status reporting
                             let cat_id = CATId(tx.cl_id.clone());
@@ -774,6 +852,12 @@ impl HyperIGNode {
         log(&format!("HIG-{}", chain_id), &format!("Updated status to '{:?}' for tx-id='{}', which is part of CAT-id='{}'", status, tx_id.0, cat_id.0));
         log(&format!("HIG-{}", chain_id), &format!("... (After)  status of tx-id='{}': {:?}", tx_id.0, self.state.lock().await.transaction_statuses.get(&tx_id)));
         
+        // Update CAT counters (from Pending to Success/Failure)
+        {
+            let mut state = self.state.lock().await;
+            state.update_counters(status.clone(), true);
+        }
+        
         // If the CAT was successful, execute its transaction
         if status == TransactionStatus::Success {
             let tx_data = self.state.lock().await.received_txs.get(&tx_id)
@@ -910,14 +994,15 @@ impl HyperIGNode {
             .collect()
     }
 
-    /// Gets the total number of currently locked keys.
+    /// Gets the total number of locked keys.
     /// 
     /// # Returns
-    /// The total count of keys that are currently locked by any transaction
+    /// The total number of locked keys
     pub async fn get_total_locked_keys_count(&self) -> u64 {
-        let state = self.state.lock().await;
-        state.key_locked_by_tx.len() as u64
+        self.state.lock().await.key_locked_by_tx.len() as u64
     }
+
+
 }
 
 //==============================================================================
@@ -962,6 +1047,12 @@ impl HyperIGNode {
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
             self.state.lock().await.pending_transactions.insert(tx.id.clone());
             
+            // Update CAT counters (regular transaction with Pending status - not a CAT)
+            {
+                let mut state = self.state.lock().await;
+                state.update_counters(TransactionStatus::Pending, false);
+            }
+            
             return Ok(TransactionStatus::Pending);
         }
 
@@ -984,11 +1075,22 @@ impl HyperIGNode {
             // Update transaction status
             state.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Success);
             log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Success' for transaction: {}", tx.id.0));
+            
+            // Update CAT counters (regular transaction with Success status - not a CAT)
+            state.update_counters(TransactionStatus::Success, false);
+            
             Ok(TransactionStatus::Success)
         } else {
             // Update transaction status
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Failure);
             log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Failure' for transaction: {}", tx.id.0));
+            
+            // Update CAT counters (regular transaction with Failure status - not a CAT)
+            {
+                let mut state = self.state.lock().await;
+                state.update_counters(TransactionStatus::Failure, false);
+            }
+            
             Ok(TransactionStatus::Failure)
         }
     }
@@ -1026,6 +1128,13 @@ impl HyperIG for HyperIGNode {
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), TransactionStatus::Pending);
             log(&format!("HIG-{}", chain_id), &format!("Set initial status to Pending for tx-id: '{}' : data: '{}'", tx.id, tx.data));
             
+            // Update CAT counters for initial Pending status
+            let is_cat = tx.data.starts_with("CAT");
+            {
+                let mut state = self.state.lock().await;
+                state.update_counters(TransactionStatus::Pending, is_cat);
+            }
+            
             let status = if tx.data.starts_with("CAT") {
                 self.handle_cat_transaction(tx.clone()).await?
             } else {
@@ -1035,6 +1144,13 @@ impl HyperIG for HyperIGNode {
             // Update status
             self.state.lock().await.transaction_statuses.insert(tx.id.clone(), status.clone());
             log(&format!("HIG-{}", chain_id), &format!("Updated status to '{:?}' for tx-id='{}'", status, tx.id.0));
+            
+            // Update CAT counters for final status (from Pending to the final status)
+            let is_cat = tx.data.starts_with("CAT");
+            {
+                let mut state = self.state.lock().await;
+                state.update_counters(status.clone(), is_cat);
+            }
             
             status
         };
@@ -1324,24 +1440,7 @@ impl HyperIG for HyperIGNode {
     /// A tuple of (pending_count, success_count, failure_count)
     async fn get_transaction_status_counts_cats(&self) -> Result<(u64, u64, u64), HyperIGError> {
         let state = self.state.lock().await;
-        let mut pending = 0;
-        let mut success = 0;
-        let mut failure = 0;
-        
-        for (tx_id, status) in &state.transaction_statuses {
-            // Check if this is a CAT transaction by looking at the transaction data
-            if let Some(tx) = state.received_txs.get(tx_id) {
-                if tx.data.starts_with("CAT.") {
-                    match status {
-                        TransactionStatus::Pending => pending += 1,
-                        TransactionStatus::Success => success += 1,
-                        TransactionStatus::Failure => failure += 1,
-                    }
-                }
-            }
-        }
-        
-        Ok((pending, success, failure))
+        Ok((state.cat_pending_count, state.cat_success_count, state.cat_failure_count))
     }
 
     /// Gets counts of regular transaction statuses (Pending, Success, Failure).
@@ -1350,24 +1449,7 @@ impl HyperIG for HyperIGNode {
     /// A tuple of (pending_count, success_count, failure_count)
     async fn get_transaction_status_counts_regular(&self) -> Result<(u64, u64, u64), HyperIGError> {
         let state = self.state.lock().await;
-        let mut pending = 0;
-        let mut success = 0;
-        let mut failure = 0;
-        
-        for (tx_id, status) in &state.transaction_statuses {
-            // Check if this is a regular transaction by looking at the transaction data
-            if let Some(tx) = state.received_txs.get(tx_id) {
-                if tx.data.starts_with("REGULAR.") {
-                    match status {
-                        TransactionStatus::Pending => pending += 1,
-                        TransactionStatus::Success => success += 1,
-                        TransactionStatus::Failure => failure += 1,
-                    }
-                }
-            }
-        }
-        
-        Ok((pending, success, failure))
+        Ok((state.regular_pending_count, state.regular_success_count, state.regular_failure_count))
     }
 
     /// Gets detailed counts of CAT pending states (Resolving, Postponed).
