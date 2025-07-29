@@ -94,6 +94,10 @@ def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
                 ('cat_success_transactions_chain_2.json', 'chain_2_cat_success'),
                 ('cat_failure_transactions_chain_1.json', 'chain_1_cat_failure'),
                 ('cat_failure_transactions_chain_2.json', 'chain_2_cat_failure'),
+                ('cat_pending_resolving_transactions_chain_1.json', 'chain_1_cat_pending_resolving'),
+                ('cat_pending_resolving_transactions_chain_2.json', 'chain_2_cat_pending_resolving'),
+                ('cat_pending_postponed_transactions_chain_1.json', 'chain_1_cat_pending_postponed'),
+                ('cat_pending_postponed_transactions_chain_2.json', 'chain_2_cat_pending_postponed'),
                 ('regular_pending_transactions_chain_1.json', 'chain_1_regular_pending'),
                 ('regular_pending_transactions_chain_2.json', 'chain_2_regular_pending'),
                 ('regular_success_transactions_chain_1.json', 'chain_1_regular_success'),
@@ -272,8 +276,15 @@ def plot_transactions_overlay(
         elif transaction_type.startswith('cat_'):
             # CAT transactions
             status = transaction_type.replace('cat_', '')
-            title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'tx_{status}_cat.png'
+            if status == 'pending_resolving':
+                title = f'CAT Pending Resolving Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_resolving.png'
+            elif status == 'pending_postponed':
+                title = f'CAT Pending Postponed Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_postponed.png'
+            else:
+                title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{status}_cat.png'
         elif transaction_type.startswith('regular_'):
             # Regular transactions
             status = transaction_type.replace('regular_', '')
@@ -299,6 +310,14 @@ def plot_transactions_overlay(
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing {transaction_type} transactions data: {e}")
         return
+
+def plot_cat_pending_resolving(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending resolving transactions overlay"""
+    plot_transactions_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+
+def plot_cat_pending_postponed(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending postponed transactions overlay"""
+    plot_transactions_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
 
 # ------------------------------------------------------------------------------------------------
 # Summary Chart Plotting
@@ -453,6 +472,10 @@ def generate_all_plots(
     plot_transactions_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
     
+    # Plot detailed CAT pending state overlays
+    plot_cat_pending_resolving(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_postponed(data, param_name, results_dir, sweep_type)
+    
     # Plot regular transaction overlays
     plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
@@ -494,7 +517,8 @@ def generate_all_plots(
     from plot_utils_percentage import (
         plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
         plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage,
-        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage
+        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage,
+        plot_cat_pending_resolving_percentage, plot_cat_pending_postponed_percentage
     )
     plot_cat_success_percentage(data, param_name, results_dir, sweep_type)
     plot_cat_failure_percentage(data, param_name, results_dir, sweep_type)
@@ -505,6 +529,8 @@ def generate_all_plots(
     plot_sumtypes_success_percentage(data, param_name, results_dir, sweep_type)
     plot_sumtypes_failure_percentage(data, param_name, results_dir, sweep_type)
     plot_sumtypes_pending_percentage(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_resolving_percentage(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_postponed_percentage(data, param_name, results_dir, sweep_type)
     
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)

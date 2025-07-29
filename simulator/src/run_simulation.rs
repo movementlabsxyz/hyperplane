@@ -239,6 +239,10 @@ async fn process_block_data(
     let (chain_1_cat_pending, chain_1_cat_success, chain_1_cat_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
     let (chain_2_cat_pending, chain_2_cat_success, chain_2_cat_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_cats().await.map_err(|e| e.to_string())?;
     
+    // Get detailed CAT pending state counts
+    let (chain_1_cat_pending_resolving, chain_1_cat_pending_postponed) = hig_nodes[0].lock().await.get_cat_pending_detailed_counts().await.map_err(|e| e.to_string())?;
+    let (chain_2_cat_pending_resolving, chain_2_cat_pending_postponed) = hig_nodes[1].lock().await.get_cat_pending_detailed_counts().await.map_err(|e| e.to_string())?;
+    
     // Get regular transaction status counts
     let (chain_1_regular_pending, chain_1_regular_success, chain_1_regular_failure) = hig_nodes[0].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
     let (chain_2_regular_pending, chain_2_regular_success, chain_2_regular_failure) = hig_nodes[1].lock().await.get_transaction_status_counts_regular().await.map_err(|e| e.to_string())?;
@@ -284,6 +288,12 @@ async fn process_block_data(
     results.chain_2_cat_success.push((block_height, chain_2_cat_success));
     results.chain_1_cat_failure.push((block_height, chain_1_cat_failure));
     results.chain_2_cat_failure.push((block_height, chain_2_cat_failure));
+    
+    // Record detailed CAT pending state data
+    results.chain_1_cat_pending_resolving.push((block_height, chain_1_cat_pending_resolving));
+    results.chain_2_cat_pending_resolving.push((block_height, chain_2_cat_pending_resolving));
+    results.chain_1_cat_pending_postponed.push((block_height, chain_1_cat_pending_postponed));
+    results.chain_2_cat_pending_postponed.push((block_height, chain_2_cat_pending_postponed));
     
     // Record regular transaction data
     results.chain_1_regular_pending.push((block_height, chain_1_regular_pending));

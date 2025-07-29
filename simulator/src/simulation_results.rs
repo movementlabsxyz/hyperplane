@@ -63,6 +63,12 @@ pub struct SimulationResults {
     pub chain_1_cat_failure: Vec<(u64, u64)>,
     pub chain_2_cat_failure: Vec<(u64, u64)>,
     
+    // Chain data - Detailed CAT pending states
+    pub chain_1_cat_pending_resolving: Vec<(u64, u64)>,
+    pub chain_2_cat_pending_resolving: Vec<(u64, u64)>,
+    pub chain_1_cat_pending_postponed: Vec<(u64, u64)>,
+    pub chain_2_cat_pending_postponed: Vec<(u64, u64)>,
+    
     // Chain data - Regular transactions
     pub chain_1_regular_pending: Vec<(u64, u64)>,
     pub chain_2_regular_pending: Vec<(u64, u64)>,
@@ -127,6 +133,10 @@ impl Default for SimulationResults {
             chain_2_cat_success: Vec::new(),
             chain_1_cat_failure: Vec::new(),
             chain_2_cat_failure: Vec::new(),
+            chain_1_cat_pending_resolving: Vec::new(),
+            chain_2_cat_pending_resolving: Vec::new(),
+            chain_1_cat_pending_postponed: Vec::new(),
+            chain_2_cat_pending_postponed: Vec::new(),
             chain_1_regular_pending: Vec::new(),
             chain_2_regular_pending: Vec::new(),
             chain_1_regular_success: Vec::new(),
@@ -482,6 +492,56 @@ impl SimulationResults {
         let cat_failure_file_chain_2 = format!("{}/data/cat_failure_transactions_chain_2.json", base_dir);
         fs::write(&cat_failure_file_chain_2, serde_json::to_string_pretty(&cat_failure_txs_chain_2).expect("Failed to serialize CAT failure transactions")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved CAT failure transactions data to {}", cat_failure_file_chain_2));
+
+        // Save detailed CAT pending states data from chain 1
+        let cat_pending_resolving_txs_chain_1 = serde_json::json!({
+            "chain_1_cat_pending_resolving": self.chain_1_cat_pending_resolving.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let cat_pending_resolving_file_chain_1 = format!("{}/data/cat_pending_resolving_transactions_chain_1.json", base_dir);
+        fs::write(&cat_pending_resolving_file_chain_1, serde_json::to_string_pretty(&cat_pending_resolving_txs_chain_1).expect("Failed to serialize CAT pending resolving transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved CAT pending resolving transactions data to {}", cat_pending_resolving_file_chain_1));
+
+        let cat_pending_postponed_txs_chain_1 = serde_json::json!({
+            "chain_1_cat_pending_postponed": self.chain_1_cat_pending_postponed.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let cat_pending_postponed_file_chain_1 = format!("{}/data/cat_pending_postponed_transactions_chain_1.json", base_dir);
+        fs::write(&cat_pending_postponed_file_chain_1, serde_json::to_string_pretty(&cat_pending_postponed_txs_chain_1).expect("Failed to serialize CAT pending postponed transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved CAT pending postponed transactions data to {}", cat_pending_postponed_file_chain_1));
+
+        // Save detailed CAT pending states data from chain 2
+        let cat_pending_resolving_txs_chain_2 = serde_json::json!({
+            "chain_2_cat_pending_resolving": self.chain_2_cat_pending_resolving.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let cat_pending_resolving_file_chain_2 = format!("{}/data/cat_pending_resolving_transactions_chain_2.json", base_dir);
+        fs::write(&cat_pending_resolving_file_chain_2, serde_json::to_string_pretty(&cat_pending_resolving_txs_chain_2).expect("Failed to serialize CAT pending resolving transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved CAT pending resolving transactions data to {}", cat_pending_resolving_file_chain_2));
+
+        let cat_pending_postponed_txs_chain_2 = serde_json::json!({
+            "chain_2_cat_pending_postponed": self.chain_2_cat_pending_postponed.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let cat_pending_postponed_file_chain_2 = format!("{}/data/cat_pending_postponed_transactions_chain_2.json", base_dir);
+        fs::write(&cat_pending_postponed_file_chain_2, serde_json::to_string_pretty(&cat_pending_postponed_txs_chain_2).expect("Failed to serialize CAT pending postponed transactions")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved CAT pending postponed transactions data to {}", cat_pending_postponed_file_chain_2));
 
         // Save regular pending transactions data from chain 1
         let regular_pending_txs_chain_1 = serde_json::json!({

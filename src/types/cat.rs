@@ -1,8 +1,28 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::convert::TryFrom;
+use thiserror::Error;
 use crate::types::CLTransactionId;
 
 use super::{TransactionId, ChainId};
+
+#[derive(Debug, Error)]
+pub enum CATStatusConversionError {
+    #[error("Cannot convert CATStatus::Pending to CATStatusLimited - pending CATs should not be sent to HS")]
+    PendingNotAllowed,
+}
+
+impl TryFrom<CATStatus> for CATStatusLimited {
+    type Error = CATStatusConversionError;
+
+    fn try_from(status: CATStatus) -> Result<Self, Self::Error> {
+        match status {
+            CATStatus::Success => Ok(CATStatusLimited::Success),
+            CATStatus::Failure => Ok(CATStatusLimited::Failure),
+            CATStatus::Pending => Err(CATStatusConversionError::PendingNotAllowed),
+        }
+    }
+}
 
 /// Unique identifier for a Crosschain Atomic Transaction (CAT)
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]

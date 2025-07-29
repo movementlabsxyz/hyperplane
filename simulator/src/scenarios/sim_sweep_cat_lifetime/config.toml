@@ -48,7 +48,7 @@ initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
 num_runs = 1
 # Number of simulations to run in the sweep
-num_simulations = 5
+num_simulations = 3
 # Step size for CAT lifetime sweeps
 cat_lifetime_step = 4
 # Total number of blocks to simulate
