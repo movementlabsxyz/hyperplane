@@ -401,6 +401,7 @@ def plot_comprehensive_comparison():
         ax1.set_title('All Transactions: Pending, Success, and Failure (CAT + Regular)')
         ax1.set_xlabel('Block Height')
         ax1.set_ylabel('Number of Transactions')
+        ax1.xlim(left=0)
         ax1.grid(True, alpha=0.3)
         ax1.legend()
         
@@ -420,6 +421,7 @@ def plot_comprehensive_comparison():
         ax2.set_title('CAT Transactions: Pending, Success, and Failure')
         ax2.set_xlabel('Block Height')
         ax2.set_ylabel('Number of CAT Transactions')
+        ax2.xlim(left=0)
         ax2.grid(True, alpha=0.3)
         ax2.legend()
         
@@ -439,6 +441,7 @@ def plot_comprehensive_comparison():
         ax3.set_title('Regular Transactions: Pending, Success, and Failure')
         ax3.set_xlabel('Block Height')
         ax3.set_ylabel('Number of Regular Transactions')
+        ax3.xlim(left=0)
         ax3.grid(True, alpha=0.3)
         ax3.legend()
         
@@ -454,6 +457,7 @@ def plot_comprehensive_comparison():
         ax4.set_title('Chain Comparison: Success Transactions')
         ax4.set_xlabel('Block Height')
         ax4.set_ylabel('Number of Successful Transactions')
+        ax4.xlim(left=0)
         ax4.grid(True, alpha=0.3)
         ax4.legend()
         

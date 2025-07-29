@@ -1,4 +1,4 @@
-use crate::scenarios::sweep_runner::{SweepRunner, create_modified_config, generate_u64_sequence};
+use crate::scenarios::sweep_runner::{SweepRunner, create_modified_config, generate_f64_sequence};
 use crate::define_sweep_config;
 use crate::config::ValidateConfig;
 use crate::scenarios::utils::run_simulation_with_plotting;
@@ -36,7 +36,7 @@ define_sweep_config!(
     SweepChainDelayConfig,
     validate_sweep_specific = |self_: &Self| {
         // Need chain_delay_step to generate the sequence of chain delays to test
-        if self_.simulation_config.chain_delay_step.unwrap_or(0) == 0 {
+        if self_.simulation_config.chain_delay_step.unwrap_or(0.0) == 0.0 {
             return Err(crate::config::ConfigError::ValidationError("Chain delay step must be positive".into()));
         }
         Ok(())
@@ -52,19 +52,19 @@ define_sweep_config!(
 /// This simulation explores how a HIG delay to the HS affects
 /// system performance.
 /// 
-/// The sweep varies the delay of the second chain (HIG to HS),
-/// running multiple simulations to understand how it affects
-/// transaction throughput, success rates, and overall system behavior.
+/// The sweep varies the delay of the second chain (HIG to HS) starting from
+/// the configured chain_delays[1] value, running multiple simulations to understand 
+/// how it affects transaction throughput, success rates, and overall system behavior.
 pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_chain_delay.toml
     let sweep_config = load_config()?;
     
     // Calculate chain delays for each simulation using the helper function
-    // Creates a sequence of delays: 0 blocks, 1 block, 2 blocks, 3 blocks, etc.
+    // Creates a sequence starting from the configured chain_delays[1] value
     // Each value represents the delay from the HIG to HS in blocks
-    let chain_delays = generate_u64_sequence(
-        0,  // Start at 0 blocks
+    let chain_delays = generate_f64_sequence(
+        sweep_config.network_config.chain_delays[1],  // Start at configured chain_delays[1] value
         sweep_config.simulation_config.chain_delay_step.unwrap(),
         sweep_config.simulation_config.num_simulations.unwrap()
     );

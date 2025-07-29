@@ -90,7 +90,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
         // Setup test nodes with preloaded accounts from config
         let (hs_node, cl_node, hig_node_1, hig_node_2, _start_block_height) = crate::testnodes::setup_test_nodes(
             Duration::from_secs_f64(config.network_config.block_interval),
-            &[0, 0], // Zero delays for funding
+            &[0.0, 0.0], // Zero delays for funding
             config.transaction_config.allow_cat_pending_dependencies,
             config.transaction_config.cat_lifetime_blocks,
             config.account_config.num_accounts.try_into().unwrap(), // Preload accounts from config

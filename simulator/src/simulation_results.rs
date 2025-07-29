@@ -45,7 +45,7 @@ pub struct SimulationResults {
     pub block_interval: f64,
     pub cat_lifetime: u64,
     pub initialization_wait_blocks: u64,
-    pub chain_delays: Vec<u64>,  // Chain delays in blocks
+    pub chain_delays: Vec<f64>,  // Chain delays in blocks
     
     // Chain data - Combined totals (for backward compatibility)
     pub chain_1_pending: Vec<(u64, u64)>,

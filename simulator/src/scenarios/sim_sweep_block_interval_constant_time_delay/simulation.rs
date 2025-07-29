@@ -109,7 +109,7 @@ pub async fn run_sweep_block_interval_constant_time_delay() -> Result<(), crate:
                         num_chains: base_config.network_config.num_chains,
                         chain_delays: vec![
                             base_config.network_config.chain_delays[0],  // Keep first chain delay unchanged
-                            delay_blocks,  // Set second chain delay to maintain constant value
+                            delay_blocks as f64,  // Set second chain delay to maintain constant value
                         ],
                         block_interval: block_interval,  // Apply the varied block interval
                     },

@@ -334,7 +334,7 @@ async fn release_transactions_for_block(
     chain_id_1: ChainId,
     chain_id_2: ChainId,
     transactions_per_block: u64,
-    current_block: u64,
+    _current_block: u64,
 ) -> Result<(), String> {
     for tx_index in 0..transactions_per_block {
         // Select accounts for transaction
