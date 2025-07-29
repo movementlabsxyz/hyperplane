@@ -66,165 +66,183 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
         percentage_type: One of 'success', 'pending', or 'failure'
     """
     try:
-        individual_results = data.get('individual_results', [])
-        if not individual_results:
-            print(f"Warning: No individual results found for {transaction_type} {percentage_type} percentage plot")
-            return
+        # Extract parameter values and results
+        param_values = []
+        results = []
+        
+        for result in data['individual_results']:
+            param_value = extract_parameter_value(result, param_name)
+            param_values.append(param_value)
+            results.append(result)
         
         # Create color gradient
-        colors = create_color_gradient(len(individual_results))
+        colors = create_color_gradient(len(param_values))
         
-        plt.figure(figsize=(12, 6))
+        # Create the plot
+        plt.figure(figsize=(10, 6))
         
-        for i, result in enumerate(individual_results):
-            param_value = extract_parameter_value(result, param_name)
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each parameter value
+        for i, (param_value, result) in enumerate(zip(param_values, results)):
+            # Extract transaction data using the same structure as regular plots
+            if transaction_type == 'cat':
+                # For CAT transactions, get the specific status data
+                if percentage_type == 'success':
+                    tx_data = result.get('chain_1_cat_success', [])
+                elif percentage_type == 'failure':
+                    tx_data = result.get('chain_1_cat_failure', [])
+                else:  # pending
+                    tx_data = result.get('chain_1_cat_pending', [])
+            elif transaction_type == 'regular':
+                # For regular transactions, get the specific status data
+                if percentage_type == 'success':
+                    tx_data = result.get('chain_1_regular_success', [])
+                elif percentage_type == 'failure':
+                    tx_data = result.get('chain_1_regular_failure', [])
+                else:  # pending
+                    tx_data = result.get('chain_1_regular_pending', [])
+            else:  # sumtypes
+                # For sumtypes, combine CAT and regular data
+                if percentage_type == 'success':
+                    cat_data = result.get('chain_1_cat_success', [])
+                    regular_data = result.get('chain_1_regular_success', [])
+                elif percentage_type == 'failure':
+                    cat_data = result.get('chain_1_cat_failure', [])
+                    regular_data = result.get('chain_1_regular_failure', [])
+                else:  # pending
+                    cat_data = result.get('chain_1_cat_pending', [])
+                    regular_data = result.get('chain_1_regular_pending', [])
+                
+                # Create a combined dataset by summing CAT and regular at each height
+                combined_data = {}
+                
+                # Add CAT data
+                for height, count in cat_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Add regular data
+                for height, count in regular_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Convert back to sorted list of tuples
+                tx_data = sorted(combined_data.items())
             
-            if transaction_type == 'sumtypes':
-                # For sumTypes, we need both CAT and regular data
-                cat_success_data = result.get('chain_1_cat_success', [])
-                cat_pending_data = result.get('chain_1_cat_pending', [])
-                cat_failure_data = result.get('chain_1_cat_failure', [])
-                regular_success_data = result.get('chain_1_regular_success', [])
-                regular_pending_data = result.get('chain_1_regular_pending', [])
-                regular_failure_data = result.get('chain_1_regular_failure', [])
+            if not tx_data:
+                continue
+            
+            # Extract heights and transaction counts
+            heights = []
+            percentages = []
+            
+            # Convert tx_data to list of tuples if it's not already
+            if isinstance(tx_data, list) and tx_data and isinstance(tx_data[0], dict):
+                # If it's a list of dictionaries, convert to list of tuples
+                tx_data = [(entry.get('height', 0), entry.get('count', 0)) for entry in tx_data]
+            
+            # Process each block - tx_data is now a list of tuples (height, count)
+            for height, count in tx_data:
+                heights.append(height)
                 
-                if not cat_success_data or not cat_pending_data or not cat_failure_data or not regular_success_data or not regular_pending_data or not regular_failure_data:
-                    continue
-                
-                # Create dictionaries to map height to count for each state
-                cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
-                cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
-                cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
-                regular_success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
-                regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
-                regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
-                
-                # Get all unique heights
-                all_heights = set(cat_success_by_height.keys()) | set(cat_pending_by_height.keys()) | set(cat_failure_by_height.keys()) | \
-                             set(regular_success_by_height.keys()) | set(regular_pending_by_height.keys()) | set(regular_failure_by_height.keys())
-                heights = sorted(all_heights)
-                
-                # Calculate cumulative totals and percentages
-                percentages = []
-                
-                for height in heights:
-                    # Calculate cumulative totals up to this height (inclusive) for CAT transactions
-                    cumulative_cat_success = sum(cat_success_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    cumulative_cat_pending = sum(cat_pending_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    cumulative_cat_failure = sum(cat_failure_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    
-                    # Calculate cumulative totals up to this height (inclusive) for regular transactions
-                    cumulative_regular_success = sum(regular_success_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    cumulative_regular_pending = sum(regular_pending_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    cumulative_regular_failure = sum(regular_failure_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    
-                    # Calculate total transactions so far (CAT + regular)
-                    total_success = cumulative_cat_success + cumulative_regular_success
-                    total_pending = cumulative_cat_pending + cumulative_regular_pending
-                    total_failure = cumulative_cat_failure + cumulative_regular_failure
-                    total_transactions = total_success + total_pending + total_failure
-                    
-                    # Calculate percentage based on type (avoid division by zero)
-                    if percentage_type == 'pending':
-                        # For pending, use total transactions (success + pending + failure)
-                        if total_transactions > 0:
-                            percentage = (total_pending / total_transactions) * 100
-                        else:
-                            percentage = 0
-                    else:
-                        # For success and failure, use only (success + failure) as denominator
-                        success_failure_total = total_success + total_failure
-                        if success_failure_total > 0:
-                            if percentage_type == 'success':
-                                percentage = (total_success / success_failure_total) * 100
-                            elif percentage_type == 'failure':
-                                percentage = (total_failure / success_failure_total) * 100
-                            else:
-                                percentage = 0
-                        else:
-                            percentage = 0
-                    
-                    percentages.append(percentage)
-                
-                # Create title and filename
-                if percentage_type in ['success', 'failure']:
-                    title = f'All Transactions {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-                else:
-                    title = f'All Transactions {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-                filename = f'tx_{percentage_type}_sumtypes_percentage.png'
-                
-            else:
-                # For CAT or regular transactions
-                success_data = result.get(f'chain_1_{transaction_type}_success', [])
-                pending_data = result.get(f'chain_1_{transaction_type}_pending', [])
-                failure_data = result.get(f'chain_1_{transaction_type}_failure', [])
-                
-                if not success_data or not pending_data or not failure_data:
-                    continue
-                
-                # Create dictionaries to map height to count for each state
-                success_by_height = {entry[0]: entry[1] for entry in success_data}
-                pending_by_height = {entry[0]: entry[1] for entry in pending_data}
-                failure_by_height = {entry[0]: entry[1] for entry in failure_data}
-                
-                # Get all unique heights
-                all_heights = set(success_by_height.keys()) | set(pending_by_height.keys()) | set(failure_by_height.keys())
-                heights = sorted(all_heights)
-                
-                # Calculate cumulative totals and percentages
-                percentages = []
-                
-                for height in heights:
-                    # Calculate cumulative totals up to this height (inclusive)
-                    cumulative_success = sum(success_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    cumulative_pending = sum(pending_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    cumulative_failure = sum(failure_by_height.get(h, 0) for h in range(min(heights), height + 1))
-                    
-                    # Calculate total transactions so far
-                    total_transactions = cumulative_success + cumulative_pending + cumulative_failure
-                    
-                    # Calculate percentage based on type (avoid division by zero)
-                    if percentage_type == 'pending':
-                        # For pending, use total transactions (success + pending + failure)
-                        if total_transactions > 0:
-                            percentage = (cumulative_pending / total_transactions) * 100
-                        else:
-                            percentage = 0
-                    else:
-                        # For success and failure, use only (success + failure) as denominator
-                        success_failure_total = cumulative_success + cumulative_failure
-                        if success_failure_total > 0:
-                            if percentage_type == 'success':
-                                percentage = (cumulative_success / success_failure_total) * 100
-                            elif percentage_type == 'failure':
-                                percentage = (cumulative_failure / success_failure_total) * 100
-                            else:
-                                percentage = 0
-                        else:
-                            percentage = 0
-                    
-                    percentages.append(percentage)
-                
-                # Create title and filename based on transaction type
+                # Calculate cumulative values for percentage
                 if transaction_type == 'cat':
-                    if percentage_type in ['success', 'failure']:
-                        title = f'CAT {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-                    else:
-                        title = f'CAT {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-                    filename = f'tx_{percentage_type}_cat_percentage.png'
+                    # For CAT transactions, get all status data
+                    cat_success_data = result.get('chain_1_cat_success', [])
+                    cat_failure_data = result.get('chain_1_cat_failure', [])
+                    cat_pending_data = result.get('chain_1_cat_pending', [])
+                    
+                    # Convert to height->count mapping
+                    cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
+                    cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
+                    cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
+                    
+                    # Calculate cumulative totals up to this height
+                    cumulative_success = sum(cat_success_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    cumulative_failure = sum(cat_failure_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    cumulative_pending = sum(cat_pending_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    
                 elif transaction_type == 'regular':
-                    if percentage_type in ['success', 'failure']:
-                        title = f'Regular {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    # For regular transactions, get all status data
+                    regular_success_data = result.get('chain_1_regular_success', [])
+                    regular_failure_data = result.get('chain_1_regular_failure', [])
+                    regular_pending_data = result.get('chain_1_regular_pending', [])
+                    
+                    # Convert to height->count mapping
+                    regular_success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
+                    regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
+                    regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
+                    
+                    # Calculate cumulative totals up to this height
+                    cumulative_success = sum(regular_success_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    cumulative_failure = sum(regular_failure_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    cumulative_pending = sum(regular_pending_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    
+                else:  # sumtypes
+                    # For sumtypes, combine CAT and regular data
+                    cat_success_data = result.get('chain_1_cat_success', [])
+                    cat_failure_data = result.get('chain_1_cat_failure', [])
+                    cat_pending_data = result.get('chain_1_cat_pending', [])
+                    regular_success_data = result.get('chain_1_regular_success', [])
+                    regular_failure_data = result.get('chain_1_regular_failure', [])
+                    regular_pending_data = result.get('chain_1_regular_pending', [])
+                    
+                    # Convert to height->count mapping
+                    cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
+                    cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
+                    cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
+                    regular_success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
+                    regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
+                    regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
+                    
+                    # Calculate cumulative totals up to this height (CAT + regular)
+                    cumulative_success = sum(cat_success_by_height.get(h, 0) + regular_success_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    cumulative_failure = sum(cat_failure_by_height.get(h, 0) + regular_failure_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    cumulative_pending = sum(cat_pending_by_height.get(h, 0) + regular_pending_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                
+                # Calculate percentage based on type
+                if percentage_type in ['success', 'failure']:
+                    # For success and failure, use only (success + failure) as denominator
+                    success_failure_total = cumulative_success + cumulative_failure
+                    if success_failure_total > 0:
+                        if percentage_type == 'success':
+                            percentage = (cumulative_success / success_failure_total) * 100
+                        elif percentage_type == 'failure':
+                            percentage = (cumulative_failure / success_failure_total) * 100
+                        else:
+                            percentage = 0
                     else:
-                        title = f'Regular {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-                    filename = f'tx_{percentage_type}_regular_percentage.png'
+                        percentage = 0
                 else:
-                    if percentage_type in ['success', 'failure']:
-                        title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                    # For pending, use (success + pending + failure) as denominator
+                    total = cumulative_success + cumulative_pending + cumulative_failure
+                    if total > 0:
+                        percentage = (cumulative_pending / total) * 100
                     else:
-                        title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-                    filename = f'tx_{percentage_type}_{transaction_type}_percentage.png'
+                        percentage = 0
+                
+                percentages.append(percentage)
             
+            # Create title and filename based on transaction type
+            if transaction_type == 'cat':
+                if percentage_type in ['success', 'failure']:
+                    title = f'CAT {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                else:
+                    title = f'CAT {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{percentage_type}_cat_percentage.png'
+            elif transaction_type == 'regular':
+                if percentage_type in ['success', 'failure']:
+                    title = f'Regular {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                else:
+                    title = f'Regular {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{percentage_type}_regular_percentage.png'
+            else:
+                if percentage_type in ['success', 'failure']:
+                    title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                else:
+                    title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{percentage_type}_{transaction_type}_percentage.png'
+        
             # Trim the last 10% of data to avoid edge effects
             if len(heights) > 10:
                 trim_index = int(len(heights) * 0.9)
@@ -234,17 +252,23 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
             if not heights:
                 continue
             
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
             # Plot with color based on parameter
             label = create_parameter_label(param_name, param_value)
             plt.plot(heights, percentages, color=colors[i], alpha=0.7, 
                     label=label, linewidth=1.5)
         
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
         plt.title(title)
         plt.xlabel('Block Height')
         plt.ylabel(f'{percentage_type.title()} Percentage (%)')
-        plt.xlim(left=0)
         plt.grid(True, alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(loc="upper right")
         plt.tight_layout()
         
         # Save plot

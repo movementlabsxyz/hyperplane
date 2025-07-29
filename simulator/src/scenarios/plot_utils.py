@@ -205,10 +205,13 @@ def plot_transactions_overlay(
             return
         
         # Create figure
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(10, 6))
         
         # Create color gradient
         colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
         
         # Plot each simulation's chain 1 transactions
         for i, result in enumerate(individual_results):
@@ -249,10 +252,17 @@ def plot_transactions_overlay(
             heights = [entry[0] for entry in chain_data]
             counts = [entry[1] for entry in chain_data]
             
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
             # Plot with color based on parameter
             label = create_parameter_label(param_name, param_value)
             plt.plot(heights, counts, color=colors[i], alpha=0.7, 
                     label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
         
         # Create title and filename based on transaction type
         if transaction_type in ['pending', 'success', 'failure']:
@@ -277,9 +287,8 @@ def plot_transactions_overlay(
         plt.title(title)
         plt.xlabel('Block Height')
         plt.ylabel(f'Number of {transaction_type.title()} Transactions')
-        plt.xlim(left=0)
         plt.grid(True, alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(loc="upper right")
         plt.tight_layout()
         
         # Save plot
@@ -570,9 +579,8 @@ def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: s
         plt.title(title)
         plt.xlabel('Block Height')
         plt.ylabel('Number of Locked Keys')
-        plt.xlim(left=0)
         plt.grid(True, alpha=0.3)
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(loc="upper right")
         plt.tight_layout()
         
         # Save the plot
@@ -671,13 +679,13 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
         ax1.set_ylabel('Count')
         ax1.set_title(f'Locked Keys vs Pending Transactions (Chain 1) - {create_sweep_title(param_name, sweep_type)}')
         ax1.grid(True, alpha=0.3)
-        ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax1.legend(loc="upper right")
         
         # Set up bottom panel (pending transactions breakdown)
         ax2.set_xlabel('Block Height')
         ax2.set_ylabel('Number of Pending Transactions')
         ax2.grid(True, alpha=0.3)
-        ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax2.legend(loc="upper right")
         
         plt.tight_layout()
         
@@ -776,13 +784,13 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
         ax1.set_title(title)
         ax1.set_ylabel('Number of Transactions')
         ax1.grid(True, alpha=0.3)
-        ax1.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax1.legend(loc="upper right")
         
         ax2.set_title(f'Transactions per Second (Chain 1) - {create_sweep_title(param_name, sweep_type)}')
         ax2.set_xlabel('Block Height')
         ax2.set_ylabel('TPS')
         ax2.grid(True, alpha=0.3)
-        ax2.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax2.legend(loc="upper right")
         
         plt.tight_layout()
         
@@ -895,7 +903,7 @@ def plot_system_memory(data: Dict[str, Any], param_name: str, results_dir: str, 
         ax.set_xlabel('Block Height')
         ax.set_ylabel('System Memory Usage (MB)')
         ax.set_title(f'System Memory Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         
         # Save the plot
@@ -976,7 +984,7 @@ def plot_system_total_memory(data: Dict[str, Any], param_name: str, results_dir:
         ax.set_xlabel('Block Height')
         ax.set_ylabel('System Total Memory Usage (GB)')
         ax.set_title(f'System Total Memory Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         
         # Save the plot
@@ -1057,7 +1065,7 @@ def plot_system_cpu(data: Dict[str, Any], param_name: str, results_dir: str, swe
         ax.set_xlabel('Block Height')
         ax.set_ylabel('System CPU Usage (%)')
         ax.set_title(f'System CPU Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         
         # Save the plot
@@ -1147,7 +1155,7 @@ def plot_system_cpu_filtered(data: Dict[str, Any], param_name: str, results_dir:
         ax.set_xlabel('Block Height')
         ax.set_ylabel('System CPU Usage (%)')
         ax.set_title(f'System CPU Usage Over Time (Filtered ≤30%) by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         
 
@@ -1230,7 +1238,7 @@ def plot_system_total_cpu(data: Dict[str, Any], param_name: str, results_dir: st
         ax.set_xlabel('Block Height')
         ax.set_ylabel('System Total CPU Usage (%)')
         ax.set_title(f'System Total CPU Usage Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         
         # Save the plot
@@ -1311,7 +1319,7 @@ def plot_loop_steps_without_tx_issuance(data: Dict[str, Any], param_name: str, r
         ax.set_xlabel('Block Height')
         ax.set_ylabel('Loop Steps Count')
         ax.set_title(f'Loop Steps Without Transaction Issuance Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         
         # Save the plot
