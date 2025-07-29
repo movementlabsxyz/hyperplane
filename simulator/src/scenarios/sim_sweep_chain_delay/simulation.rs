@@ -52,19 +52,19 @@ define_sweep_config!(
 /// This simulation explores how a HIG delay to the HS affects
 /// system performance.
 /// 
-/// The sweep varies the delay of the second chain (HIG to HS),
-/// running multiple simulations to understand how it affects
-/// transaction throughput, success rates, and overall system behavior.
+/// The sweep varies the delay of the second chain (HIG to HS) starting from
+/// the configured chain_delays[1] value, running multiple simulations to understand 
+/// how it affects transaction throughput, success rates, and overall system behavior.
 pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_chain_delay.toml
     let sweep_config = load_config()?;
     
     // Calculate chain delays for each simulation using the helper function
-    // Creates a sequence of delays: 0.0 blocks, 0.5 blocks, 1.0 blocks, etc.
+    // Creates a sequence starting from the configured chain_delays[1] value
     // Each value represents the delay from the HIG to HS in blocks
     let chain_delays = generate_f64_sequence(
-        0.0,  // Start at 0 blocks
+        sweep_config.network_config.chain_delays[1],  // Start at configured chain_delays[1] value
         sweep_config.simulation_config.chain_delay_step.unwrap(),
         sweep_config.simulation_config.num_simulations.unwrap()
     );

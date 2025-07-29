@@ -158,7 +158,7 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
     elif param_name == 'cat_rate':
         return f'CAT Rate: {param_value:.3f}'
     elif param_name == 'chain_delay':
-        return f'Chain Delay: {param_value:.0f} blocks'
+        return f'Chain Delay: {param_value:.1f} blocks'
     elif param_name == 'duration':
         return f'Duration: {param_value:.0f} blocks'
     elif param_name == 'cat_lifetime':

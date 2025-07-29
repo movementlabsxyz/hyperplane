@@ -6,7 +6,7 @@
 num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0.0, 4.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
+chain_delays = [0.0, 4.5]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds
 block_interval = 0.1
 
@@ -37,7 +37,7 @@ cat_lifetime_blocks = 5
 # Whether to allow CAT transactions to depend on locked keys
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)
-allow_cat_pending_dependencies = false
+allow_cat_pending_dependencies = true
 
 # Simulation execution parameters
 [simulation_config]
