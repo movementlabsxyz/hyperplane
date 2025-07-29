@@ -6,7 +6,7 @@
 num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0.0, 5.5]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
+chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 
 # Block interval in seconds
 block_interval = 0.1
@@ -34,7 +34,7 @@ zipf_parameter = 1.0
 ratio_cats = 0.1
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
-cat_lifetime_blocks = 4
+cat_lifetime_blocks = 6
 # Whether to allow CAT transactions to depend on locked keys
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)
@@ -48,12 +48,12 @@ initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
 num_runs = 1
 # Number of simulations to run in the sweep
-num_simulations = 3
+num_simulations = 5
 # Step size for CAT lifetime sweeps
-cat_lifetime_step = 1
+cat_lifetime_step = 4
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 1000
+sim_total_block_number = 400
 
 # Logging control for the simulator
 [logging_config]
