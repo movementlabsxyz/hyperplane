@@ -1089,9 +1089,6 @@ impl HyperIGNode {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Executing regular transaction: {}", tx.id));
         
-        // Add to pending set and increment counter
-        self.state.lock().await.add_to_pending_and_increment_counter(&tx.id);
-        
         // Extract the command part between the dots
         let command = tx.data.split('.').nth(1)
             .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
@@ -1108,8 +1105,7 @@ impl HyperIGNode {
             // Add this transaction to the dependency list for each key
             self.add_transaction_dependencies(tx.id.clone(), &keys).await;
             
-            // Add to pending set and increment counter
-            self.state.lock().await.add_to_pending_and_increment_counter(&tx.id);
+            // Transaction is already in pending set from initial processing, no need to add again
                         
             return Ok(TransactionStatus::Pending);
         }
