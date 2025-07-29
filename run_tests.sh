@@ -150,8 +150,9 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
-    hyper_ig::tests::timeouts::test_cat_timeout
-
+    hyper_ig::tests::basic::test_cat_pending_dependency_restriction
+    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_failure
+    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_success
 )
 
 # Check if arguments are provided

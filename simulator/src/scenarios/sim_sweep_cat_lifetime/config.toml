@@ -53,7 +53,7 @@ num_simulations = 3
 cat_lifetime_step = 4
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 400
+sim_total_block_number = 1200
 
 # Logging control for the simulator
 [logging_config]
