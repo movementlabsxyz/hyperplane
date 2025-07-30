@@ -9,10 +9,13 @@ import os
 from typing import Dict, Any
 from plot_utils import (
     plot_sweep_summary, plot_sweep_locked_keys, plot_sweep_locked_keys_with_pending,
-    plot_sweep_transactions_per_block, plot_system_memory, plot_system_total_memory,
-    plot_system_cpu, plot_system_cpu_filtered, plot_system_total_cpu,
-    plot_loop_steps_without_tx_issuance, generate_individual_curves_plots,
+    plot_sweep_transactions_per_block, generate_individual_curves_plots,
     plot_transactions_overlay
+)
+from plot_system import (
+    plot_system_memory, plot_system_total_memory,
+    plot_system_cpu, plot_system_cpu_filtered, plot_system_total_cpu,
+    plot_loop_steps_without_tx_issuance
 )
 from plot_utils_delta import (
     plot_transactions_delta_overlay
