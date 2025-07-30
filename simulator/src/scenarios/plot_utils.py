@@ -302,8 +302,10 @@ def plot_transactions_overlay(
         plt.legend(loc="upper right")
         plt.tight_layout()
         
-        # Save plot
-        plt.savefig(f'{results_dir}/figs/{filename}', 
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -481,6 +483,25 @@ def generate_all_plots(
     plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
     
+    # Plot all transaction delta overlays (combined totals) - these show how transaction changes change across parameter values
+    plot_transactions_delta_overlay(data, param_name, 'pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'failure', results_dir, sweep_type)
+    
+    # Plot CAT transaction delta overlays
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
+    
+    # Plot detailed CAT pending state delta overlays
+    plot_cat_pending_resolving_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_postponed_delta(data, param_name, results_dir, sweep_type)
+    
+    # Plot regular transaction delta overlays
+    plot_transactions_delta_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
+    
     # Plot sweep summary
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     
@@ -531,6 +552,26 @@ def generate_all_plots(
     plot_sumtypes_pending_percentage(data, param_name, results_dir, sweep_type)
     plot_cat_pending_resolving_percentage(data, param_name, results_dir, sweep_type)
     plot_cat_pending_postponed_percentage(data, param_name, results_dir, sweep_type)
+    
+    # Plot CAT success percentage deltas over time
+    # Import and call from plot_utils_percentage.py
+    from plot_utils_percentage import (
+        plot_cat_success_percentage_delta, plot_cat_failure_percentage_delta, plot_cat_pending_percentage_delta,
+        plot_regular_success_percentage_delta, plot_regular_failure_percentage_delta, plot_regular_pending_percentage_delta,
+        plot_sumtypes_success_percentage_delta, plot_sumtypes_failure_percentage_delta, plot_sumtypes_pending_percentage_delta,
+        plot_cat_pending_resolving_percentage_delta, plot_cat_pending_postponed_percentage_delta
+    )
+    plot_cat_success_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_failure_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_regular_success_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_regular_failure_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_regular_pending_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_success_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_failure_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_pending_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_resolving_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_postponed_percentage_delta(data, param_name, results_dir, sweep_type)
     
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
@@ -1436,7 +1477,170 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
         import traceback
         traceback.print_exc()
 
+def calculate_delta_from_counts(count_data: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """
+    Calculate delta (change) between consecutive transaction counts.
+    
+    For each index i, subtract the value at index i-1 from the value at index i.
+    The first entry (i=0) will have delta = 0.
+    
+    Args:
+        count_data: List of tuples (height, count) representing transaction counts over time
+        
+    Returns:
+        List of tuples (height, delta) representing the change in counts between consecutive time steps
+    """
+    if not count_data:
+        return []
+    
+    delta_data = []
+    
+    # First entry has delta = 0
+    first_height, first_count = count_data[0]
+    delta_data.append((first_height, 0))
+    
+    # Calculate deltas for subsequent entries
+    for i in range(1, len(count_data)):
+        current_height, current_count = count_data[i]
+        previous_count = count_data[i-1][1]
+        delta = current_count - previous_count
+        delta_data.append((current_height, delta))
+    
+    return delta_data
 
+def plot_transactions_delta_overlay(
+    data: Dict[str, Any],
+    param_name: str,
+    transaction_type: str,
+    results_dir: str,
+    sweep_type: str
+) -> None:
+    """Plot transaction delta overlay for a specific transaction type"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping {transaction_type} transactions delta plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's chain 1 transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # For main transaction types (pending, success, failure), calculate as CAT + regular
+            if transaction_type in ['pending', 'success', 'failure']:
+                cat_data = result.get(f'chain_1_cat_{transaction_type}', [])
+                regular_data = result.get(f'chain_1_regular_{transaction_type}', [])
+                
+                # Create a combined dataset by summing CAT and regular at each height
+                combined_data = {}
+                
+                # Add CAT data
+                for height, count in cat_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Add regular data
+                for height, count in regular_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Convert back to sorted list of tuples
+                chain_data = sorted(combined_data.items())
+            else:
+                # For CAT and regular specific types, use the data directly
+                chain_data = result[f'chain_1_{transaction_type}']
+            
+            if not chain_data:
+                continue
+            
+            # Calculate deltas from the count data
+            delta_data = calculate_delta_from_counts(chain_data)
+            
+            if not delta_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            delta_data = trim_time_series_data(delta_data, 0.1)
+            
+            if not delta_data:
+                continue
+                
+            # Extract data - delta_data is a list of tuples (height, delta)
+            heights = [entry[0] for entry in delta_data]
+            deltas = [entry[1] for entry in delta_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, deltas, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename based on transaction type
+        if transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals
+            title = f'SumTypes {transaction_type.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes.png'
+        elif transaction_type.startswith('cat_'):
+            # CAT transactions
+            status = transaction_type.replace('cat_', '')
+            if status == 'pending_resolving':
+                title = f'CAT Pending Resolving Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_resolving.png'
+            elif status == 'pending_postponed':
+                title = f'CAT Pending Postponed Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_postponed.png'
+            else:
+                title = f'CAT {status.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{status}_cat.png'
+        elif transaction_type.startswith('regular_'):
+            # Regular transactions
+            status = transaction_type.replace('regular_', '')
+            title = f'Regular {status.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{status}_regular.png'
+        else:
+            # Fallback
+            title = f'{transaction_type.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel(f'Delta in {transaction_type.title()} Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper right")
+        plt.tight_layout()
+        
+        # Create tx_count_delta directory and save plot
+        tx_count_delta_dir = f'{results_dir}/figs/tx_count_delta'
+        os.makedirs(tx_count_delta_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_delta_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing {transaction_type} transactions delta data: {e}")
+        return
+
+def plot_cat_pending_resolving_delta(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending resolving transaction deltas overlay"""
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+
+def plot_cat_pending_postponed_delta(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending postponed transaction deltas overlay"""
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
 
 def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     """
