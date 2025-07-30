@@ -12,10 +12,16 @@ from plot_utils import (
     plot_sweep_transactions_per_block, plot_system_memory, plot_system_total_memory,
     plot_system_cpu, plot_system_cpu_filtered, plot_system_total_cpu,
     plot_loop_steps_without_tx_issuance, generate_individual_curves_plots,
-    plot_transactions_overlay, plot_transactions_overlay_with_moving_average,
-    plot_transactions_cutoff_overlay, plot_transactions_delta_overlay,
-    plot_transactions_delta_overlay_with_moving_average,
-    plot_transaction_percentage_cutoff
+    plot_transactions_overlay
+)
+from plot_utils_delta import (
+    plot_transactions_delta_overlay
+)
+from plot_utils_moving_average import (
+    plot_transactions_overlay_with_moving_average, plot_transactions_delta_overlay_with_moving_average
+)
+from plot_utils_cutoff import (
+    plot_transactions_cutoff_overlay, plot_transaction_percentage_cutoff
 )
 from plot_utils_percentage import (
     plot_transaction_percentage, plot_transaction_percentage_delta,
