@@ -67,6 +67,8 @@ def plot_specific_simulation(sim_number: int, results_dir: str, param_name: str,
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'success')
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure')
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
     
     print(f"Plots generated for simulation {sim_number} in {results_dir}/figs/")
 

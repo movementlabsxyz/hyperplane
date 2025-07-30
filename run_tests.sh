@@ -82,6 +82,10 @@ TESTS=(
     hyper_ig::tests::basic::test_cat_pending_dependency_restriction
     hyper_ig::tests::basic::test_cat_pending_dependency_flag_runtime_change
     hyper_ig::tests::basic::test_proposal_queue_independent_delays
+    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_success
+    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_failure
+    hyper_ig::tests::basic::test_regular_tx_pending_when_depending_on_resolving_cat_success
+    hyper_ig::tests::basic::test_regular_tx_pending_when_depending_on_resolving_cat_failure
     hyper_ig::tests::dependencies::test_failed_dependency
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_success
     hyper_ig::tests::dependencies::test_multiple_transactions_same_key_fail
@@ -146,18 +150,11 @@ TESTS=(
 
 # Test specific tests
 TESTS2=(
-
-    # Shutdown tests
-    confirmation_layer::tests::shutdown::test_cl_node_shutdown
-    confirmation_layer::tests::shutdown::test_cl_node_shutdown_multiple_times
-    confirmation_layer::tests::shutdown::test_cl_node_restart_after_shutdown
-    hyper_ig::tests::shutdown::test_hig_node_shutdown
-    hyper_ig::tests::shutdown::test_hig_node_shutdown_multiple_times
-    hyper_ig::tests::shutdown::test_hig_node_restart_after_shutdown
-    hyper_scheduler::tests::shutdown::test_hs_node_shutdown
-    hyper_scheduler::tests::shutdown::test_hs_node_shutdown_multiple_times
-    hyper_scheduler::tests::shutdown::test_hs_node_restart_after_shutdown
-
+    hyper_ig::tests::counter_management::test_add_to_pending_and_increment_counter
+    hyper_ig::tests::counter_management::test_update_to_final_status_and_update_counter
+    hyper_ig::tests::counter_management::test_counter_consistency_on_reprocessing
+    hyper_ig::tests::counter_management::test_cat_status_update_with_credit_100_failure
+    hyper_ig::tests::counter_management::test_cat_status_update_with_credit_1000_success
 )
 
 # Check if arguments are provided

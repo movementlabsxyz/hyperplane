@@ -72,6 +72,12 @@ pub trait HyperIG: Send + Sync {
 
     /// Get counts of regular transaction statuses (Pending, Success, Failure)
     async fn get_transaction_status_counts_regular(&self) -> Result<(u64, u64, u64), HyperIGError>;
+
+    /// Get detailed counts of CAT pending states (Resolving, Postponed)
+    /// Returns (resolving_count, postponed_count) where:
+    /// - resolving: CATs with proposed status that are being actively processed
+    /// - postponed: CATs waiting for dependencies (other pending transactions)
+    async fn get_cat_pending_detailed_counts(&self) -> Result<(u64, u64), HyperIGError>;
 }
 
 #[cfg(test)]

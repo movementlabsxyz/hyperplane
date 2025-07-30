@@ -37,9 +37,9 @@ def create_color_gradient(num_simulations: int) -> np.ndarray:
     """Create a color gradient using the global COLORMAP setting"""
     return plt.cm.get_cmap(COLORMAP)(np.linspace(0, 1, num_simulations))
 
-def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
-    """Create sweep data structure from run_average directories."""
-    base_dir = f'simulator/results/{results_dir_name}/data'
+def load_sweep_data_from_run_average(results_dir_name: str, base_path: str = 'simulator/results') -> Dict[str, Any]:
+    """Load sweep data structure directly from run_average directories."""
+    base_dir = f'{base_path}/{results_dir_name}/data'
     
     # Load metadata to get parameter values
     with open(f'{base_dir}/metadata.json', 'r') as f:
@@ -94,6 +94,10 @@ def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
                 ('cat_success_transactions_chain_2.json', 'chain_2_cat_success'),
                 ('cat_failure_transactions_chain_1.json', 'chain_1_cat_failure'),
                 ('cat_failure_transactions_chain_2.json', 'chain_2_cat_failure'),
+                ('cat_pending_resolving_transactions_chain_1.json', 'chain_1_cat_pending_resolving'),
+                ('cat_pending_resolving_transactions_chain_2.json', 'chain_2_cat_pending_resolving'),
+                ('cat_pending_postponed_transactions_chain_1.json', 'chain_1_cat_pending_postponed'),
+                ('cat_pending_postponed_transactions_chain_2.json', 'chain_2_cat_pending_postponed'),
                 ('regular_pending_transactions_chain_1.json', 'chain_1_regular_pending'),
                 ('regular_pending_transactions_chain_2.json', 'chain_2_regular_pending'),
                 ('regular_success_transactions_chain_1.json', 'chain_1_regular_success'),
@@ -120,30 +124,13 @@ def create_sweep_data_from_averaged_runs(results_dir_name: str) -> str:
             
             individual_results.append(result_entry)
     
-    # Create the complete data structure
-    sweep_data = {
+    # Return the complete data structure directly (no file creation)
+    return {
         'sweep_summary': sweep_summary,
         'individual_results': individual_results
     }
-    
-    # Save the combined data for plotting
-    output_file = f'{base_dir}/sweep_results_averaged.json'
-    with open(output_file, 'w') as f:
-        json.dump(sweep_data, f, indent=2)
-    
-    return output_file
 
-def load_sweep_data(results_path: str) -> Dict[str, Any]:
-    """Load the combined sweep results data from a given path"""
-    try:
-        with open(results_path, 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {"individual_results": [], "sweep_summary": {}}
-    except json.JSONDecodeError as e:
-        print(f"Warning: Invalid JSON in sweep results file: {results_path}")
-        print(f"Error: {e}")
-        return {"individual_results": [], "sweep_summary": {}}
+
 
 def extract_parameter_value(result: Dict[str, Any], param_name: str) -> float:
     """Extract parameter value from result dict"""
@@ -272,8 +259,15 @@ def plot_transactions_overlay(
         elif transaction_type.startswith('cat_'):
             # CAT transactions
             status = transaction_type.replace('cat_', '')
-            title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'tx_{status}_cat.png'
+            if status == 'pending_resolving':
+                title = f'CAT Pending Resolving Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_resolving.png'
+            elif status == 'pending_postponed':
+                title = f'CAT Pending Postponed Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_postponed.png'
+            else:
+                title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{status}_cat.png'
         elif transaction_type.startswith('regular_'):
             # Regular transactions
             status = transaction_type.replace('regular_', '')
@@ -291,14 +285,24 @@ def plot_transactions_overlay(
         plt.legend(loc="upper right")
         plt.tight_layout()
         
-        # Save plot
-        plt.savefig(f'{results_dir}/figs/{filename}', 
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing {transaction_type} transactions data: {e}")
         return
+
+def plot_cat_pending_resolving(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending resolving transactions overlay"""
+    plot_transactions_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+
+def plot_cat_pending_postponed(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending postponed transactions overlay"""
+    plot_transactions_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
 
 # ------------------------------------------------------------------------------------------------
 # Summary Chart Plotting
@@ -388,8 +392,8 @@ def generate_all_plots(
     
     This function:
     1. Runs the averaging script to create run_average folders from individual runs
-    2. Creates a combined sweep_results_averaged.json from the run_average data
-    3. Generates all plots from the combined data
+    2. Loads data directly from run_average folders for plotting
+    3. Generates all plots from the run_average data
     
     Args:
         results_dir: The full path to the results directory (e.g., 'simulator/results/sim_sweep_cat_rate')
@@ -429,20 +433,68 @@ def generate_all_plots(
         print(f"Error during averaging: {e}")
         return
     
-    # Create combined sweep data from run_average folders
-    sweep_data_path = create_sweep_data_from_averaged_runs(results_dir_name)
-    
-    # Load the combined data for plotting
-    data = load_sweep_data(sweep_data_path)
+    # Load sweep data directly from run_average folders
+    data = load_sweep_data_from_run_average(results_dir_name)
     
     # Check if we have any data to plot
     if not data.get('individual_results'):
         print(f"No data found for {sweep_type} simulation. Skipping plot generation.")
         return
     
+    # Load plot configuration
+    try:
+        plot_config = load_plot_config(results_dir)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Error loading plot configuration: {e}")
+        print("Plotting aborted. Please ensure all config files have the required [plot_config] section.")
+        return
+    
     # Create results directory only if we have data
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
+    # Generate paper plots first (fastest)
+    print("DEBUG: Starting paper plot generation...")
+    try:
+        # Import and run the paper plot script if it exists
+        plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
+        print(f"Looking for paper plot script at: {plot_paper_path}")
+        print(f"Script exists: {os.path.exists(plot_paper_path)}")
+        if os.path.exists(plot_paper_path):
+            print("Generating paper plots...")
+            print(f"DEBUG: About to run subprocess with cwd={os.path.dirname(plot_paper_path)}")
+            import subprocess
+            result = subprocess.run([sys.executable, plot_paper_path], 
+                                   cwd=os.path.dirname(plot_paper_path), 
+                                   capture_output=True, text=True)
+            print(f"Paper plot script stdout: {result.stdout}")
+            print(f"Paper plot script stderr: {result.stderr}")
+            print(f"Paper plot script return code: {result.returncode}")
+            if result.returncode == 0:
+                print("Paper plots generated successfully!")
+                
+                # PANIC CHECK: Verify paper directory and plot were actually created
+                paper_dir = f'{results_dir}/figs/paper'
+                if not os.path.exists(paper_dir):
+                    raise RuntimeError(f"PANIC: Paper directory was not created at {paper_dir}")
+                
+                # Check for any PNG files in the paper directory
+                paper_files = [f for f in os.listdir(paper_dir) if f.endswith('.png')]
+                if not paper_files:
+                    raise RuntimeError(f"PANIC: No PNG files found in paper directory {paper_dir}")
+                
+                print(f"✅ Paper plots verified: {len(paper_files)} files created in {paper_dir}")
+            else:
+                raise RuntimeError(f"PANIC: Paper plot generation failed with return code {result.returncode}. STDOUT: {result.stdout}. STDERR: {result.stderr}")
+        else:
+            print(f"PANIC: No plot_paper.py found at {plot_paper_path} - skipping paper plots")
+            raise RuntimeError(f"PANIC: Paper plot script not found at {plot_paper_path}")
+    except Exception as e:
+        print(f"PANIC: Error generating paper plots: {e}")
+        import traceback
+        traceback.print_exc()
+        raise  # Re-raise the exception to stop execution
+    
+    # First, generate regular tx_count plots (without moving average)
     # Plot all transaction overlays (combined totals) - these show how transactions change across parameter values
     plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
@@ -453,10 +505,171 @@ def generate_all_plots(
     plot_transactions_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
     
+    # Plot detailed CAT pending state overlays
+    plot_transactions_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
+    
     # Plot regular transaction overlays
     plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
+    
+    # Now generate moving average plots (if enabled)
+    if plot_config.get('plot_moving_average', False):
+        # Plot all transaction overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
+        
+        # Plot CAT transaction overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
+        
+        # Plot detailed CAT pending state overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
+        
+        # Plot regular transaction overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+    
+    # First, generate regular percentage plots (without moving average)
+    from plot_utils_percentage import (
+        plot_transaction_percentage,
+        plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
+        plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage,
+        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage,
+        plot_cat_pending_resolving_percentage, plot_cat_pending_postponed_percentage
+    )
+    
+    # Plot CAT percentage plots
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'success')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'failure')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'pending')
+    
+    # Plot regular percentage plots
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'success')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'failure')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'pending')
+    
+    # Plot sumtypes percentage plots
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'success')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
+    
+    # Plot detailed CAT pending state percentage plots
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
+    
+    # Now generate moving average percentage plots (if enabled)
+    if plot_config.get('plot_moving_average', False):
+        from plot_utils_percentage import plot_transaction_percentage_with_moving_average
+        
+        # Plot CAT percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
+        
+        # Plot regular percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
+        
+        # Plot sumtypes percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
+        
+        # Plot detailed CAT pending state percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
+    
+    # First, generate regular delta plots (without moving average)
+    # Plot all transaction delta overlays (combined totals) - these show how transaction changes change across parameter values
+    plot_transactions_delta_overlay(data, param_name, 'pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'failure', results_dir, sweep_type)
+    
+    # Plot CAT transaction delta overlays
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
+    
+    # Plot detailed CAT pending state delta overlays
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
+    
+    # Plot regular transaction delta overlays
+    plot_transactions_delta_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
+    
+    # Plot percentage delta plots
+    from plot_utils_percentage import plot_transaction_percentage_delta
+    
+    # Plot CAT percentage delta plots
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'success')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'failure')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'pending')
+    
+    # Plot regular percentage delta plots
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'success')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'failure')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'pending')
+    
+    # Plot sumtypes percentage delta plots
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'success')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
+    
+    # Plot detailed CAT pending state percentage delta plots
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
+    
+    # Now generate moving average delta plots (if enabled)
+    if plot_config.get('plot_moving_average', False):
+        # Plot all transaction delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
+        
+        # Plot CAT transaction delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
+        
+        # Plot detailed CAT pending state delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
+        
+        # Plot regular transaction delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+        
+        # Plot percentage delta plots with moving average support
+        from plot_utils_percentage import plot_transaction_percentage_delta_with_moving_average
+        
+        # Plot CAT percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
+        
+        # Plot regular percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
+        
+        # Plot sumtypes percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
+        
+        # Plot detailed CAT pending state percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
     
     # Plot sweep summary
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
@@ -494,7 +707,8 @@ def generate_all_plots(
     from plot_utils_percentage import (
         plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
         plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage,
-        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage
+        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage,
+        plot_cat_pending_resolving_percentage, plot_cat_pending_postponed_percentage
     )
     plot_cat_success_percentage(data, param_name, results_dir, sweep_type)
     plot_cat_failure_percentage(data, param_name, results_dir, sweep_type)
@@ -505,6 +719,28 @@ def generate_all_plots(
     plot_sumtypes_success_percentage(data, param_name, results_dir, sweep_type)
     plot_sumtypes_failure_percentage(data, param_name, results_dir, sweep_type)
     plot_sumtypes_pending_percentage(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_resolving_percentage(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_postponed_percentage(data, param_name, results_dir, sweep_type)
+    
+    # Plot CAT success percentage deltas over time
+    # Import and call from plot_utils_percentage.py
+    from plot_utils_percentage import (
+        plot_cat_success_percentage_delta, plot_cat_failure_percentage_delta, plot_cat_pending_percentage_delta,
+        plot_regular_success_percentage_delta, plot_regular_failure_percentage_delta, plot_regular_pending_percentage_delta,
+        plot_sumtypes_success_percentage_delta, plot_sumtypes_failure_percentage_delta, plot_sumtypes_pending_percentage_delta,
+        plot_cat_pending_resolving_percentage_delta, plot_cat_pending_postponed_percentage_delta
+    )
+    plot_cat_success_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_failure_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_regular_success_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_regular_failure_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_regular_pending_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_success_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_failure_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_sumtypes_pending_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_resolving_percentage_delta(data, param_name, results_dir, sweep_type)
+    plot_cat_pending_postponed_percentage_delta(data, param_name, results_dir, sweep_type)
     
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
@@ -636,8 +872,8 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
             if not locked_keys_data:
                 continue
             
-            # Get CAT pending data
-            cat_pending_data = result.get('chain_1_cat_pending', [])
+            # Get CAT pending resolving data
+            cat_pending_data = result.get('chain_1_cat_pending_resolving', [])
             if not cat_pending_data:
                 continue
             
@@ -663,15 +899,15 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
             # Create label
             label = create_parameter_label(param_name, param_value)
             
-            # Plot locked keys vs CAT pending (top panel)
+            # Plot locked keys vs CAT pending resolving (top panel)
             ax1.plot(heights, locked_keys, color=colors[i], alpha=0.7, 
                     label=f'Locked Keys - {label}', linewidth=1.5)
             ax1.plot(heights, cat_pending, color=colors[i], alpha=0.7, 
-                    linestyle='--', label=f'CAT Pending - {label}', linewidth=1.5)
+                    linestyle='--', label=f'CAT Pending Resolving - {label}', linewidth=1.5)
             
             # Plot pending transactions breakdown (bottom panel)
             ax2.plot(heights, cat_pending, color=colors[i], alpha=0.7, 
-                    label=f'CAT Pending - {label}', linewidth=1.5)
+                    label=f'CAT Pending Resolving - {label}', linewidth=1.5)
             ax2.plot(heights, regular_pending, color=colors[i], alpha=0.7, 
                     linestyle='--', label=f'Regular Pending - {label}', linewidth=1.5)
         
@@ -1390,7 +1626,170 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
         import traceback
         traceback.print_exc()
 
+def calculate_delta_from_counts(count_data: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
+    """
+    Calculate delta (change) between consecutive transaction counts.
+    
+    For each index i, subtract the value at index i-1 from the value at index i.
+    The first entry (i=0) will have delta = 0.
+    
+    Args:
+        count_data: List of tuples (height, count) representing transaction counts over time
+        
+    Returns:
+        List of tuples (height, delta) representing the change in counts between consecutive time steps
+    """
+    if not count_data:
+        return []
+    
+    delta_data = []
+    
+    # First entry has delta = 0
+    first_height, first_count = count_data[0]
+    delta_data.append((first_height, 0))
+    
+    # Calculate deltas for subsequent entries
+    for i in range(1, len(count_data)):
+        current_height, current_count = count_data[i]
+        previous_count = count_data[i-1][1]
+        delta = current_count - previous_count
+        delta_data.append((current_height, delta))
+    
+    return delta_data
 
+def plot_transactions_delta_overlay(
+    data: Dict[str, Any],
+    param_name: str,
+    transaction_type: str,
+    results_dir: str,
+    sweep_type: str
+) -> None:
+    """Plot transaction delta overlay for a specific transaction type"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping {transaction_type} transactions delta plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's chain 1 transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # For main transaction types (pending, success, failure), calculate as CAT + regular
+            if transaction_type in ['pending', 'success', 'failure']:
+                cat_data = result.get(f'chain_1_cat_{transaction_type}', [])
+                regular_data = result.get(f'chain_1_regular_{transaction_type}', [])
+                
+                # Create a combined dataset by summing CAT and regular at each height
+                combined_data = {}
+                
+                # Add CAT data
+                for height, count in cat_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Add regular data
+                for height, count in regular_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Convert back to sorted list of tuples
+                chain_data = sorted(combined_data.items())
+            else:
+                # For CAT and regular specific types, use the data directly
+                chain_data = result[f'chain_1_{transaction_type}']
+            
+            if not chain_data:
+                continue
+            
+            # Calculate deltas from the count data
+            delta_data = calculate_delta_from_counts(chain_data)
+            
+            if not delta_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            delta_data = trim_time_series_data(delta_data, 0.1)
+            
+            if not delta_data:
+                continue
+                
+            # Extract data - delta_data is a list of tuples (height, delta)
+            heights = [entry[0] for entry in delta_data]
+            deltas = [entry[1] for entry in delta_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, deltas, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename based on transaction type
+        if transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals
+            title = f'SumTypes {transaction_type.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes.png'
+        elif transaction_type.startswith('cat_'):
+            # CAT transactions
+            status = transaction_type.replace('cat_', '')
+            if status == 'pending_resolving':
+                title = f'CAT Pending Resolving Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_resolving.png'
+            elif status == 'pending_postponed':
+                title = f'CAT Pending Postponed Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_postponed.png'
+            else:
+                title = f'CAT {status.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{status}_cat.png'
+        elif transaction_type.startswith('regular_'):
+            # Regular transactions
+            status = transaction_type.replace('regular_', '')
+            title = f'Regular {status.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{status}_regular.png'
+        else:
+            # Fallback
+            title = f'{transaction_type.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel(f'Delta in {transaction_type.title()} Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper right")
+        plt.tight_layout()
+        
+        # Create tx_count_delta directory and save plot
+        tx_count_delta_dir = f'{results_dir}/figs/tx_count_delta'
+        os.makedirs(tx_count_delta_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_delta_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing {transaction_type} transactions delta data: {e}")
+        return
+
+def plot_cat_pending_resolving_delta(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending resolving transaction deltas overlay"""
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+
+def plot_cat_pending_postponed_delta(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot CAT pending postponed transaction deltas overlay"""
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
 
 def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     """
@@ -1398,8 +1797,8 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     
     This function:
     1. Runs the averaging script to create run_average folders from individual runs
-    2. Creates a combined sweep_results_averaged.json from the run_average data
-    3. Generates all plots from the combined data
+    2. Loads data directly from run_average folders for plotting
+    3. Generates all plots from the run_average data
     
     Args:
         sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_rate')
@@ -1409,7 +1808,355 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     results_dir = f'simulator/results/{sweep_name}'
     
     # Generate all plots using the generic utility
-    # Data flow: run_average folders -> sweep_results_averaged.json -> plots
+    # Data flow: run_average folders -> plots
     generate_all_plots(results_dir, param_name, sweep_type)
+
+def load_plot_config(results_dir: str) -> Dict[str, Any]:
+    """
+    Load plot configuration from the sweep config file.
+    
+    Args:
+        results_dir: The results directory path
+        
+    Returns:
+        Dictionary containing plot configuration settings
+        
+    Raises:
+        FileNotFoundError: If the config file doesn't exist
+        Exception: If there's an error parsing the TOML or missing required parameters
+    """
+    # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_rate' from 'simulator/results/sim_sweep_cat_rate')
+    sweep_name = results_dir.split('/')[-1]
+    config_path = f'simulator/src/scenarios/{sweep_name}/config.toml'
+    
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file {config_path} not found")
+    
+    import tomllib
+    with open(config_path, 'rb') as f:
+        config = tomllib.load(f)
+    
+    plot_config = config.get('plot_config', {})
+    
+    # Check if required parameters exist
+    if 'plot_moving_average' not in plot_config:
+        raise ValueError(f"Missing required parameter 'plot_moving_average' in {config_path}")
+    if 'range_moving_average' not in plot_config:
+        raise ValueError(f"Missing required parameter 'range_moving_average' in {config_path}")
+    
+    return {
+        'plot_moving_average': plot_config['plot_moving_average'],
+        'range_moving_average': plot_config['range_moving_average']
+    }
+
+def apply_moving_average(data: List[Tuple[int, int]], window_size: int) -> List[Tuple[int, int]]:
+    """
+    Apply moving average to time series data.
+    
+    Args:
+        data: List of tuples (height, value) representing time series data
+        window_size: Number of consecutive points to average
+        
+    Returns:
+        List of tuples (height, averaged_value) with moving average applied
+    """
+    if len(data) < window_size:
+        return data
+    
+    averaged_data = []
+    
+    for i in range(len(data)):
+        # Calculate start and end indices for the window
+        start_idx = max(0, i - window_size + 1)
+        end_idx = i + 1
+        
+        # Extract values in the window
+        window_values = [data[j][1] for j in range(start_idx, end_idx)]
+        
+        # Calculate average
+        avg_value = sum(window_values) / len(window_values)
+        
+        # Keep the original height, use averaged value
+        averaged_data.append((data[i][0], avg_value))
+    
+    return averaged_data
+
+def plot_transactions_overlay_with_moving_average(
+    data: Dict[str, Any],
+    param_name: str,
+    transaction_type: str,
+    results_dir: str,
+    sweep_type: str,
+    plot_config: Dict[str, Any]
+) -> None:
+    """Plot transaction overlay with optional moving average"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping {transaction_type} transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's chain 1 transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # For main transaction types (pending, success, failure), calculate as CAT + regular
+            if transaction_type in ['pending', 'success', 'failure']:
+                cat_data = result.get(f'chain_1_cat_{transaction_type}', [])
+                regular_data = result.get(f'chain_1_regular_{transaction_type}', [])
+                
+                # Create a combined dataset by summing CAT and regular at each height
+                combined_data = {}
+                
+                # Add CAT data
+                for height, count in cat_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Add regular data
+                for height, count in regular_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Convert back to sorted list of tuples
+                chain_data = sorted(combined_data.items())
+            else:
+                # For CAT and regular specific types, use the data directly
+                chain_data = result[f'chain_1_{transaction_type}']
+            
+            if not chain_data:
+                continue
+            
+            # Apply moving average if enabled
+            if plot_config.get('plot_moving_average', False):
+                window_size = plot_config.get('range_moving_average', 10)
+                chain_data = apply_moving_average(chain_data, window_size)
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename based on transaction type
+        if transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals
+            title = f'SumTypes {transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes.png'
+        elif transaction_type.startswith('cat_'):
+            # CAT transactions
+            status = transaction_type.replace('cat_', '')
+            if status == 'pending_resolving':
+                title = f'CAT Pending Resolving Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_resolving.png'
+            elif status == 'pending_postponed':
+                title = f'CAT Pending Postponed Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_postponed.png'
+            else:
+                title = f'CAT {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{status}_cat.png'
+        elif transaction_type.startswith('regular_'):
+            # Regular transactions
+            status = transaction_type.replace('regular_', '')
+            title = f'Regular {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{status}_regular.png'
+        else:
+            # Fallback
+            title = f'{transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}.png'
+        
+        # Add moving average indicator to title if enabled
+        if plot_config.get('plot_moving_average', False):
+            window_size = plot_config.get('range_moving_average', 10)
+            title += f" (Moving Average, Window={window_size})"
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel(f'Number of {transaction_type.title()} Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper right")
+        plt.tight_layout()
+        
+        # Determine directory based on whether moving average is applied
+        if plot_config.get('plot_moving_average', False):
+            base_dir = f'{results_dir}/figs/tx_count/moving_average'
+        else:
+            base_dir = f'{results_dir}/figs/tx_count'
+        
+        # Create directory and save plot
+        os.makedirs(base_dir, exist_ok=True)
+        plt.savefig(f'{base_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing {transaction_type} transactions data: {e}")
+        return
+
+def plot_transactions_delta_overlay_with_moving_average(
+    data: Dict[str, Any],
+    param_name: str,
+    transaction_type: str,
+    results_dir: str,
+    sweep_type: str,
+    plot_config: Dict[str, Any]
+) -> None:
+    """Plot transaction delta overlay with optional moving average"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping {transaction_type} transactions delta plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's chain 1 transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # For main transaction types (pending, success, failure), calculate as CAT + regular
+            if transaction_type in ['pending', 'success', 'failure']:
+                cat_data = result.get(f'chain_1_cat_{transaction_type}', [])
+                regular_data = result.get(f'chain_1_regular_{transaction_type}', [])
+                
+                # Create a combined dataset by summing CAT and regular at each height
+                combined_data = {}
+                
+                # Add CAT data
+                for height, count in cat_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Add regular data
+                for height, count in regular_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Convert back to sorted list of tuples
+                chain_data = sorted(combined_data.items())
+            else:
+                # For CAT and regular specific types, use the data directly
+                chain_data = result[f'chain_1_{transaction_type}']
+            
+            if not chain_data:
+                continue
+            
+            # Calculate deltas from the count data
+            delta_data = calculate_delta_from_counts(chain_data)
+            
+            if not delta_data:
+                continue
+            
+            # Apply moving average if enabled
+            if plot_config.get('plot_moving_average', False):
+                window_size = plot_config.get('range_moving_average', 10)
+                delta_data = apply_moving_average(delta_data, window_size)
+            
+            # Trim the last 10% of data to avoid edge effects
+            delta_data = trim_time_series_data(delta_data, 0.1)
+            
+            if not delta_data:
+                continue
+                
+            # Extract data - delta_data is a list of tuples (height, delta)
+            heights = [entry[0] for entry in delta_data]
+            deltas = [entry[1] for entry in delta_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, deltas, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename based on transaction type
+        if transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals
+            title = f'SumTypes {transaction_type.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes.png'
+        elif transaction_type.startswith('cat_'):
+            # CAT transactions
+            status = transaction_type.replace('cat_', '')
+            if status == 'pending_resolving':
+                title = f'CAT Pending Resolving Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_resolving.png'
+            elif status == 'pending_postponed':
+                title = f'CAT Pending Postponed Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_postponed.png'
+            else:
+                title = f'CAT {status.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{status}_cat.png'
+        elif transaction_type.startswith('regular_'):
+            # Regular transactions
+            status = transaction_type.replace('regular_', '')
+            title = f'Regular {status.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{status}_regular.png'
+        else:
+            # Fallback
+            title = f'{transaction_type.title()} Transaction Deltas by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}.png'
+        
+        # Add moving average indicator to title if enabled
+        if plot_config.get('plot_moving_average', False):
+            window_size = plot_config.get('range_moving_average', 10)
+            title += f" (Moving Average, Window={window_size})"
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel(f'Delta in {transaction_type.title()} Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper right")
+        plt.tight_layout()
+        
+        # Determine directory based on whether moving average is applied
+        if plot_config.get('plot_moving_average', False):
+            base_dir = f'{results_dir}/figs/tx_count_delta/moving_average'
+        else:
+            base_dir = f'{results_dir}/figs/tx_count_delta'
+        
+        # Create directory and save plot
+        os.makedirs(base_dir, exist_ok=True)
+        plt.savefig(f'{base_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing {transaction_type} transactions delta data: {e}")
+        return
 
  

@@ -81,7 +81,7 @@ async fn test_regular_transaction_failure() {
 }
 
 /// Helper function to test sending a CAT status proposal
-async fn run_process_and_send_cat(data: &str, expected_status: CATStatusLimited) {    
+async fn run_process_and_send_cat(data: &str, expected_status: crate::types::CATStatus) {    
     logging::log("TEST", "Setting up test nodes...");
     let (hig_node, _receiver_hig_to_hs  ) = setup_test_hig_node(true).await;
     logging::log("TEST", "Test nodes setup complete");
@@ -139,7 +139,12 @@ async fn run_process_and_send_cat(data: &str, expected_status: CATStatusLimited)
     let cat_id = CATId(cl_id.clone());
     logging::log("TEST", &format!("Sending status proposal to HS for cat_id: {:?}", cat_id));
     // we only have one chain for now, so we create a vector with one element
-    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), expected_status, vec![constants::chain_1()])
+    let status_limited = match expected_status {
+        crate::types::CATStatus::Success => crate::types::CATStatusLimited::Success,
+        crate::types::CATStatus::Failure => crate::types::CATStatusLimited::Failure,
+        crate::types::CATStatus::Pending => panic!("Cannot send Pending status to HS"),
+    };
+    hig_node.lock().await.send_cat_status_proposal(cat_id.clone(), status_limited, vec![constants::chain_1()])
         .await
         .expect("Failed to send status proposal");
     logging::log("TEST", "Status proposal sent to HS");
@@ -153,7 +158,7 @@ async fn run_process_and_send_cat(data: &str, expected_status: CATStatusLimited)
 async fn test_cat_process_and_send_success() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_cat_process_and_send_success ===");
-    run_process_and_send_cat("CAT.credit 1 100", CATStatusLimited::Success).await;
+    run_process_and_send_cat("CAT.credit 1 100", crate::types::CATStatus::Success).await;
 }
 
 /// Tests CAT transaction failure proposal path in HyperIG
@@ -162,7 +167,7 @@ async fn test_cat_process_and_send_success() {
 async fn test_cat_process_and_send_failure() {
     logging::init_logging();
     logging::log("TEST", "\n=== Starting test_cat_process_and_send_failure ===");
-    run_process_and_send_cat("CAT.send 1 2 1000", CATStatusLimited::Failure).await;
+    run_process_and_send_cat("CAT.send 1 2 1000", crate::types::CATStatus::Failure).await;
 }
 
 /// Tests get pending transactions functionality:
@@ -410,7 +415,7 @@ async fn test_cat_send_no_funds() {
     let proposed_status = hig_node.lock().await.get_proposed_status(cat_send_tx.id)
         .await
         .expect("Failed to get proposed status");
-    assert_eq!(proposed_status, CATStatusLimited::Failure, "CAT send should propose Failure status");
+    assert_eq!(proposed_status, crate::types::CATStatus::Failure, "CAT send should propose Failure status");
 
     logging::log("TEST", "=== test_cat_send_no_funds completed successfully ===\n");
 }
@@ -449,7 +454,7 @@ async fn test_cat_credit_pending() {
     let proposed_status = hig_node.lock().await.get_proposed_status(cat_credit_tx.id)
         .await
         .expect("Failed to get proposed status");
-    assert_eq!(proposed_status, CATStatusLimited::Success, "CAT credit should propose Success status");
+    assert_eq!(proposed_status, crate::types::CATStatus::Success, "CAT credit should propose Success status");
 
     logging::log("TEST", "=== test_cat_credit_pending completed successfully ===\n");
 }
@@ -494,7 +499,7 @@ async fn test_cat_send_after_credit() {
     
     // Verify the proposed status is Success
     let proposed_status = hig_node.lock().await.get_proposed_status(cat_send_tx.id).await.unwrap();
-    assert_eq!(proposed_status, CATStatusLimited::Success, "CAT send should propose Success");
+    assert_eq!(proposed_status, crate::types::CATStatus::Success, "CAT send should propose Success");
 }
 
 /// Tests that a newly created HIG node starts with an empty chain state.
@@ -698,7 +703,7 @@ async fn test_cat_pending_dependency_restriction() {
         // Verify a failure status proposal is sent to HS for the second CAT
         let cat_id_2 = CATId(cl_id_2.clone());
         let proposed_status = hig_node.lock().await.get_proposed_status(cat_tx_2.id.clone()).await.unwrap();
-        assert_eq!(proposed_status, CATStatusLimited::Failure, "Rejected CAT should propose Failure status");
+        assert_eq!(proposed_status, crate::types::CATStatus::Failure, "Rejected CAT should propose Failure status");
         
         // Wait for the status proposals to be sent (both CATs will send proposals)
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -892,5 +897,243 @@ async fn test_proposal_queue_independent_delays() {
     
     logging::log("TEST", &format!("Total time for all CATs: {}ms", total_time.as_millis()));
     logging::log("TEST", "=== test_proposal_queue_independent_delays completed successfully ===\n");
+}
+
+/// Tests that a CAT gets the correct proposed status when its dependency (first CAT) succeeds.
+/// This verifies that:
+/// 1. First CAT gets Success proposed status (resolving)
+/// 2. Second CAT that depends on the first gets Pending proposed status (postponed)
+/// 3. When first CAT succeeds, second CAT gets Success proposed status
+#[tokio::test]
+async fn test_cat_pending_when_depending_on_resolving_cat_success() {
+    test_cat_dependency_resolution(
+        "Success", // First CAT resolution status (matches proposed status)
+        crate::types::CATStatus::Success, // Second CAT expected status after resolution
+    ).await;
+}
+
+/// Tests that a CAT gets the correct proposed status when its dependency (first CAT) fails.
+/// This verifies that:
+/// 1. First CAT gets Success proposed status (resolving)
+/// 2. Second CAT that depends on the first gets Pending proposed status (postponed)
+/// 3. When first CAT fails, second CAT gets Failure proposed status
+#[tokio::test]
+async fn test_cat_pending_when_depending_on_resolving_cat_failure() {
+    test_cat_dependency_resolution(
+        "Failure", // First CAT resolution status (different from proposed status - e.g., other chain failed)
+        crate::types::CATStatus::Failure, // Second CAT expected status after resolution
+    ).await;
+}
+
+/// Helper function to test CAT dependency resolution scenarios
+/// 
+/// # Arguments
+/// * `first_cat_resolution_status` - The status to use when resolving the first CAT (Success/Failure)
+/// * `second_cat_expected_status_after_resolution` - The expected proposed status for the second CAT after first CAT resolution
+async fn test_cat_dependency_resolution(
+    first_cat_resolution_status: &str,
+    second_cat_expected_status_after_resolution: crate::types::CATStatus,
+) {
+    logging::init_logging();
+    logging::log("TEST", &format!("\n=== Starting test_cat_dependency_resolution with first_cat_resolution_status='{}', second_cat_expected_status_after_resolution='{:?}' ===", 
+        first_cat_resolution_status, second_cat_expected_status_after_resolution));
+    
+    // Set up test node with CAT pending dependencies enabled
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    logging::log("TEST", "Set up test node with CAT pending dependencies enabled");
+    
+    // First CAT: This will be resolving
+    let cl_id_1 = CLTransactionId("cl-tx_cat_1".to_string());
+    let cat_tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:cat_1", cl_id_1)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(), // Fixed transaction data
+        cl_id_1.clone(),
+    ).expect("Failed to create first CAT transaction");
+    
+    // Process first CAT
+    let status_1 = hig_node.lock().await.process_transaction(cat_tx_1.clone()).await.unwrap();
+    logging::log("TEST", &format!("First CAT status: {:?}", status_1));
+    assert_eq!(status_1, TransactionStatus::Pending, "First CAT should be pending");
+    
+    // Check that first CAT has Success proposed status (based on transaction data)
+    let proposed_status_1 = hig_node.lock().await.get_proposed_status(cat_tx_1.id.clone()).await.unwrap();
+    logging::log("TEST", &format!("First CAT proposed status: {:?}", proposed_status_1));
+    assert_eq!(proposed_status_1, crate::types::CATStatus::Success, "First CAT should have Success proposed status based on transaction data");
+    
+    // Second CAT: This should depend on the first CAT and get Pending proposed status
+    let cl_id_2 = CLTransactionId("cl-tx_cat_2".to_string());
+    let cat_tx_2 = Transaction::new(
+        TransactionId(format!("{:?}:cat_2", cl_id_2)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.send 1 2 50".to_string(), // This depends on account 1 which is locked by first CAT
+        cl_id_2.clone(),
+    ).expect("Failed to create second CAT transaction");
+    
+    // Process second CAT
+    let status_2 = hig_node.lock().await.process_transaction(cat_tx_2.clone()).await.unwrap();
+    logging::log("TEST", &format!("Second CAT status: {:?}", status_2));
+    assert_eq!(status_2, TransactionStatus::Pending, "Second CAT should be pending");
+    
+    // Check that second CAT has a Pending proposed status (postponed)
+    let proposed_status_2 = hig_node.lock().await.get_proposed_status(cat_tx_2.id.clone()).await.unwrap();
+    logging::log("TEST", &format!("Second CAT proposed status: {:?}", proposed_status_2));
+    assert!(matches!(proposed_status_2, crate::types::CATStatus::Pending), "Second CAT should have Pending proposed status");
+    
+    // Verify the detailed pending counts
+    let (resolving, postponed) = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("Detailed pending counts - Resolving: {}, Postponed: {}", resolving, postponed));
+    assert_eq!(resolving, 1, "Should have 1 resolving CAT (first CAT)");
+    assert_eq!(postponed, 1, "Should have 1 postponed CAT (second CAT)");
+    
+    // Now resolve the first CAT with the specified status
+    let status_update_tx = Transaction::new(
+        TransactionId("status_update".to_string()),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        format!("STATUS_UPDATE:{}.CAT_ID:cl-tx_cat_1", first_cat_resolution_status),
+        cl_id_1.clone(),
+    ).expect("Failed to create status update transaction");
+    
+    let status_update_result = hig_node.lock().await.process_transaction(status_update_tx).await.unwrap();
+    logging::log("TEST", &format!("Status update result: {:?}", status_update_result));
+    // The status update transaction should return the same status that was in the update
+    let expected_status_update_result = if first_cat_resolution_status == "Success" {
+        TransactionStatus::Success
+    } else {
+        TransactionStatus::Failure
+    };
+    assert_eq!(status_update_result, expected_status_update_result, "Status update should return the status that was sent");
+    
+    // Check that second CAT now has the expected proposed status
+    let proposed_status_2_after = hig_node.lock().await.get_proposed_status(cat_tx_2.id.clone()).await.unwrap();
+    logging::log("TEST", &format!("Second CAT proposed status after first CAT resolution: {:?}", proposed_status_2_after));
+    assert_eq!(proposed_status_2_after, second_cat_expected_status_after_resolution, "Second CAT should have expected proposed status after first CAT resolution");
+    
+    // Verify the detailed pending counts after resolution
+    let (resolving_after, postponed_after) = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("Detailed pending counts after resolution - Resolving: {}, Postponed: {}", resolving_after, postponed_after));
+    assert_eq!(resolving_after, 1, "Should have 1 resolving CAT (second CAT)");
+    assert_eq!(postponed_after, 0, "Should have 0 postponed CATs");
+    
+    logging::log("TEST", "=== test_cat_dependency_resolution completed successfully ===\n");
+}
+
+/// Helper function to test regular transaction dependency resolution on CATs
+/// 
+/// # Arguments
+/// * `first_cat_resolution_status` - The status to use when resolving the first CAT (Success/Failure)
+/// * `second_tx_expected_status_after_resolution` - The expected status for the second transaction after first CAT resolution
+async fn test_regular_tx_dependency_resolution(
+    first_cat_resolution_status: &str,
+    second_tx_expected_status_after_resolution: TransactionStatus,
+) {
+    logging::init_logging();
+    logging::log("TEST", &format!("\n=== Starting test_regular_tx_dependency_resolution with first_cat_resolution_status='{}', second_tx_expected_status_after_resolution='{:?}' ===", 
+        first_cat_resolution_status, second_tx_expected_status_after_resolution));
+    
+    // Set up test node with CAT pending dependencies enabled
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    logging::log("TEST", "Set up test node with CAT pending dependencies enabled");
+    
+    // First CAT: This will be resolving
+    let cl_id_1 = CLTransactionId("cl-tx_cat_1".to_string());
+    let cat_tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:cat_1", cl_id_1)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(), // Fixed transaction data
+        cl_id_1.clone(),
+    ).expect("Failed to create first CAT transaction");
+    
+    // Process first CAT
+    let status_1 = hig_node.lock().await.process_transaction(cat_tx_1.clone()).await.unwrap();
+    logging::log("TEST", &format!("First CAT status: {:?}", status_1));
+    assert_eq!(status_1, TransactionStatus::Pending, "First CAT should be pending");
+    
+    // Check that first CAT has Success proposed status (based on transaction data)
+    let proposed_status_1 = hig_node.lock().await.get_proposed_status(cat_tx_1.id.clone()).await.unwrap();
+    logging::log("TEST", &format!("First CAT proposed status: {:?}", proposed_status_1));
+    assert_eq!(proposed_status_1, crate::types::CATStatus::Success, "First CAT should have Success proposed status based on transaction data");
+    
+    // Second transaction: Regular transaction that depends on the first CAT
+    let regular_tx_2 = Transaction::new(
+        TransactionId("regular_tx_2".to_string()),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.send 1 2 50".to_string(), // This depends on account 1 which is locked by first CAT
+        cl_id_1.clone(),
+    ).expect("Failed to create second regular transaction");
+    
+    // Process second transaction
+    let status_2 = hig_node.lock().await.process_transaction(regular_tx_2.clone()).await.unwrap();
+    logging::log("TEST", &format!("Second transaction status: {:?}", status_2));
+    assert_eq!(status_2, TransactionStatus::Pending, "Second transaction should be pending");
+    
+    // Verify the detailed pending counts
+    let (resolving, postponed) = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("Detailed pending counts - Resolving: {}, Postponed: {}", resolving, postponed));
+    assert_eq!(resolving, 1, "Should have 1 resolving CAT (first CAT)");
+    assert_eq!(postponed, 0, "Should have 0 postponed CATs (regular transaction doesn't count as postponed CAT)");
+    
+    // Now resolve the first CAT with the specified status
+    let status_update_tx = Transaction::new(
+        TransactionId("status_update".to_string()),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        format!("STATUS_UPDATE:{}.CAT_ID:cl-tx_cat_1", first_cat_resolution_status),
+        cl_id_1.clone(),
+    ).expect("Failed to create status update transaction");
+    
+    let status_update_result = hig_node.lock().await.process_transaction(status_update_tx).await.unwrap();
+    logging::log("TEST", &format!("Status update result: {:?}", status_update_result));
+    // The status update transaction should return the same status that was in the update
+    let expected_status_update_result = if first_cat_resolution_status == "Success" {
+        TransactionStatus::Success
+    } else {
+        TransactionStatus::Failure
+    };
+    assert_eq!(status_update_result, expected_status_update_result, "Status update should return the status that was sent");
+    
+    // Check that second transaction now has the expected status
+    let status_2_after = hig_node.lock().await.get_transaction_status(regular_tx_2.id.clone()).await.unwrap();
+    logging::log("TEST", &format!("Second transaction status after first CAT resolution: {:?}", status_2_after));
+    assert_eq!(status_2_after, second_tx_expected_status_after_resolution, "Second transaction should have expected status after first CAT resolution");
+    
+    // Verify the detailed pending counts after resolution
+    let (resolving_after, postponed_after) = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("Detailed pending counts after resolution - Resolving: {}, Postponed: {}", resolving_after, postponed_after));
+    assert_eq!(resolving_after, 0, "Should have 0 resolving CATs");
+    assert_eq!(postponed_after, 0, "Should have 0 postponed CATs");
+    
+    logging::log("TEST", "=== test_regular_tx_dependency_resolution completed successfully ===\n");
+}
+
+/// Tests that a regular transaction gets the correct status when its dependency (first CAT) succeeds.
+/// This verifies that:
+/// 1. First CAT gets Success proposed status (resolving)
+/// 2. Regular transaction that depends on the first gets Pending status (postponed)
+/// 3. When first CAT succeeds, regular transaction gets Success status
+#[tokio::test]
+async fn test_regular_tx_pending_when_depending_on_resolving_cat_success() {
+    test_regular_tx_dependency_resolution(
+        "Success", // First CAT resolution status
+        TransactionStatus::Success, // Second transaction expected status after resolution
+    ).await;
+}
+
+/// Tests that a regular transaction gets the correct status when its dependency (first CAT) fails.
+/// This verifies that:
+/// 1. First CAT gets Success proposed status (resolving)
+/// 2. Regular transaction that depends on the first gets Pending status (postponed)
+/// 3. When first CAT fails, regular transaction gets Failure status
+#[tokio::test]
+async fn test_regular_tx_pending_when_depending_on_resolving_cat_failure() {
+    test_regular_tx_dependency_resolution(
+        "Failure", // First CAT resolution status (different from proposed status - e.g., other chain failed)
+        TransactionStatus::Failure, // Second transaction expected status after resolution
+    ).await;
 }
 

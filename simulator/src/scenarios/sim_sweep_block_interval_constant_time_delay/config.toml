@@ -37,7 +37,7 @@ cat_lifetime_blocks = 10
 # Whether to allow CAT transactions to depend on locked keys
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)
-allow_cat_pending_dependencies = false
+allow_cat_pending_dependencies = true
 
 # Simulation execution parameters
 [simulation_config]
@@ -45,7 +45,7 @@ allow_cat_pending_dependencies = false
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 20
+num_runs = 1
 # Number of simulations to run in the sweep
 num_simulations = 4
 # Step size for block interval sweeps
@@ -61,3 +61,10 @@ sim_total_block_number = 1000
 [logging_config]
 # Whether to write logs to a file (true = write to file, false = no file logging)
 log_to_file = false
+
+# Plot configuration
+[plot_config]
+# Turn on to plot the moving average
+plot_moving_average = true
+# How many consecutive data points get averaged
+range_moving_average = 10
