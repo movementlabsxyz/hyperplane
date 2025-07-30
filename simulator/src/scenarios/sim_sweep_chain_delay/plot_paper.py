@@ -175,16 +175,16 @@ def main():
     results_dir = 'simulator/results/sim_sweep_chain_delay'
     sweep_type = 'Chain Delay'
     
-    # Load sweep data
+    # Load sweep data directly from run_average folders
     try:
-        # Load the sweep data from the averaged results
-        data_file = f'{results_dir}/data/sweep_results_averaged.json'
-        if os.path.exists(data_file):
-            with open(data_file, 'r') as f:
-                data = json.load(f)
-        else:
-            print(f"Warning: {data_file} not found. Skipping paper plot generation.")
-            return
+        # Import the data loading function from plot_utils
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+        from plot_utils import load_sweep_data_from_run_average
+        
+        # Load data directly from run_average folders
+        results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_chain_delay'
+        data = load_sweep_data_from_run_average(results_dir_name)
         
         # Generate paper-specific plots
         plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)

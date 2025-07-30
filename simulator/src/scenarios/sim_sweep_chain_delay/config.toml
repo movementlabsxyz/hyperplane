@@ -44,8 +44,6 @@ allow_cat_pending_dependencies = true
 # Number of blocks to wait before starting transaction submission
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
-
-
 # Number of times to run each simulation (results will be averaged)
 num_runs = 3
 # Number of simulations to run in the sweep
@@ -60,3 +58,10 @@ sim_total_block_number = 2300
 [logging_config]
 # Whether to write logs to a file (true = write to file, false = no file logging)
 log_to_file = false
+
+# Plot configuration
+[plot_config]
+# Turn on to plot the moving average
+plot_moving_average = true
+# How many consecutive data points get averaged
+range_moving_average = 10
