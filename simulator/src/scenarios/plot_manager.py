@@ -13,8 +13,8 @@ from plot_utils import (
     plot_transactions_overlay
 )
 from plot_system import (
-    plot_system_memory, plot_system_total_memory,
-    plot_system_cpu, plot_system_cpu_filtered, plot_system_total_cpu,
+    plot_system_memory, plot_system_memory_total,
+    plot_system_cpu, plot_system_cpu_filtered, plot_system_cpu_total,
     plot_loop_steps_without_tx_issuance
 )
 from plot_utils_delta import (
@@ -44,10 +44,10 @@ def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config
     plot_sweep_locked_keys_with_pending(data, param_name, results_dir, sweep_type)
     plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
     plot_system_memory(data, param_name, results_dir, sweep_type)
-    plot_system_total_memory(data, param_name, results_dir, sweep_type)
+    plot_system_memory_total(data, param_name, results_dir, sweep_type)
     plot_system_cpu(data, param_name, results_dir, sweep_type)
     plot_system_cpu_filtered(data, param_name, results_dir, sweep_type)
-    plot_system_total_cpu(data, param_name, results_dir, sweep_type)
+    plot_system_cpu_total(data, param_name, results_dir, sweep_type)
     plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
 
 # Transaction count plots with their percentage counterparts (regular and moving average)
