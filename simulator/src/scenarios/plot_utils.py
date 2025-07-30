@@ -494,258 +494,9 @@ def generate_all_plots(
         traceback.print_exc()
         raise  # Re-raise the exception to stop execution
     
-    # First, generate regular tx_count plots (without moving average)
-    # Plot all transaction overlays (combined totals) - these show how transactions change across parameter values
-    plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
-    plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
-    plot_transactions_overlay(data, param_name, 'failure', results_dir, sweep_type)
-    
-    # Plot CAT transaction overlays
-    plot_transactions_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
-    plot_transactions_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
-    plot_transactions_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
-    
-    # Plot detailed CAT pending state overlays
-    plot_transactions_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
-    plot_transactions_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
-    
-    # Plot regular transaction overlays
-    plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
-    plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
-    plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
-    
-    # Now generate moving average plots (if enabled)
-    if plot_config.get('plot_moving_average', False):
-        # Plot all transaction overlays with moving average
-        plot_transactions_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
-        
-        # Plot CAT transaction overlays with moving average
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
-        
-        # Plot detailed CAT pending state overlays with moving average
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
-        
-        # Plot regular transaction overlays with moving average
-        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
-    
-    # First, generate regular percentage plots (without moving average)
-    from plot_utils_percentage import (
-        plot_transaction_percentage,
-        plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
-        plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage,
-        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage,
-        plot_cat_pending_resolving_percentage, plot_cat_pending_postponed_percentage
-    )
-    
-    # Plot CAT percentage plots
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'success')
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'failure')
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'pending')
-    
-    # Plot regular percentage plots
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'success')
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'failure')
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'pending')
-    
-    # Plot sumtypes percentage plots
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'success')
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure')
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
-    
-    # Plot detailed CAT pending state percentage plots
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
-    
-    # Now generate moving average percentage plots (if enabled)
-    if plot_config.get('plot_moving_average', False):
-        from plot_utils_percentage import plot_transaction_percentage_with_moving_average
-        
-        # Plot CAT percentage plots with moving average
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
-        
-        # Plot regular percentage plots with moving average
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
-        
-        # Plot sumtypes percentage plots with moving average
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
-        
-        # Plot detailed CAT pending state percentage plots with moving average
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
-        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
-    
-    # First, generate regular delta plots (without moving average)
-    # Plot all transaction delta overlays (combined totals) - these show how transaction changes change across parameter values
-    plot_transactions_delta_overlay(data, param_name, 'pending', results_dir, sweep_type)
-    plot_transactions_delta_overlay(data, param_name, 'success', results_dir, sweep_type)
-    plot_transactions_delta_overlay(data, param_name, 'failure', results_dir, sweep_type)
-    
-    # Plot CAT transaction delta overlays
-    plot_transactions_delta_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
-    plot_transactions_delta_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
-    plot_transactions_delta_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
-    
-    # Plot detailed CAT pending state delta overlays
-    plot_transactions_delta_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
-    plot_transactions_delta_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
-    
-    # Plot regular transaction delta overlays
-    plot_transactions_delta_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
-    plot_transactions_delta_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
-    plot_transactions_delta_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
-    
-    # Plot percentage delta plots
-    from plot_utils_percentage import plot_transaction_percentage_delta
-    
-    # Plot CAT percentage delta plots
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'success')
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'failure')
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'pending')
-    
-    # Plot regular percentage delta plots
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'success')
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'failure')
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'pending')
-    
-    # Plot sumtypes percentage delta plots
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'success')
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure')
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
-    
-    # Plot detailed CAT pending state percentage delta plots
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
-    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
-    
-    # Now generate moving average delta plots (if enabled)
-    if plot_config.get('plot_moving_average', False):
-        # Plot all transaction delta overlays with moving average
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
-        
-        # Plot CAT transaction delta overlays with moving average
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
-        
-        # Plot detailed CAT pending state delta overlays with moving average
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
-        
-        # Plot regular transaction delta overlays with moving average
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
-        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
-        
-        # Plot percentage delta plots with moving average support
-        from plot_utils_percentage import plot_transaction_percentage_delta_with_moving_average
-        
-        # Plot CAT percentage delta plots with moving average
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
-        
-        # Plot regular percentage delta plots with moving average
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
-        
-        # Plot sumtypes percentage delta plots with moving average
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
-        
-        # Plot detailed CAT pending state percentage delta plots with moving average
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
-        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
-    
-    # Plot sweep summary
-    plot_sweep_summary(data, param_name, results_dir, sweep_type)
-    
-    # Plot locked keys data
-    plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
-    plot_sweep_locked_keys_with_pending(data, param_name, results_dir, sweep_type)
-    
-    # Plot transactions per block data
-    plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
-    
-    # Note: Individual curves plots are now generated by generate_individual_curves_plots
-    # instead of plot_individual_sweep_tps to maintain consistency with simple simulation
-    
-    # Plot system memory usage over time
-    plot_system_memory(data, param_name, results_dir, sweep_type)
-    
-    # Plot system total memory usage over time
-    plot_system_total_memory(data, param_name, results_dir, sweep_type)
-    
-    # Plot system CPU usage over time
-    plot_system_cpu(data, param_name, results_dir, sweep_type)
-    
-    # Plot filtered system CPU usage over time (removes spikes above 30%)
-    plot_system_cpu_filtered(data, param_name, results_dir, sweep_type)
-    
-    # Plot system total CPU usage over time
-    plot_system_total_cpu(data, param_name, results_dir, sweep_type)
-    
-    # Plot loop steps without transaction issuance
-    plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
-    
-    # Plot CAT success percentage over time
-    # Import and call from plot_utils_percentage.py
-    from plot_utils_percentage import (
-        plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
-        plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage,
-        plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage,
-        plot_cat_pending_resolving_percentage, plot_cat_pending_postponed_percentage
-    )
-    plot_cat_success_percentage(data, param_name, results_dir, sweep_type)
-    plot_cat_failure_percentage(data, param_name, results_dir, sweep_type)
-    plot_cat_pending_percentage(data, param_name, results_dir, sweep_type)
-    plot_regular_success_percentage(data, param_name, results_dir, sweep_type)
-    plot_regular_failure_percentage(data, param_name, results_dir, sweep_type)
-    plot_regular_pending_percentage(data, param_name, results_dir, sweep_type)
-    plot_sumtypes_success_percentage(data, param_name, results_dir, sweep_type)
-    plot_sumtypes_failure_percentage(data, param_name, results_dir, sweep_type)
-    plot_sumtypes_pending_percentage(data, param_name, results_dir, sweep_type)
-    plot_cat_pending_resolving_percentage(data, param_name, results_dir, sweep_type)
-    plot_cat_pending_postponed_percentage(data, param_name, results_dir, sweep_type)
-    
-    # Plot CAT success percentage deltas over time
-    # Import and call from plot_utils_percentage.py
-    from plot_utils_percentage import (
-        plot_cat_success_percentage_delta, plot_cat_failure_percentage_delta, plot_cat_pending_percentage_delta,
-        plot_regular_success_percentage_delta, plot_regular_failure_percentage_delta, plot_regular_pending_percentage_delta,
-        plot_sumtypes_success_percentage_delta, plot_sumtypes_failure_percentage_delta, plot_sumtypes_pending_percentage_delta,
-        plot_cat_pending_resolving_percentage_delta, plot_cat_pending_postponed_percentage_delta
-    )
-    plot_cat_success_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_cat_failure_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_cat_pending_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_regular_success_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_regular_failure_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_regular_pending_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_sumtypes_success_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_sumtypes_failure_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_sumtypes_pending_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_cat_pending_resolving_percentage_delta(data, param_name, results_dir, sweep_type)
-    plot_cat_pending_postponed_percentage_delta(data, param_name, results_dir, sweep_type)
-    
-    # Generate individual curves plots for each simulation in the sweep
-    generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
-    
-    print(f"{sweep_type} simulation plots generated successfully!") 
+    # Use the plot manager to generate organized plots
+    from plot_manager import generate_organized_plots
+    generate_organized_plots(data, param_name, results_dir, sweep_type, plot_config)
 
 # ------------------------------------------------------------------------------------------------
 # Locked Keys Plotting
@@ -1843,10 +1594,13 @@ def load_plot_config(results_dir: str) -> Dict[str, Any]:
         raise ValueError(f"Missing required parameter 'plot_moving_average' in {config_path}")
     if 'range_moving_average' not in plot_config:
         raise ValueError(f"Missing required parameter 'range_moving_average' in {config_path}")
+    if 'cutoff' not in plot_config:
+        raise ValueError(f"Missing required parameter 'cutoff' in {config_path}")
     
     return {
         'plot_moving_average': plot_config['plot_moving_average'],
-        'range_moving_average': plot_config['range_moving_average']
+        'range_moving_average': plot_config['range_moving_average'],
+        'cutoff': plot_config['cutoff']
     }
 
 def apply_moving_average(data: List[Tuple[int, int]], window_size: int) -> List[Tuple[int, int]]:
@@ -2158,5 +1912,505 @@ def plot_transactions_delta_overlay_with_moving_average(
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"Warning: Error processing {transaction_type} transactions delta data: {e}")
         return
+
+def apply_cutoff_to_data(data: List[Tuple[int, int]], cutoff_height: int, transaction_type: str) -> List[Tuple[int, int]]:
+    """
+    Apply cutoff to time series data by removing data before cutoff_height and subtracting offset values.
+    
+    Args:
+        data: List of tuples (height, value) representing time series data
+        cutoff_height: Height at which to apply the cutoff
+        transaction_type: Type of transaction (success, failure, pending, etc.)
+        
+    Returns:
+        List of tuples (height, adjusted_value) with cutoff applied
+    """
+    if not data:
+        return []
+    
+    # Find the offset value at the cutoff height
+    offset_value = 0
+    for height, value in data:
+        if height >= cutoff_height:
+            offset_value = value
+            break
+    
+    # Apply cutoff: remove data before cutoff_height
+    cutoff_data = []
+    for height, value in data:
+        if height >= cutoff_height:
+            # Only subtract offset for success and failure transactions (including cat_ and regular_ prefixes)
+            if 'success' in transaction_type or 'failure' in transaction_type:
+                adjusted_value = value - offset_value
+            else:
+                # For pending and other types, just use the original value
+                adjusted_value = value
+            cutoff_data.append((height, adjusted_value))
+    
+    return cutoff_data
+
+def plot_transactions_cutoff_overlay(
+    data: Dict[str, Any],
+    param_name: str,
+    transaction_type: str,
+    results_dir: str,
+    sweep_type: str,
+    plot_config: Dict[str, Any]
+) -> None:
+    """
+    Plot transaction overlay with cutoff applied.
+    
+    This function:
+    1. Removes all data before cutoff_height (sim_total_block_number * cutoff)
+    2. For success, failure, and pending postponed transactions, records offset values at cutoff
+    3. Subtracts these offset values from the remainder of the data vector
+    4. Everything else stays the same
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping {transaction_type} cutoff plot")
+            return
+        
+        # Get cutoff configuration
+        cutoff_percentage = plot_config.get('cutoff', 0.5)
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's chain 1 transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # For main transaction types (pending, success, failure), calculate as CAT + regular
+            if transaction_type in ['pending', 'success', 'failure']:
+                cat_data = result.get(f'chain_1_cat_{transaction_type}', [])
+                regular_data = result.get(f'chain_1_regular_{transaction_type}', [])
+                
+                # Create a combined dataset by summing CAT and regular at each height
+                combined_data = {}
+                
+                # Add CAT data
+                for height, count in cat_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Add regular data
+                for height, count in regular_data:
+                    combined_data[height] = combined_data.get(height, 0) + count
+                
+                # Convert back to sorted list of tuples
+                chain_data = sorted(combined_data.items())
+            else:
+                # For CAT and regular specific types, use the data directly
+                chain_data = result[f'chain_1_{transaction_type}']
+            
+            if not chain_data:
+                continue
+            
+            # Calculate cutoff height based on maximum height in data
+            max_data_height = max(chain_data, key=lambda x: x[0])[0]
+            cutoff_height = int(max_data_height * cutoff_percentage)
+            
+            # Apply cutoff to the data
+            cutoff_data = apply_cutoff_to_data(chain_data, cutoff_height, transaction_type)
+            
+            if not cutoff_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            cutoff_data = trim_time_series_data(cutoff_data, 0.1)
+            
+            if not cutoff_data:
+                continue
+                
+            # Extract data - cutoff_data is a list of tuples (height, adjusted_value)
+            heights = [entry[0] for entry in cutoff_data]
+            values = [entry[1] for entry in cutoff_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, values, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename based on transaction type
+        if transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals
+            title = f'SumTypes {transaction_type.title()} Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes_cutoff.png'
+        elif transaction_type.startswith('cat_'):
+            # CAT transactions
+            status = transaction_type.replace('cat_', '')
+            if status == 'pending_resolving':
+                title = f'CAT Pending Resolving Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_resolving_cutoff.png'
+            elif status == 'pending_postponed':
+                title = f'CAT Pending Postponed Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_pending_cat_postponed_cutoff.png'
+            else:
+                title = f'CAT {status.title()} Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
+                filename = f'tx_{status}_cat_cutoff.png'
+        elif transaction_type.startswith('regular_'):
+            # Regular transactions
+            status = transaction_type.replace('regular_', '')
+            title = f'Regular {status.title()} Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{status}_regular_cutoff.png'
+        else:
+            # Fallback
+            title = f'{transaction_type.title()} Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_cutoff.png'
+        
+        plt.title(title, fontsize=14)
+        plt.xlabel('Block Height', fontsize=12)
+        plt.ylabel('Transaction Count (Adjusted)', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper right", fontsize=10)
+        plt.tight_layout()
+        
+        # Create tx_count_cutoff directory and save plot
+        tx_count_cutoff_dir = f'{results_dir}/figs/tx_count_cutoff'
+        os.makedirs(tx_count_cutoff_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_cutoff_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        print(f"Generated cutoff plot: {filename}")
+        
+    except Exception as e:
+        print(f"Error generating cutoff plot for {transaction_type}: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+
+def apply_cutoff_to_percentage_data(data: Dict[str, Any], plot_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Apply cutoff to all transaction data in the results before percentage calculation.
+    
+    Args:
+        data: The original sweep data
+        plot_config: Plot configuration containing cutoff settings
+        
+    Returns:
+        Modified data with cutoff applied to all transaction data
+    """
+    cutoff_percentage = plot_config.get('cutoff', 0.5)
+    modified_data = {'individual_results': []}
+    
+    for result in data['individual_results']:
+        modified_result = result.copy()
+        
+        # Apply cutoff to all transaction data
+        transaction_keys = [
+            'chain_1_cat_success', 'chain_1_cat_failure', 'chain_1_cat_pending',
+            'chain_1_regular_success', 'chain_1_regular_failure', 'chain_1_regular_pending',
+            'chain_1_cat_pending_resolving', 'chain_1_cat_pending_postponed'
+        ]
+        
+        for key in transaction_keys:
+            if key in modified_result:
+                tx_data = modified_result[key]
+                if tx_data:
+                    # Calculate cutoff height based on maximum height in data
+                    max_data_height = max(tx_data, key=lambda x: x[0])[0]
+                    cutoff_height = int(max_data_height * cutoff_percentage)
+                    
+                    # Apply cutoff to the data
+                    cutoff_data = apply_cutoff_to_data(tx_data, cutoff_height, key)
+                    modified_result[key] = cutoff_data
+        
+        modified_data['individual_results'].append(modified_result)
+    
+    return modified_data
+
+def plot_transaction_percentage_cutoff(
+    data: Dict[str, Any], 
+    param_name: str, 
+    results_dir: str, 
+    sweep_type: str, 
+    transaction_type: str, 
+    percentage_type: str,
+    plot_config: Dict[str, Any]
+) -> None:
+    """
+    Plot transaction percentage with cutoff applied.
+    
+    This function applies cutoff to the data and creates percentage plots
+    saved to the tx_count_cutoff directory.
+    """
+    # Apply cutoff to the data
+    cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
+    
+    # Import the percentage plotting function
+    from plot_utils_percentage import plot_transaction_percentage
+    
+    # Create a modified version that saves to the correct directory
+    def plot_transaction_percentage_cutoff_save(cutoff_data, param_name, results_dir, sweep_type, transaction_type, percentage_type):
+        """Modified version of plot_transaction_percentage that saves to tx_count_cutoff directory"""
+        try:
+            # Extract parameter values and results
+            param_values = []
+            results = []
+            
+            for result in cutoff_data['individual_results']:
+                param_value = extract_parameter_value(result, param_name)
+                param_values.append(param_value)
+                results.append(result)
+            
+            # Create color gradient
+            from plot_utils_percentage import create_color_gradient
+            colors = create_color_gradient(len(param_values))
+            
+            # Create the plot
+            plt.figure(figsize=(10, 6))
+            
+            # Track maximum height for xlim
+            max_height = 0
+            
+            # Plot each parameter value
+            for i, (param_value, result) in enumerate(zip(param_values, results)):
+                # Extract transaction data using the same structure as regular plots
+                if transaction_type == 'cat':
+                    # For CAT transactions, get the specific status data
+                    if percentage_type == 'success':
+                        tx_data = result.get('chain_1_cat_success', [])
+                    elif percentage_type == 'failure':
+                        tx_data = result.get('chain_1_cat_failure', [])
+                    else:  # pending
+                        tx_data = result.get('chain_1_cat_pending', [])
+                elif transaction_type == 'regular':
+                    # For regular transactions, get the specific status data
+                    if percentage_type == 'success':
+                        tx_data = result.get('chain_1_regular_success', [])
+                    elif percentage_type == 'failure':
+                        tx_data = result.get('chain_1_regular_failure', [])
+                    else:  # pending
+                        tx_data = result.get('chain_1_regular_pending', [])
+                else:  # sumtypes
+                    # For sumtypes, combine CAT and regular data
+                    if percentage_type == 'success':
+                        cat_data = result.get('chain_1_cat_success', [])
+                        regular_data = result.get('chain_1_regular_success', [])
+                    elif percentage_type == 'failure':
+                        cat_data = result.get('chain_1_cat_failure', [])
+                        regular_data = result.get('chain_1_regular_failure', [])
+                    else:  # pending
+                        cat_data = result.get('chain_1_cat_pending', [])
+                        regular_data = result.get('chain_1_regular_pending', [])
+                    
+                    # Create a combined dataset by summing CAT and regular at each height
+                    combined_data = {}
+                    
+                    # Add CAT data
+                    for height, count in cat_data:
+                        combined_data[height] = combined_data.get(height, 0) + count
+                    
+                    # Add regular data
+                    for height, count in regular_data:
+                        combined_data[height] = combined_data.get(height, 0) + count
+                    
+                    # Convert back to sorted list of tuples
+                    tx_data = sorted(combined_data.items())
+                
+                if not tx_data:
+                    continue
+                
+                # Extract heights and transaction counts
+                heights = []
+                percentages = []
+                
+                # Convert tx_data to list of tuples if it's not already
+                if isinstance(tx_data, list) and tx_data and isinstance(tx_data[0], dict):
+                    # If it's a list of dictionaries, convert to list of tuples
+                    tx_data = [(entry.get('height', 0), entry.get('count', 0)) for entry in tx_data]
+                
+                # Process each block - tx_data is now a list of tuples (height, count)
+                for height, count in tx_data:
+                    heights.append(height)
+                    
+                    # Calculate percentage using counts at this specific height (not cumulative)
+                    if transaction_type == 'cat':
+                        # For CAT transactions, get all status data
+                        cat_success_data = result.get('chain_1_cat_success', [])
+                        cat_failure_data = result.get('chain_1_cat_failure', [])
+                        cat_pending_data = result.get('chain_1_cat_pending', [])
+                        
+                        # Convert to height->count mapping
+                        cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
+                        cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
+                        cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
+                        
+                        # Get counts at this specific height
+                        success_at_height = cat_success_by_height.get(height, 0)
+                        failure_at_height = cat_failure_by_height.get(height, 0)
+                        pending_at_height = cat_pending_by_height.get(height, 0)
+                        
+                    elif transaction_type == 'regular':
+                        # For regular transactions, get all status data
+                        regular_success_data = result.get('chain_1_regular_success', [])
+                        regular_failure_data = result.get('chain_1_regular_failure', [])
+                        regular_pending_data = result.get('chain_1_regular_pending', [])
+                        
+                        # Convert to height->count mapping
+                        regular_success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
+                        regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
+                        regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
+                        
+                        # Get counts at this specific height
+                        success_at_height = regular_success_by_height.get(height, 0)
+                        failure_at_height = regular_failure_by_height.get(height, 0)
+                        pending_at_height = regular_pending_by_height.get(height, 0)
+                        
+                    elif transaction_type in ['cat_pending_resolving', 'cat_pending_postponed']:
+                        # For CAT pending resolving/postponed, use (resolving + postponed) as denominator
+                        cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
+                        cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
+                        
+                        # Convert to height->count mapping
+                        cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
+                        cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
+                        
+                        # Get counts at this specific height
+                        resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
+                        postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
+                        
+                        # Calculate percentage of resolving/postponed vs total pending (resolving + postponed)
+                        total_pending = resolving_at_height + postponed_at_height
+                        if total_pending > 0:
+                            if transaction_type == 'cat_pending_resolving':
+                                percentage = (resolving_at_height / total_pending) * 100
+                            else:  # cat_pending_postponed
+                                percentage = (postponed_at_height / total_pending) * 100
+                        else:
+                            percentage = 0
+                        
+                    else:  # sumtypes
+                        # For sumtypes, combine CAT and regular data
+                        cat_success_data = result.get('chain_1_cat_success', [])
+                        cat_failure_data = result.get('chain_1_cat_failure', [])
+                        cat_pending_data = result.get('chain_1_cat_pending', [])
+                        regular_success_data = result.get('chain_1_regular_success', [])
+                        regular_failure_data = result.get('chain_1_regular_failure', [])
+                        regular_pending_data = result.get('chain_1_regular_pending', [])
+                        
+                        # Convert to height->count mapping
+                        cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
+                        cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
+                        cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
+                        regular_success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
+                        regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
+                        regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
+                        
+                        # Get combined counts at this specific height (CAT + regular)
+                        success_at_height = cat_success_by_height.get(height, 0) + regular_success_by_height.get(height, 0)
+                        failure_at_height = cat_failure_by_height.get(height, 0) + regular_failure_by_height.get(height, 0)
+                        pending_at_height = cat_pending_by_height.get(height, 0) + regular_pending_by_height.get(height, 0)
+                    
+                    # Calculate percentage based on type
+                    if percentage_type in ['success', 'failure']:
+                        # For success and failure, use only (success + failure) as denominator
+                        success_failure_total = success_at_height + failure_at_height
+                        if success_failure_total > 0:
+                            if percentage_type == 'success':
+                                percentage = (success_at_height / success_failure_total) * 100
+                            elif percentage_type == 'failure':
+                                percentage = (failure_at_height / success_failure_total) * 100
+                            else:
+                                percentage = 0
+                        else:
+                            percentage = 0
+                    else:
+                        # For pending, use (success + pending + failure) as denominator
+                        total = success_at_height + pending_at_height + failure_at_height
+                        if total > 0:
+                            percentage = (pending_at_height / total) * 100
+                        else:
+                            percentage = 0
+                    
+                    percentages.append(percentage)
+                
+                # Create title and filename based on transaction type
+                if transaction_type == 'cat':
+                    if percentage_type in ['success', 'failure']:
+                        title = f'CAT {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    else:
+                        title = f'CAT {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    filename = f'tx_{percentage_type}_cat_percentage_cutoff.png'
+                elif transaction_type == 'cat_pending_resolving':
+                    title = f'CAT Pending Resolving Percentage (of Resolving+Postponed) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    filename = f'tx_pending_cat_resolving_percentage_cutoff.png'
+                elif transaction_type == 'cat_pending_postponed':
+                    title = f'CAT Pending Postponed Percentage (of Resolving+Postponed) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    filename = f'tx_pending_cat_postponed_percentage_cutoff.png'
+                elif transaction_type == 'regular':
+                    if percentage_type in ['success', 'failure']:
+                        title = f'Regular {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    else:
+                        title = f'Regular {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    filename = f'tx_{percentage_type}_regular_percentage_cutoff.png'
+                else:
+                    if percentage_type in ['success', 'failure']:
+                        title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    else:
+                        title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)} (Cutoff Applied)'
+                    filename = f'tx_{percentage_type}_{transaction_type}_percentage_cutoff.png'
+                
+                # Trim the last 10% of data to avoid edge effects
+                if len(heights) > 10:
+                    trim_index = int(len(heights) * 0.9)
+                    heights = heights[:trim_index]
+                    percentages = percentages[:trim_index]
+                
+                if not heights:
+                    continue
+                
+                # Update maximum height
+                if heights:
+                    max_height = max(max_height, max(heights))
+                
+                # Plot with color based on parameter
+                from plot_utils_percentage import create_parameter_label
+                label = create_parameter_label(param_name, param_value)
+                plt.plot(heights, percentages, color=colors[i], alpha=0.7, 
+                        label=label, linewidth=1.5)
+            
+            # Set x-axis limits before finalizing the plot
+            plt.xlim(left=0, right=max_height)
+            
+            plt.title(title)
+            plt.xlabel('Block Height')
+            plt.ylabel(f'{percentage_type.title()} Percentage (%)')
+            plt.grid(True, alpha=0.3)
+            plt.legend(loc="upper right")
+            plt.tight_layout()
+            
+            # Create tx_count_cutoff directory and save plot
+            tx_count_cutoff_dir = f'{results_dir}/figs/tx_count_cutoff'
+            os.makedirs(tx_count_cutoff_dir, exist_ok=True)
+            plt.savefig(f'{tx_count_cutoff_dir}/{filename}', 
+                       dpi=300, bbox_inches='tight')
+            plt.close()
+            
+        except Exception as e:
+            print(f"Warning: Error creating {transaction_type} {percentage_type} percentage cutoff plot: {e}")
+            return
+    
+    # Call the modified function
+    plot_transaction_percentage_cutoff_save(cutoff_data, param_name, results_dir, sweep_type, transaction_type, percentage_type)
+
+
 
  
