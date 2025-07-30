@@ -485,8 +485,22 @@ def plot_transaction_percentage_delta(data: Dict[str, Any], param_name: str, res
             percentages = []
             
             for height, count in tx_data:
-                # Calculate total for denominator based on percentage type
-                if percentage_type in ['success', 'failure']:
+                # Calculate total for denominator based on percentage type and transaction type
+                if transaction_type in ['cat_pending_resolving', 'cat_pending_postponed']:
+                    # For CAT pending resolving/postponed, use (resolving + postponed) as denominator
+                    resolving_data = result.get('chain_1_cat_pending_resolving', [])
+                    postponed_data = result.get('chain_1_cat_pending_postponed', [])
+                    
+                    # Find total at this height (resolving + postponed)
+                    total_at_height = 0
+                    for h, c in resolving_data:
+                        if h == height:
+                            total_at_height += c
+                    for h, c in postponed_data:
+                        if h == height:
+                            total_at_height += c
+                            
+                elif percentage_type in ['success', 'failure']:
                     # For success/failure percentages, use (success + failure) as denominator
                     if transaction_type == 'cat':
                         success_data = result.get('chain_1_cat_success', [])

@@ -86,16 +86,18 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                 for height, count in cat_failure_data:
                     combined_data[height] = combined_data.get(height, 0) + count
                 
-                # Calculate success percentage at each height
+                # Calculate success percentage at each height (using only success + failure as denominator)
                 heights = []
                 percentages = []
                 
                 for height in sorted(combined_data.keys()):
-                    total_cat = combined_data[height]
                     success_count = next((count for h, count in cat_success_data if h == height), 0)
+                    failure_count = next((count for h, count in cat_failure_data if h == height), 0)
                     
-                    if total_cat > 0:
-                        percentage = (success_count / total_cat) * 100
+                    # Use only (success + failure) as denominator (same as regular plot)
+                    success_failure_total = success_count + failure_count
+                    if success_failure_total > 0:
+                        percentage = (success_count / success_failure_total) * 100
                         heights.append(height)
                         percentages.append(percentage)
                 
@@ -105,49 +107,21 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                     heights = heights[:trim_idx]
                     percentages = percentages[:trim_idx]
                     
-                    # Plot individual curve (lighter)
-                    plt.plot(heights, percentages, color=light_color, alpha=0.5, linewidth=0.8)
-                    
-                    # Track all heights and percentages for averaging
-                    all_heights.update(heights)
-                    all_percentages.append((heights, percentages))
+                    # Plot with same styling as regular plot
+                    label = create_parameter_label(param_name, param_value)
+                    plt.plot(heights, percentages, color=base_color, alpha=0.7, 
+                            label=label, linewidth=1.5)
                     
                     # Update maximum height
                     if heights:
                         max_height = max(max_height, max(heights))
-            
-            # Calculate and plot average curve (darker)
-            if all_percentages:
-                # Find common height range
-                min_height = min(all_heights)
-                max_height_common = max(all_heights)
-                
-                # Create height bins for averaging
-                height_bins = list(range(min_height, max_height_common + 1))
-                avg_percentages = []
-                
-                for height in height_bins:
-                    percentages_at_height = []
-                    for heights, percentages in all_percentages:
-                        if height in heights:
-                            idx = heights.index(height)
-                            percentages_at_height.append(percentages[idx])
-                    
-                    if percentages_at_height:
-                        avg_percentages.append(np.mean(percentages_at_height))
-                    else:
-                        avg_percentages.append(0)
-                
-                # Plot average curve (darker, same color family)
-                plt.plot(height_bins, avg_percentages, color=base_color, alpha=0.9, 
-                        linewidth=2.5, label=create_parameter_label(param_name, param_value))
         
         # Set x-axis limits
         plt.xlim(left=0, right=max_height)
         
-        # Create title and filename
-        title = f'CAT Success Percentage by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        filename = 'cat_success_percentage_paper.png'
+        # Create title and filename (same as regular plot)
+        title = f'CAT Success Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
+        filename = 'tx_success_cat_percentage.png'
         
         plt.title(title, fontsize=14)
         plt.xlabel('Block Height', fontsize=12)
@@ -156,41 +130,59 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
         plt.legend(loc="upper right", fontsize=10)
         plt.tight_layout()
         
-        # Save plot
-        os.makedirs(f'{results_dir}/figs', exist_ok=True)
-        plt.savefig(f'{results_dir}/figs/{filename}', 
+        # Create a simple test file in figs directory
+        test_file = f'{results_dir}/figs/paper__test.txt'
+        print(f"DEBUG: Creating test file at {test_file}")
+        with open(test_file, 'w') as f:
+            f.write("Paper plot script executed successfully!")
+        print(f"DEBUG: Test file created successfully")
+        
+        # Also try to create the paper directory and plot
+        paper_dir = f'{results_dir}/figs/paper'
+        print(f"DEBUG: Creating paper directory at {paper_dir}")
+        os.makedirs(paper_dir, exist_ok=True)
+        print(f"DEBUG: Paper directory created successfully")
+        plt.savefig(f'{paper_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
+        print(f"DEBUG: Plot saved successfully to {paper_dir}/{filename}")
         plt.close()
         
         print(f"Generated paper plot: {filename}")
         
     except Exception as e:
         print(f"Error generating paper plot: {e}")
-        return
+        import traceback
+        traceback.print_exc()
+        raise  # Re-raise to trigger panic
 
 def main():
     """Main function to generate paper-specific plots for chain delay sweep simulation."""
     # Configuration for this specific sweep
     param_name = 'chain_delay'
-    results_dir = 'simulator/results/sim_sweep_chain_delay'
+    results_dir = '../../../results/sim_sweep_chain_delay'
     sweep_type = 'Chain Delay'
     
     # Load sweep data directly from run_average folders
     try:
-        # Import the data loading function from plot_utils
-        import sys
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
+        # Import the data loading function from plot_utils (same as cat_rate)
         from plot_utils import load_sweep_data_from_run_average
         
         # Load data directly from run_average folders
         results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_chain_delay'
-        data = load_sweep_data_from_run_average(results_dir_name)
+        data = load_sweep_data_from_run_average(results_dir_name, '../../../results')
+        
+        # Check if we have any data to plot
+        if not data.get('individual_results'):
+            print(f"No data found for {sweep_type} simulation. Skipping paper plot generation.")
+            return
         
         # Generate paper-specific plots
         plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
         
     except Exception as e:
         print(f"Error in main: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main() 

@@ -37,9 +37,9 @@ def create_color_gradient(num_simulations: int) -> np.ndarray:
     """Create a color gradient using the global COLORMAP setting"""
     return plt.cm.get_cmap(COLORMAP)(np.linspace(0, 1, num_simulations))
 
-def load_sweep_data_from_run_average(results_dir_name: str) -> Dict[str, Any]:
+def load_sweep_data_from_run_average(results_dir_name: str, base_path: str = 'simulator/results') -> Dict[str, Any]:
     """Load sweep data structure directly from run_average directories."""
-    base_dir = f'simulator/results/{results_dir_name}/data'
+    base_dir = f'{base_path}/{results_dir_name}/data'
     
     # Load metadata to get parameter values
     with open(f'{base_dir}/metadata.json', 'r') as f:
@@ -452,6 +452,48 @@ def generate_all_plots(
     # Create results directory only if we have data
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
+    # Generate paper plots first (fastest)
+    print("DEBUG: Starting paper plot generation...")
+    try:
+        # Import and run the paper plot script if it exists
+        plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
+        print(f"Looking for paper plot script at: {plot_paper_path}")
+        print(f"Script exists: {os.path.exists(plot_paper_path)}")
+        if os.path.exists(plot_paper_path):
+            print("Generating paper plots...")
+            print(f"DEBUG: About to run subprocess with cwd={os.path.dirname(plot_paper_path)}")
+            import subprocess
+            result = subprocess.run([sys.executable, plot_paper_path], 
+                                   cwd=os.path.dirname(plot_paper_path), 
+                                   capture_output=True, text=True)
+            print(f"Paper plot script stdout: {result.stdout}")
+            print(f"Paper plot script stderr: {result.stderr}")
+            print(f"Paper plot script return code: {result.returncode}")
+            if result.returncode == 0:
+                print("Paper plots generated successfully!")
+                
+                # PANIC CHECK: Verify paper directory and plot were actually created
+                paper_dir = f'{results_dir}/figs/paper'
+                if not os.path.exists(paper_dir):
+                    raise RuntimeError(f"PANIC: Paper directory was not created at {paper_dir}")
+                
+                # Check for any PNG files in the paper directory
+                paper_files = [f for f in os.listdir(paper_dir) if f.endswith('.png')]
+                if not paper_files:
+                    raise RuntimeError(f"PANIC: No PNG files found in paper directory {paper_dir}")
+                
+                print(f"✅ Paper plots verified: {len(paper_files)} files created in {paper_dir}")
+            else:
+                raise RuntimeError(f"PANIC: Paper plot generation failed with return code {result.returncode}. STDOUT: {result.stdout}. STDERR: {result.stderr}")
+        else:
+            print(f"PANIC: No plot_paper.py found at {plot_paper_path} - skipping paper plots")
+            raise RuntimeError(f"PANIC: Paper plot script not found at {plot_paper_path}")
+    except Exception as e:
+        print(f"PANIC: Error generating paper plots: {e}")
+        import traceback
+        traceback.print_exc()
+        raise  # Re-raise the exception to stop execution
+    
     # First, generate regular tx_count plots (without moving average)
     # Plot all transaction overlays (combined totals) - these show how transactions change across parameter values
     plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
@@ -702,26 +744,6 @@ def generate_all_plots(
     
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
-    
-    # Generate paper-specific plots if plot_paper.py exists
-    try:
-        # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_rate' from 'simulator/results/sim_sweep_cat_rate')
-        sweep_name = results_dir.split('/')[-1]
-        plot_paper_path = f'simulator/src/scenarios/{sweep_name}/plot_paper.py'
-        
-        if os.path.exists(plot_paper_path):
-            print(f"Generating paper-specific plots for {sweep_name}...")
-            # Import and run the plot_paper.py module
-            import importlib.util
-            spec = importlib.util.spec_from_file_location("plot_paper", plot_paper_path)
-            plot_paper_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(plot_paper_module)
-            plot_paper_module.main()
-            print(f"Paper-specific plots generated for {sweep_name}!")
-        else:
-            print(f"No plot_paper.py found for {sweep_name}, skipping paper plots.")
-    except Exception as e:
-        print(f"Warning: Error generating paper plots: {e}")
     
     print(f"{sweep_type} simulation plots generated successfully!") 
 

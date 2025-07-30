@@ -48,9 +48,9 @@ initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
 num_runs = 1
 # Number of simulations to run in the sweep
-num_simulations = 6
+num_simulations = 7
 # Step size for CAT ratio sweeps
-cat_rate_step = 0.1
+cat_rate_step = 0.05
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 2300
