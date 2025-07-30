@@ -41,7 +41,6 @@ def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config
     print("Generating system plots and TPS...")
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
-    plot_sweep_locked_keys_with_pending(data, param_name, results_dir, sweep_type)
     plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
     plot_system_memory(data, param_name, results_dir, sweep_type)
     plot_system_memory_total(data, param_name, results_dir, sweep_type)

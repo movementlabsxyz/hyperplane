@@ -604,7 +604,7 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
         
         # Plot each simulation's data
         for i, result in enumerate(individual_results):
-            # Get the parameter value
+            # Get the parameter value (first key that's not a standard metric)
             param_value = None
             for key, value in result.items():
                 if key not in ['total_transactions', 'cat_transactions', 'regular_transactions', 
