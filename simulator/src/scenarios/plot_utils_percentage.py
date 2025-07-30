@@ -95,12 +95,6 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     tx_data = result.get('chain_1_cat_failure', [])
                 else:  # pending
                     tx_data = result.get('chain_1_cat_pending', [])
-            elif transaction_type == 'cat_pending_resolving':
-                # For CAT pending resolving transactions
-                tx_data = result.get('chain_1_cat_pending_resolving', [])
-            elif transaction_type == 'cat_pending_postponed':
-                # For CAT pending postponed transactions
-                tx_data = result.get('chain_1_cat_pending_postponed', [])
             elif transaction_type == 'regular':
                 # For regular transactions, get the specific status data
                 if percentage_type == 'success':
@@ -168,46 +162,6 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     failure_at_height = cat_failure_by_height.get(height, 0)
                     pending_at_height = cat_pending_by_height.get(height, 0)
                     
-                elif transaction_type == 'cat_pending_resolving':
-                    # For CAT pending resolving transactions, calculate percentage of total CAT pending
-                    cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
-                    cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
-                    
-                    # Convert to height->count mapping
-                    cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
-                    cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
-                    
-                    # Get counts at this specific height
-                    resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
-                    postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
-                    
-                    # Calculate percentage of resolving vs total pending (resolving + postponed)
-                    total_pending = resolving_at_height + postponed_at_height
-                    if total_pending > 0:
-                        percentage = (resolving_at_height / total_pending) * 100
-                    else:
-                        percentage = 0
-                    
-                elif transaction_type == 'cat_pending_postponed':
-                    # For CAT pending postponed transactions, calculate percentage of total CAT pending
-                    cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
-                    cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
-                    
-                    # Convert to height->count mapping
-                    cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
-                    cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
-                    
-                    # Get counts at this specific height
-                    resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
-                    postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
-                    
-                    # Calculate percentage of postponed vs total pending (resolving + postponed)
-                    total_pending = resolving_at_height + postponed_at_height
-                    if total_pending > 0:
-                        percentage = (postponed_at_height / total_pending) * 100
-                    else:
-                        percentage = 0
-                    
                 elif transaction_type == 'regular':
                     # For regular transactions, get all status data
                     regular_success_data = result.get('chain_1_regular_success', [])
@@ -223,6 +177,29 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     success_at_height = regular_success_by_height.get(height, 0)
                     failure_at_height = regular_failure_by_height.get(height, 0)
                     pending_at_height = regular_pending_by_height.get(height, 0)
+                    
+                elif transaction_type in ['cat_pending_resolving', 'cat_pending_postponed']:
+                    # For CAT pending resolving/postponed, use (resolving + postponed) as denominator
+                    cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
+                    cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
+                    
+                    # Convert to height->count mapping
+                    cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
+                    cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
+                    
+                    # Get counts at this specific height
+                    resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
+                    postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
+                    
+                    # Calculate percentage of resolving/postponed vs total pending (resolving + postponed)
+                    total_pending = resolving_at_height + postponed_at_height
+                    if total_pending > 0:
+                        if transaction_type == 'cat_pending_resolving':
+                            percentage = (resolving_at_height / total_pending) * 100
+                        else:  # cat_pending_postponed
+                            percentage = (postponed_at_height / total_pending) * 100
+                    else:
+                        percentage = 0
                     
                 else:  # sumtypes
                     # For sumtypes, combine CAT and regular data
@@ -377,7 +354,7 @@ def plot_cat_pending_resolving_percentage(data: Dict[str, Any], param_name: str,
 
 def plot_cat_pending_postponed_percentage(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
     """Plot CAT pending postponed percentage over time."""
-    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending') 
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
 
 def plot_transaction_percentage_delta(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, transaction_type: str, percentage_type: str) -> None:
     """

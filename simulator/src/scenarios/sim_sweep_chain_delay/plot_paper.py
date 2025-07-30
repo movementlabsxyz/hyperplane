@@ -18,6 +18,86 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from plot_utils import create_color_gradient, extract_parameter_value, create_parameter_label, create_sweep_title, trim_time_series_data
 from plot_utils_percentage import plot_transaction_percentage
 
+def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str, Any]]:
+    """
+    Load individual run data from data/sim_x/run_y/data/ directories.
+    
+    Returns a list of run data dictionaries, each containing:
+    - param_name: parameter value
+    - sim_index: simulation index
+    - run_index: run index
+    - chain_1_cat_success: success data
+    - chain_1_cat_failure: failure data
+    """
+    individual_runs = []
+    
+    # Load metadata to get parameter values
+    metadata_path = f'{results_dir}/data/metadata.json'
+    if not os.path.exists(metadata_path):
+        print(f"Warning: No metadata found at {metadata_path}")
+        return individual_runs
+    
+    with open(metadata_path, 'r') as f:
+        metadata = json.load(f)
+    
+    param_values = metadata['parameter_values']
+    num_simulations = len(param_values)
+    
+    # For each simulation
+    for sim_index in range(num_simulations):
+        param_value = param_values[sim_index]
+        sim_dir = f'{results_dir}/data/sim_{sim_index}'
+        
+        # Find all run directories
+        if not os.path.exists(sim_dir):
+            continue
+            
+        run_dirs = [d for d in os.listdir(sim_dir) if d.startswith('run_') and d != 'run_average']
+        
+        # For each run
+        for run_dir in run_dirs:
+            run_index = int(run_dir.split('_')[1])
+            run_data_dir = f'{sim_dir}/{run_dir}/data'
+            
+            if not os.path.exists(run_data_dir):
+                continue
+            
+            # Load CAT success and failure data
+            cat_success_file = f'{run_data_dir}/cat_success_transactions_chain_1.json'
+            cat_failure_file = f'{run_data_dir}/cat_failure_transactions_chain_1.json'
+            
+            run_data = {
+                param_name: param_value,
+                'sim_index': sim_index,
+                'run_index': run_index
+            }
+            
+            # Load success data
+            if os.path.exists(cat_success_file):
+                with open(cat_success_file, 'r') as f:
+                    success_data = json.load(f)
+                    if 'chain_1_cat_success' in success_data:
+                        # Convert to list of tuples for plotting
+                        time_series_data = []
+                        for entry in success_data['chain_1_cat_success']:
+                            time_series_data.append((entry['height'], entry['count']))
+                        run_data['chain_1_cat_success'] = time_series_data
+            
+            # Load failure data
+            if os.path.exists(cat_failure_file):
+                with open(cat_failure_file, 'r') as f:
+                    failure_data = json.load(f)
+                    if 'chain_1_cat_failure' in failure_data:
+                        # Convert to list of tuples for plotting
+                        time_series_data = []
+                        for entry in failure_data['chain_1_cat_failure']:
+                            time_series_data.append((entry['height'], entry['count']))
+                        run_data['chain_1_cat_failure'] = time_series_data
+            
+            individual_runs.append(run_data)
+    
+    return individual_runs
+
 def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
     """
     Plot CAT success percentage with both average and individual curves overlaid.
@@ -25,7 +105,8 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
     This creates a plot showing:
     1. Individual curves for each parameter value (lighter colors)
     2. Average curve for each parameter value (darker colors, same color family)
-    3. Legend showing the parameter values
+    3. Individual run curves (black, thin lines)
+    4. Legend showing the parameter values
     """
     try:
         individual_results = data['individual_results']
@@ -34,11 +115,15 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
             print(f"Warning: No individual results found, skipping CAT success percentage plot")
             return
         
+        # Load individual run data
+        individual_runs = load_individual_run_data(results_dir, param_name)
+        print(f"Loaded {len(individual_runs)} individual runs")
+        
         # Create figure
         plt.figure(figsize=(12, 8))
         
-        # Create color gradient for parameter values
-        colors = create_color_gradient(len(individual_results))
+        # Create color gradient using coolwarm colormap
+        colors = plt.cm.get_cmap('coolwarm')(np.linspace(0, 1, len(individual_results)))
         
         # Track maximum height for xlim
         max_height = 0
@@ -107,14 +192,61 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                     heights = heights[:trim_idx]
                     percentages = percentages[:trim_idx]
                     
-                    # Plot with same styling as regular plot
+                    # Plot with thicker lines for paper (will be overlaid with lighter lines later)
                     label = create_parameter_label(param_name, param_value)
                     plt.plot(heights, percentages, color=base_color, alpha=0.7, 
-                            label=label, linewidth=1.5)
+                            label=label, linewidth=3.0, linestyle='--')
                     
                     # Update maximum height
                     if heights:
                         max_height = max(max_height, max(heights))
+        
+        # Plot individual run curves (black, thin lines)
+        for run_data in individual_runs:
+            cat_success_data = run_data.get('chain_1_cat_success', [])
+            cat_failure_data = run_data.get('chain_1_cat_failure', [])
+            
+            if not cat_success_data and not cat_failure_data:
+                continue
+            
+            # Calculate percentage over time (same logic as above)
+            combined_data = {}
+            
+            # Add success data
+            for height, count in cat_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add failure data
+            for height, count in cat_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Calculate success percentage at each height
+            heights = []
+            percentages = []
+            
+            for height in sorted(combined_data.keys()):
+                success_count = next((count for h, count in cat_success_data if h == height), 0)
+                failure_count = next((count for h, count in cat_failure_data if h == height), 0)
+                
+                success_failure_total = success_count + failure_count
+                if success_failure_total > 0:
+                    percentage = (success_count / success_failure_total) * 100
+                    heights.append(height)
+                    percentages.append(percentage)
+            
+            if heights:
+                # Trim the last 10% of data to avoid edge effects
+                trim_idx = int(len(heights) * 0.9)
+                heights = heights[:trim_idx]
+                percentages = percentages[:trim_idx]
+                
+                # Plot individual run curve (black, thin)
+                plt.plot(heights, percentages, color='black', alpha=0.3, 
+                        linewidth=0.5, linestyle='-')
+                
+                # Update maximum height
+                if heights:
+                    max_height = max(max_height, max(heights))
         
         # Set x-axis limits
         plt.xlim(left=0, right=max_height)
