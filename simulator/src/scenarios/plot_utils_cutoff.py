@@ -141,8 +141,27 @@ def plot_transactions_cutoff_overlay(
                 status = transaction_type.replace('regular_', '')
                 tx_data = result.get(f'chain_1_regular_{status}', [])
             else:
-                # Fallback
-                tx_data = result.get(f'chain_1_{transaction_type}', [])
+                # For main transaction types (pending, success, failure), calculate as CAT + regular
+                if transaction_type in ['pending', 'success', 'failure']:
+                    cat_data = result.get(f'chain_1_cat_{transaction_type}', [])
+                    regular_data = result.get(f'chain_1_regular_{transaction_type}', [])
+                    
+                    # Create a combined dataset by summing CAT and regular at each height
+                    combined_data = {}
+                    
+                    # Add CAT data
+                    for height, count in cat_data:
+                        combined_data[height] = combined_data.get(height, 0) + count
+                    
+                    # Add regular data
+                    for height, count in regular_data:
+                        combined_data[height] = combined_data.get(height, 0) + count
+                    
+                    # Convert back to sorted list of tuples
+                    tx_data = sorted(combined_data.items())
+                else:
+                    # Fallback
+                    tx_data = result.get(f'chain_1_{transaction_type}', [])
             
             if not tx_data:
                 continue
@@ -188,6 +207,10 @@ def plot_transactions_cutoff_overlay(
             status = transaction_type.replace('regular_', '')
             title = f'Regular {status.title()} Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
             filename = f'tx_{status}_regular.png'
+        elif transaction_type in ['pending', 'success', 'failure']:
+            # Combined totals (CAT + regular)
+            title = f'SumTypes {transaction_type.title()} Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
+            filename = f'tx_{transaction_type}_sumTypes.png'
         else:
             # Fallback
             title = f'{transaction_type.title()} Transaction Counts (Cutoff Applied) - {create_sweep_title(param_name, sweep_type)}'
