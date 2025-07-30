@@ -120,7 +120,7 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
         print(f"Loaded {len(individual_runs)} individual runs")
         
         # Create figure
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(10, 6))
         
         # Create color gradient using coolwarm colormap
         colors = plt.cm.get_cmap('coolwarm')(np.linspace(0, 1, len(individual_results)))
@@ -201,13 +201,21 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                     if heights:
                         max_height = max(max_height, max(heights))
         
-        # Plot individual run curves (black, thin lines)
+        # Plot individual run curves (thin lines with same color as corresponding thick line)
         for run_data in individual_runs:
             cat_success_data = run_data.get('chain_1_cat_success', [])
             cat_failure_data = run_data.get('chain_1_cat_failure', [])
             
             if not cat_success_data and not cat_failure_data:
                 continue
+            
+            # Get parameter value for this run
+            param_value = run_data[param_name]
+            
+            # Find the color for this parameter value
+            param_values = sorted([extract_parameter_value(r, param_name) for r in individual_results])
+            color_idx = param_values.index(param_value)
+            base_color = colors[color_idx]
             
             # Calculate percentage over time (same logic as above)
             combined_data = {}
@@ -240,9 +248,9 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                 heights = heights[:trim_idx]
                 percentages = percentages[:trim_idx]
                 
-                # Plot individual run curve (black, thin)
-                plt.plot(heights, percentages, color='black', alpha=0.3, 
-                        linewidth=0.5, linestyle='-')
+                # Plot individual run curve (thin, same color as thick line)
+                plt.plot(heights, percentages, color=base_color, alpha=0.3, 
+                        linewidth=1.5, linestyle='-')
                 
                 # Update maximum height
                 if heights:
