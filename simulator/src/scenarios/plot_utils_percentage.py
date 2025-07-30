@@ -151,7 +151,7 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
             for height, count in tx_data:
                 heights.append(height)
                 
-                # Calculate cumulative values for percentage
+                # Calculate percentage using counts at this specific height (not cumulative)
                 if transaction_type == 'cat':
                     # For CAT transactions, get all status data
                     cat_success_data = result.get('chain_1_cat_success', [])
@@ -163,10 +163,10 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
                     cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
                     
-                    # Calculate cumulative totals up to this height
-                    cumulative_success = sum(cat_success_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_failure = sum(cat_failure_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_pending = sum(cat_pending_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    # Get counts at this specific height
+                    success_at_height = cat_success_by_height.get(height, 0)
+                    failure_at_height = cat_failure_by_height.get(height, 0)
+                    pending_at_height = cat_pending_by_height.get(height, 0)
                     
                 elif transaction_type == 'cat_pending_resolving':
                     # For CAT pending resolving transactions, calculate percentage of total CAT pending
@@ -177,14 +177,14 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
                     cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
                     
-                    # Calculate cumulative totals up to this height
-                    cumulative_resolving = sum(cat_pending_resolving_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_postponed = sum(cat_pending_postponed_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    # Get counts at this specific height
+                    resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
+                    postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
                     
                     # Calculate percentage of resolving vs total pending (resolving + postponed)
-                    total_pending = cumulative_resolving + cumulative_postponed
+                    total_pending = resolving_at_height + postponed_at_height
                     if total_pending > 0:
-                        percentage = (cumulative_resolving / total_pending) * 100
+                        percentage = (resolving_at_height / total_pending) * 100
                     else:
                         percentage = 0
                     
@@ -197,14 +197,14 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
                     cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
                     
-                    # Calculate cumulative totals up to this height
-                    cumulative_resolving = sum(cat_pending_resolving_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_postponed = sum(cat_pending_postponed_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    # Get counts at this specific height
+                    resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
+                    postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
                     
                     # Calculate percentage of postponed vs total pending (resolving + postponed)
-                    total_pending = cumulative_resolving + cumulative_postponed
+                    total_pending = resolving_at_height + postponed_at_height
                     if total_pending > 0:
-                        percentage = (cumulative_postponed / total_pending) * 100
+                        percentage = (postponed_at_height / total_pending) * 100
                     else:
                         percentage = 0
                     
@@ -219,10 +219,10 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
                     regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
                     
-                    # Calculate cumulative totals up to this height
-                    cumulative_success = sum(regular_success_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_failure = sum(regular_failure_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_pending = sum(regular_pending_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    # Get counts at this specific height
+                    success_at_height = regular_success_by_height.get(height, 0)
+                    failure_at_height = regular_failure_by_height.get(height, 0)
+                    pending_at_height = regular_pending_by_height.get(height, 0)
                     
                 else:  # sumtypes
                     # For sumtypes, combine CAT and regular data
@@ -241,29 +241,29 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
                     regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
                     regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
                     
-                    # Calculate cumulative totals up to this height (CAT + regular)
-                    cumulative_success = sum(cat_success_by_height.get(h, 0) + regular_success_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_failure = sum(cat_failure_by_height.get(h, 0) + regular_failure_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
-                    cumulative_pending = sum(cat_pending_by_height.get(h, 0) + regular_pending_by_height.get(h, 0) for h in range(min(heights) if heights else 0, height + 1))
+                    # Get combined counts at this specific height (CAT + regular)
+                    success_at_height = cat_success_by_height.get(height, 0) + regular_success_by_height.get(height, 0)
+                    failure_at_height = cat_failure_by_height.get(height, 0) + regular_failure_by_height.get(height, 0)
+                    pending_at_height = cat_pending_by_height.get(height, 0) + regular_pending_by_height.get(height, 0)
                 
                 # Calculate percentage based on type
                 if percentage_type in ['success', 'failure']:
                     # For success and failure, use only (success + failure) as denominator
-                    success_failure_total = cumulative_success + cumulative_failure
+                    success_failure_total = success_at_height + failure_at_height
                     if success_failure_total > 0:
                         if percentage_type == 'success':
-                            percentage = (cumulative_success / success_failure_total) * 100
+                            percentage = (success_at_height / success_failure_total) * 100
                         elif percentage_type == 'failure':
-                            percentage = (cumulative_failure / success_failure_total) * 100
+                            percentage = (failure_at_height / success_failure_total) * 100
                         else:
                             percentage = 0
                     else:
                         percentage = 0
                 else:
                     # For pending, use (success + pending + failure) as denominator
-                    total = cumulative_success + cumulative_pending + cumulative_failure
+                    total = success_at_height + pending_at_height + failure_at_height
                     if total > 0:
-                        percentage = (cumulative_pending / total) * 100
+                        percentage = (pending_at_height / total) * 100
                     else:
                         percentage = 0
                 
@@ -795,82 +795,139 @@ def plot_transaction_percentage_with_moving_average(
             if not tx_data:
                 continue
             
-            # Calculate percentage over time
+            # Calculate percentage over time using the same point-in-time logic as regular function
             heights = []
             percentages = []
             
+            # Convert tx_data to list of tuples if it's not already
+            if isinstance(tx_data, list) and tx_data and isinstance(tx_data[0], dict):
+                # If it's a list of dictionaries, convert to list of tuples
+                tx_data = [(entry.get('height', 0), entry.get('count', 0)) for entry in tx_data]
+            
+            # Process each block - tx_data is now a list of tuples (height, count)
             for height, count in tx_data:
-                # Calculate total for denominator based on percentage type
-                if percentage_type in ['success', 'failure']:
-                    # For success/failure percentages, use (success + failure) as denominator
-                    if transaction_type == 'cat':
-                        success_data = result.get('chain_1_cat_success', [])
-                        failure_data = result.get('chain_1_cat_failure', [])
-                    elif transaction_type == 'regular':
-                        success_data = result.get('chain_1_regular_success', [])
-                        failure_data = result.get('chain_1_regular_failure', [])
-                    elif transaction_type == 'sumtypes':
-                        # For sumTypes, combine CAT and regular
-                        cat_success = result.get('chain_1_cat_success', [])
-                        cat_failure = result.get('chain_1_cat_failure', [])
-                        regular_success = result.get('chain_1_regular_success', [])
-                        regular_failure = result.get('chain_1_regular_failure', [])
-                        success_data = cat_success + regular_success
-                        failure_data = cat_failure + regular_failure
-                    else:
-                        success_data = result.get(f'chain_1_{transaction_type}_success', [])
-                        failure_data = result.get(f'chain_1_{transaction_type}_failure', [])
-                    
-                    # Find total at this height
-                    total_at_height = 0
-                    for h, c in success_data:
-                        if h == height:
-                            total_at_height += c
-                    for h, c in failure_data:
-                        if h == height:
-                            total_at_height += c
-                else:
-                    # For pending percentage, use (success + pending + failure) as denominator
-                    if transaction_type == 'cat':
-                        success_data = result.get('chain_1_cat_success', [])
-                        pending_data = result.get('chain_1_cat_pending', [])
-                        failure_data = result.get('chain_1_cat_failure', [])
-                    elif transaction_type == 'regular':
-                        success_data = result.get('chain_1_regular_success', [])
-                        pending_data = result.get('chain_1_regular_pending', [])
-                        failure_data = result.get('chain_1_regular_failure', [])
-                    elif transaction_type == 'sumtypes':
-                        # For sumTypes, combine CAT and regular
-                        cat_success = result.get('chain_1_cat_success', [])
-                        cat_pending = result.get('chain_1_cat_pending', [])
-                        cat_failure = result.get('chain_1_cat_failure', [])
-                        regular_success = result.get('chain_1_regular_success', [])
-                        regular_pending = result.get('chain_1_regular_pending', [])
-                        regular_failure = result.get('chain_1_regular_failure', [])
-                        success_data = cat_success + regular_success
-                        pending_data = cat_pending + regular_pending
-                        failure_data = cat_failure + regular_failure
-                    else:
-                        success_data = result.get(f'chain_1_{transaction_type}_success', [])
-                        pending_data = result.get(f'chain_1_{transaction_type}_pending', [])
-                        failure_data = result.get(f'chain_1_{transaction_type}_failure', [])
-                    
-                    # Find total at this height
-                    total_at_height = 0
-                    for h, c in success_data:
-                        if h == height:
-                            total_at_height += c
-                    for h, c in pending_data:
-                        if h == height:
-                            total_at_height += c
-                    for h, c in failure_data:
-                        if h == height:
-                            total_at_height += c
+                heights.append(height)
                 
-                if total_at_height > 0:
-                    percentage = (count / total_at_height) * 100
-                    heights.append(height)
-                    percentages.append(percentage)
+                # Calculate percentage using counts at this specific height (same logic as regular function)
+                if transaction_type == 'cat':
+                    # For CAT transactions, get all status data
+                    cat_success_data = result.get('chain_1_cat_success', [])
+                    cat_failure_data = result.get('chain_1_cat_failure', [])
+                    cat_pending_data = result.get('chain_1_cat_pending', [])
+                    
+                    # Convert to height->count mapping
+                    cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
+                    cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
+                    cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
+                    
+                    # Get counts at this specific height
+                    success_at_height = cat_success_by_height.get(height, 0)
+                    failure_at_height = cat_failure_by_height.get(height, 0)
+                    pending_at_height = cat_pending_by_height.get(height, 0)
+                    
+                elif transaction_type == 'cat_pending_resolving':
+                    # For CAT pending resolving transactions, calculate percentage of total CAT pending
+                    cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
+                    cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
+                    
+                    # Convert to height->count mapping
+                    cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
+                    cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
+                    
+                    # Get counts at this specific height
+                    resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
+                    postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
+                    
+                    # Calculate percentage of resolving vs total pending (resolving + postponed)
+                    total_pending = resolving_at_height + postponed_at_height
+                    if total_pending > 0:
+                        percentage = (resolving_at_height / total_pending) * 100
+                    else:
+                        percentage = 0
+                    
+                elif transaction_type == 'cat_pending_postponed':
+                    # For CAT pending postponed transactions, calculate percentage of total CAT pending
+                    cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
+                    cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
+                    
+                    # Convert to height->count mapping
+                    cat_pending_resolving_by_height = {entry[0]: entry[1] for entry in cat_pending_resolving_data}
+                    cat_pending_postponed_by_height = {entry[0]: entry[1] for entry in cat_pending_postponed_data}
+                    
+                    # Get counts at this specific height
+                    resolving_at_height = cat_pending_resolving_by_height.get(height, 0)
+                    postponed_at_height = cat_pending_postponed_by_height.get(height, 0)
+                    
+                    # Calculate percentage of postponed vs total pending (resolving + postponed)
+                    total_pending = resolving_at_height + postponed_at_height
+                    if total_pending > 0:
+                        percentage = (postponed_at_height / total_pending) * 100
+                    else:
+                        percentage = 0
+                    
+                elif transaction_type == 'regular':
+                    # For regular transactions, get all status data
+                    regular_success_data = result.get('chain_1_regular_success', [])
+                    regular_failure_data = result.get('chain_1_regular_failure', [])
+                    regular_pending_data = result.get('chain_1_regular_pending', [])
+                    
+                    # Convert to height->count mapping
+                    regular_success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
+                    regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
+                    regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
+                    
+                    # Get counts at this specific height
+                    success_at_height = regular_success_by_height.get(height, 0)
+                    failure_at_height = regular_failure_by_height.get(height, 0)
+                    pending_at_height = regular_pending_by_height.get(height, 0)
+                    
+                else:  # sumtypes
+                    # For sumtypes, combine CAT and regular data
+                    cat_success_data = result.get('chain_1_cat_success', [])
+                    cat_failure_data = result.get('chain_1_cat_failure', [])
+                    cat_pending_data = result.get('chain_1_cat_pending', [])
+                    regular_success_data = result.get('chain_1_regular_success', [])
+                    regular_failure_data = result.get('chain_1_regular_failure', [])
+                    regular_pending_data = result.get('chain_1_regular_pending', [])
+                    
+                    # Convert to height->count mapping
+                    cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
+                    cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
+                    cat_pending_by_height = {entry[0]: entry[1] for entry in cat_pending_data}
+                    regular_success_by_height = {entry[0]: entry[1] for entry in regular_success_data}
+                    regular_failure_by_height = {entry[0]: entry[1] for entry in regular_failure_data}
+                    regular_pending_by_height = {entry[0]: entry[1] for entry in regular_pending_data}
+                    
+                    # Get combined counts at this specific height (CAT + regular)
+                    success_at_height = cat_success_by_height.get(height, 0) + regular_success_by_height.get(height, 0)
+                    failure_at_height = cat_failure_by_height.get(height, 0) + regular_failure_by_height.get(height, 0)
+                    pending_at_height = cat_pending_by_height.get(height, 0) + regular_pending_by_height.get(height, 0)
+                
+                # Calculate percentage based on type (same logic as regular function)
+                if transaction_type in ['cat_pending_resolving', 'cat_pending_postponed']:
+                    # Percentage already calculated above for these special cases
+                    pass
+                elif percentage_type in ['success', 'failure']:
+                    # For success and failure, use only (success + failure) as denominator
+                    success_failure_total = success_at_height + failure_at_height
+                    if success_failure_total > 0:
+                        if percentage_type == 'success':
+                            percentage = (success_at_height / success_failure_total) * 100
+                        elif percentage_type == 'failure':
+                            percentage = (failure_at_height / success_failure_total) * 100
+                        else:
+                            percentage = 0
+                    else:
+                        percentage = 0
+                else:
+                    # For pending, use (success + pending + failure) as denominator
+                    total = success_at_height + pending_at_height + failure_at_height
+                    if total > 0:
+                        percentage = (pending_at_height / total) * 100
+                    else:
+                        percentage = 0
+                
+                percentages.append(percentage)
             
             if not heights:
                 continue

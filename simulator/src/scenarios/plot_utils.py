@@ -452,28 +452,50 @@ def generate_all_plots(
     # Create results directory only if we have data
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
+    # First, generate regular tx_count plots (without moving average)
     # Plot all transaction overlays (combined totals) - these show how transactions change across parameter values
-    plot_transactions_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
-    plot_transactions_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
-    plot_transactions_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
+    plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'failure', results_dir, sweep_type)
     
     # Plot CAT transaction overlays
-    plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
-    plot_transactions_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
-    plot_transactions_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
+    plot_transactions_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
     
     # Plot detailed CAT pending state overlays
-    plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
-    plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
+    plot_transactions_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
     
     # Plot regular transaction overlays
-    plot_transactions_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
-    plot_transactions_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
-    plot_transactions_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+    plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
     
-    # Plot percentage plots with moving average support
+    # Now generate moving average plots (if enabled)
+    if plot_config.get('plot_moving_average', False):
+        # Plot all transaction overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
+        
+        # Plot CAT transaction overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
+        
+        # Plot detailed CAT pending state overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
+        
+        # Plot regular transaction overlays with moving average
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+    
+    # First, generate regular percentage plots (without moving average)
     from plot_utils_percentage import (
-        plot_transaction_percentage_with_moving_average,
+        plot_transaction_percentage,
         plot_cat_success_percentage, plot_cat_failure_percentage, plot_cat_pending_percentage,
         plot_regular_success_percentage, plot_regular_failure_percentage, plot_regular_pending_percentage,
         plot_sumtypes_success_percentage, plot_sumtypes_failure_percentage, plot_sumtypes_pending_percentage,
@@ -481,64 +503,131 @@ def generate_all_plots(
     )
     
     # Plot CAT percentage plots
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'success')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'failure')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'pending')
     
     # Plot regular percentage plots
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'success')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'failure')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'regular', 'pending')
     
     # Plot sumtypes percentage plots
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'success')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
     
     # Plot detailed CAT pending state percentage plots
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
-    plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
+    plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
     
+    # Now generate moving average percentage plots (if enabled)
+    if plot_config.get('plot_moving_average', False):
+        from plot_utils_percentage import plot_transaction_percentage_with_moving_average
+        
+        # Plot CAT percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
+        
+        # Plot regular percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
+        
+        # Plot sumtypes percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
+        
+        # Plot detailed CAT pending state percentage plots with moving average
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
+        plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
+    
+    # First, generate regular delta plots (without moving average)
     # Plot all transaction delta overlays (combined totals) - these show how transaction changes change across parameter values
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
+    plot_transactions_delta_overlay(data, param_name, 'pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'failure', results_dir, sweep_type)
     
     # Plot CAT transaction delta overlays
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_failure', results_dir, sweep_type)
     
     # Plot detailed CAT pending state delta overlays
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_resolving', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
     
     # Plot regular transaction delta overlays
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
-    plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+    plot_transactions_delta_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
+    plot_transactions_delta_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
     
-    # Plot percentage delta plots with moving average support
-    from plot_utils_percentage import plot_transaction_percentage_delta_with_moving_average
+    # Plot percentage delta plots
+    from plot_utils_percentage import plot_transaction_percentage_delta
     
     # Plot CAT percentage delta plots
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'success')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'failure')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat', 'pending')
     
     # Plot regular percentage delta plots
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'success')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'failure')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'regular', 'pending')
     
     # Plot sumtypes percentage delta plots
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'success')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
     
     # Plot detailed CAT pending state percentage delta plots
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
-    plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
+    plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
+    
+    # Now generate moving average delta plots (if enabled)
+    if plot_config.get('plot_moving_average', False):
+        # Plot all transaction delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
+        
+        # Plot CAT transaction delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
+        
+        # Plot detailed CAT pending state delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
+        
+        # Plot regular transaction delta overlays with moving average
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
+        plot_transactions_delta_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+        
+        # Plot percentage delta plots with moving average support
+        from plot_utils_percentage import plot_transaction_percentage_delta_with_moving_average
+        
+        # Plot CAT percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
+        
+        # Plot regular percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'success', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'failure', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'regular', 'pending', plot_config)
+        
+        # Plot sumtypes percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'success', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'failure', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending', plot_config)
+        
+        # Plot detailed CAT pending state percentage delta plots with moving average
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending', plot_config)
+        plot_transaction_percentage_delta_with_moving_average(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending', plot_config)
     
     # Plot sweep summary
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
