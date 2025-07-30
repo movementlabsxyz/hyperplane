@@ -535,6 +535,26 @@ def generate_all_plots(
     # Generate individual curves plots for each simulation in the sweep
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
     
+    # Generate paper-specific plots if plot_paper.py exists
+    try:
+        # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_rate' from 'simulator/results/sim_sweep_cat_rate')
+        sweep_name = results_dir.split('/')[-1]
+        plot_paper_path = f'simulator/src/scenarios/{sweep_name}/plot_paper.py'
+        
+        if os.path.exists(plot_paper_path):
+            print(f"Generating paper-specific plots for {sweep_name}...")
+            # Import and run the plot_paper.py module
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("plot_paper", plot_paper_path)
+            plot_paper_module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(plot_paper_module)
+            plot_paper_module.main()
+            print(f"Paper-specific plots generated for {sweep_name}!")
+        else:
+            print(f"No plot_paper.py found for {sweep_name}, skipping paper plots.")
+    except Exception as e:
+        print(f"Warning: Error generating paper plots: {e}")
+    
     print(f"{sweep_type} simulation plots generated successfully!") 
 
 # ------------------------------------------------------------------------------------------------
@@ -662,8 +682,8 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
             if not locked_keys_data:
                 continue
             
-            # Get CAT pending data
-            cat_pending_data = result.get('chain_1_cat_pending', [])
+            # Get CAT pending resolving data
+            cat_pending_data = result.get('chain_1_cat_pending_resolving', [])
             if not cat_pending_data:
                 continue
             
@@ -689,15 +709,15 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
             # Create label
             label = create_parameter_label(param_name, param_value)
             
-            # Plot locked keys vs CAT pending (top panel)
+            # Plot locked keys vs CAT pending resolving (top panel)
             ax1.plot(heights, locked_keys, color=colors[i], alpha=0.7, 
                     label=f'Locked Keys - {label}', linewidth=1.5)
             ax1.plot(heights, cat_pending, color=colors[i], alpha=0.7, 
-                    linestyle='--', label=f'CAT Pending - {label}', linewidth=1.5)
+                    linestyle='--', label=f'CAT Pending Resolving - {label}', linewidth=1.5)
             
             # Plot pending transactions breakdown (bottom panel)
             ax2.plot(heights, cat_pending, color=colors[i], alpha=0.7, 
-                    label=f'CAT Pending - {label}', linewidth=1.5)
+                    label=f'CAT Pending Resolving - {label}', linewidth=1.5)
             ax2.plot(heights, regular_pending, color=colors[i], alpha=0.7, 
                     linestyle='--', label=f'Regular Pending - {label}', linewidth=1.5)
         
