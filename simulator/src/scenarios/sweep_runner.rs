@@ -500,7 +500,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         let mut results = crate::SimulationResults::default();
         results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
         results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
-        results.target_tps = config.transaction_config.target_tps as u64;
+        results.target_tpb = config.transaction_config.target_tpb as u64;
         results.sim_total_block_number = config.simulation_config.sim_total_block_number.try_into().unwrap();
         results.zipf_parameter = config.transaction_config.zipf_parameter;
         results.ratio_cats = config.transaction_config.ratio_cats;
@@ -517,7 +517,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         logging::log("SIMULATOR", &format!("{}: {:?}", self.parameter_name, param_value));
         logging::log("SIMULATOR", &format!("Initial Balance: {}", config.account_config.initial_balance));
         logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.account_config.num_accounts));
-        logging::log("SIMULATOR", &format!("Target TPS: {}", config.transaction_config.target_tps));
+        logging::log("SIMULATOR", &format!("Target TPB: {}", config.transaction_config.target_tpb));
         logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.simulation_config.sim_total_block_number));
         logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network_config.num_chains));
         logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transaction_config.zipf_parameter));

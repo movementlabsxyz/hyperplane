@@ -185,7 +185,7 @@ def plot_parameters():
         f.write("=====================\n")
         f.write(f"Initial Balance: {params['initial_balance']}\n")
         f.write(f"Number of Accounts: {params['num_accounts']}\n")
-        f.write(f"Target TPS: {params['target_tps']}\n")
+        f.write(f"Target TPB: {params['target_tpb']}\n")
         # Handle both old and new parameter names
         if 'duration_seconds' in params:
             f.write(f"Duration (seconds): {params['duration_seconds']}\n")

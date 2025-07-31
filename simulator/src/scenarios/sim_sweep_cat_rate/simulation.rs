@@ -87,7 +87,7 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
                     network_config: base_config.network_config.clone(),
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
-                        target_tps: base_config.transaction_config.target_tps,
+                        target_tpb: base_config.transaction_config.target_tpb,
                         zipf_parameter: base_config.transaction_config.zipf_parameter,
                         ratio_cats: cat_ratio,  // This is the parameter we're varying
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,

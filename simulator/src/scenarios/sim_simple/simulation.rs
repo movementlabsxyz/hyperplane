@@ -49,7 +49,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
         "parameters": {
             "initial_balance": config.account_config.initial_balance,
             "num_accounts": config.account_config.num_accounts,
-            "target_tps": config.transaction_config.target_tps,
+            "target_tpb": config.transaction_config.target_tpb,
             "sim_total_block_number": config.simulation_config.sim_total_block_number,
             "zipf_parameter": config.transaction_config.zipf_parameter,
             "ratio_cats": config.transaction_config.ratio_cats,
@@ -267,7 +267,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     let mut results = crate::SimulationResults::default();
     results.initial_balance = config.account_config.initial_balance.try_into().unwrap();
     results.num_accounts = config.account_config.num_accounts.try_into().unwrap();
-    results.target_tps = config.transaction_config.target_tps as u64;
+            results.target_tpb = config.transaction_config.target_tpb as u64;
     results.sim_total_block_number = config.simulation_config.sim_total_block_number.try_into().unwrap();
     results.zipf_parameter = config.transaction_config.zipf_parameter;
     results.ratio_cats = config.transaction_config.ratio_cats;
@@ -283,7 +283,7 @@ fn initialize_simulation_results(config: &crate::config::Config) -> crate::Simul
     logging::log("SIMULATOR", &format!("Start Time: {}", start_time.format("%Y-%m-%d %H:%M:%S")));
     logging::log("SIMULATOR", &format!("Initial Balance: {}", config.account_config.initial_balance));
     logging::log("SIMULATOR", &format!("Number of Accounts: {}", config.account_config.num_accounts));
-    logging::log("SIMULATOR", &format!("Target TPS: {}", config.transaction_config.target_tps));
+            logging::log("SIMULATOR", &format!("Target TPB: {}", config.transaction_config.target_tpb));
     logging::log("SIMULATOR", &format!("Simulation Total Blocks: {}", config.simulation_config.sim_total_block_number));
     logging::log("SIMULATOR", &format!("Number of Chains: {}", config.network_config.num_chains));
     logging::log("SIMULATOR", &format!("Zipf Parameter: {}", config.transaction_config.zipf_parameter));
