@@ -162,14 +162,7 @@ impl HyperIGState {
         }
     }
 
-    /// Removes a transaction from the pending set and decrements the appropriate counter
-    /// This ensures that counter management is always consistent with the pending set
-    fn remove_from_pending_and_decrement_counter(&mut self, tx_id: &TransactionId) {
-        // Decrement the counter first
-        self.decrement_count_pending(tx_id);
-        // Then remove from pending set
-        self.pending_transactions.remove(tx_id);
-    }
+
 
     /// Adds a transaction to the pending set and increments the appropriate counter
     /// This ensures that counter management is always consistent with the pending set
@@ -377,9 +370,6 @@ impl HyperIGNode {
             
             // Update transaction status to Failure and increment counter
             state.update_to_final_status_and_update_counter(&tx_id, TransactionStatus::Failure);
-            
-            // Remove from pending transactions and decrement counter
-            state.remove_from_pending_and_decrement_counter(&tx_id);
             
             // Remove from last update tracking
             state.cat_max_lifetime.remove(&cat_id);
@@ -824,7 +814,6 @@ impl HyperIGNode {
                 }
                 // Mark the CAT as failed and clean up
                 self.state.lock().await.update_to_final_status_and_update_counter(&tx.id, TransactionStatus::Failure);
-                self.state.lock().await.remove_from_pending_and_decrement_counter(&tx.id);
                 
                 // Store the proposed status as Failure
                 self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), CATStatus::Failure);
@@ -866,15 +855,27 @@ impl HyperIGNode {
         } else {
             CATStatus::Failure
         };
-        // Check if the CAT already has a proposed status - this should never happen when setting a new proposed status
+        // Check if the CAT already has a proposed status
         let existing_proposed_status = {
             let state = self.state.lock().await;
             state.cat_proposed_statuses.get(&tx.id).cloned()
         };
         
         if let Some(existing_status) = existing_proposed_status {
-            panic!("BUG: CAT tx-id='{}' already has proposed status {:?}, cannot set new proposed status {:?}. This indicates a logic error in CAT processing.", 
-                tx.id.0, existing_status, proposed_status);
+            if existing_status == CATStatus::Pending {
+                // This CAT was postponed and is now being reprocessed
+                // Update the proposed status based on transaction execution
+                log(&format!("HIG-{}", chain_id), &format!("CAT tx-id='{}' was postponed (Pending), now updating to {:?} based on execution", tx.id.0, proposed_status));
+                self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
+                
+                // Transition postponed counter to resolving counter, since we are now in the resolving phase
+                self.state.lock().await.transition_count_postponed_to_resolving(&tx.id);
+                
+                return Ok(TransactionStatus::Pending);
+            } else {
+                panic!("BUG: CAT tx-id='{}' already has proposed status {:?}, cannot set new proposed status {:?}. This indicates a logic error in CAT processing.", 
+                    tx.id.0, existing_status, proposed_status);
+            }
         }
         
         self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
@@ -1051,6 +1052,20 @@ impl HyperIGNode {
 
                 if should_process {
                     log(&format!("HIG-{}", chain_id), &format!("Will process tx-id='{}'", tx_id.0));
+                    
+                    // Check if the transaction has already reached final status
+                    let current_status = {
+                        let state = self.state.lock().await;
+                        state.transaction_statuses.get(&tx_id).cloned()
+                    };
+                    
+                    if let Some(status) = current_status {
+                        if matches!(status, TransactionStatus::Success | TransactionStatus::Failure) {
+                            log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' has already reached final status {:?}, skipping reprocessing", tx_id.0, status));
+                            continue;
+                        }
+                    }
+                    
                     // Get transaction from state
                     let tx = {
                         let state = self.state.lock().await;
