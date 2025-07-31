@@ -605,7 +605,7 @@ def plot_transaction_percentage_delta(data: Dict[str, Any], param_name: str, res
                 title = f'SumTypes {percentage_type.title()} Percentage Deltas (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
             else:
                 title = f'SumTypes {percentage_type.title()} Percentage Deltas (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'tx_{percentage_type}_sumtypes_percentage.png'
+            filename = f'tx_{percentage_type}_sumTypes_percentage.png'
         else:
             if percentage_type in ['success', 'failure']:
                 title = f'{transaction_type.title()} {percentage_type.title()} Percentage Deltas (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
@@ -974,7 +974,7 @@ def plot_transaction_percentage_with_moving_average(
                 title = f'SumTypes {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
             else:
                 title = f'SumTypes {percentage_type.title()} Percentage (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'tx_{percentage_type}_sumtypes_percentage.png'
+            filename = f'tx_{percentage_type}_sumTypes_percentage.png'
         else:
             if percentage_type in ['success', 'failure']:
                 title = f'{transaction_type.title()} {percentage_type.title()} Percentage (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
@@ -1262,7 +1262,7 @@ def plot_transaction_percentage_delta_with_moving_average(
                 title = f'SumTypes {percentage_type.title()} Percentage Deltas (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
             else:
                 title = f'SumTypes {percentage_type.title()} Percentage Deltas (of Success+Pending+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'tx_{percentage_type}_sumtypes_percentage.png'
+            filename = f'tx_{percentage_type}_sumTypes_percentage.png'
         else:
             if percentage_type in ['success', 'failure']:
                 title = f'{transaction_type.title()} {percentage_type.title()} Percentage Deltas (of Success+Failure) Over Time - {create_sweep_title(param_name, sweep_type)}'

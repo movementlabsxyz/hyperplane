@@ -62,3 +62,5 @@ log_to_file = false
 plot_moving_average = true
 # How many consecutive data points get averaged
 range_moving_average = 10
+# cuts off data at sim_total_block_number * cutoff
+cutoff = 0.5
