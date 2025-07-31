@@ -20,7 +20,7 @@ It's crucial to monitor several key metrics to ensure simulation validity and id
 
 **TPS (Transactions Per Second)**: Monitors the actual transaction throughput achieved by the system. Once the previous metric reaches zero, the TPS can now longer be sustained.
 
-![TPS](./tps.png)
+![TPB](./tpb.png)
 
 We can see that the individual runs are pretty consistent, thus making the average a good estimate of the system performance.
 

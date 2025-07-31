@@ -6,9 +6,9 @@
 num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0.0, 4]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
+chain_delays = [0.0, 3.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds
-block_interval = 0.2
+block_interval = 0.1
 
 # Account parameters
 [account_config]
@@ -23,7 +23,7 @@ num_accounts = 1000
 [transaction_config]
 # Target transactions per block to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-target_tpb = 100.0
+target_tpb = 20.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -45,14 +45,14 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 1
+num_runs = 5
 # Number of simulations to run in the sweep
-num_simulations = 3
+num_simulations = 11
 # Step size for chain delay sweeps
 chain_delay_step = 0.2
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 300
+sim_total_block_number = 500
 
 # Logging control for the simulator
 [logging_config]

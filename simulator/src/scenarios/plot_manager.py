@@ -10,7 +10,7 @@ from typing import Dict, Any
 from plot_utils import (
     plot_sweep_summary, plot_sweep_locked_keys, plot_sweep_locked_keys_with_pending,
     plot_sweep_transactions_per_block, generate_individual_curves_plots,
-    plot_transactions_overlay, plot_sweep_tps_moving_average
+    plot_transactions_overlay, plot_sweep_tpb_moving_average
 )
 from plot_system import (
     plot_system_memory, plot_system_memory_total,
@@ -42,7 +42,7 @@ def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
     plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
-    plot_sweep_tps_moving_average(data, param_name, results_dir, sweep_type, plot_config)
+    plot_sweep_tpb_moving_average(data, param_name, results_dir, sweep_type, plot_config)
     plot_system_memory(data, param_name, results_dir, sweep_type)
     plot_system_memory_total(data, param_name, results_dir, sweep_type)
     plot_system_cpu(data, param_name, results_dir, sweep_type)
