@@ -1034,10 +1034,21 @@ def load_plot_config(results_dir: str) -> Dict[str, Any]:
     """
     # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_rate' from 'simulator/results/sim_sweep_cat_rate')
     sweep_name = results_dir.split('/')[-1]
-    config_path = f'simulator/src/scenarios/{sweep_name}/config.toml'
     
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Config file {config_path} not found")
+    # Try different possible paths for the config file
+    possible_paths = [
+        'config.toml',  # When called from paper plot script (working directory is scenario directory)
+        f'simulator/src/scenarios/{sweep_name}/config.toml',  # When called from main plotting functions
+    ]
+    
+    config_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            config_path = path
+            break
+    
+    if config_path is None:
+        raise FileNotFoundError(f"Config file not found. Tried: {possible_paths}")
     
     import tomllib
     with open(config_path, 'rb') as f:
