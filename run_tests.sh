@@ -113,6 +113,7 @@ TESTS=(
     hyper_ig::tests::counter_management::test_cat_status_update_with_credit_1000_success
     hyper_ig::tests::counter_management::test_cat_timeout_counter_management
     hyper_ig::tests::counter_management::test_cat_accumulation_management
+    hyper_ig::tests::counter_management::test_postponed_to_resolving_transition
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -156,13 +157,7 @@ TESTS=(
 )
 
 TESTS2=(
-    hyper_ig::tests::basic::test_cat_pending_dependency_restriction
-    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_failure
-    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_success
-    hyper_ig::tests::counter_management::test_cat_accumulation_management
-    hyper_ig::tests::counter_management::test_cat_timeout_counter_management
-    hyper_ig::tests::timeouts::test_cat_timeout
-    hyper_ig::tests::timeouts::test_cat_timeout_irreversible
+    hyper_ig::tests::counter_management::test_postponed_to_resolving_transition
 )
 
 # Check if arguments are provided

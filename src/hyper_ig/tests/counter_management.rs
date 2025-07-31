@@ -495,3 +495,118 @@ async fn test_cat_accumulation_management() {
     
     logging::log("TEST", "=== test_cat_accumulation_management completed successfully ===\n");
 } 
+
+/// Tests the transition from postponed to resolving counters when a postponed CAT gets reprocessed:
+/// - Verifies that postponed counter decreases and resolving counter increases
+/// - Ensures the transition happens correctly when a postponed CAT is reprocessed
+/// - Validates that the total pending count remains consistent
+#[tokio::test]
+async fn test_postponed_to_resolving_transition() {
+    logging::init_logging();
+    logging::log("TEST", "=== Starting test_postponed_to_resolving_transition ===");
+    
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    
+    // Create first CAT that will be resolving
+    let cl_id_1 = CLTransactionId("cl-tx_cat_1".to_string());
+    let cat_tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:cat_1", cl_id_1)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_1.clone(),
+    ).expect("Failed to create first CAT transaction");
+    
+    // Process first CAT - it should be resolving
+    let status_1 = hig_node.lock().await.process_transaction(cat_tx_1.clone()).await.unwrap();
+    assert_eq!(status_1, TransactionStatus::Pending, "First CAT should be pending");
+    
+    // Create second CAT that will be postponed (depends on first CAT)
+    let cl_id_2 = CLTransactionId("cl-tx_cat_2".to_string());
+    let cat_tx_2 = Transaction::new(
+        TransactionId(format!("{:?}:cat_2", cl_id_2)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_2.clone(),
+    ).expect("Failed to create second CAT transaction");
+    
+    // Process second CAT - it should be postponed
+    let status_2 = hig_node.lock().await.process_transaction(cat_tx_2.clone()).await.unwrap();
+    assert_eq!(status_2, TransactionStatus::Pending, "Second CAT should be pending");
+    
+    // Check initial detailed counts
+    let (resolving_initial, postponed_initial) = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("Initial detailed counts - Resolving: {}, Postponed: {}", resolving_initial, postponed_initial));
+    assert_eq!(resolving_initial, 1, "Should have 1 resolving CAT (first CAT)");
+    assert_eq!(postponed_initial, 1, "Should have 1 postponed CAT (second CAT)");
+    
+    // Check total pending count before status update
+    let total_pending_before = resolving_initial + postponed_initial;
+    logging::log("TEST", &format!("Total pending count before status update: {}", total_pending_before));
+
+    // Verify detailed counts match actual pending transactions
+    let pending_txs = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    let mut cat_pending_txs = Vec::new();
+    for tx_id in &pending_txs {
+        if let Ok(tx) = hig_node.lock().await.get_transaction_data(tx_id.clone()).await {
+            if tx.starts_with("CAT") {
+                cat_pending_txs.push(tx_id);
+            }
+        }
+    }
+    logging::log("TEST", &format!("Actual pending CAT transactions: {:?}", cat_pending_txs));
+    assert_eq!(cat_pending_txs.len() as u64, total_pending_before, "Detailed counts should match actual pending CAT transactions");
+
+    // Verify main CAT pending counter matches detailed counts
+    let (cat_pending, _, _) = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+    logging::log("TEST", &format!("Main CAT pending counter: {}", cat_pending));
+    assert_eq!(cat_pending, total_pending_before, "Main CAT pending counter should match detailed counts");
+    
+    // Now resolve the first CAT to trigger reprocessing of the second CAT
+    let status_update_tx = Transaction::new(
+        TransactionId("status_update".to_string()),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "STATUS_UPDATE:Success.CAT_ID:cl-tx_cat_1".to_string(),
+        cl_id_1.clone(),
+    ).expect("Failed to create status update transaction");
+    
+    let status_update_result = hig_node.lock().await.process_transaction(status_update_tx).await.unwrap();
+    assert_eq!(status_update_result, TransactionStatus::Success, "Status update should succeed");
+    
+    // Check final detailed counts - second CAT should have transitioned from postponed to resolving
+    let (resolving_final, postponed_final) = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("Final detailed counts - Resolving: {}, Postponed: {}", resolving_final, postponed_final));
+    assert_eq!(resolving_final, 1, "Should have 1 resolving CAT (second CAT)");
+    assert_eq!(postponed_final, 0, "Should have 0 postponed CATs");
+    
+    // Check total pending count after status update
+    let total_pending_after = resolving_final + postponed_final;
+    logging::log("TEST", &format!("Total pending count after status update: {}", total_pending_after));
+
+    // Verify detailed counts match actual pending transactions after status update
+    let pending_txs_after = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    let mut cat_pending_txs_after = Vec::new();
+    for tx_id in &pending_txs_after {
+        if let Ok(tx) = hig_node.lock().await.get_transaction_data(tx_id.clone()).await {
+            if tx.starts_with("CAT") {
+                cat_pending_txs_after.push(tx_id);
+            }
+        }
+    }
+    logging::log("TEST", &format!("Actual pending CAT transactions after status update: {:?}", cat_pending_txs_after));
+    assert_eq!(cat_pending_txs_after.len() as u64, total_pending_after, "Detailed counts should match actual pending CAT transactions after status update");
+
+    // Verify main CAT pending counter matches detailed counts after status update
+    let (cat_pending_after, _, _) = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+    logging::log("TEST", &format!("Main CAT pending counter after status update: {}", cat_pending_after));
+    assert_eq!(cat_pending_after, total_pending_after, "Main CAT pending counter should match detailed counts after status update");
+    
+    // Verify that the total pending count is correct
+    // After the first CAT reaches final status, only the second CAT should be pending
+    let total_pending_final = resolving_final + postponed_final;
+    assert_eq!(total_pending_final, 1, "Total pending count should be 1 (only the second CAT)");
+    
+    logging::log("TEST", "=== test_postponed_to_resolving_transition completed successfully ===\n");
+} 
