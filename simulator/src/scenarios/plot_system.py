@@ -23,6 +23,9 @@ from plot_utils import (
     PARAM_DISPLAY_NAMES
 )
 
+# Import moving average function from plot_utils_moving_average
+from plot_utils_moving_average import apply_moving_average
+
 # ------------------------------------------------------------------------------------------------
 # System Memory Plotting
 # ------------------------------------------------------------------------------------------------
@@ -536,4 +539,106 @@ def plot_loop_steps_without_tx_issuance(data: Dict[str, Any], param_name: str, r
     except Exception as e:
         print(f"Error plotting loop steps data: {e}")
         import traceback
-        traceback.print_exc() 
+        traceback.print_exc()
+
+
+def plot_loop_steps_without_tx_issuance_moving_average(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+    """Plot loop steps without transaction issuance over time with moving average for sweep simulations"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping loop steps moving average plot")
+            return
+        
+        # Set moving average window size directly for system plots
+        window_size = 100
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Get parameter values for coloring
+        param_values = [result[param_name] for result in individual_results]
+        colors = create_color_gradient(len(param_values))
+        
+        # Plot each simulation's loop steps data with moving average
+        missing_files = []
+        for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
+            param_value = result[param_name]
+            label = create_parameter_label(param_name, param_value)
+            
+            # Load loop steps data for this simulation
+            # Extract just the directory name from the full path
+            results_dir_name = results_dir.replace('simulator/results/', '')
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Use averaged loop steps data
+            loop_steps_file = f'{sim_data_dir}/run_average/loop_steps_without_tx_issuance.json'
+            if os.path.exists(loop_steps_file):
+                with open(loop_steps_file, 'r') as f:
+                    loop_steps_data = json.load(f)
+                
+                # Extract loop steps data
+                if 'loop_steps_without_tx_issuance' in loop_steps_data:
+                    loop_steps_entries = loop_steps_data['loop_steps_without_tx_issuance']
+                    if loop_steps_entries:
+                        # Extract block heights and loop steps values
+                        heights = [entry['height'] for entry in loop_steps_entries]
+                        loop_steps_values = [entry['count'] for entry in loop_steps_entries]
+                        
+                        # Ensure heights and loop_steps_values have the same length
+                        if len(heights) != len(loop_steps_values):
+                            print(f"Warning: Heights ({len(heights)}) and loop steps values ({len(loop_steps_values)}) have different lengths for simulation {sim_index}")
+                            # Use the shorter length
+                            min_length = min(len(heights), len(loop_steps_values))
+                            heights = heights[:min_length]
+                            loop_steps_values = loop_steps_values[:min_length]
+                        
+                        # Apply moving average
+                        if len(heights) >= window_size:
+                            # Convert to list of tuples for moving average function
+                            data_points = list(zip(heights, loop_steps_values))
+                            smoothed_data = apply_moving_average(data_points, window_size)
+                            
+                            # Extract smoothed heights and values
+                            smoothed_heights = [point[0] for point in smoothed_data]
+                            smoothed_values = [point[1] for point in smoothed_data]
+                            
+                            # Plot the smoothed data
+                            ax.plot(smoothed_heights, smoothed_values, color=color, alpha=0.7, linewidth=2)
+                        else:
+                            print(f"Warning: Not enough data points for moving average (window={window_size}) for simulation {sim_index}")
+                            # Plot original data if not enough points
+                            ax.plot(heights, loop_steps_values, color=color, alpha=0.7, linewidth=2)
+                    else:
+                        print(f"Warning: No loop steps entries found for simulation {sim_index}")
+                else:
+                    print(f"Warning: No loop_steps_without_tx_issuance key found in {loop_steps_file}")
+            else:
+                missing_files.append(loop_steps_file)
+            
+            # Add legend entry for this parameter value
+            ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} loop_steps_without_tx_issuance.json files not found across all simulations")
+        
+        # Customize plot
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('Loop Steps Count (Moving Average)')
+        ax.set_title(f'Loop Steps Without Transaction Issuance Over Time (Moving Average, Window={window_size}) by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
+        ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3)
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/loop_steps_without_tx_issuance_moving_average.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error plotting loop steps moving average data: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+ 

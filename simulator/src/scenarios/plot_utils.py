@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 from typing import Dict, List, Tuple, Any, Optional
+from plot_utils_moving_average import apply_moving_average
 
 # Global colormap setting - easily switch between different colormaps
 # Options: 'viridis', 'RdYlBu_r', 'plasma', 'inferno', 'magma', 'cividis'
@@ -788,6 +789,121 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
     except Exception as e:
         print(f"Warning: Error processing transactions per block data for sweep: {e}")
         return
+
+def plot_sweep_tps_moving_average(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+    """Plot TPS (Transactions Per Second) with moving average for sweep simulations"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping TPS moving average plot")
+            return
+        
+        # Set moving average window size
+        window_size = 100
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+        
+        # Get parameter values for coloring
+        param_values = [result[param_name] for result in individual_results]
+        colors = create_color_gradient(len(param_values))
+        
+        # Plot each simulation's TPS data with moving average
+        missing_files = []
+        for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
+            param_value = result[param_name]
+            label = create_parameter_label(param_name, param_value)
+            
+            # Load TPS data for this simulation
+            # Extract just the directory name from the full path
+            results_dir_name = results_dir.replace('simulator/results/', '')
+            sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Use averaged TPS data
+            tx_per_block_file = f'{sim_data_dir}/run_average/tx_per_block_chain_1.json'
+            if os.path.exists(tx_per_block_file):
+                with open(tx_per_block_file, 'r') as f:
+                    tx_per_block_data = json.load(f)
+                
+                # Extract TPS data
+                if 'chain_1_tx_per_block' in tx_per_block_data:
+                    tx_per_block_entries = tx_per_block_data['chain_1_tx_per_block']
+                    if tx_per_block_entries:
+                        # Extract block heights and transaction counts
+                        heights = [entry['height'] for entry in tx_per_block_entries]
+                        tx_counts = [entry['count'] for entry in tx_per_block_entries]
+                        
+                        # Ensure heights and tx_counts have the same length
+                        if len(heights) != len(tx_counts):
+                            print(f"Warning: Heights ({len(heights)}) and transaction counts ({len(tx_counts)}) have different lengths for simulation {sim_index}")
+                            # Use the shorter length
+                            min_length = min(len(heights), len(tx_counts))
+                            heights = heights[:min_length]
+                            tx_counts = tx_counts[:min_length]
+                        
+                        # Calculate TPS using the parameter value (block_interval) for this simulation
+                        # For block interval sweeps, the parameter value IS the block interval
+                        if param_name == 'block_interval':
+                            block_interval = param_value
+                        else:
+                            # For other sweeps, try to get block_interval from simulation_stats.json
+                            try:
+                                stats_file = f'{sim_data_dir}/run_average/simulation_stats.json'
+                                with open(stats_file, 'r') as f:
+                                    stats_data = json.load(f)
+                                block_interval = stats_data['parameters']['block_interval']
+                            except (FileNotFoundError, KeyError) as e:
+                                print(f"Warning: Could not determine block_interval for TPS calculation for simulation {sim_index}: {e}")
+                                continue
+                        
+                        tps_values = [tx_count / block_interval for tx_count in tx_counts]
+                        
+                        # Apply moving average
+                        if len(heights) >= window_size:
+                            # Convert to list of tuples for moving average function
+                            data_points = list(zip(heights, tps_values))
+                            smoothed_data = apply_moving_average(data_points, window_size)
+                            
+                            # Extract smoothed heights and values
+                            smoothed_heights = [point[0] for point in smoothed_data]
+                            smoothed_values = [point[1] for point in smoothed_data]
+                            
+                            # Plot the smoothed data
+                            ax.plot(smoothed_heights, smoothed_values, color=color, alpha=0.7, linewidth=2)
+                        else:
+                            print(f"Warning: Not enough data points for moving average (window={window_size}) for simulation {sim_index}")
+                            # Plot original data if not enough points
+                            ax.plot(heights, tps_values, color=color, alpha=0.7, linewidth=2)
+                    else:
+                        print(f"Warning: No transaction per block entries found for simulation {sim_index}")
+                else:
+                    print(f"Warning: No chain_1_tx_per_block key found in {tx_per_block_file}")
+            else:
+                missing_files.append(tx_per_block_file)
+            
+            # Add legend entry for this parameter value
+            ax.plot([], [], color=color, label=label, linewidth=2)
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} tx_per_block_chain_1.json files not found across all simulations")
+        
+        # Customize plot
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('TPS (Moving Average)')
+        ax.set_title(f'Transactions Per Second Over Time (Moving Average, Window={window_size}) by {create_sweep_title(param_name, sweep_type)}')
+        ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3)
+        
+        # Save the plot
+        plt.savefig(f'{results_dir}/figs/tps_moving_average.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error plotting TPS moving average data: {e}")
+        import traceback
+        traceback.print_exc()
 
 def calculate_running_average(data: List[float], window_size: int = 10) -> List[float]:
     """

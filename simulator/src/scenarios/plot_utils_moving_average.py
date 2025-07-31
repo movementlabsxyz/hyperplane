@@ -11,7 +11,7 @@ import numpy as np
 from typing import Dict, Any, List, Tuple
 
 
-def apply_moving_average(data: List[Tuple[int, int]], window_size: int) -> List[Tuple[int, int]]:
+def apply_moving_average(data: List[Tuple[int, int]], window_size: int) -> List[Tuple[int, float]]:
     """
     Apply moving average smoothing to time-series data.
     
@@ -20,7 +20,7 @@ def apply_moving_average(data: List[Tuple[int, int]], window_size: int) -> List[
         window_size: Size of the moving average window
         
     Returns:
-        Smoothed data with moving average applied
+        Smoothed data with moving average applied (float values for precision)
     """
     if not data or len(data) < window_size:
         return data
@@ -39,9 +39,9 @@ def apply_moving_average(data: List[Tuple[int, int]], window_size: int) -> List[
         total_count = sum(count for _, count in window_data)
         avg_count = total_count / len(window_data)
         
-        # Use the original height and the averaged count
+        # Use the original height and the averaged count (as float for precision)
         height = data[i][0]
-        smoothed_data.append((height, int(avg_count)))
+        smoothed_data.append((height, avg_count))
     
     return smoothed_data
 

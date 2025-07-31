@@ -10,12 +10,12 @@ from typing import Dict, Any
 from plot_utils import (
     plot_sweep_summary, plot_sweep_locked_keys, plot_sweep_locked_keys_with_pending,
     plot_sweep_transactions_per_block, generate_individual_curves_plots,
-    plot_transactions_overlay
+    plot_transactions_overlay, plot_sweep_tps_moving_average
 )
 from plot_system import (
     plot_system_memory, plot_system_memory_total,
     plot_system_cpu, plot_system_cpu_filtered, plot_system_cpu_total,
-    plot_loop_steps_without_tx_issuance
+    plot_loop_steps_without_tx_issuance, plot_loop_steps_without_tx_issuance_moving_average
 )
 from plot_utils_delta import (
     plot_transactions_delta_overlay
@@ -38,16 +38,18 @@ def generate_paper_plots(*args, **kwargs):
 
 # System performance and resource usage plots (CPU, memory, TPS, etc.)
 def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config):
-    print("Generating system plots and TPS...")
+    print("Generating system plots...")
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
     plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
+    plot_sweep_tps_moving_average(data, param_name, results_dir, sweep_type, plot_config)
     plot_system_memory(data, param_name, results_dir, sweep_type)
     plot_system_memory_total(data, param_name, results_dir, sweep_type)
     plot_system_cpu(data, param_name, results_dir, sweep_type)
     plot_system_cpu_filtered(data, param_name, results_dir, sweep_type)
     plot_system_cpu_total(data, param_name, results_dir, sweep_type)
     plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
+    plot_loop_steps_without_tx_issuance_moving_average(data, param_name, results_dir, sweep_type, plot_config)
 
 # Transaction count plots with their percentage counterparts (regular and moving average)
 def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_config):

@@ -61,10 +61,10 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
     let sweep_config = load_config()?;
     
     // Calculate CAT ratios for each simulation using the helper function
-    // Creates a sequence of CAT ratios: 0.0, 0.1, 0.2, 0.3, etc.
+    // Creates a sequence of CAT ratios starting from the base ratio_cats value
     // Each value represents the fraction of transactions that should be CATs
     let cat_ratios = generate_f64_sequence(
-        0.0, 
+        sweep_config.transaction_config.ratio_cats, 
         sweep_config.simulation_config.cat_rate_step.unwrap(),
         sweep_config.simulation_config.num_simulations.unwrap()
     );
