@@ -289,4 +289,209 @@ async fn test_cat_status_update_with_credit_100_failure() {
 #[tokio::test]
 async fn test_cat_status_update_with_credit_1000_success() {
     test_cat_status_update_with_credit_amount(1000, TransactionStatus::Success, "test_cat_status_update_with_credit_1000_success").await;
+}
+
+/// Tests that CAT timeout properly updates counters:
+/// - Verifies that pending CAT count decreases when CAT times out
+/// - Ensures failure count increases when CAT times out
+/// - Validates that the CAT is removed from pending set after timeout
+/// - Checks that detailed pending counters (resolving/postponed) are updated correctly
+#[tokio::test]
+async fn test_cat_timeout_counter_management() {
+    logging::init_logging();
+    logging::log("TEST", "=== Starting test_cat_timeout_counter_management ===");
+    
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    
+    // Create a CAT transaction
+    let cl_id = CLTransactionId("cl-tx_timeout_test".to_string());
+    let cat_tx = Transaction::new(
+        TransactionId(format!("{:?}:timeout_test", cl_id)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id.clone(),
+    ).expect("Failed to create CAT transaction");
+    
+    // Process the CAT transaction in block 1
+    let subblock = SubBlock {
+        block_height: 1,
+        chain_id: constants::chain_1(),
+        transactions: vec![cat_tx.clone()],
+    };
+    hig_node.lock().await.process_subblock(subblock).await.unwrap();
+    
+    // Verify CAT is pending and counters are correct
+    let status = hig_node.lock().await.get_transaction_status(cat_tx.id.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Pending, "CAT should be pending after creation");
+    
+    let cat_counts_before = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+    let pending_detailed_before = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("Before timeout - CAT counts - Pending: {}, Success: {}, Failure: {}", cat_counts_before.0, cat_counts_before.1, cat_counts_before.2));
+    logging::log("TEST", &format!("Before timeout - Detailed counts - Resolving: {}, Postponed: {}", pending_detailed_before.0, pending_detailed_before.1));
+    
+    assert_eq!(cat_counts_before.0, 1, "CAT pending count should be 1 after creation");
+    assert_eq!(cat_counts_before.1, 0, "CAT success count should be 0 before timeout");
+    assert_eq!(cat_counts_before.2, 0, "CAT failure count should be 0 before timeout");
+    
+    // Verify CAT is in pending set
+    let pending_txs_before = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    assert!(pending_txs_before.contains(&cat_tx.id), "CAT should be in pending set before timeout");
+    
+    // Get the max lifetime to determine timeout block
+    let cat_id = crate::types::CATId(cl_id.clone());
+    let max_lifetime = hig_node.lock().await.get_cat_max_lifetime(cat_id).await.unwrap();
+    let cat_lifetime = hig_node.lock().await.get_cat_lifetime().await.unwrap();
+    logging::log("TEST", &format!("CAT max_lifetime: {}, cat_lifetime: {}", max_lifetime, cat_lifetime));
+    
+    // Process a block that exceeds the timeout (block after max_lifetime)
+    let timeout_block = max_lifetime + 1;
+    let subblock = SubBlock {
+        block_height: timeout_block,
+        chain_id: constants::chain_1(),
+        transactions: vec![],
+    };
+    hig_node.lock().await.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", &format!("Processed timeout block: {}", timeout_block));
+    
+    // Verify CAT is now failed
+    let status_after = hig_node.lock().await.get_transaction_status(cat_tx.id.clone()).await.unwrap();
+    assert_eq!(status_after, TransactionStatus::Failure, "CAT should be failed after timeout");
+    
+    // Get counts after timeout
+    let cat_counts_after = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+    let pending_detailed_after = hig_node.lock().await.get_cat_pending_detailed_counts().await.unwrap();
+    logging::log("TEST", &format!("After timeout - CAT counts - Pending: {}, Success: {}, Failure: {}", cat_counts_after.0, cat_counts_after.1, cat_counts_after.2));
+    logging::log("TEST", &format!("After timeout - Detailed counts - Resolving: {}, Postponed: {}", pending_detailed_after.0, pending_detailed_after.1));
+    
+    // Verify counter changes
+    assert_eq!(cat_counts_after.0, 0, "CAT pending count should be 0 after timeout");
+    assert_eq!(cat_counts_after.1, 0, "CAT success count should be 0 after timeout");
+    assert_eq!(cat_counts_after.2, 1, "CAT failure count should be 1 after timeout");
+    
+    // Verify detailed pending counters are updated
+    assert_eq!(pending_detailed_after.0, 0, "CAT resolving count should be 0 after timeout");
+    assert_eq!(pending_detailed_after.1, 0, "CAT postponed count should be 0 after timeout");
+    
+    // Verify CAT is removed from pending set
+    let pending_txs_after = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    assert!(!pending_txs_after.contains(&cat_tx.id), "CAT should not be in pending set after timeout");
+    
+    // Verify total pending count matches detailed counts
+    assert_eq!(cat_counts_after.0, pending_detailed_after.0 + pending_detailed_after.1, 
+               "Total pending count should equal resolving + postponed counts");
+    
+    logging::log("TEST", "=== test_cat_timeout_counter_management completed successfully ===\n");
+}
+
+/// Tests that CAT accumulation is properly managed and doesn't exceed theoretical maximum:
+/// - Creates multiple CATs over time
+/// - Verifies that pending CAT count doesn't accumulate indefinitely
+/// - Ensures that timed-out CATs are properly removed from counters
+/// - Validates that the system maintains correct state even with many CATs
+#[tokio::test]
+async fn test_cat_accumulation_management() {
+    logging::init_logging();
+    logging::log("TEST", "=== Starting test_cat_accumulation_management ===");
+    
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    
+    // Get CAT lifetime for theoretical maximum calculation
+    let cat_lifetime = hig_node.lock().await.get_cat_lifetime().await.unwrap();
+    logging::log("TEST", &format!("CAT lifetime: {}", cat_lifetime));
+    
+    // Create and process multiple CATs over several blocks
+    let num_cats: usize = 5;
+    let mut cat_txs = Vec::new();
+    
+    for i in 0..num_cats {
+        let cl_id = CLTransactionId(format!("cl-tx_accumulation_{}", i));
+        let cat_tx = Transaction::new(
+            TransactionId(format!("{:?}:accumulation_{}", cl_id, i)),
+            constants::chain_1(),
+            vec![constants::chain_1(), constants::chain_2()],
+            "CAT.credit 1 100".to_string(),
+            cl_id.clone(),
+        ).expect("Failed to create CAT transaction");
+        
+        cat_txs.push(cat_tx.clone());
+        
+        // Process CAT in block i+1
+        let subblock = SubBlock {
+            block_height: (i + 1) as u64,
+            chain_id: constants::chain_1(),
+            transactions: vec![cat_tx],
+        };
+        hig_node.lock().await.process_subblock(subblock).await.unwrap();
+        
+        // Check counts after each CAT
+        let cat_counts = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+        let pending_txs = hig_node.lock().await.get_pending_transactions().await.unwrap();
+        logging::log("TEST", &format!("After CAT {} - Pending: {}, Success: {}, Failure: {}", 
+            i, cat_counts.0, cat_counts.1, cat_counts.2));
+        logging::log("TEST", &format!("Pending transactions count: {}", pending_txs.len()));
+        
+        // Verify that pending count equals the number of CATs we've created
+        assert_eq!(cat_counts.0, (i + 1) as u64, "CAT pending count should equal number of CATs created");
+        assert_eq!(pending_txs.len(), i + 1, "Pending transactions should equal number of CATs created");
+    }
+    
+    // Now process blocks to trigger timeouts for the first few CATs
+    // Process a block that will timeout the first CAT (created in block 1)
+    let timeout_block = cat_lifetime + 2; // Block after max_lifetime for first CAT
+    let subblock = SubBlock {
+        block_height: timeout_block,
+        chain_id: constants::chain_1(),
+        transactions: vec![],
+    };
+    hig_node.lock().await.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", &format!("Processed timeout block: {}", timeout_block));
+    
+    // Check counts after timeout
+    let cat_counts_after_timeout = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+    let pending_txs_after = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    logging::log("TEST", &format!("After timeout - Pending: {}, Success: {}, Failure: {}", 
+        cat_counts_after_timeout.0, cat_counts_after_timeout.1, cat_counts_after_timeout.2));
+    logging::log("TEST", &format!("Pending transactions count after timeout: {}", pending_txs_after.len()));
+    
+    // Verify that the first CAT was timed out and removed
+    assert_eq!(cat_counts_after_timeout.2, 1, "CAT failure count should be 1 after timeout");
+    assert_eq!(cat_counts_after_timeout.0, (num_cats - 1) as u64, "CAT pending count should decrease by 1 after timeout");
+    assert_eq!(pending_txs_after.len(), num_cats - 1, "Pending transactions should decrease by 1 after timeout");
+    
+    // Verify that the first CAT is no longer in pending set
+    assert!(!pending_txs_after.contains(&cat_txs[0].id), "First CAT should not be in pending set after timeout");
+    
+    // Verify that other CATs are still pending
+    for i in 1..num_cats {
+        assert!(pending_txs_after.contains(&cat_txs[i as usize].id), "CAT {} should still be in pending set", i);
+    }
+    
+    // Process more blocks to timeout more CATs
+    let final_timeout_block = cat_lifetime + num_cats as u64 + 1;
+    let subblock = SubBlock {
+        block_height: final_timeout_block,
+        chain_id: constants::chain_1(),
+        transactions: vec![],
+    };
+    hig_node.lock().await.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", &format!("Processed final timeout block: {}", final_timeout_block));
+    
+    // Check final counts
+    let final_cat_counts = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+    let final_pending_txs = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    logging::log("TEST", &format!("Final counts - Pending: {}, Success: {}, Failure: {}", 
+        final_cat_counts.0, final_cat_counts.1, final_cat_counts.2));
+    logging::log("TEST", &format!("Final pending transactions count: {}", final_pending_txs.len()));
+    
+    // Verify that all CATs have been timed out
+    assert_eq!(final_cat_counts.0, 0, "All CATs should be timed out");
+    assert_eq!(final_cat_counts.2, num_cats as u64, "All CATs should be in failure state");
+    assert_eq!(final_pending_txs.len(), 0, "No transactions should be pending");
+    
+    // Verify total counts are consistent
+    assert_eq!(final_cat_counts.0 + final_cat_counts.1 + final_cat_counts.2, num_cats as u64, 
+               "Total CAT counts should equal number of CATs created");
+    
+    logging::log("TEST", "=== test_cat_accumulation_management completed successfully ===\n");
 } 

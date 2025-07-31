@@ -106,6 +106,13 @@ TESTS=(
     hyper_ig::tests::shutdown::test_hig_node_shutdown
     hyper_ig::tests::shutdown::test_hig_node_shutdown_multiple_times
     hyper_ig::tests::shutdown::test_hig_node_restart_after_shutdown
+    hyper_ig::tests::counter_management::test_add_to_pending_and_increment_counter
+    hyper_ig::tests::counter_management::test_update_to_final_status_and_update_counter
+    hyper_ig::tests::counter_management::test_counter_consistency_on_reprocessing
+    hyper_ig::tests::counter_management::test_cat_status_update_with_credit_100_failure
+    hyper_ig::tests::counter_management::test_cat_status_update_with_credit_1000_success
+    hyper_ig::tests::counter_management::test_cat_timeout_counter_management
+    hyper_ig::tests::counter_management::test_cat_accumulation_management
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -148,13 +155,14 @@ TESTS=(
     integration::e2e::test_hig_delays
 )
 
-# Test specific tests
 TESTS2=(
-    hyper_ig::tests::counter_management::test_add_to_pending_and_increment_counter
-    hyper_ig::tests::counter_management::test_update_to_final_status_and_update_counter
-    hyper_ig::tests::counter_management::test_counter_consistency_on_reprocessing
-    hyper_ig::tests::counter_management::test_cat_status_update_with_credit_100_failure
-    hyper_ig::tests::counter_management::test_cat_status_update_with_credit_1000_success
+    hyper_ig::tests::basic::test_cat_pending_dependency_restriction
+    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_failure
+    hyper_ig::tests::basic::test_cat_pending_when_depending_on_resolving_cat_success
+    hyper_ig::tests::counter_management::test_cat_accumulation_management
+    hyper_ig::tests::counter_management::test_cat_timeout_counter_management
+    hyper_ig::tests::timeouts::test_cat_timeout
+    hyper_ig::tests::timeouts::test_cat_timeout_irreversible
 )
 
 # Check if arguments are provided
