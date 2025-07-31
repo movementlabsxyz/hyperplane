@@ -47,7 +47,7 @@ initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
 num_runs = 1
 # Number of simulations to run in the sweep
-num_simulations = 5
+num_simulations = 20
 # Step size for CAT ratio sweeps
 cat_rate_step = 0.05
 # Total number of blocks to simulate
@@ -66,4 +66,4 @@ plot_moving_average = true
 # How many consecutive data points get averaged
 range_moving_average = 20
 # cuts off data at sim_total_block_number * cutoff
-cutoff = 0.5
+cutoff = 0.01

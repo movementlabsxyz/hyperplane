@@ -166,8 +166,8 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
         // Log sweep start
         self.log_sweep_start(&sweep_config);
 
-        // Display sweep name before progress bar
-        println!("Running Sweep: {}", self.sweep_name);
+        // Display parameter values before progress bar
+        println!("Parameter values to test: {:?}", self.parameter_values);
 
         // Create progress bar for sweep
         let progress_bar = self.create_progress_bar(sweep_config.get_num_simulations());
