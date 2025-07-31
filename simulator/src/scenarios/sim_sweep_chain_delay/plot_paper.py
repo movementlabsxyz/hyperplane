@@ -270,21 +270,11 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
         plt.legend(loc="upper right", fontsize=10)
         plt.tight_layout()
         
-        # Create a simple test file in figs directory
-        test_file = f'{results_dir}/figs/paper__test.txt'
-        print(f"DEBUG: Creating test file at {test_file}")
-        with open(test_file, 'w') as f:
-            f.write("Paper plot script executed successfully!")
-        print(f"DEBUG: Test file created successfully")
-        
-        # Also try to create the paper directory and plot
+        # Create the paper directory and plot
         paper_dir = f'{results_dir}/figs/paper'
-        print(f"DEBUG: Creating paper directory at {paper_dir}")
         os.makedirs(paper_dir, exist_ok=True)
-        print(f"DEBUG: Paper directory created successfully")
         plt.savefig(f'{paper_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
-        print(f"DEBUG: Plot saved successfully to {paper_dir}/{filename}")
         plt.close()
         
         print(f"Generated paper plot: {filename}")
