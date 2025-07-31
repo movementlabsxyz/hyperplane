@@ -447,16 +447,22 @@ def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: s
                     percentage = (success_at_height / total) * 100
                     percentages.append(percentage)
             
+            # Discard the first 20% of data points for violin plot
             if percentages:
-                violin_data.append(percentages)
-                labels.append(f'{param_value:.3f}')
+                num_points = len(percentages)
+                discard_count = int(num_points * 0.2)  # 20% of data points
+                filtered_percentages = percentages[discard_count:]
+                
+                if filtered_percentages:  # Only add if we have data after filtering
+                    violin_data.append(filtered_percentages)
+                    labels.append(f'{param_value:.3f}')
         
         if not violin_data:
             print("Warning: No data available for violin plot")
             return
         
         # Create violin plot
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(10, 6))
         
         # Create violin plot
         violin_parts = plt.violinplot(violin_data, positions=range(len(violin_data)), showmeans=True)
