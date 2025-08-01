@@ -637,11 +637,26 @@ def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, 
             # Get the time series data from the sweep results (same as overlay plots)
             cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
             
+            print(f"DEBUG: Simulation {sim_index} (CAT Ratio {param_value:.3f}):")
+            print(f"  - Found {len(cat_pending_postponed_data)} data points")
             if cat_pending_postponed_data:
-                # Get the final value (last entry) from the time series
-                final_value = cat_pending_postponed_data[-1][1]  # (height, count) tuple
-                violin_data.append([final_value])  # Single value for this simulation
+                print(f"  - First 5 data points: {cat_pending_postponed_data[:5]}")
+                print(f"  - Last 5 data points: {cat_pending_postponed_data[-5:]}")
+                
+                # Extract ALL count values from the time series
+                count_values = [entry[1] for entry in cat_pending_postponed_data]  # (height, count) tuples
+                print(f"  - Extracted {len(count_values)} count values")
+                print(f"  - Count values range: min={min(count_values)}, max={max(count_values)}, mean={np.mean(count_values):.2f}")
+                
+                # Cut off the first 30% to avoid initialization effects
+                cutoff_index = int(len(count_values) * 0.3)
+                trimmed_values = count_values[cutoff_index:]
+                print(f"  - After trimming first 30%: {len(trimmed_values)} values remain")
+                print(f"  - Trimmed values range: min={min(trimmed_values)}, max={max(trimmed_values)}, mean={np.mean(trimmed_values):.2f}")
+                
+                violin_data.append(trimmed_values)  # Trimmed values for this simulation
             else:
+                print(f"  - No data available")
                 violin_data.append([0])  # No data available
         
         if not violin_data or all(len(values) == 0 for values in violin_data):
@@ -652,6 +667,10 @@ def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, 
         print("=== CAT Pending Postponed Violin Data ===")
         for i, (values, label) in enumerate(zip(violin_data, labels)):
             print(f"Simulation {i} (CAT Ratio {label}): {len(values)} values, min={min(values)}, max={max(values)}, mean={np.mean(values):.2f}")
+            if len(values) > 10:
+                print(f"  - Sample values: {values[:5]} ... {values[-5:]}")
+            else:
+                print(f"  - All values: {values}")
         print("========================================")
         
         # Create violin plot
