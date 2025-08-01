@@ -340,6 +340,11 @@ def plot_transaction_percentage_cutoff(
                 for height, count in tx_data:
                     heights.append(height)
                     
+                    # Initialize variables to avoid scope issues
+                    success_at_height = 0
+                    failure_at_height = 0
+                    pending_at_height = 0
+                    
                     # Calculate percentage using counts at this specific height (not cumulative)
                     if transaction_type == 'cat':
                         # For CAT transactions, get all status data

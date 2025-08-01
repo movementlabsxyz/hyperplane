@@ -386,11 +386,11 @@ def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: s
             })
         
         # Save the data
-        violin_data_file = f'{paper_data_dir}/cat_success_percentage_violin_by_simulation.json'
+        violin_data_file = f'{paper_data_dir}/cat_success_percentage_violin_paper.json'
         with open(violin_data_file, 'w') as f:
             json.dump(violin_plot_data, f, indent=2)
         
-        print(f"Saved violin plot data to: {violin_data_file}")
+        # print(f"Saved violin plot data to: {violin_data_file}")
         
         # Create violin plot
         plt.figure(figsize=(10, 6))
@@ -575,7 +575,7 @@ def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param
         with open(violin_data_file, 'w') as f:
             json.dump(violin_plot_data, f, indent=2)
         
-        print(f"Saved violin plot data to: {violin_data_file}")
+        # print(f"Saved violin plot data to: {violin_data_file}")
         
         # Create violin plot
         violin_parts = plt.violinplot(violin_data, positions=range(len(violin_data)), showmeans=True)

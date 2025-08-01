@@ -407,7 +407,7 @@ def generate_all_plots(
     results_dir_name = results_dir.replace('simulator/results/', '')
     
     # First, run the averaging script to create averaged data from run_average folders
-    print("Running averaging script...")
+            # print("Running averaging script...")
     try:
         # The average_runs.py script is in simulator/src/
         average_script_path = os.path.join(os.path.dirname(__file__), '..', 'average_runs.py')
@@ -419,7 +419,8 @@ def generate_all_plots(
                                cwd=simulator_root, capture_output=True, text=True)
         
         if result.returncode == 0:
-            print("Averaging completed successfully!")
+            # print("Averaging completed successfully!")
+            pass
         else:
             # Check if it's a "no data" error (metadata.json not found)
             # The error message can be in either stdout or stderr
@@ -454,24 +455,24 @@ def generate_all_plots(
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
     # Generate paper plots first (fastest)
-    print("DEBUG: Starting paper plot generation...")
+            # print("DEBUG: Starting paper plot generation...")
     try:
         # Import and run the paper plot script if it exists
         plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
-        print(f"Looking for paper plot script at: {plot_paper_path}")
-        print(f"Script exists: {os.path.exists(plot_paper_path)}")
+        # print(f"Looking for paper plot script at: {plot_paper_path}")
+        # print(f"Script exists: {os.path.exists(plot_paper_path)}")
         if os.path.exists(plot_paper_path):
-            print("Generating paper plots...")
-            print(f"DEBUG: About to run subprocess with cwd={os.path.dirname(plot_paper_path)}")
+            # print("Generating paper plots...")
+            # print(f"DEBUG: About to run subprocess with cwd={os.path.dirname(plot_paper_path)}")
             import subprocess
             result = subprocess.run([sys.executable, plot_paper_path], 
                                    cwd=os.path.dirname(plot_paper_path), 
                                    capture_output=True, text=True)
-            print(f"Paper plot script stdout: {result.stdout}")
-            print(f"Paper plot script stderr: {result.stderr}")
-            print(f"Paper plot script return code: {result.returncode}")
+            # print(f"Paper plot script stdout: {result.stdout}")
+            # print(f"Paper plot script stderr: {result.stderr}")
+            # print(f"Paper plot script return code: {result.returncode}")
             if result.returncode == 0:
-                print("Paper plots generated successfully!")
+                # print("Paper plots generated successfully!")
                 
                 # PANIC CHECK: Verify paper directory and plot were actually created
                 paper_dir = f'{results_dir}/figs/paper'
@@ -483,7 +484,7 @@ def generate_all_plots(
                 if not paper_files:
                     raise RuntimeError(f"PANIC: No PNG files found in paper directory {paper_dir}")
                 
-                print(f"✅ Paper plots verified: {len(paper_files)} files created in {paper_dir}")
+                # print(f"✅ Paper plots verified: {len(paper_files)} files created in {paper_dir}")
             else:
                 raise RuntimeError(f"PANIC: Paper plot generation failed with return code {result.returncode}. STDOUT: {result.stdout}. STDERR: {result.stderr}")
         else:
@@ -966,7 +967,7 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
             # Create individual curves plots for this simulation
             create_per_run_plots(sim_data_dir, sim_figs_dir, block_interval)
             
-        print(f"Individual curves plots generated for all simulations in {sweep_type} sweep!")
+        # print(f"Individual curves plots generated for all simulations in {sweep_type} sweep!")
         
     except Exception as e:
         print(f"Error generating individual curves plots: {e}")

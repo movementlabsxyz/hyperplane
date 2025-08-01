@@ -193,4 +193,4 @@ def generate_organized_plots(data: Dict[str, Any], param_name: str, results_dir:
     generate_tx_count_cutoff_plots(data, param_name, results_dir, sweep_type, plot_config)
     generate_tx_count_delta_plots(data, param_name, results_dir, sweep_type, plot_config)
     generate_sim_x_plots(data, param_name, results_dir, sweep_type, plot_config)
-    print(f"{sweep_type} simulation plots generated successfully!") 
+    # print(f"{sweep_type} simulation plots generated successfully!") 
