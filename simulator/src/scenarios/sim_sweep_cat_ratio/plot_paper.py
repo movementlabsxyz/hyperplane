@@ -612,6 +612,327 @@ def plot_cat_success_percentage_violin(data: Dict[str, Any], param_name: str, re
         traceback.print_exc()
 
 
+def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+    """
+    Plot CAT pending postponed transactions violin plot for paper publication.
+    
+    This function creates a violin plot showing the distribution of CAT pending postponed
+    transaction counts across different CAT ratios, using data from individual runs.
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping CAT pending postponed violin plot")
+            return
+        
+        # Load data from the sweep results (same as overlay plots)
+        violin_data = []
+        labels = []
+        
+        for sim_index, result in enumerate(individual_results):
+            param_value = result[param_name]
+            labels.append(f'{param_value:.3f}')
+            
+            # Get the time series data from the sweep results (same as overlay plots)
+            cat_pending_postponed_data = result.get('chain_1_cat_pending_postponed', [])
+            
+            if cat_pending_postponed_data:
+                # Get the final value (last entry) from the time series
+                final_value = cat_pending_postponed_data[-1][1]  # (height, count) tuple
+                violin_data.append([final_value])  # Single value for this simulation
+            else:
+                violin_data.append([0])  # No data available
+        
+        if not violin_data or all(len(values) == 0 for values in violin_data):
+            print("Warning: No CAT pending postponed data found, skipping violin plot")
+            return
+        
+        # Create violin plot
+        plt.figure(figsize=(10, 6))
+        
+        # Create data structure for saving
+        violin_plot_data = {
+            'parameter_name': param_name,
+            'sweep_type': sweep_type,
+            'num_simulations': len(violin_data),
+            'data': []
+        }
+        
+        for i, (values, label) in enumerate(zip(violin_data, labels)):
+            violin_plot_data['data'].append({
+                'simulation_index': i,
+                'parameter_value': float(label),
+                'final_values': values,
+                'mean_value': np.mean(values),
+                'std_value': np.std(values),
+                'min_value': np.min(values),
+                'max_value': np.max(values)
+            })
+        
+        # Save the data
+        paper_data_dir = f'{results_dir}/data/paper'
+        os.makedirs(paper_data_dir, exist_ok=True)
+        violin_data_file = f'{paper_data_dir}/tx_pending_cat_postponed_violin.json'
+        with open(violin_data_file, 'w') as f:
+            json.dump(violin_plot_data, f, indent=2)
+        
+        # Create violin plot
+        violin_parts = plt.violinplot(violin_data, positions=range(len(violin_data)), showmeans=True)
+        
+        # Customize violin plot appearance
+        violin_parts['cmeans'].set_color('red')
+        violin_parts['cmeans'].set_linewidth(2)
+        violin_parts['cbars'].set_color('black')
+        violin_parts['cmins'].set_color('black')
+        violin_parts['cmaxes'].set_color('black')
+        
+        # Set x-axis labels
+        plt.xticks(range(len(violin_data)), labels)
+        
+        # Customize plot
+        plt.xlabel('CAT Ratio')
+        plt.ylabel('CAT Pending Postponed Transactions')
+        plt.title(f'CAT Pending Postponed Transactions Distribution by CAT Ratio - {create_sweep_title(param_name, sweep_type)}')
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        # Create the paper directory and plot
+        paper_dir = f'{results_dir}/figs/paper'
+        os.makedirs(paper_dir, exist_ok=True)
+        plt.savefig(f'{paper_dir}/tx_pending_cat_postponed_violin.png',
+                    dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # print(f"Generated violin plot: tx_pending_cat_postponed_violin.png")
+        
+    except Exception as e:
+        print(f"Error generating CAT pending postponed violin plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+    """
+    Plot CAT pending resolving transactions violin plot for paper publication.
+    
+    This function creates a violin plot showing the distribution of CAT pending resolving
+    transaction counts across different CAT ratios, using data from individual runs.
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping CAT pending resolving violin plot")
+            return
+        
+        # Load data from the sweep results (same as overlay plots)
+        violin_data = []
+        labels = []
+        
+        for sim_index, result in enumerate(individual_results):
+            param_value = result[param_name]
+            labels.append(f'{param_value:.3f}')
+            
+            # Get the time series data from the sweep results (same as overlay plots)
+            cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
+            
+            if cat_pending_resolving_data:
+                # Get the final value (last entry) from the time series
+                final_value = cat_pending_resolving_data[-1][1]  # (height, count) tuple
+                violin_data.append([final_value])  # Single value for this simulation
+            else:
+                violin_data.append([0])  # No data available
+        
+        if not violin_data or all(len(values) == 0 for values in violin_data):
+            print("Warning: No CAT pending resolving data found, skipping violin plot")
+            return
+        
+        # Create violin plot
+        plt.figure(figsize=(10, 6))
+        
+        # Create data structure for saving
+        violin_plot_data = {
+            'parameter_name': param_name,
+            'sweep_type': sweep_type,
+            'num_simulations': len(violin_data),
+            'data': []
+        }
+        
+        for i, (values, label) in enumerate(zip(violin_data, labels)):
+            violin_plot_data['data'].append({
+                'simulation_index': i,
+                'parameter_value': float(label),
+                'final_values': values,
+                'mean_value': np.mean(values),
+                'std_value': np.std(values),
+                'min_value': np.min(values),
+                'max_value': np.max(values)
+            })
+        
+        # Save the data
+        paper_data_dir = f'{results_dir}/data/paper'
+        os.makedirs(paper_data_dir, exist_ok=True)
+        violin_data_file = f'{paper_data_dir}/tx_pending_cat_resolving_violin.json'
+        with open(violin_data_file, 'w') as f:
+            json.dump(violin_plot_data, f, indent=2)
+        
+        # Create violin plot
+        violin_parts = plt.violinplot(violin_data, positions=range(len(violin_data)), showmeans=True)
+        
+        # Customize violin plot appearance
+        violin_parts['cmeans'].set_color('red')
+        violin_parts['cmeans'].set_linewidth(2)
+        violin_parts['cbars'].set_color('black')
+        violin_parts['cmins'].set_color('black')
+        violin_parts['cmaxes'].set_color('black')
+        
+        # Set x-axis labels
+        plt.xticks(range(len(violin_data)), labels)
+        
+        # Customize plot
+        plt.xlabel('CAT Ratio')
+        plt.ylabel('CAT Pending Resolving Transactions')
+        plt.title(f'CAT Pending Resolving Transactions Distribution by CAT Ratio - {create_sweep_title(param_name, sweep_type)}')
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        # Create the paper directory and plot
+        paper_dir = f'{results_dir}/figs/paper'
+        os.makedirs(paper_dir, exist_ok=True)
+        plt.savefig(f'{paper_dir}/tx_pending_cat_resolving_violin.png',
+                    dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # print(f"Generated violin plot: tx_pending_cat_resolving_violin.png")
+        
+    except Exception as e:
+        print(f"Error generating CAT pending resolving violin plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_tx_pending_regular_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+    """
+    Plot regular pending transactions violin plot for paper publication.
+    
+    This function creates a violin plot showing the distribution of regular pending
+    transaction counts across different CAT ratios, using data from individual runs.
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping regular pending violin plot")
+            return
+        
+        # Load individual run data for each simulation
+        violin_data = []
+        labels = []
+        
+        for sim_index, result in enumerate(individual_results):
+            param_value = result[param_name]
+            labels.append(f'{param_value:.3f}')
+            
+            # Load individual run data for this simulation
+            results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_cat_ratio'
+            sim_data_dir = f'../../../results/{results_dir_name}/data/sim_{sim_index}'
+            
+            # Get all run directories for this simulation
+            run_dirs = []
+            for item in os.listdir(sim_data_dir):
+                if item.startswith('run_') and os.path.isdir(os.path.join(sim_data_dir, item)):
+                    run_dirs.append(item)
+            run_dirs.sort()  # Ensure consistent ordering
+            
+            # Collect regular pending data from each run
+            regular_pending_values = []
+            
+            for run_dir in run_dirs:
+                run_data_file = f'{sim_data_dir}/{run_dir}/data/regular_pending_transactions_chain_1.json'
+                
+                if os.path.exists(run_data_file):
+                    with open(run_data_file, 'r') as f:
+                        run_data = json.load(f)
+                    
+                    if 'chain_1_regular_pending' in run_data:
+                        # Get the final value (last entry) from the time series
+                        time_series = run_data['chain_1_regular_pending']
+                        if time_series:
+                            # Get the last value (final count)
+                            final_value = time_series[-1]['count']
+                            regular_pending_values.append(final_value)
+            
+            violin_data.append(regular_pending_values)
+        
+        if not violin_data or all(len(values) == 0 for values in violin_data):
+            print("Warning: No regular pending data found, skipping violin plot")
+            return
+        
+        # Create violin plot
+        plt.figure(figsize=(10, 6))
+        
+        # Create data structure for saving
+        violin_plot_data = {
+            'parameter_name': param_name,
+            'sweep_type': sweep_type,
+            'num_simulations': len(violin_data),
+            'data': []
+        }
+        
+        for i, (values, label) in enumerate(zip(violin_data, labels)):
+            violin_plot_data['data'].append({
+                'simulation_index': i,
+                'parameter_value': float(label),
+                'final_values': values,
+                'mean_value': np.mean(values),
+                'std_value': np.std(values),
+                'min_value': np.min(values),
+                'max_value': np.max(values)
+            })
+        
+        # Save the data
+        paper_data_dir = f'{results_dir}/data/paper'
+        os.makedirs(paper_data_dir, exist_ok=True)
+        violin_data_file = f'{paper_data_dir}/tx_pending_regular_violin.json'
+        with open(violin_data_file, 'w') as f:
+            json.dump(violin_plot_data, f, indent=2)
+        
+        # Create violin plot
+        violin_parts = plt.violinplot(violin_data, positions=range(len(violin_data)), showmeans=True)
+        
+        # Customize violin plot appearance
+        violin_parts['cmeans'].set_color('red')
+        violin_parts['cmeans'].set_linewidth(2)
+        violin_parts['cbars'].set_color('black')
+        violin_parts['cmins'].set_color('black')
+        violin_parts['cmaxes'].set_color('black')
+        
+        # Set x-axis labels
+        plt.xticks(range(len(violin_data)), labels)
+        
+        # Customize plot
+        plt.xlabel('CAT Ratio')
+        plt.ylabel('Regular Pending Transactions')
+        plt.title(f'Regular Pending Transactions Distribution by CAT Ratio - {create_sweep_title(param_name, sweep_type)}')
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        # Create the paper directory and plot
+        paper_dir = f'{results_dir}/figs/paper'
+        os.makedirs(paper_dir, exist_ok=True)
+        plt.savefig(f'{paper_dir}/tx_pending_regular_violin.png',
+                    dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        # print(f"Generated violin plot: tx_pending_regular_violin.png")
+        
+    except Exception as e:
+        print(f"Error generating regular pending violin plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 def main():
     """Main function to generate paper-specific plots for CAT ratio sweep simulation."""
     # Configuration for this specific sweep
@@ -642,6 +963,9 @@ def main():
         plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
         plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
         plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

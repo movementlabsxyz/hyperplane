@@ -55,6 +55,8 @@ def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config
 # Transaction count plots with their percentage counterparts (regular and moving average)
 def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_config):
     # print("Generating tx_count plots and their percentage plots...")
+    
+    # First: Generate all base overlay plots (non-percentage)
     # tx_count overlays
     plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
@@ -67,10 +69,28 @@ def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_conf
     plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
+    
     # Total transaction plots
-    plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
-    plot_total_regular_transactions(data, param_name, results_dir, sweep_type)
-    plot_total_sumtypes_transactions(data, param_name, results_dir, sweep_type)
+    # plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
+    # plot_total_regular_transactions(data, param_name, results_dir, sweep_type)
+    # plot_total_sumtypes_transactions(data, param_name, results_dir, sweep_type)
+    
+    # Moving average overlays (if enabled)
+    if plot_config.get('plot_moving_average', False):
+        # print("Generating tx_count/moving_average plots...")
+        plot_transactions_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
+        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+    
+    # Last: Generate all percentage plots (after base plots are created)
     # tx_count percentage
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'success')
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'failure')
@@ -83,20 +103,10 @@ def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_conf
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'sumtypes', 'pending')
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
-    # tx_count/moving_average overlays and percentage
+    
+    # Moving average percentage plots (if enabled)
     if plot_config.get('plot_moving_average', False):
-        # print("Generating tx_count/moving_average plots and their percentage plots...")
-        plot_transactions_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_success', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_failure', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_resolving', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'cat_pending_postponed', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_pending', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_success', results_dir, sweep_type, plot_config)
-        plot_transactions_overlay_with_moving_average(data, param_name, 'regular_failure', results_dir, sweep_type, plot_config)
+        # print("Generating tx_count/moving_average percentage plots...")
         plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'success', plot_config)
         plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'failure', plot_config)
         plot_transaction_percentage_with_moving_average(data, param_name, results_dir, sweep_type, 'cat', 'pending', plot_config)
