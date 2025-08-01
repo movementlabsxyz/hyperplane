@@ -751,7 +751,7 @@ def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, 
             print("Warning: No individual results found, skipping CAT pending resolving violin plot")
             return
         
-        # Load run_0 data for each simulation to create violin plots
+        # Load data from the sweep results (same as overlay plots)
         violin_data = []
         labels = []
         
@@ -759,32 +759,44 @@ def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, 
             param_value = result[param_name]
             labels.append(f'{param_value:.3f}')
             
-            # Load run_0 data for this simulation
-            results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_cat_ratio'
-            sim_data_dir = f'../../../results/{results_dir_name}/data/sim_{sim_index}'
-            run_0_data_file = f'{sim_data_dir}/run_0/data/cat_pending_resolving_transactions_chain_1.json'
+            # Get the time series data from the sweep results (same as overlay plots)
+            cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
             
-            if os.path.exists(run_0_data_file):
-                with open(run_0_data_file, 'r') as f:
-                    run_data = json.load(f)
+            print(f"DEBUG: Simulation {sim_index} (CAT Ratio {param_value:.3f}):")
+            print(f"  - Found {len(cat_pending_resolving_data)} data points")
+            if cat_pending_resolving_data:
+                print(f"  - First 5 data points: {cat_pending_resolving_data[:5]}")
+                print(f"  - Last 5 data points: {cat_pending_resolving_data[-5:]}")
                 
-                if 'chain_1_cat_pending_resolving' in run_data:
-                    # Get all values from the time series
-                    time_series = run_data['chain_1_cat_pending_resolving']
-                    if time_series:
-                        # Extract all count values from the time series
-                        count_values = [entry['count'] for entry in time_series]
-                        violin_data.append(count_values)
-                    else:
-                        violin_data.append([0])
-                else:
-                    violin_data.append([0])
+                # Extract ALL count values from the time series
+                count_values = [entry[1] for entry in cat_pending_resolving_data]  # (height, count) tuples
+                print(f"  - Extracted {len(count_values)} count values")
+                print(f"  - Count values range: min={min(count_values)}, max={max(count_values)}, mean={np.mean(count_values):.2f}")
+                
+                # Cut off the first 30% to avoid initialization effects
+                cutoff_index = int(len(count_values) * 0.3)
+                trimmed_values = count_values[cutoff_index:]
+                print(f"  - After trimming first 30%: {len(trimmed_values)} values remain")
+                print(f"  - Trimmed values range: min={min(trimmed_values)}, max={max(trimmed_values)}, mean={np.mean(trimmed_values):.2f}")
+                
+                violin_data.append(trimmed_values)  # Trimmed values for this simulation
             else:
-                violin_data.append([0])
+                print(f"  - No data available")
+                violin_data.append([0])  # No data available
         
         if not violin_data or all(len(values) == 0 for values in violin_data):
             print("Warning: No CAT pending resolving data found, skipping violin plot")
             return
+        
+        # Debug: Print the data before creating violin plot
+        print("=== CAT Pending Resolving Violin Data ===")
+        for i, (values, label) in enumerate(zip(violin_data, labels)):
+            print(f"Simulation {i} (CAT Ratio {label}): {len(values)} values, min={min(values)}, max={max(values)}, mean={np.mean(values):.2f}")
+            if len(values) > 10:
+                print(f"  - Sample values: {values[:5]} ... {values[-5:]}")
+            else:
+                print(f"  - All values: {values}")
+        print("========================================")
         
         # Create violin plot
         plt.figure(figsize=(10, 6))
