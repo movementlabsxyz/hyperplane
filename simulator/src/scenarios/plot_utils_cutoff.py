@@ -230,7 +230,7 @@ def plot_transactions_cutoff_overlay(
                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated cutoff plot: {filename}")
+        # print(f"Generated cutoff plot: {filename}")
         
     except Exception as e:
         print(f"Error generating cutoff plot for {transaction_type}: {e}")

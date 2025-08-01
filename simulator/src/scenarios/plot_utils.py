@@ -943,7 +943,7 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
         
         # Generate individual curves plots for each simulation
         for sim_index, result in enumerate(individual_results):
-            print(f"Generating individual curves plots for simulation {sim_index}...")
+            # print(f"Generating individual curves plots for simulation {sim_index}...")
             
             # Get the parameter value for this simulation
             param_value = result[param_name]

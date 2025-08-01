@@ -161,7 +161,7 @@ def plot_transactions_overlay_with_moving_average(
                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated moving average plot: {filename}")
+        # print(f"Generated moving average plot: {filename}")
         
     except Exception as e:
         print(f"Error generating moving average plot for {transaction_type}: {e}")
@@ -290,7 +290,7 @@ def plot_transactions_delta_overlay_with_moving_average(
                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated delta moving average plot: {filename}")
+        # print(f"Generated delta moving average plot: {filename}")
         
     except Exception as e:
         print(f"Error generating delta moving average plot for {transaction_type}: {e}")

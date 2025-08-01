@@ -145,6 +145,11 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
             for height, count in tx_data:
                 heights.append(height)
                 
+                # Initialize variables to avoid scope issues
+                success_at_height = 0
+                failure_at_height = 0
+                pending_at_height = 0
+                
                 # Calculate percentage using counts at this specific height (not cumulative)
                 if transaction_type == 'cat':
                     # For CAT transactions, get all status data
@@ -552,7 +557,7 @@ def plot_transaction_percentage_delta(data: Dict[str, Any], param_name: str, res
                 continue
             
             # Calculate deltas from percentage data
-            from plot_utils import calculate_delta_from_counts
+            from plot_utils_delta import calculate_delta_from_counts
             percentage_data = list(zip(heights, percentages))
             delta_data = calculate_delta_from_counts(percentage_data)
             
@@ -1201,7 +1206,7 @@ def plot_transaction_percentage_delta_with_moving_average(
                 continue
             
             # Calculate deltas from percentage data
-            from plot_utils import calculate_delta_from_counts
+            from plot_utils_delta import calculate_delta_from_counts
             percentage_data = list(zip(heights, percentages))
             delta_data = calculate_delta_from_counts(percentage_data)
             

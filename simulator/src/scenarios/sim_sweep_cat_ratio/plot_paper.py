@@ -123,7 +123,7 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
         plt.figure(figsize=(10, 6))
         
         # Create color gradient using coolwarm colormap
-        colors = plt.cm.get_cmap('coolwarm')(np.linspace(0, 1, len(individual_results)))
+        colors = plt.colormaps['coolwarm'](np.linspace(0, 1, len(individual_results)))
         
         # Track maximum height for xlim
         max_height = 0
@@ -277,7 +277,7 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated paper plot: {filename}")
+        # print(f"Generated paper plot: {filename}")
         
     except Exception as e:
         print(f"Error generating paper plot: {e}")
@@ -422,7 +422,7 @@ def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: s
                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated violin plot: cat_success_percentage_violin_paper.png")
+        # print(f"Generated violin plot: cat_success_percentage_violin_paper.png")
         
     except Exception as e:
         print(f"Error generating violin plot: {e}")
@@ -604,7 +604,7 @@ def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param
                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated violin plot: cat_success_percentage_violin_by_simulation.png")
+        # print(f"Generated violin plot: cat_success_percentage_violin_by_simulation.png")
         
     except Exception as e:
         print(f"Error generating violin plot: {e}")

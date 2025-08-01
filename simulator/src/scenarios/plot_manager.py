@@ -38,7 +38,7 @@ def generate_paper_plots(*args, **kwargs):
 
 # System performance and resource usage plots (CPU, memory, TPS, etc.)
 def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config):
-    print("Generating system plots...")
+    # print("Generating system plots...")
     plot_sweep_summary(data, param_name, results_dir, sweep_type)
     plot_sweep_locked_keys(data, param_name, results_dir, sweep_type)
     plot_sweep_transactions_per_block(data, param_name, results_dir, sweep_type)
@@ -53,7 +53,7 @@ def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config
 
 # Transaction count plots with their percentage counterparts (regular and moving average)
 def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_config):
-    print("Generating tx_count plots and their percentage plots...")
+    # print("Generating tx_count plots and their percentage plots...")
     # tx_count overlays
     plot_transactions_overlay(data, param_name, 'pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'success', results_dir, sweep_type)
@@ -80,7 +80,7 @@ def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_conf
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
     # tx_count/moving_average overlays and percentage
     if plot_config.get('plot_moving_average', False):
-        print("Generating tx_count/moving_average plots and their percentage plots...")
+        # print("Generating tx_count/moving_average plots and their percentage plots...")
         plot_transactions_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
         plot_transactions_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
         plot_transactions_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
@@ -106,7 +106,7 @@ def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_conf
 
 # Transaction count plots with cutoff applied (data trimmed and offset subtracted)
 def generate_tx_count_cutoff_plots(data, param_name, results_dir, sweep_type, plot_config):
-    print("Generating tx_count_cutoff plots and their percentage plots...")
+    # print("Generating tx_count_cutoff plots and their percentage plots...")
     plot_transactions_cutoff_overlay(data, param_name, 'pending', results_dir, sweep_type, plot_config)
     plot_transactions_cutoff_overlay(data, param_name, 'success', results_dir, sweep_type, plot_config)
     plot_transactions_cutoff_overlay(data, param_name, 'failure', results_dir, sweep_type, plot_config)
@@ -133,7 +133,7 @@ def generate_tx_count_cutoff_plots(data, param_name, results_dir, sweep_type, pl
 
 # Transaction delta plots (rate of change) with their percentage counterparts
 def generate_tx_count_delta_plots(data, param_name, results_dir, sweep_type, plot_config):
-    print("Generating tx_count_delta plots and their percentage plots...")
+    # print("Generating tx_count_delta plots and their percentage plots...")
     plot_transactions_delta_overlay(data, param_name, 'pending', results_dir, sweep_type)
     plot_transactions_delta_overlay(data, param_name, 'success', results_dir, sweep_type)
     plot_transactions_delta_overlay(data, param_name, 'failure', results_dir, sweep_type)
@@ -157,7 +157,7 @@ def generate_tx_count_delta_plots(data, param_name, results_dir, sweep_type, plo
     plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_resolving', 'pending')
     plot_transaction_percentage_delta(data, param_name, results_dir, sweep_type, 'cat_pending_postponed', 'pending')
     if plot_config.get('plot_moving_average', False):
-        print("Generating tx_count_delta/moving_average plots and their percentage plots...")
+        # print("Generating tx_count_delta/moving_average plots and their percentage plots...")
         plot_transactions_delta_overlay_with_moving_average(data, param_name, 'pending', results_dir, sweep_type, plot_config)
         plot_transactions_delta_overlay_with_moving_average(data, param_name, 'success', results_dir, sweep_type, plot_config)
         plot_transactions_delta_overlay_with_moving_average(data, param_name, 'failure', results_dir, sweep_type, plot_config)
@@ -183,7 +183,7 @@ def generate_tx_count_delta_plots(data, param_name, results_dir, sweep_type, plo
 
 # Individual simulation plots (one folder per simulation with detailed curves)
 def generate_sim_x_plots(data, param_name, results_dir, sweep_type, plot_config):
-    print("Generating individual curves plots for each simulation...")
+    # print("Generating individual curves plots for each simulation...")
     generate_individual_curves_plots(data, param_name, results_dir, sweep_type)
 
 def generate_organized_plots(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
