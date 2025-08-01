@@ -305,6 +305,306 @@ def plot_cat_pending_postponed(data: Dict[str, Any], param_name: str, results_di
     """Plot CAT pending postponed transactions overlay"""
     plot_transactions_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
 
+
+def plot_total_cat_transactions(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot total CAT transactions (success + failure + pending) over time."""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping total CAT transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's total CAT transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # Get CAT success, failure, and pending data
+            cat_success_data = result.get('chain_1_cat_success', [])
+            cat_failure_data = result.get('chain_1_cat_failure', [])
+            cat_pending_data = result.get('chain_1_cat_pending', [])
+            
+            # Create a combined dataset by summing all CAT transactions at each height
+            combined_data = {}
+            
+            # Add CAT success data
+            for height, count in cat_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT failure data
+            for height, count in cat_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT pending data
+            for height, count in cat_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Convert back to sorted list of tuples
+            chain_data = sorted(combined_data.items())
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename
+        title = f'Total CAT Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        filename = 'tx_sumStates_cat.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel('Total CAT Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper left")
+        plt.tight_layout()
+        
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error generating total CAT transactions plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_total_regular_transactions(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot total regular transactions (success + failure + pending) over time."""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping total regular transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's total regular transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # Get regular success, failure, and pending data
+            regular_success_data = result.get('chain_1_regular_success', [])
+            regular_failure_data = result.get('chain_1_regular_failure', [])
+            regular_pending_data = result.get('chain_1_regular_pending', [])
+            
+            # Create a combined dataset by summing all regular transactions at each height
+            combined_data = {}
+            
+            # Add regular success data
+            for height, count in regular_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular failure data
+            for height, count in regular_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular pending data
+            for height, count in regular_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Convert back to sorted list of tuples
+            chain_data = sorted(combined_data.items())
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename
+        title = f'Total Regular Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        filename = 'tx_sumStates_regular.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel('Total Regular Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper left")
+        plt.tight_layout()
+        
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error generating total regular transactions plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_total_sumtypes_transactions(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot total sumtypes transactions (CAT + regular) over time."""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping total sumtypes transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's total sumtypes transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # Get CAT success, failure, and pending data
+            cat_success_data = result.get('chain_1_cat_success', [])
+            cat_failure_data = result.get('chain_1_cat_failure', [])
+            cat_pending_data = result.get('chain_1_cat_pending', [])
+            
+            # Get regular success, failure, and pending data
+            regular_success_data = result.get('chain_1_regular_success', [])
+            regular_failure_data = result.get('chain_1_regular_failure', [])
+            regular_pending_data = result.get('chain_1_regular_pending', [])
+            
+            # Create a combined dataset by summing all transactions at each height
+            combined_data = {}
+            
+            # Add CAT success data
+            for height, count in cat_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT failure data
+            for height, count in cat_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT pending data
+            for height, count in cat_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular success data
+            for height, count in regular_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular failure data
+            for height, count in regular_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular pending data
+            for height, count in regular_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Convert back to sorted list of tuples
+            chain_data = sorted(combined_data.items())
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename
+        title = f'Total SumTypes Transactions (CAT + Regular) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        filename = 'tx_sumStates_sumTypes.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel('Total SumTypes Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper left")
+        plt.tight_layout()
+        
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error generating total sumtypes transactions plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 # ------------------------------------------------------------------------------------------------
 # Summary Chart Plotting
 # ------------------------------------------------------------------------------------------------

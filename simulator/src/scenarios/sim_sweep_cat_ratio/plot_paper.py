@@ -430,7 +430,7 @@ def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: s
         traceback.print_exc()
 
 
-def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+def plot_cat_success_percentage_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
     """
     Plot CAT success percentage violin plot for paper publication.
     
@@ -571,7 +571,7 @@ def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param
             })
         
         # Save the data
-        violin_data_file = f'{paper_data_dir}/cat_success_percentage_violin_by_simulation.json'
+        violin_data_file = f'{paper_data_dir}/cat_success_percentage_violin.json'
         with open(violin_data_file, 'w') as f:
             json.dump(violin_plot_data, f, indent=2)
         
@@ -600,11 +600,11 @@ def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param
         # Create the paper directory and plot
         paper_dir = f'{results_dir}/figs/paper'
         os.makedirs(paper_dir, exist_ok=True)
-        plt.savefig(f'{paper_dir}/cat_success_percentage_violin_by_simulation.png', 
-                   dpi=300, bbox_inches='tight')
+        plt.savefig(f'{paper_dir}/cat_success_percentage_violin.png',
+                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        # print(f"Generated violin plot: cat_success_percentage_violin_by_simulation.png")
+        # print(f"Generated violin plot: cat_success_percentage_violin.png")
         
     except Exception as e:
         print(f"Error generating violin plot: {e}")
@@ -641,7 +641,7 @@ def main():
         # Generate paper-specific plots
         plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
         plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
-        plot_cat_success_percentage_violin_by_simulation(data, param_name, results_dir, sweep_type, plot_config)
+        plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

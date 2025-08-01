@@ -10,7 +10,8 @@ from typing import Dict, Any
 from plot_utils import (
     plot_sweep_summary, plot_sweep_locked_keys, plot_sweep_locked_keys_with_pending,
     plot_sweep_transactions_per_block, generate_individual_curves_plots,
-    plot_transactions_overlay, plot_sweep_tpb_moving_average
+    plot_transactions_overlay, plot_sweep_tpb_moving_average,
+    plot_total_cat_transactions, plot_total_regular_transactions, plot_total_sumtypes_transactions
 )
 from plot_system import (
     plot_system_memory, plot_system_memory_total,
@@ -66,6 +67,10 @@ def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_conf
     plot_transactions_overlay(data, param_name, 'regular_pending', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_success', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
+    # Total transaction plots
+    plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_regular_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_sumtypes_transactions(data, param_name, results_dir, sweep_type)
     # tx_count percentage
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'success')
     plot_transaction_percentage(data, param_name, results_dir, sweep_type, 'cat', 'failure')
