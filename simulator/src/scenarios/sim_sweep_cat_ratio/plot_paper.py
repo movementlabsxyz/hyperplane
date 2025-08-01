@@ -648,6 +648,12 @@ def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, 
             print("Warning: No CAT pending postponed data found, skipping violin plot")
             return
         
+        # Debug: Print the data before creating violin plot
+        print("=== CAT Pending Postponed Violin Data ===")
+        for i, (values, label) in enumerate(zip(violin_data, labels)):
+            print(f"Simulation {i} (CAT Ratio {label}): {len(values)} values, min={min(values)}, max={max(values)}, mean={np.mean(values):.2f}")
+        print("========================================")
+        
         # Create violin plot
         plt.figure(figsize=(10, 6))
         
@@ -726,7 +732,7 @@ def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, 
             print("Warning: No individual results found, skipping CAT pending resolving violin plot")
             return
         
-        # Load data from the sweep results (same as overlay plots)
+        # Load run_0 data for each simulation to create violin plots
         violin_data = []
         labels = []
         
@@ -734,15 +740,28 @@ def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, 
             param_value = result[param_name]
             labels.append(f'{param_value:.3f}')
             
-            # Get the time series data from the sweep results (same as overlay plots)
-            cat_pending_resolving_data = result.get('chain_1_cat_pending_resolving', [])
+            # Load run_0 data for this simulation
+            results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_cat_ratio'
+            sim_data_dir = f'../../../results/{results_dir_name}/data/sim_{sim_index}'
+            run_0_data_file = f'{sim_data_dir}/run_0/data/cat_pending_resolving_transactions_chain_1.json'
             
-            if cat_pending_resolving_data:
-                # Get the final value (last entry) from the time series
-                final_value = cat_pending_resolving_data[-1][1]  # (height, count) tuple
-                violin_data.append([final_value])  # Single value for this simulation
+            if os.path.exists(run_0_data_file):
+                with open(run_0_data_file, 'r') as f:
+                    run_data = json.load(f)
+                
+                if 'chain_1_cat_pending_resolving' in run_data:
+                    # Get all values from the time series
+                    time_series = run_data['chain_1_cat_pending_resolving']
+                    if time_series:
+                        # Extract all count values from the time series
+                        count_values = [entry['count'] for entry in time_series]
+                        violin_data.append(count_values)
+                    else:
+                        violin_data.append([0])
+                else:
+                    violin_data.append([0])
             else:
-                violin_data.append([0])  # No data available
+                violin_data.append([0])
         
         if not violin_data or all(len(values) == 0 for values in violin_data):
             print("Warning: No CAT pending resolving data found, skipping violin plot")
@@ -963,7 +982,9 @@ def main():
         plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
         plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
         plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+        print("DEBUG: About to run postponed violin plot...")
         plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
+        print("DEBUG: About to run resolving violin plot...")
         plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
         plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
         

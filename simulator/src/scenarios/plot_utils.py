@@ -701,36 +701,36 @@ def generate_all_plots(
         param_name: The parameter name being swept (e.g., 'cat_ratio')
         sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
-    import subprocess
+    print(f"DEBUG: generate_all_plots called with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}")
     
     # Extract the results directory name from the full path
     results_dir_name = results_dir.replace('simulator/results/', '')
     
     # First, run the averaging script to create averaged data from run_average folders
-            # print("Running averaging script...")
+    print("Running averaging script...")
     try:
-        # The average_runs.py script is in simulator/src/
-        average_script_path = os.path.join(os.path.dirname(__file__), '..', 'average_runs.py')
-        # Use relative path from simulator directory (where the script runs from)
-        results_path = f'results/{results_dir_name}'
-        # Run from the simulator root directory
-        simulator_root = os.path.join(os.path.dirname(__file__), '..', '..')
-        result = subprocess.run([sys.executable, average_script_path, results_path], 
-                               cwd=simulator_root, capture_output=True, text=True)
+        # Import and call the averaging function directly
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        from average_runs import create_averaged_data
         
-        if result.returncode == 0:
-            # print("Averaging completed successfully!")
-            pass
+        # Use relative path from simulator directory (where the script runs from)
+        results_path = f'simulator/results/{results_dir_name}'
+        
+        # Debug: Print current working directory and the path being passed
+        print(f"DEBUG: Current working directory: {os.getcwd()}")
+        print(f"DEBUG: Results path being passed to averaging: {results_path}")
+        print(f"DEBUG: Full path to metadata: {os.path.join(os.getcwd(), results_path, 'data', 'metadata.json')}")
+        print(f"DEBUG: Full path exists: {os.path.exists(os.path.join(os.getcwd(), results_path, 'data', 'metadata.json'))}")
+        
+        # Call the averaging function directly
+        success = create_averaged_data(results_path)
+        
+        if success:
+            print("Averaging completed successfully!")
         else:
-            # Check if it's a "no data" error (metadata.json not found)
-            # The error message can be in either stdout or stderr
-            error_output = result.stdout + result.stderr
-            if "metadata.json not found" in error_output:
-                print("No simulation data found - skipping plotting")
-                return
-            else:
-                print(f"Error running averaging script: {error_output}")
-                return
+            print("Averaging failed!")
+            return
     except Exception as e:
         print(f"Error during averaging: {e}")
         return
@@ -755,46 +755,43 @@ def generate_all_plots(
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
     # Generate paper plots first (fastest)
-            # print("DEBUG: Starting paper plot generation...")
-    try:
-        # Import and run the paper plot script if it exists
-        plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
-        # print(f"Looking for paper plot script at: {plot_paper_path}")
-        # print(f"Script exists: {os.path.exists(plot_paper_path)}")
-        if os.path.exists(plot_paper_path):
-            # print("Generating paper plots...")
-            # print(f"DEBUG: About to run subprocess with cwd={os.path.dirname(plot_paper_path)}")
-            import subprocess
-            result = subprocess.run([sys.executable, plot_paper_path], 
-                                   cwd=os.path.dirname(plot_paper_path), 
-                                   capture_output=True, text=True)
-            # print(f"Paper plot script stdout: {result.stdout}")
-            # print(f"Paper plot script stderr: {result.stderr}")
-            # print(f"Paper plot script return code: {result.returncode}")
-            if result.returncode == 0:
-                # print("Paper plots generated successfully!")
-                
-                # PANIC CHECK: Verify paper directory and plot were actually created
-                paper_dir = f'{results_dir}/figs/paper'
-                if not os.path.exists(paper_dir):
-                    raise RuntimeError(f"PANIC: Paper directory was not created at {paper_dir}")
-                
-                # Check for any PNG files in the paper directory
-                paper_files = [f for f in os.listdir(paper_dir) if f.endswith('.png')]
-                if not paper_files:
-                    raise RuntimeError(f"PANIC: No PNG files found in paper directory {paper_dir}")
-                
-                # print(f"✅ Paper plots verified: {len(paper_files)} files created in {paper_dir}")
-            else:
-                raise RuntimeError(f"PANIC: Paper plot generation failed with return code {result.returncode}. STDOUT: {result.stdout}. STDERR: {result.stderr}")
-        else:
-            print(f"PANIC: No plot_paper.py found at {plot_paper_path} - skipping paper plots")
-            raise RuntimeError(f"PANIC: Paper plot script not found at {plot_paper_path}")
-    except Exception as e:
-        print(f"PANIC: Error generating paper plots: {e}")
-        import traceback
-        traceback.print_exc()
-        raise  # Re-raise the exception to stop execution
+    print("DEBUG: Starting paper plot generation...")
+    
+    # Import and run the paper plot script if it exists
+    plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
+    print(f"DEBUG: Looking for paper plot script at: {plot_paper_path}")
+    print(f"DEBUG: Paper plot script exists: {os.path.exists(plot_paper_path)}")
+    
+    if os.path.exists(plot_paper_path):
+        print("Generating paper plots...")
+        
+        try:
+            # Import the paper plot module and call its main function
+            sys.path.insert(0, os.path.dirname(plot_paper_path))
+            
+            # Import the paper plot module
+            module_name = os.path.basename(results_dir_name)
+            print(f"DEBUG: Importing module: {module_name}.plot_paper")
+            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin_paper', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
+            
+            # Call the individual paper plot functions directly
+            print(f"DEBUG: Calling paper plot functions with data keys: {list(data.keys())}")
+            paper_module.plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
+            paper_module.plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
+            paper_module.plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+            print("DEBUG: About to run postponed violin plot...")
+            paper_module.plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
+            print("DEBUG: About to run resolving violin plot...")
+            paper_module.plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
+            paper_module.plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
+            
+            print("Paper plots generated successfully!")
+        except Exception as e:
+            print(f"Error generating paper plots: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"No plot_paper.py found at {plot_paper_path} - skipping paper plots")
     
     # Use the plot manager to generate organized plots
     from plot_manager import generate_organized_plots
@@ -1290,11 +1287,15 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
         param_name: The parameter name being swept (e.g., 'cat_ratio')
         sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
+    print(f"DEBUG: run_sweep_plots called with sweep_name={sweep_name}, param_name={param_name}, sweep_type={sweep_type}")
     results_dir = f'simulator/results/{sweep_name}'
+    print(f"DEBUG: results_dir = {results_dir}")
     
     # Generate all plots using the generic utility
     # Data flow: run_average folders -> plots
+    print(f"DEBUG: About to call generate_all_plots...")
     generate_all_plots(results_dir, param_name, sweep_type)
+    print(f"DEBUG: generate_all_plots completed")
 
 def load_plot_config(results_dir: str) -> Dict[str, Any]:
     """

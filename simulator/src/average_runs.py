@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import json
 import glob
 from collections import defaultdict
@@ -289,7 +290,6 @@ def create_averaged_data(results_dir):
 
 def main():
     """Main function to run the averaging process."""
-    import sys
     
     if len(sys.argv) != 2:
         print("Usage: python3 average_runs.py <results_dir>")

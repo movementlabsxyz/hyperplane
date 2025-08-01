@@ -222,18 +222,20 @@ impl SimulatorInterface {
             _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
         };
 
-        let output = Command::new("python3")
+        println!("DEBUG: About to execute Python script: {}", script_path);
+        let mut child = Command::new("python3")
             .arg(script_path)
-            .output()
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .spawn()
             .map_err(|e| format!("Failed to execute plotting script: {}", e))?;
+        
+        let status = child.wait()
+            .map_err(|e| format!("Failed to wait for plotting script: {}", e))?;
+        println!("DEBUG: Python script execution completed, status: {}", status);
 
-        if !output.status.success() {
-            let error_msg = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Plot generation failed: {}", error_msg));
-        }
-
-        if !output.stdout.is_empty() {
-            println!("Plot output: {}", String::from_utf8_lossy(&output.stdout));
+        if !status.success() {
+            return Err(format!("Plot generation failed with status: {}", status));
         }
 
         Ok(())
