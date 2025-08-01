@@ -125,7 +125,7 @@ pub struct SimulationConfig {
     pub cat_lifetime_step: Option<u64>,
     /// Step size for CAT ratio sweeps
     #[serde(default)]
-    pub cat_rate_step: Option<f64>,
+    pub cat_ratio_step: Option<f64>,
     /// Step size for chain delay sweeps
     #[serde(default)]
     pub chain_delay_step: Option<f64>,
@@ -154,7 +154,7 @@ impl Default for SimulationConfig {
             num_runs: 1,
             num_simulations: None,
             cat_lifetime_step: None,
-            cat_rate_step: None,
+            cat_ratio_step: None,
             chain_delay_step: None,
             block_interval_step: None,
             zipf_step: None,

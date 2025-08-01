@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Paper-specific plotting script for CAT Rate Sweep Simulation
+Paper-specific plotting script for CAT Ratio Sweep Simulation
 
 This script generates plots specifically designed for paper publication,
 including CAT success percentage with average and individual curves overlaid.
@@ -499,19 +499,19 @@ def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: s
         traceback.print_exc()
 
 def main():
-    """Main function to generate paper-specific plots for cat rate sweep simulation."""
+    """Main function to generate paper-specific plots for CAT ratio sweep simulation."""
     # Configuration for this specific sweep
     param_name = 'cat_ratio'
-    results_dir = '../../../results/sim_sweep_cat_rate'
-    sweep_type = 'CAT Rate'
+    results_dir = '../../../results/sim_sweep_cat_ratio'
+    sweep_type = 'CAT Ratio'
     
     # Load sweep data directly from run_average folders
     try:
-        # Import the data loading function from plot_utils (same as cat_rate)
+        # Import the data loading function from plot_utils (same as cat_ratio)
         from plot_utils import load_sweep_data_from_run_average
         
         # Load data directly from run_average folders
-        results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_cat_rate'
+        results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_cat_ratio'
         data = load_sweep_data_from_run_average(results_dir_name, '../../../results')
         
         # Check if we have any data to plot

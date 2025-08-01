@@ -27,7 +27,7 @@ COLORMAP = 'viridis'  # Change this to switch colormaps globally
 PARAM_DISPLAY_NAMES = {
     'zipf_parameter': 'Zipf Parameter',
     'block_interval': 'Block Interval (seconds)',
-    'cat_rate': 'CAT Rate',
+    'cat_ratio': 'CAT Ratio',
     'chain_delay': 'Chain Delay (blocks)',
     'duration': 'Duration (blocks)',
     'cat_lifetime': 'CAT Lifetime (blocks)',
@@ -143,8 +143,8 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
         return f'Zipf: {param_value:.3f}'
     elif param_name == 'block_interval':
         return f'Block Interval: {param_value:.3f}s'
-    elif param_name == 'cat_rate':
-        return f'CAT Rate: {param_value:.3f}'
+    elif param_name == 'cat_ratio':
+        return f'CAT Ratio: {param_value:.3f}'
     elif param_name == 'chain_delay':
         return f'Chain Delay: {param_value:.1f} blocks'
     elif param_name == 'duration':
@@ -397,9 +397,9 @@ def generate_all_plots(
     3. Generates all plots from the run_average data
     
     Args:
-        results_dir: The full path to the results directory (e.g., 'simulator/results/sim_sweep_cat_rate')
-        param_name: The parameter name being swept (e.g., 'cat_rate')
-        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+        results_dir: The full path to the results directory (e.g., 'simulator/results/sim_sweep_cat_ratio')
+        param_name: The parameter name being swept (e.g., 'cat_ratio')
+        sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
     import subprocess
     
@@ -510,7 +510,7 @@ def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: s
     # Arguments
     * `data` - The sweep data containing individual results
     * `param_name` - Name of the parameter being swept
-    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_ratio')
     * `sweep_type` - Type of sweep simulation
     """
     try:
@@ -587,7 +587,7 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
     # Arguments
     * `data` - The sweep data containing individual results
     * `param_name` - Name of the parameter being swept
-    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_ratio')
     * `sweep_type` - Type of sweep simulation
     """
     try:
@@ -692,7 +692,7 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
     # Arguments
     * `data` - The sweep data containing individual results
     * `param_name` - Name of the parameter being swept
-    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_ratio')
     * `sweep_type` - Type of sweep simulation
     """
     try:
@@ -985,9 +985,9 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     3. Generates all plots from the run_average data
     
     Args:
-        sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_rate')
-        param_name: The parameter name being swept (e.g., 'cat_rate')
-        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+        sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_ratio')
+        param_name: The parameter name being swept (e.g., 'cat_ratio')
+        sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
     results_dir = f'simulator/results/{sweep_name}'
     
@@ -997,7 +997,7 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
 
 def load_plot_config(results_dir: str) -> Dict[str, Any]:
     """
-    Load plot configuration from the sweep config file.
+    Load plot configuration from the results data directory or fallback to source config.
     
     Args:
         results_dir: The results directory path
@@ -1009,13 +1009,14 @@ def load_plot_config(results_dir: str) -> Dict[str, Any]:
         FileNotFoundError: If the config file doesn't exist
         Exception: If there's an error parsing the TOML or missing required parameters
     """
-    # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_rate' from 'simulator/results/sim_sweep_cat_rate')
+    # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_ratio' from 'simulator/results/sim_sweep_cat_ratio')
     sweep_name = results_dir.split('/')[-1]
     
-    # Try different possible paths for the config file
+    # Try different possible paths for the config file, prioritizing results data directory
     possible_paths = [
-        'config.toml',  # When called from paper plot script (working directory is scenario directory)
-        f'simulator/src/scenarios/{sweep_name}/config.toml',  # When called from main plotting functions
+        f'{results_dir}/data/config.toml',  # Primary: results data directory (actual simulation config)
+        'config.toml',  # Fallback: when called from paper plot script (working directory is scenario directory)
+        f'simulator/src/scenarios/{sweep_name}/config.toml',  # Fallback: when called from main plotting functions
     ]
     
     config_path = None

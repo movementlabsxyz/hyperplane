@@ -38,10 +38,10 @@ pub async fn run_all_tests() -> Result<(), crate::config::ConfigError> {
     logging::log("SIMULATOR", "------------ 6. Sweep CAT Pending Dependencies -----------");
     crate::scenarios::sim_sweep_cat_pending_dependencies::simulation::run_with_plotting().await?;
     
-    // 7. CAT rate sweep
-    println!("\n------------ 7. Sweep CAT Rate -----------");
-    logging::log("SIMULATOR", "------------ 7. Sweep CAT Rate -----------");
-    crate::scenarios::sim_sweep_cat_rate::simulation::run_with_plotting().await?;
+    // 7. CAT ratio sweep
+    println!("\n------------ 7. Sweep CAT Ratio -----------");
+    logging::log("SIMULATOR", "------------ 7. Sweep CAT Ratio -----------");
+    crate::scenarios::sim_sweep_cat_ratio::simulation::run_with_plotting().await?;
     
     // 8. Chain delay sweep
     println!("\n------------ 8. Sweep Chain Delay -----------");

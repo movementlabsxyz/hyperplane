@@ -17,10 +17,10 @@ from plot_utils import run_sweep_plots
 
 # Configuration for all sweep types
 SWEEP_CONFIGS = {
-    'cat_rate': {
-        'sweep_name': 'sim_sweep_cat_rate',
-        'param_name': 'cat_rate',
-        'sweep_type': 'CAT Rate'
+    'cat_ratio': {
+        'sweep_name': 'sim_sweep_cat_ratio',
+        'param_name': 'cat_ratio',
+        'sweep_type': 'CAT Ratio'
     },
     'cat_lifetime': {
         'sweep_name': 'sim_sweep_cat_lifetime',

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Plotting script for CAT Rate Sweep Simulation
+Plotting script for CAT Ratio Sweep Simulation
 
-This script generates plots for the CAT rate sweep using the generic
+This script generates plots for the CAT ratio sweep using the generic
 plotting utilities to eliminate code duplication.
 """
 
@@ -14,11 +14,11 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from plot_utils import generate_all_plots
 
 def main():
-    """Main function to generate plots for CAT rate sweep simulation."""
+    """Main function to generate plots for CAT ratio sweep simulation."""
     # Configuration for this specific sweep
     param_name = 'cat_ratio'
-    results_dir = 'simulator/results/sim_sweep_cat_rate'
-    sweep_type = 'CAT Rate'
+    results_dir = 'simulator/results/sim_sweep_cat_ratio'
+    sweep_type = 'CAT Ratio'
     
     # Generate all plots using the generic utility
     # Data flow: run_average folders -> sweep_results_averaged.json -> plots

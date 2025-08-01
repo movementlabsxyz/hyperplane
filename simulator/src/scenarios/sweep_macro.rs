@@ -12,8 +12,8 @@
 /// 
 /// # Parameters
 /// 
-/// * `$dir_name` - The directory name for the sweep (e.g., "sim_sweep_cat_rate")
-/// * `$config_name` - The name of the config struct to generate (e.g., SweepCatRateConfig)
+/// * `$dir_name` - The directory name for the sweep (e.g., "sim_sweep_cat_ratio")
+/// * `$config_name` - The name of the config struct to generate (e.g., SweepCatRatioConfig)
 /// * `validate_sweep_specific` - A closure that implements sweep-specific validation logic
 /// 
 /// # Generated Code
@@ -29,11 +29,11 @@
 /// **New format with custom sweep parameters:**
 /// ```rust
 /// define_sweep_config!(
-///     "sim_sweep_cat_rate",
-///     SweepCatRateConfig,
+///     "sim_sweep_cat_ratio",
+///     SweepCatRatioConfig,
 ///     validate_sweep_specific = |self_: &Self| {
-///         if self_.sweep.cat_rate_step <= 0.0 {
-///             return Err(ConfigError::ValidationError("CAT rate step must be positive".into()));
+///         if self_.sweep.cat_ratio_step <= 0.0 {
+///             return Err(ConfigError::ValidationError("CAT ratio step must be positive".into()));
 ///         }
 ///         Ok(())
 ///     }

@@ -67,7 +67,7 @@ pub use testnodes::*;
 pub use scenarios::sim_simple::simulation::run_simple_simulation;
 
 // Sweep simulations
-pub use scenarios::sim_sweep_cat_rate::simulation::run_sweep_cat_rate_simulation;
+pub use scenarios::sim_sweep_cat_ratio::simulation::run_sweep_cat_ratio_simulation;
 pub use scenarios::sim_sweep_zipf::simulation::run_sweep_zipf_simulation;
 pub use scenarios::sim_sweep_chain_delay::simulation::run_sweep_chain_delay;
 pub use scenarios::sim_sweep_total_block_number::simulation::run_sweep_total_block_number;

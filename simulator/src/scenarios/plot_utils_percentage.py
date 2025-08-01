@@ -28,8 +28,8 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
         return f'Zipf: {param_value:.3f}'
     elif param_name == 'block_interval':
         return f'Block Interval: {param_value:.3f}s'
-    elif param_name == 'cat_rate':
-        return f'CAT Rate: {param_value:.3f}'
+    elif param_name == 'cat_ratio':
+        return f'CAT Ratio: {param_value:.3f}'
     elif param_name == 'chain_delay':
         return f'Chain Delay: {param_value:.1f} blocks'
     elif param_name == 'duration':

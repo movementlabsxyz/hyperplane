@@ -289,7 +289,7 @@ def main():
     
     if len(sys.argv) != 2:
         print("Usage: python3 average_runs.py <results_dir>")
-        print("Example: python3 average_runs.py ../../../results/sim_sweep_cat_rate")
+        print("Example: python3 average_runs.py ../../../results/sim_sweep_cat_ratio")
         return 1
     
     results_dir = sys.argv[1]

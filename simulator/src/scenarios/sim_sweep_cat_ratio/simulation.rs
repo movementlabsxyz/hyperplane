@@ -8,23 +8,23 @@ use serde::Deserialize;
 // Sweep-Specific Parameter Struct
 // ------------------------------------------------------------------------------------------------
 
-/// Parameters specific to the CAT rate sweep simulation.
+/// Parameters specific to the CAT ratio sweep simulation.
 /// 
-/// This struct defines the parameters used to control the CAT rate sweep.
+/// This struct defines the parameters used to control the CAT ratio sweep.
 /// It contains only the parameters relevant to this specific sweep type.
 #[derive(Debug, Deserialize, Clone)]
-pub struct CatRateSweepParameters {
+pub struct CatRatioSweepParameters {
     /// Total number of simulation runs in the sweep (determines how many parameter values to test)
     pub num_simulations: usize,
     /// Step size for CAT ratio sweeps (0.0 = no CATs, 1.0 = all CATs)
-    pub cat_rate_step: f64,
+    pub cat_ratio_step: f64,
 }
 
 // ------------------------------------------------------------------------------------------------
 // Sweep Configuration
 // ------------------------------------------------------------------------------------------------
 
-// Defines the sweep configuration for CAT rate simulations.
+// Defines the sweep configuration for CAT ratio simulations.
 // 
 // This macro generates a complete sweep configuration setup including:
 // - A config struct with standard fields (network_config, account_config, transaction_config, sweep)
@@ -32,12 +32,12 @@ pub struct CatRateSweepParameters {
 // - SweepConfigTrait implementation for integration with the generic SweepRunner
 // - A load_config() function that reads and validates the TOML configuration file
 define_sweep_config!(
-    "sim_sweep_cat_rate",
-    SweepCatRateConfig,
+    "sim_sweep_cat_ratio",
+    SweepCatRatioConfig,
     validate_sweep_specific = |self_: &Self| {
-        // Need cat_rate_step to generate the sequence of CAT ratios to test
-        if self_.simulation_config.cat_rate_step.unwrap_or(0.0) <= 0.0 {
-            return Err(crate::config::ConfigError::ValidationError("CAT rate step must be positive".into()));
+        // Need cat_ratio_step to generate the sequence of CAT ratios to test
+        if self_.simulation_config.cat_ratio_step.unwrap_or(0.0) <= 0.0 {
+            return Err(crate::config::ConfigError::ValidationError("CAT ratio step must be positive".into()));
         }
         Ok(())
     }
@@ -47,7 +47,7 @@ define_sweep_config!(
 // Simulation Runner
 // ------------------------------------------------------------------------------------------------
 
-/// Runs the sweep CAT rate simulation
+/// Runs the sweep CAT ratio simulation
 /// 
 /// This simulation explores how different CAT (Cross-Chain Atomic Transaction) ratios affect
 /// system performance. CATs are transactions that must succeed on all chains or fail on all chains.
@@ -55,9 +55,9 @@ define_sweep_config!(
 /// The sweep varies the ratio of CAT transactions from 0.0 (no CATs) to a maximum value,
 /// running multiple simulations to understand the impact on transaction throughput,
 /// success rates, and system behavior.
-pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::ConfigError> {
+pub async fn run_sweep_cat_ratio_simulation() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
-    // This reads the sweep settings from config_sweep_cat_rate.toml
+    // This reads the sweep settings from config_sweep_cat_ratio.toml
     let sweep_config = load_config()?;
     
     // Calculate CAT ratios for each simulation using the helper function
@@ -65,15 +65,15 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
     // Each value represents the fraction of transactions that should be CATs
     let cat_ratios = generate_f64_sequence(
         sweep_config.transaction_config.ratio_cats, 
-        sweep_config.simulation_config.cat_rate_step.unwrap(),
+        sweep_config.simulation_config.cat_ratio_step.unwrap(),
         sweep_config.simulation_config.num_simulations.unwrap()
     );
 
     // Create the generic sweep runner that handles all the common functionality
     // This eliminates code duplication across different sweep types
     let runner = SweepRunner::new(
-        "CAT Rate",                    // Human-readable name for logging
-        "sim_sweep_cat_rate",          // Directory name for results
+        "CAT Ratio",                    // Human-readable name for logging
+        "sim_sweep_cat_ratio",          // Directory name for results
         "cat_ratio",                   // Parameter name for JSON output
         cat_ratios,                    // List of parameter values to test
         // Function to load the sweep configuration
@@ -115,19 +115,19 @@ pub async fn run_sweep_cat_rate_simulation() -> Result<(), crate::config::Config
 
 /// Register this simulation with the simulation registry.
 /// 
-/// This function provides the configuration needed to register the CAT rate sweep
+/// This function provides the configuration needed to register the CAT ratio sweep
 /// with the main simulation registry.
 pub fn register() -> (crate::interface::SimulationType, crate::simulation_registry::SimulationConfig) {
     use crate::interface::SimulationType;
     use crate::simulation_registry::SimulationConfig;
     
-    (SimulationType::SweepCatRate, SimulationConfig {
-        name: "CAT Rate Sweep",
+    (SimulationType::SweepCatRatio, SimulationConfig {
+        name: "CAT Ratio Sweep",
         run_fn: Box::new(|| Box::pin(async {
-            run_sweep_cat_rate_simulation().await
-                .map_err(|e| format!("CAT rate sweep failed: {}", e))
+            run_sweep_cat_ratio_simulation().await
+                .map_err(|e| format!("CAT ratio sweep failed: {}", e))
         })),
-        plot_script: "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py",
+        plot_script: "simulator/src/scenarios/sim_sweep_cat_ratio/plot_results.py",
     })
 }
 
@@ -135,11 +135,11 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
 // Run with Plotting
 // ------------------------------------------------------------------------------------------------
 
-/// Runs the CAT rate sweep simulation with automatic plotting.
+/// Runs the CAT ratio sweep simulation with automatic plotting.
 pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
     run_simulation_with_plotting(
-        || run_sweep_cat_rate_simulation(),
-        "CAT Rate Sweep",
-        "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py"
+        || run_sweep_cat_ratio_simulation(),
+        "CAT Ratio Sweep",
+        "simulator/src/scenarios/sim_sweep_cat_ratio/plot_results.py"
     ).await
 } 

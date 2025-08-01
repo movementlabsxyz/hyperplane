@@ -1,4 +1,4 @@
-# CAT Rate Sweep
+# CAT Ratio Sweep
 
 Varies the ratio of CAT transactions from 0.0 (no CATs) to maximum values.
 
