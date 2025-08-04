@@ -145,6 +145,9 @@ pub struct SimulationConfig {
     /// Reference TPS for scaling (for block interval all scaled sweeps)
     #[serde(default)]
     pub reference_tps: Option<f64>,
+    /// Multiplier for target TPB per simulation step (for CAT ratio with constant CATs per block sweeps)
+    #[serde(default)]
+    pub target_tpb_multiplier_per_step: Option<f64>,
 }
 
 impl Default for SimulationConfig {
@@ -161,6 +164,7 @@ impl Default for SimulationConfig {
             block_number_step: None,
             reference_chain_delay_duration: None,
             reference_tps: None,
+            target_tpb_multiplier_per_step: None,
             sim_total_block_number: 1000, // Default value for sim_total_block_number
         }
     }
