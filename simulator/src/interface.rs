@@ -374,6 +374,7 @@ impl SimulatorInterface {
                                     SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
                                     SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
                                     SimulationType::SweepCatRatio => "sweep_cat_ratio",
+                                    SimulationType::SweepCatRatioConstantCatsPerBlock => "sweep_cat_ratio_constant_cats_per_block",
                                     SimulationType::SweepChainDelay => "sweep_chain_delay",
                                     SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
                                     SimulationType::SweepZipf => "sweep_zipf",

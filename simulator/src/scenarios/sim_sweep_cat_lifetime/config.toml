@@ -34,7 +34,7 @@ zipf_parameter = 1.0
 ratio_cats = 0.1
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
-cat_lifetime_blocks = 6
+cat_lifetime_blocks = 5
 # Whether to allow CAT transactions to depend on locked keys
 # When false, CATs are rejected if they depend on locked keys
 # When true, CATs are allowed to depend on locked keys (current behavior)
@@ -50,10 +50,10 @@ num_runs = 1
 # Number of simulations to run in the sweep
 num_simulations = 4
 # Step size for CAT lifetime sweeps
-cat_lifetime_step = 4
+cat_lifetime_step = 5
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 500
+sim_total_block_number = 400
 
 # Logging control for the simulator
 [logging_config]
@@ -67,4 +67,4 @@ plot_moving_average = true
 # How many consecutive data points get averaged
 range_moving_average = 10
 # cuts off data at sim_total_block_number * cutoff
-cutoff = 0.5
+cutoff = 0.1
