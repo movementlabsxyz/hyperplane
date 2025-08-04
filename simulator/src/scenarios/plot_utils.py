@@ -785,19 +785,32 @@ def generate_all_plots(
                 print(f"DEBUG: Importing module: {module_name}.plot_paper")
             paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin_paper', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
             
-            # Call the individual paper plot functions directly
+            # Call the individual paper plot functions directly if they exist
             if debug_mode:
                 print(f"DEBUG: Calling paper plot functions with data keys: {list(data.keys())}")
-            paper_module.plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
-            paper_module.plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
-            paper_module.plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+            
+            # Check and call each function only if it exists
+            if hasattr(paper_module, 'plot_cat_success_percentage_with_overlay'):
+                paper_module.plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
+                
+            if hasattr(paper_module, 'plot_cat_success_percentage_violin_paper'):
+                paper_module.plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
+                
+            if hasattr(paper_module, 'plot_cat_success_percentage_violin'):
+                paper_module.plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+                
             if debug_mode:
                 print("DEBUG: About to run postponed violin plot...")
-            paper_module.plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
+            if hasattr(paper_module, 'plot_tx_pending_cat_postponed_violin'):
+                paper_module.plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
+                
             if debug_mode:
                 print("DEBUG: About to run resolving violin plot...")
-            paper_module.plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
-            paper_module.plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
+            if hasattr(paper_module, 'plot_tx_pending_cat_resolving_violin'):
+                paper_module.plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
+                
+            if hasattr(paper_module, 'plot_tx_pending_regular_violin'):
+                paper_module.plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
             
             print("Paper plots generated successfully!")
         except Exception as e:

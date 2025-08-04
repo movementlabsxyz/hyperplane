@@ -102,26 +102,7 @@ def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str
     return individual_runs
 
 
-# Stub functions for other plots that the system expects
-def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
 
-def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
-
-def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
-
-def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
-
-def plot_tx_pending_regular_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
 
 
 def plot_cat_success_percentage_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
