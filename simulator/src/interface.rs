@@ -40,6 +40,8 @@ pub enum SimulationType {
     RunAllPlots,
     /// Run only tests that don't have existing data
     RunMissingTests,
+    /// Toggle debug mode
+    ToggleDebug,
     /// Exit the simulator
     Exit,
 }
@@ -62,6 +64,7 @@ impl SimulationType {
             "11" => Some(SimulationType::RunAllTests),
             "12" => Some(SimulationType::RunMissingTests),
             "13" => Some(SimulationType::RunAllPlots),
+            "14" => Some(SimulationType::ToggleDebug),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -73,23 +76,39 @@ impl SimulationType {
 // ------------------------------------------------------------------------------------------------
 
 /// Main interface for user interaction with the simulator
-pub struct SimulatorInterface;
+pub struct SimulatorInterface {
+    debug_mode: bool,
+}
 
 impl SimulatorInterface {
     /// Creates a new simulator interface
     pub fn new() -> Self {
-        Self
+        Self {
+            debug_mode: false,
+        }
     }
 
     /// Returns the menu text for available simulation types
-    pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT ratio\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Run Missing Tests Only\n 13. Rerun All Plots Only\n  0. Exit"
+    pub fn get_menu_text(&self) -> String {
+        let debug_status = if self.debug_mode { "ON" } else { "OFF" };
+        format!("Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT ratio\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Run Missing Tests Only\n 13. Rerun All Plots Only\n 14. Toggle Debug Mode (currently {})\n  0. Exit", debug_status)
     }
 
     /// Displays the simulator menu
     pub fn show_menu(&self) {
         println!("=== Hyperplane Simulator ===");
         println!("{}", self.get_menu_text());
+    }
+
+    /// Toggles debug mode
+    pub fn toggle_debug_mode(&mut self) {
+        self.debug_mode = !self.debug_mode;
+        println!("Debug mode is now {}", if self.debug_mode { "ON" } else { "OFF" });
+    }
+
+    /// Gets the current debug mode status
+    pub fn is_debug_mode(&self) -> bool {
+        self.debug_mode
     }
 
     /// Gets user choice from input
@@ -225,6 +244,7 @@ impl SimulatorInterface {
         println!("DEBUG: About to execute Python script: {}", script_path);
         let mut child = Command::new("python3")
             .arg(script_path)
+            .env("DEBUG_MODE", if self.debug_mode { "1" } else { "0" })
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
             .spawn()
@@ -242,7 +262,7 @@ impl SimulatorInterface {
     }
 
     /// Main simulation loop with user interaction
-    pub async fn run_simple_simulation_async(&self) -> Result<(), String> {
+    pub async fn run_simple_simulation_async(&mut self) -> Result<(), String> {
         loop {
             self.show_menu();
             
@@ -264,6 +284,10 @@ impl SimulatorInterface {
                     }
                     println!("All missing tests completed successfully!");
                     break;
+                }
+                Some(SimulationType::ToggleDebug) => {
+                    self.toggle_debug_mode();
+                    continue;
                 }
 
                 Some(simulation_type) => {

@@ -16,26 +16,34 @@ from plot_utils import generate_all_plots
 def main():
     """Main function to generate plots for CAT ratio sweep simulation."""
     import sys
-    print("DEBUG: CAT ratio plot_results.py main() called", flush=True)
-    sys.stderr.write("STDERR DEBUG: CAT ratio plot_results.py main() called\n")
-    sys.stderr.flush()
+    import os
+    
+    # Check if debug mode is enabled
+    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'
+    
+    if debug_mode:
+        print("DEBUG: CAT ratio plot_results.py main() called", flush=True)
+        sys.stderr.write("STDERR DEBUG: CAT ratio plot_results.py main() called\n")
+        sys.stderr.flush()
     
     # Configuration for this specific sweep
     param_name = 'cat_ratio'
     results_dir = 'simulator/results/sim_sweep_cat_ratio'
     sweep_type = 'CAT Ratio'
     
-    print(f"DEBUG: About to call generate_all_plots with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}", flush=True)
-    sys.stderr.write(f"STDERR DEBUG: About to call generate_all_plots with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}\n")
-    sys.stderr.flush()
+    if debug_mode:
+        print(f"DEBUG: About to call generate_all_plots with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}", flush=True)
+        sys.stderr.write(f"STDERR DEBUG: About to call generate_all_plots with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}\n")
+        sys.stderr.flush()
     
     # Generate all plots using the generic utility
     # Data flow: run_average folders -> sweep_results_averaged.json -> plots
     generate_all_plots(results_dir, param_name, sweep_type)
     
-    print("DEBUG: generate_all_plots call completed", flush=True)
-    sys.stderr.write("STDERR DEBUG: generate_all_plots call completed\n")
-    sys.stderr.flush()
+    if debug_mode:
+        print("DEBUG: generate_all_plots call completed", flush=True)
+        sys.stderr.write("STDERR DEBUG: generate_all_plots call completed\n")
+        sys.stderr.flush()
 
 if __name__ == "__main__":
     main() 

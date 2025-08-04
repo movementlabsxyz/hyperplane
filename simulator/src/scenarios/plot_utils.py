@@ -701,13 +701,18 @@ def generate_all_plots(
         param_name: The parameter name being swept (e.g., 'cat_ratio')
         sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
-    print(f"DEBUG: generate_all_plots called with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}")
+    import os
+    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'
+    
+    if debug_mode:
+        print(f"DEBUG: generate_all_plots called with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}")
     
     # Extract the results directory name from the full path
     results_dir_name = results_dir.replace('simulator/results/', '')
     
     # First, run the averaging script to create averaged data from run_average folders
-    print("Running averaging script...")
+    if debug_mode:
+        print("Running averaging script...")
     try:
         # Import and call the averaging function directly
         import sys
@@ -718,16 +723,18 @@ def generate_all_plots(
         results_path = f'simulator/results/{results_dir_name}'
         
         # Debug: Print current working directory and the path being passed
-        print(f"DEBUG: Current working directory: {os.getcwd()}")
-        print(f"DEBUG: Results path being passed to averaging: {results_path}")
-        print(f"DEBUG: Full path to metadata: {os.path.join(os.getcwd(), results_path, 'data', 'metadata.json')}")
-        print(f"DEBUG: Full path exists: {os.path.exists(os.path.join(os.getcwd(), results_path, 'data', 'metadata.json'))}")
+        if debug_mode:
+            print(f"DEBUG: Current working directory: {os.getcwd()}")
+            print(f"DEBUG: Results path being passed to averaging: {results_path}")
+            print(f"DEBUG: Full path to metadata: {os.path.join(os.getcwd(), results_path, 'data', 'metadata.json')}")
+            print(f"DEBUG: Full path exists: {os.path.exists(os.path.join(os.getcwd(), results_path, 'data', 'metadata.json'))}")
         
         # Call the averaging function directly
         success = create_averaged_data(results_path)
         
         if success:
-            print("Averaging completed successfully!")
+            if debug_mode:
+                print("Averaging completed successfully!")
         else:
             print("Averaging failed!")
             return
@@ -755,15 +762,18 @@ def generate_all_plots(
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
     # Generate paper plots first (fastest)
-    print("DEBUG: Starting paper plot generation...")
+    if debug_mode:
+        print("DEBUG: Starting paper plot generation...")
     
     # Import and run the paper plot script if it exists
     plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
-    print(f"DEBUG: Looking for paper plot script at: {plot_paper_path}")
-    print(f"DEBUG: Paper plot script exists: {os.path.exists(plot_paper_path)}")
+    if debug_mode:
+        print(f"DEBUG: Looking for paper plot script at: {plot_paper_path}")
+        print(f"DEBUG: Paper plot script exists: {os.path.exists(plot_paper_path)}")
     
     if os.path.exists(plot_paper_path):
-        print("Generating paper plots...")
+        if debug_mode:
+            print("Generating paper plots...")
         
         try:
             # Import the paper plot module and call its main function
@@ -771,17 +781,21 @@ def generate_all_plots(
             
             # Import the paper plot module
             module_name = os.path.basename(results_dir_name)
-            print(f"DEBUG: Importing module: {module_name}.plot_paper")
+            if debug_mode:
+                print(f"DEBUG: Importing module: {module_name}.plot_paper")
             paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin_paper', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
             
             # Call the individual paper plot functions directly
-            print(f"DEBUG: Calling paper plot functions with data keys: {list(data.keys())}")
+            if debug_mode:
+                print(f"DEBUG: Calling paper plot functions with data keys: {list(data.keys())}")
             paper_module.plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
             paper_module.plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
             paper_module.plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
-            print("DEBUG: About to run postponed violin plot...")
+            if debug_mode:
+                print("DEBUG: About to run postponed violin plot...")
             paper_module.plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
-            print("DEBUG: About to run resolving violin plot...")
+            if debug_mode:
+                print("DEBUG: About to run resolving violin plot...")
             paper_module.plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
             paper_module.plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
             
@@ -1287,15 +1301,22 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
         param_name: The parameter name being swept (e.g., 'cat_ratio')
         sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
-    print(f"DEBUG: run_sweep_plots called with sweep_name={sweep_name}, param_name={param_name}, sweep_type={sweep_type}")
+    import os
+    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'
+    
+    if debug_mode:
+        print(f"DEBUG: run_sweep_plots called with sweep_name={sweep_name}, param_name={param_name}, sweep_type={sweep_type}")
     results_dir = f'simulator/results/{sweep_name}'
-    print(f"DEBUG: results_dir = {results_dir}")
+    if debug_mode:
+        print(f"DEBUG: results_dir = {results_dir}")
     
     # Generate all plots using the generic utility
     # Data flow: run_average folders -> plots
-    print(f"DEBUG: About to call generate_all_plots...")
+    if debug_mode:
+        print(f"DEBUG: About to call generate_all_plots...")
     generate_all_plots(results_dir, param_name, sweep_type)
-    print(f"DEBUG: generate_all_plots completed")
+    if debug_mode:
+        print(f"DEBUG: generate_all_plots completed")
 
 def load_plot_config(results_dir: str) -> Dict[str, Any]:
     """
