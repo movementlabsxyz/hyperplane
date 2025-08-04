@@ -16,8 +16,8 @@ use std::path::Path;
 pub enum SimulationType {
     /// Simple simulation with default parameters
     Simple,
-    /// CAT rate parameter sweep
-    SweepCatRate,
+    /// CAT ratio parameter sweep
+    SweepCatRatio,
     /// CAT pending dependencies sweep
     SweepCatPendingDependencies,
     /// Block interval sweep with all scaled (TPS scaled to maintain constant txs per block)
@@ -40,6 +40,8 @@ pub enum SimulationType {
     RunAllPlots,
     /// Run only tests that don't have existing data
     RunMissingTests,
+    /// Toggle debug mode
+    ToggleDebug,
     /// Exit the simulator
     Exit,
 }
@@ -55,13 +57,14 @@ impl SimulationType {
             "4" => Some(SimulationType::SweepBlockIntervalConstantTimeDelay),
             "5" => Some(SimulationType::SweepCatLifetime),
             "6" => Some(SimulationType::SweepCatPendingDependencies),
-            "7" => Some(SimulationType::SweepCatRate),
+            "7" => Some(SimulationType::SweepCatRatio),
             "8" => Some(SimulationType::SweepChainDelay),
             "9" => Some(SimulationType::SweepTotalBlockNumber),
             "10" => Some(SimulationType::SweepZipf),
             "11" => Some(SimulationType::RunAllTests),
             "12" => Some(SimulationType::RunMissingTests),
             "13" => Some(SimulationType::RunAllPlots),
+            "14" => Some(SimulationType::ToggleDebug),
             "0" => Some(SimulationType::Exit),
             _ => None,
         }
@@ -73,23 +76,39 @@ impl SimulationType {
 // ------------------------------------------------------------------------------------------------
 
 /// Main interface for user interaction with the simulator
-pub struct SimulatorInterface;
+pub struct SimulatorInterface {
+    debug_mode: bool,
+}
 
 impl SimulatorInterface {
     /// Creates a new simulator interface
     pub fn new() -> Self {
-        Self
+        Self {
+            debug_mode: false,
+        }
     }
 
     /// Returns the menu text for available simulation types
-    pub fn get_menu_text(&self) -> &'static str {
-        "Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT rate\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Run Missing Tests Only\n 13. Rerun All Plots Only\n  0. Exit"
+    pub fn get_menu_text(&self) -> String {
+        let debug_status = if self.debug_mode { "ON" } else { "OFF" };
+        format!("Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT ratio\n  8. Sweep Chain Delay\n  9. Sweep Total Block Number\n 10. Sweep Zipf distribution\n  ------------------------\n 11. Run All Tests\n 12. Run Missing Tests Only\n 13. Rerun All Plots Only\n 14. Toggle Debug Mode (currently {})\n  0. Exit", debug_status)
     }
 
     /// Displays the simulator menu
     pub fn show_menu(&self) {
         println!("=== Hyperplane Simulator ===");
         println!("{}", self.get_menu_text());
+    }
+
+    /// Toggles debug mode
+    pub fn toggle_debug_mode(&mut self) {
+        self.debug_mode = !self.debug_mode;
+        println!("Debug mode is now {}", if self.debug_mode { "ON" } else { "OFF" });
+    }
+
+    /// Gets the current debug mode status
+    pub fn is_debug_mode(&self) -> bool {
+        self.debug_mode
     }
 
     /// Gets user choice from input
@@ -107,7 +126,7 @@ impl SimulatorInterface {
     pub fn data_exists(&self, simulation_type: &str) -> bool {
         let data_path = match simulation_type {
             "simple" => "simulator/results/sim_simple/data",
-            "sweep_cat_rate" => "simulator/results/sim_sweep_cat_rate/data",
+            "sweep_cat_ratio" => "simulator/results/sim_sweep_cat_ratio/data",
             "sweep_cat_pending_dependencies" => "simulator/results/sim_sweep_cat_pending_dependencies/data",
             "sweep_block_interval_constant_time_delay" => "simulator/results/sim_sweep_block_interval_constant_time_delay/data",
             "sweep_block_interval_constant_block_delay" => "simulator/results/sim_sweep_block_interval_constant_block_delay/data",
@@ -126,7 +145,7 @@ impl SimulatorInterface {
     pub async fn run_missing_tests(&self) -> Result<(), String> {
         let simulation_types = vec![
             ("simple", "Simple Simulation"),
-            ("sweep_cat_rate", "CAT Rate Sweep"),
+            ("sweep_cat_ratio", "CAT Ratio Sweep"),
             ("sweep_cat_pending_dependencies", "CAT Pending Dependencies Sweep"),
             ("sweep_block_interval_constant_time_delay", "Block Interval (Constant Time Delay) Sweep"),
             ("sweep_block_interval_constant_block_delay", "Block Interval (Constant Block Delay) Sweep"),
@@ -164,7 +183,7 @@ impl SimulatorInterface {
             // Map simulation type to SimulationType enum
             let simulation_type = match sim_type {
                 "simple" => SimulationType::Simple,
-                "sweep_cat_rate" => SimulationType::SweepCatRate,
+                "sweep_cat_ratio" => SimulationType::SweepCatRatio,
                 "sweep_cat_pending_dependencies" => SimulationType::SweepCatPendingDependencies,
                 "sweep_block_interval_constant_time_delay" => SimulationType::SweepBlockIntervalConstantTimeDelay,
                 "sweep_block_interval_constant_block_delay" => SimulationType::SweepBlockIntervalConstantBlockDelay,
@@ -210,7 +229,7 @@ impl SimulatorInterface {
         let script_path = match simulation_type {
             "simple" => "simulator/src/scenarios/sim_simple/plot_results.py",
 
-            "sweep_cat_rate" => "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py",
+            "sweep_cat_ratio" => "simulator/src/scenarios/sim_sweep_cat_ratio/plot_results.py",
             "sweep_cat_pending_dependencies" => "simulator/src/scenarios/sim_sweep_cat_pending_dependencies/plot_results.py",
             "sweep_block_interval_constant_time_delay" => "simulator/src/scenarios/sim_sweep_block_interval_constant_time_delay/plot_results.py",
             "sweep_block_interval_constant_block_delay" => "simulator/src/scenarios/sim_sweep_block_interval_constant_block_delay/plot_results.py",
@@ -222,25 +241,28 @@ impl SimulatorInterface {
             _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
         };
 
-        let output = Command::new("python3")
+        println!("DEBUG: About to execute Python script: {}", script_path);
+        let mut child = Command::new("python3")
             .arg(script_path)
-            .output()
+            .env("DEBUG_MODE", if self.debug_mode { "1" } else { "0" })
+            .stdout(std::process::Stdio::inherit())
+            .stderr(std::process::Stdio::inherit())
+            .spawn()
             .map_err(|e| format!("Failed to execute plotting script: {}", e))?;
+        
+        let status = child.wait()
+            .map_err(|e| format!("Failed to wait for plotting script: {}", e))?;
+        println!("DEBUG: Python script execution completed, status: {}", status);
 
-        if !output.status.success() {
-            let error_msg = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Plot generation failed: {}", error_msg));
-        }
-
-        if !output.stdout.is_empty() {
-            println!("Plot output: {}", String::from_utf8_lossy(&output.stdout));
+        if !status.success() {
+            return Err(format!("Plot generation failed with status: {}", status));
         }
 
         Ok(())
     }
 
     /// Main simulation loop with user interaction
-    pub async fn run_simple_simulation_async(&self) -> Result<(), String> {
+    pub async fn run_simple_simulation_async(&mut self) -> Result<(), String> {
         loop {
             self.show_menu();
             
@@ -263,6 +285,10 @@ impl SimulatorInterface {
                     println!("All missing tests completed successfully!");
                     break;
                 }
+                Some(SimulationType::ToggleDebug) => {
+                    self.toggle_debug_mode();
+                    continue;
+                }
 
                 Some(simulation_type) => {
                     // Check if this is a sweep simulation
@@ -272,7 +298,7 @@ impl SimulatorInterface {
                         SimulationType::SweepBlockIntervalConstantTimeDelay |
                         SimulationType::SweepCatLifetime |
                         SimulationType::SweepCatPendingDependencies |
-                        SimulationType::SweepCatRate |
+                        SimulationType::SweepCatRatio |
                         SimulationType::SweepChainDelay |
                         SimulationType::SweepTotalBlockNumber |
                         SimulationType::SweepZipf
@@ -313,7 +339,7 @@ impl SimulatorInterface {
                                             SimulationType::SweepBlockIntervalConstantTimeDelay => "sweep_block_interval_constant_time_delay",
                                             SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
                                             SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
-                                            SimulationType::SweepCatRate => "sweep_cat_rate",
+                                            SimulationType::SweepCatRatio => "sweep_cat_ratio",
                                             SimulationType::SweepChainDelay => "sweep_chain_delay",
                                             SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
                                             SimulationType::SweepZipf => "sweep_zipf",
@@ -338,7 +364,7 @@ impl SimulatorInterface {
                                     SimulationType::SweepBlockIntervalConstantTimeDelay => "sweep_block_interval_constant_time_delay",
                                     SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
                                     SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
-                                    SimulationType::SweepCatRate => "sweep_cat_rate",
+                                    SimulationType::SweepCatRatio => "sweep_cat_ratio",
                                     SimulationType::SweepChainDelay => "sweep_chain_delay",
                                     SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
                                     SimulationType::SweepZipf => "sweep_zipf",
@@ -407,7 +433,7 @@ impl SimulatorInterface {
             ("4. Sweep Block Interval (Constant Time Delay)", "sweep_block_interval_constant_time_delay", "simulator/src/scenarios/sim_sweep_block_interval_constant_time_delay/plot_results.py"),
             ("5. Sweep CAT Lifetime", "sweep_cat_lifetime", "simulator/src/scenarios/sim_sweep_cat_lifetime/plot_results.py"),
             ("6. Sweep CAT Pending Dependencies", "sweep_cat_pending_dependencies", "simulator/src/scenarios/sim_sweep_cat_pending_dependencies/plot_results.py"),
-            ("7. Sweep CAT Rate", "sweep_cat_rate", "simulator/src/scenarios/sim_sweep_cat_rate/plot_results.py"),
+            ("7. Sweep CAT Ratio", "sweep_cat_ratio", "simulator/src/scenarios/sim_sweep_cat_ratio/plot_results.py"),
             ("8. Sweep Chain Delay", "sweep_chain_delay", "simulator/src/scenarios/sim_sweep_chain_delay/plot_results.py"),
             ("9. Sweep Total Block Number", "sweep_total_block_number", "simulator/src/scenarios/sim_sweep_total_block_number/plot_results.py"),
             ("10. Sweep Zipf Distribution", "sweep_zipf", "simulator/src/scenarios/sim_sweep_zipf/plot_results.py"),

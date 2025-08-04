@@ -148,10 +148,11 @@ pub async fn run_simulation_with_message_and_retries(
     
     // ------- main simulation loop -------
 
-    // Calculate transactions per block based on target TPS and block interval
-    let transactions_per_block = (results.target_tps as f64 * results.block_interval) as u64;
-    logging::log("SIMULATOR", &format!("Target TPS: {}, Block interval: {}s, Transactions per block: {}", 
-        results.target_tps, results.block_interval, transactions_per_block));
+    // Calculate target TPS from target TPB and block interval
+    let target_tps = results.target_tpb as f64 / results.block_interval;
+    let transactions_per_block = results.target_tpb as u64;
+    logging::log("SIMULATOR", &format!("Target TPB: {}, Block interval: {}s, Calculated TPS: {:.2}, Transactions per block: {}", 
+        results.target_tpb, results.block_interval, target_tps, transactions_per_block));
     
 
     // a counter to track how many times we have entered the following block without releasing transactions

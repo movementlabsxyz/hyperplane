@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import json
 import glob
 from collections import defaultdict
@@ -245,6 +246,10 @@ def create_averaged_data(results_dir):
             ('cat_success_transactions_chain_2.json', 'chain_2_cat_success'),
             ('cat_failure_transactions_chain_1.json', 'chain_1_cat_failure'),
             ('cat_failure_transactions_chain_2.json', 'chain_2_cat_failure'),
+            ('cat_pending_resolving_transactions_chain_1.json', 'chain_1_cat_pending_resolving'),
+            ('cat_pending_resolving_transactions_chain_2.json', 'chain_2_cat_pending_resolving'),
+            ('cat_pending_postponed_transactions_chain_1.json', 'chain_1_cat_pending_postponed'),
+            ('cat_pending_postponed_transactions_chain_2.json', 'chain_2_cat_pending_postponed'),
             ('regular_pending_transactions_chain_1.json', 'chain_1_regular_pending'),
             ('regular_pending_transactions_chain_2.json', 'chain_2_regular_pending'),
             ('regular_success_transactions_chain_1.json', 'chain_1_regular_success'),
@@ -285,11 +290,10 @@ def create_averaged_data(results_dir):
 
 def main():
     """Main function to run the averaging process."""
-    import sys
     
     if len(sys.argv) != 2:
         print("Usage: python3 average_runs.py <results_dir>")
-        print("Example: python3 average_runs.py ../../../results/sim_sweep_cat_rate")
+        print("Example: python3 average_runs.py ../../../results/sim_sweep_cat_ratio")
         return 1
     
     results_dir = sys.argv[1]

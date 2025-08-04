@@ -27,7 +27,7 @@ COLORMAP = 'viridis'  # Change this to switch colormaps globally
 PARAM_DISPLAY_NAMES = {
     'zipf_parameter': 'Zipf Parameter',
     'block_interval': 'Block Interval (seconds)',
-    'cat_rate': 'CAT Rate',
+    'cat_ratio': 'CAT Ratio',
     'chain_delay': 'Chain Delay (blocks)',
     'duration': 'Duration (blocks)',
     'cat_lifetime': 'CAT Lifetime (blocks)',
@@ -143,8 +143,8 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
         return f'Zipf: {param_value:.3f}'
     elif param_name == 'block_interval':
         return f'Block Interval: {param_value:.3f}s'
-    elif param_name == 'cat_rate':
-        return f'CAT Rate: {param_value:.3f}'
+    elif param_name == 'cat_ratio':
+        return f'CAT Ratio: {param_value:.3f}'
     elif param_name == 'chain_delay':
         return f'Chain Delay: {param_value:.1f} blocks'
     elif param_name == 'duration':
@@ -305,6 +305,306 @@ def plot_cat_pending_postponed(data: Dict[str, Any], param_name: str, results_di
     """Plot CAT pending postponed transactions overlay"""
     plot_transactions_overlay(data, param_name, 'cat_pending_postponed', results_dir, sweep_type)
 
+
+def plot_total_cat_transactions(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot total CAT transactions (success + failure + pending) over time."""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping total CAT transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's total CAT transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # Get CAT success, failure, and pending data
+            cat_success_data = result.get('chain_1_cat_success', [])
+            cat_failure_data = result.get('chain_1_cat_failure', [])
+            cat_pending_data = result.get('chain_1_cat_pending', [])
+            
+            # Create a combined dataset by summing all CAT transactions at each height
+            combined_data = {}
+            
+            # Add CAT success data
+            for height, count in cat_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT failure data
+            for height, count in cat_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT pending data
+            for height, count in cat_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Convert back to sorted list of tuples
+            chain_data = sorted(combined_data.items())
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename
+        title = f'Total CAT Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        filename = 'tx_sumStates_cat.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel('Total CAT Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper left")
+        plt.tight_layout()
+        
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error generating total CAT transactions plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_total_regular_transactions(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot total regular transactions (success + failure + pending) over time."""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping total regular transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's total regular transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # Get regular success, failure, and pending data
+            regular_success_data = result.get('chain_1_regular_success', [])
+            regular_failure_data = result.get('chain_1_regular_failure', [])
+            regular_pending_data = result.get('chain_1_regular_pending', [])
+            
+            # Create a combined dataset by summing all regular transactions at each height
+            combined_data = {}
+            
+            # Add regular success data
+            for height, count in regular_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular failure data
+            for height, count in regular_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular pending data
+            for height, count in regular_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Convert back to sorted list of tuples
+            chain_data = sorted(combined_data.items())
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename
+        title = f'Total Regular Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        filename = 'tx_sumStates_regular.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel('Total Regular Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper left")
+        plt.tight_layout()
+        
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error generating total regular transactions plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_total_sumtypes_transactions(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot total sumtypes transactions (CAT + regular) over time."""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print(f"Warning: No individual results found, skipping total sumtypes transactions plot")
+            return
+        
+        # Create figure
+        plt.figure(figsize=(10, 6))
+        
+        # Create color gradient
+        colors = create_color_gradient(len(individual_results))
+        
+        # Track maximum height for xlim
+        max_height = 0
+        
+        # Plot each simulation's total sumtypes transactions
+        for i, result in enumerate(individual_results):
+            param_value = extract_parameter_value(result, param_name)
+            
+            # Get CAT success, failure, and pending data
+            cat_success_data = result.get('chain_1_cat_success', [])
+            cat_failure_data = result.get('chain_1_cat_failure', [])
+            cat_pending_data = result.get('chain_1_cat_pending', [])
+            
+            # Get regular success, failure, and pending data
+            regular_success_data = result.get('chain_1_regular_success', [])
+            regular_failure_data = result.get('chain_1_regular_failure', [])
+            regular_pending_data = result.get('chain_1_regular_pending', [])
+            
+            # Create a combined dataset by summing all transactions at each height
+            combined_data = {}
+            
+            # Add CAT success data
+            for height, count in cat_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT failure data
+            for height, count in cat_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add CAT pending data
+            for height, count in cat_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular success data
+            for height, count in regular_success_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular failure data
+            for height, count in regular_failure_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Add regular pending data
+            for height, count in regular_pending_data:
+                combined_data[height] = combined_data.get(height, 0) + count
+            
+            # Convert back to sorted list of tuples
+            chain_data = sorted(combined_data.items())
+            
+            if not chain_data:
+                continue
+            
+            # Trim the last 10% of data to avoid edge effects
+            chain_data = trim_time_series_data(chain_data, 0.1)
+            
+            if not chain_data:
+                continue
+                
+            # Extract data - chain_data is a list of tuples (height, count)
+            heights = [entry[0] for entry in chain_data]
+            counts = [entry[1] for entry in chain_data]
+            
+            # Update maximum height
+            if heights:
+                max_height = max(max_height, max(heights))
+            
+            # Plot with color based on parameter
+            label = create_parameter_label(param_name, param_value)
+            plt.plot(heights, counts, color=colors[i], alpha=0.7, 
+                    label=label, linewidth=1.5)
+        
+        # Set x-axis limits before finalizing the plot
+        plt.xlim(left=0, right=max_height)
+        
+        # Create title and filename
+        title = f'Total SumTypes Transactions (CAT + Regular) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
+        filename = 'tx_sumStates_sumTypes.png'
+        
+        plt.title(title)
+        plt.xlabel('Block Height')
+        plt.ylabel('Total SumTypes Transactions')
+        plt.grid(True, alpha=0.3)
+        plt.legend(loc="upper left")
+        plt.tight_layout()
+        
+        # Create tx_count directory and save plot
+        tx_count_dir = f'{results_dir}/figs/tx_count'
+        os.makedirs(tx_count_dir, exist_ok=True)
+        plt.savefig(f'{tx_count_dir}/{filename}', 
+                   dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except Exception as e:
+        print(f"Error generating total sumtypes transactions plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 # ------------------------------------------------------------------------------------------------
 # Summary Chart Plotting
 # ------------------------------------------------------------------------------------------------
@@ -397,39 +697,47 @@ def generate_all_plots(
     3. Generates all plots from the run_average data
     
     Args:
-        results_dir: The full path to the results directory (e.g., 'simulator/results/sim_sweep_cat_rate')
-        param_name: The parameter name being swept (e.g., 'cat_rate')
-        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+        results_dir: The full path to the results directory (e.g., 'simulator/results/sim_sweep_cat_ratio')
+        param_name: The parameter name being swept (e.g., 'cat_ratio')
+        sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
-    import subprocess
+    import os
+    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'
+    
+    if debug_mode:
+        print(f"DEBUG: generate_all_plots called with results_dir={results_dir}, param_name={param_name}, sweep_type={sweep_type}")
     
     # Extract the results directory name from the full path
     results_dir_name = results_dir.replace('simulator/results/', '')
     
     # First, run the averaging script to create averaged data from run_average folders
-    print("Running averaging script...")
+    if debug_mode:
+        print("Running averaging script...")
     try:
-        # The average_runs.py script is in simulator/src/
-        average_script_path = os.path.join(os.path.dirname(__file__), '..', 'average_runs.py')
-        # Use relative path from simulator directory (where the script runs from)
-        results_path = f'results/{results_dir_name}'
-        # Run from the simulator root directory
-        simulator_root = os.path.join(os.path.dirname(__file__), '..', '..')
-        result = subprocess.run([sys.executable, average_script_path, results_path], 
-                               cwd=simulator_root, capture_output=True, text=True)
+        # Import and call the averaging function directly
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+        from average_runs import create_averaged_data
         
-        if result.returncode == 0:
-            print("Averaging completed successfully!")
+        # Use relative path from simulator directory (where the script runs from)
+        results_path = f'simulator/results/{results_dir_name}'
+        
+        # Debug: Print current working directory and the path being passed
+        if debug_mode:
+            print(f"DEBUG: Current working directory: {os.getcwd()}")
+            print(f"DEBUG: Results path being passed to averaging: {results_path}")
+            print(f"DEBUG: Full path to metadata: {os.path.join(os.getcwd(), results_path, 'data', 'metadata.json')}")
+            print(f"DEBUG: Full path exists: {os.path.exists(os.path.join(os.getcwd(), results_path, 'data', 'metadata.json'))}")
+        
+        # Call the averaging function directly
+        success = create_averaged_data(results_path)
+        
+        if success:
+            if debug_mode:
+                print("Averaging completed successfully!")
         else:
-            # Check if it's a "no data" error (metadata.json not found)
-            # The error message can be in either stdout or stderr
-            error_output = result.stdout + result.stderr
-            if "metadata.json not found" in error_output:
-                print("No simulation data found - skipping plotting")
-                return
-            else:
-                print(f"Error running averaging script: {error_output}")
-                return
+            print("Averaging failed!")
+            return
     except Exception as e:
         print(f"Error during averaging: {e}")
         return
@@ -454,46 +762,50 @@ def generate_all_plots(
     os.makedirs(f'{results_dir}/figs', exist_ok=True)
     
     # Generate paper plots first (fastest)
-    print("DEBUG: Starting paper plot generation...")
-    try:
-        # Import and run the paper plot script if it exists
-        plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
-        print(f"Looking for paper plot script at: {plot_paper_path}")
-        print(f"Script exists: {os.path.exists(plot_paper_path)}")
-        if os.path.exists(plot_paper_path):
+    if debug_mode:
+        print("DEBUG: Starting paper plot generation...")
+    
+    # Import and run the paper plot script if it exists
+    plot_paper_path = os.path.join(os.path.dirname(__file__), results_dir_name, 'plot_paper.py')
+    if debug_mode:
+        print(f"DEBUG: Looking for paper plot script at: {plot_paper_path}")
+        print(f"DEBUG: Paper plot script exists: {os.path.exists(plot_paper_path)}")
+    
+    if os.path.exists(plot_paper_path):
+        if debug_mode:
             print("Generating paper plots...")
-            print(f"DEBUG: About to run subprocess with cwd={os.path.dirname(plot_paper_path)}")
-            import subprocess
-            result = subprocess.run([sys.executable, plot_paper_path], 
-                                   cwd=os.path.dirname(plot_paper_path), 
-                                   capture_output=True, text=True)
-            print(f"Paper plot script stdout: {result.stdout}")
-            print(f"Paper plot script stderr: {result.stderr}")
-            print(f"Paper plot script return code: {result.returncode}")
-            if result.returncode == 0:
-                print("Paper plots generated successfully!")
-                
-                # PANIC CHECK: Verify paper directory and plot were actually created
-                paper_dir = f'{results_dir}/figs/paper'
-                if not os.path.exists(paper_dir):
-                    raise RuntimeError(f"PANIC: Paper directory was not created at {paper_dir}")
-                
-                # Check for any PNG files in the paper directory
-                paper_files = [f for f in os.listdir(paper_dir) if f.endswith('.png')]
-                if not paper_files:
-                    raise RuntimeError(f"PANIC: No PNG files found in paper directory {paper_dir}")
-                
-                print(f"✅ Paper plots verified: {len(paper_files)} files created in {paper_dir}")
-            else:
-                raise RuntimeError(f"PANIC: Paper plot generation failed with return code {result.returncode}. STDOUT: {result.stdout}. STDERR: {result.stderr}")
-        else:
-            print(f"PANIC: No plot_paper.py found at {plot_paper_path} - skipping paper plots")
-            raise RuntimeError(f"PANIC: Paper plot script not found at {plot_paper_path}")
-    except Exception as e:
-        print(f"PANIC: Error generating paper plots: {e}")
-        import traceback
-        traceback.print_exc()
-        raise  # Re-raise the exception to stop execution
+        
+        try:
+            # Import the paper plot module and call its main function
+            sys.path.insert(0, os.path.dirname(plot_paper_path))
+            
+            # Import the paper plot module
+            module_name = os.path.basename(results_dir_name)
+            if debug_mode:
+                print(f"DEBUG: Importing module: {module_name}.plot_paper")
+            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin_paper', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
+            
+            # Call the individual paper plot functions directly
+            if debug_mode:
+                print(f"DEBUG: Calling paper plot functions with data keys: {list(data.keys())}")
+            paper_module.plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
+            paper_module.plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
+            paper_module.plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+            if debug_mode:
+                print("DEBUG: About to run postponed violin plot...")
+            paper_module.plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
+            if debug_mode:
+                print("DEBUG: About to run resolving violin plot...")
+            paper_module.plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
+            paper_module.plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
+            
+            print("Paper plots generated successfully!")
+        except Exception as e:
+            print(f"Error generating paper plots: {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print(f"No plot_paper.py found at {plot_paper_path} - skipping paper plots")
     
     # Use the plot manager to generate organized plots
     from plot_manager import generate_organized_plots
@@ -510,7 +822,7 @@ def plot_sweep_locked_keys(data: Dict[str, Any], param_name: str, results_dir: s
     # Arguments
     * `data` - The sweep data containing individual results
     * `param_name` - Name of the parameter being swept
-    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_ratio')
     * `sweep_type` - Type of sweep simulation
     """
     try:
@@ -587,7 +899,7 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
     # Arguments
     * `data` - The sweep data containing individual results
     * `param_name` - Name of the parameter being swept
-    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_ratio')
     * `sweep_type` - Type of sweep simulation
     """
     try:
@@ -687,12 +999,12 @@ def plot_sweep_locked_keys_with_pending(data: Dict[str, Any], param_name: str, r
 
 def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
     """
-    Plot transactions per block and TPS for sweep simulations.
+    Plot transactions per block (TPB) for sweep simulations.
     
     # Arguments
     * `data` - The sweep data containing individual results
     * `param_name` - Name of the parameter being swept
-    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_rate')
+    * `results_dir` - Directory name of the sweep (e.g., 'sim_sweep_cat_ratio')
     * `sweep_type` - Type of sweep simulation
     """
     try:
@@ -702,8 +1014,8 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
             print("Warning: No individual results found, skipping transactions per block overlay plot")
             return
         
-        # Create figure with subplots
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
+        # Create single figure for TPB
+        fig, ax = plt.subplots(1, 1, figsize=(12, 6))
         
         # Create color gradient
         colors = create_color_gradient(len(individual_results))
@@ -740,63 +1052,54 @@ def plot_sweep_transactions_per_block(data: Dict[str, Any], param_name: str, res
             heights = [entry[0] for entry in tx_per_block_data]
             tx_per_block = [entry[1] for entry in tx_per_block_data]
             
-            # Calculate TPS using the parameter value (block_interval) for this simulation
-            # For block interval sweeps, the parameter value IS the block interval
-            if param_name == 'block_interval':
-                block_interval = param_value
-            else:
-                # For other sweeps, try to get block_interval from simulation_stats.json
-                try:
-                    # Extract just the directory name from the full path
-                    results_dir_name = results_dir.replace('simulator/results/', '')
-                    # Use simulation_stats.json from the first simulation's run_average directory
-                    stats_file = f'simulator/results/{results_dir_name}/data/sim_0/run_average/simulation_stats.json'
-                    with open(stats_file, 'r') as f:
-                        stats_data = json.load(f)
-                    block_interval = stats_data['parameters']['block_interval']
-                except (FileNotFoundError, KeyError) as e:
-                    raise ValueError(f"Could not determine block_interval for TPS calculation. "
-                                  f"Simulation stats file not found or missing block_interval parameter: {e}")
-            
-            tps = [tx_count / block_interval for tx_count in tx_per_block]
+            # Get target TPB from simulation stats
+            try:
+                # Extract just the directory name from the full path
+                results_dir_name = results_dir.replace('simulator/results/', '')
+                # Use simulation_stats.json from the first simulation's run_average directory
+                stats_file = f'simulator/results/{results_dir_name}/data/sim_0/run_average/simulation_stats.json'
+                with open(stats_file, 'r') as f:
+                    stats_data = json.load(f)
+                target_tpb = stats_data['parameters']['target_tpb']
+            except (FileNotFoundError, KeyError) as e:
+                print(f"Warning: Could not determine target_tpb from simulation stats: {e}")
+                target_tpb = None
             
             # Plot with color based on parameter
             label = create_parameter_label(param_name, param_value)
-            ax1.plot(heights, tx_per_block, color=colors[i], alpha=0.7, 
-                    label=label, linewidth=1.5)
-            ax2.plot(heights, tps, color=colors[i], alpha=0.7, 
+            ax.plot(heights, tx_per_block, color=colors[i], alpha=0.7, 
                     label=label, linewidth=1.5)
         
-        # Create titles
-        title = f'Transactions per Block (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        ax1.set_title(title)
-        ax1.set_ylabel('Number of Transactions')
-        ax1.grid(True, alpha=0.3)
-        ax1.legend(loc="upper right")
+        # Create title and add target TPB line if available
+        title = f'Transactions per Block (TPB) - {create_sweep_title(param_name, sweep_type)}'
+        ax.set_title(title)
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('Number of Transactions')
+        ax.grid(True, alpha=0.3)
+        ax.legend(loc="upper right")
         
-        ax2.set_title(f'Transactions per Second (Chain 1) - {create_sweep_title(param_name, sweep_type)}')
-        ax2.set_xlabel('Block Height')
-        ax2.set_ylabel('TPS')
-        ax2.grid(True, alpha=0.3)
-        ax2.legend(loc="upper right")
+        # Add target TPB line if available
+        if target_tpb is not None:
+            ax.axhline(y=target_tpb, color='g', linestyle=':', label=f'Target TPB: {target_tpb}', linewidth=2)
+            ax.legend(loc="upper right")
         
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig(f'{results_dir}/figs/tps.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{results_dir}/figs/tpb.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except Exception as e:
         print(f"Warning: Error processing transactions per block data for sweep: {e}")
         return
 
-def plot_sweep_tps_moving_average(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Plot TPS (Transactions Per Second) with moving average for sweep simulations"""
+def plot_sweep_tpb_moving_average(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+    """Plot TPB (Transactions Per Block) with moving average for sweep simulations"""
     try:
         individual_results = data['individual_results']
         
         if not individual_results:
-            print("Warning: No individual results found, skipping TPS moving average plot")
+            print("Warning: No individual results found, skipping TPB moving average plot")
             return
         
         # Set moving average window size
@@ -809,24 +1112,24 @@ def plot_sweep_tps_moving_average(data: Dict[str, Any], param_name: str, results
         param_values = [result[param_name] for result in individual_results]
         colors = create_color_gradient(len(param_values))
         
-        # Plot each simulation's TPS data with moving average
+        # Plot each simulation's TPB data with moving average
         missing_files = []
         for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
             param_value = result[param_name]
             label = create_parameter_label(param_name, param_value)
             
-            # Load TPS data for this simulation
+            # Load TPB data for this simulation
             # Extract just the directory name from the full path
             results_dir_name = results_dir.replace('simulator/results/', '')
             sim_data_dir = f'simulator/results/{results_dir_name}/data/sim_{sim_index}'
             
-            # Use averaged TPS data
+            # Use averaged TPB data
             tx_per_block_file = f'{sim_data_dir}/run_average/tx_per_block_chain_1.json'
             if os.path.exists(tx_per_block_file):
                 with open(tx_per_block_file, 'r') as f:
                     tx_per_block_data = json.load(f)
                 
-                # Extract TPS data
+                # Extract TPB data
                 if 'chain_1_tx_per_block' in tx_per_block_data:
                     tx_per_block_entries = tx_per_block_data['chain_1_tx_per_block']
                     if tx_per_block_entries:
@@ -842,27 +1145,13 @@ def plot_sweep_tps_moving_average(data: Dict[str, Any], param_name: str, results
                             heights = heights[:min_length]
                             tx_counts = tx_counts[:min_length]
                         
-                        # Calculate TPS using the parameter value (block_interval) for this simulation
-                        # For block interval sweeps, the parameter value IS the block interval
-                        if param_name == 'block_interval':
-                            block_interval = param_value
-                        else:
-                            # For other sweeps, try to get block_interval from simulation_stats.json
-                            try:
-                                stats_file = f'{sim_data_dir}/run_average/simulation_stats.json'
-                                with open(stats_file, 'r') as f:
-                                    stats_data = json.load(f)
-                                block_interval = stats_data['parameters']['block_interval']
-                            except (FileNotFoundError, KeyError) as e:
-                                print(f"Warning: Could not determine block_interval for TPS calculation for simulation {sim_index}: {e}")
-                                continue
-                        
-                        tps_values = [tx_count / block_interval for tx_count in tx_counts]
+                        # Use transaction counts directly as TPB (no calculation needed)
+                        tpb_values = tx_counts
                         
                         # Apply moving average
                         if len(heights) >= window_size:
                             # Convert to list of tuples for moving average function
-                            data_points = list(zip(heights, tps_values))
+                            data_points = list(zip(heights, tpb_values))
                             smoothed_data = apply_moving_average(data_points, window_size)
                             
                             # Extract smoothed heights and values
@@ -874,7 +1163,7 @@ def plot_sweep_tps_moving_average(data: Dict[str, Any], param_name: str, results
                         else:
                             print(f"Warning: Not enough data points for moving average (window={window_size}) for simulation {sim_index}")
                             # Plot original data if not enough points
-                            ax.plot(heights, tps_values, color=color, alpha=0.7, linewidth=2)
+                            ax.plot(heights, tpb_values, color=color, alpha=0.7, linewidth=2)
                     else:
                         print(f"Warning: No transaction per block entries found for simulation {sim_index}")
                 else:
@@ -891,17 +1180,17 @@ def plot_sweep_tps_moving_average(data: Dict[str, Any], param_name: str, results
         
         # Customize plot
         ax.set_xlabel('Block Height')
-        ax.set_ylabel('TPS (Moving Average)')
-        ax.set_title(f'Transactions Per Second Over Time (Moving Average, Window={window_size}) by {create_sweep_title(param_name, sweep_type)}')
+        ax.set_ylabel('TPB (Moving Average)')
+        ax.set_title(f'Transactions Per Block Over Time (Moving Average, Window={window_size}) by {create_sweep_title(param_name, sweep_type)}')
         ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
         
         # Save the plot
-        plt.savefig(f'{results_dir}/figs/tps_moving_average.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{results_dir}/figs/tpb_moving_average.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except Exception as e:
-        print(f"Error plotting TPS moving average data: {e}")
+        print(f"Error plotting TPB moving average data: {e}")
         import traceback
         traceback.print_exc()
 
@@ -966,7 +1255,7 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
         
         # Generate individual curves plots for each simulation
         for sim_index, result in enumerate(individual_results):
-            print(f"Generating individual curves plots for simulation {sim_index}...")
+            # print(f"Generating individual curves plots for simulation {sim_index}...")
             
             # Get the parameter value for this simulation
             param_value = result[param_name]
@@ -989,7 +1278,7 @@ def generate_individual_curves_plots(data: Dict[str, Any], param_name: str, resu
             # Create individual curves plots for this simulation
             create_per_run_plots(sim_data_dir, sim_figs_dir, block_interval)
             
-        print(f"Individual curves plots generated for all simulations in {sweep_type} sweep!")
+        # print(f"Individual curves plots generated for all simulations in {sweep_type} sweep!")
         
     except Exception as e:
         print(f"Error generating individual curves plots: {e}")
@@ -1008,19 +1297,30 @@ def run_sweep_plots(sweep_name: str, param_name: str, sweep_type: str) -> None:
     3. Generates all plots from the run_average data
     
     Args:
-        sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_rate')
-        param_name: The parameter name being swept (e.g., 'cat_rate')
-        sweep_type: The display name for the sweep (e.g., 'CAT Rate')
+        sweep_name: The name of the sweep directory (e.g., 'sim_sweep_cat_ratio')
+        param_name: The parameter name being swept (e.g., 'cat_ratio')
+        sweep_type: The display name for the sweep (e.g., 'CAT Ratio')
     """
+    import os
+    debug_mode = os.environ.get('DEBUG_MODE', '0') == '1'
+    
+    if debug_mode:
+        print(f"DEBUG: run_sweep_plots called with sweep_name={sweep_name}, param_name={param_name}, sweep_type={sweep_type}")
     results_dir = f'simulator/results/{sweep_name}'
+    if debug_mode:
+        print(f"DEBUG: results_dir = {results_dir}")
     
     # Generate all plots using the generic utility
     # Data flow: run_average folders -> plots
+    if debug_mode:
+        print(f"DEBUG: About to call generate_all_plots...")
     generate_all_plots(results_dir, param_name, sweep_type)
+    if debug_mode:
+        print(f"DEBUG: generate_all_plots completed")
 
 def load_plot_config(results_dir: str) -> Dict[str, Any]:
     """
-    Load plot configuration from the sweep config file.
+    Load plot configuration from the results data directory or fallback to source config.
     
     Args:
         results_dir: The results directory path
@@ -1032,13 +1332,14 @@ def load_plot_config(results_dir: str) -> Dict[str, Any]:
         FileNotFoundError: If the config file doesn't exist
         Exception: If there's an error parsing the TOML or missing required parameters
     """
-    # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_rate' from 'simulator/results/sim_sweep_cat_rate')
+    # Extract sweep name from results_dir (e.g., 'sim_sweep_cat_ratio' from 'simulator/results/sim_sweep_cat_ratio')
     sweep_name = results_dir.split('/')[-1]
     
-    # Try different possible paths for the config file
+    # Try different possible paths for the config file, prioritizing results data directory
     possible_paths = [
-        'config.toml',  # When called from paper plot script (working directory is scenario directory)
-        f'simulator/src/scenarios/{sweep_name}/config.toml',  # When called from main plotting functions
+        f'{results_dir}/data/config.toml',  # Primary: results data directory (actual simulation config)
+        'config.toml',  # Fallback: when called from paper plot script (working directory is scenario directory)
+        f'simulator/src/scenarios/{sweep_name}/config.toml',  # Fallback: when called from main plotting functions
     ]
     
     config_path = None

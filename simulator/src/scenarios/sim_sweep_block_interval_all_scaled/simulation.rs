@@ -95,18 +95,18 @@ pub async fn run_sweep_block_interval_all_scaled() -> Result<(), crate::config::
                 // Get the specific sweep config for TPS scaling calculation
                 let config = sweep_config.as_any().downcast_ref::<SweepBlockIntervalAllScaledConfig>().unwrap();
                 
-                // Calculate scaled TPS to maintain constant transactions per block
-                // Reference TPS is at 1 second block interval
-                // For example, if reference_tps = 1000:
-                // - At 1.0s block interval: TPS = 1000 (reference case)
-                // - At 0.5s block interval: TPS = 2000 (half the time, double the TPS)
-                // - At 2.0s block interval: TPS = 500 (double the time, half the TPS)
-                let reference_tps = config.simulation_config.reference_tps.unwrap();
-                let scaled_tps = reference_tps / block_interval;
+                // Calculate scaled TPB to maintain constant transactions per block
+                // Reference TPB is at 1 second block interval
+                // For example, if reference_tpb = 1000:
+                // - At 1.0s block interval: TPB = 1000 (reference case)
+                // - At 0.5s block interval: TPB = 1000 (same transactions per block)
+                // - At 2.0s block interval: TPB = 1000 (same transactions per block)
+                let reference_tpb = config.simulation_config.reference_tps.unwrap(); // Still using reference_tps field for backward compatibility
+                let target_tpb = reference_tpb; // TPB stays constant regardless of block interval
                 
                 // Log the configuration for transparency
-                crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Scaled TPS: {:.1} (reference: {:.1} at 1.0s)", 
-                    block_interval, scaled_tps, reference_tps));
+                crate::logging::log("SIMULATOR", &format!("Block interval: {:.3}s, Target TPB: {:.1} (reference: {:.1} at 1.0s)", 
+                    block_interval, target_tpb, reference_tpb));
                 
                 crate::config::Config {
                     network_config: crate::config::NetworkConfig {
@@ -119,7 +119,7 @@ pub async fn run_sweep_block_interval_all_scaled() -> Result<(), crate::config::
                     },
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
-                        target_tps: scaled_tps,  // Apply the scaled TPS
+                        target_tpb: target_tpb,  // Apply the target TPB
                         zipf_parameter: base_config.transaction_config.zipf_parameter,
                         ratio_cats: base_config.transaction_config.ratio_cats,
                         cat_lifetime_blocks: base_config.transaction_config.cat_lifetime_blocks,

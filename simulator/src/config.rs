@@ -68,8 +68,8 @@ pub struct AccountConfig {
 /// rates, simulation duration, account access patterns, and cross-chain transaction behavior.
 #[derive(Debug, Deserialize, Clone)]
 pub struct TransactionConfig {
-    /// Target transactions per second for the simulation (controls transaction generation rate)
-    pub target_tps: f64,
+    /// Target transactions per block for the simulation (controls transaction generation rate)
+    pub target_tpb: f64,
     /// Zipf distribution parameter α (controls account access pattern skewness: 0.0 = uniform, higher = more skewed)
     pub zipf_parameter: f64,
     /// Ratio of Cross-Chain Atomic Transactions (CATs) to regular transactions (0.0 = no CATs, 1.0 = all CATs)
@@ -125,7 +125,7 @@ pub struct SimulationConfig {
     pub cat_lifetime_step: Option<u64>,
     /// Step size for CAT ratio sweeps
     #[serde(default)]
-    pub cat_rate_step: Option<f64>,
+    pub cat_ratio_step: Option<f64>,
     /// Step size for chain delay sweeps
     #[serde(default)]
     pub chain_delay_step: Option<f64>,
@@ -154,7 +154,7 @@ impl Default for SimulationConfig {
             num_runs: 1,
             num_simulations: None,
             cat_lifetime_step: None,
-            cat_rate_step: None,
+            cat_ratio_step: None,
             chain_delay_step: None,
             block_interval_step: None,
             zipf_step: None,
@@ -212,8 +212,8 @@ pub fn validate_common_fields(
     if account_config.num_accounts == 0 {
         return Err(ConfigError::ValidationError("Number of accounts must be positive".into()));
     }
-    if transaction_config.target_tps <= 0.0 {
-        return Err(ConfigError::ValidationError("Target TPS must be positive".into()));
+    if transaction_config.target_tpb <= 0.0 {
+        return Err(ConfigError::ValidationError("Target TPB must be positive".into()));
     }
     if simulation_config.sim_total_block_number == 0 {
         return Err(ConfigError::ValidationError("Simulation total block number must be positive".into()));

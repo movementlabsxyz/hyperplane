@@ -230,7 +230,7 @@ def plot_transactions_cutoff_overlay(
                    dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated cutoff plot: {filename}")
+        # print(f"Generated cutoff plot: {filename}")
         
     except Exception as e:
         print(f"Error generating cutoff plot for {transaction_type}: {e}")
@@ -339,6 +339,11 @@ def plot_transaction_percentage_cutoff(
                 # Process each block - tx_data is now a list of tuples (height, count)
                 for height, count in tx_data:
                     heights.append(height)
+                    
+                    # Initialize variables to avoid scope issues
+                    success_at_height = 0
+                    failure_at_height = 0
+                    pending_at_height = 0
                     
                     # Calculate percentage using counts at this specific height (not cumulative)
                     if transaction_type == 'cat':

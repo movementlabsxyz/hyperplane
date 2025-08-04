@@ -17,7 +17,7 @@ The results are expected to degrade as the block interval gets too small. For ex
 
 The reason, why the simulation for low block interval (0.01s) performs poorly, is that the tps cannot be maintained. We can see this in the plot below, where we can see that the block interval of 0.01s is not able to keep up with the transaction issuance rate.
 
-![tps](./tps.png)
+![tpb](./tpb.png)
 
 We can further track this down by looking at the loop steps without transaction issuance. We can see that the number of times the waiting loop before sending the transaction batch is entered, decreases with the block height. This indicates that the result recording takes an increasing amount of time. Once the steps per block hits zero, the simulation is unable to keep up with the transaction issuance rate. This is also true for the other cases, although less pronounced.
 

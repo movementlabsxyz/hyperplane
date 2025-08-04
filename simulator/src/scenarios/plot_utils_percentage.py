@@ -28,8 +28,8 @@ def create_parameter_label(param_name: str, param_value: float) -> str:
         return f'Zipf: {param_value:.3f}'
     elif param_name == 'block_interval':
         return f'Block Interval: {param_value:.3f}s'
-    elif param_name == 'cat_rate':
-        return f'CAT Rate: {param_value:.3f}'
+    elif param_name == 'cat_ratio':
+        return f'CAT Ratio: {param_value:.3f}'
     elif param_name == 'chain_delay':
         return f'Chain Delay: {param_value:.1f} blocks'
     elif param_name == 'duration':
@@ -144,6 +144,11 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
             # Process each block - tx_data is now a list of tuples (height, count)
             for height, count in tx_data:
                 heights.append(height)
+                
+                # Initialize variables to avoid scope issues
+                success_at_height = 0
+                failure_at_height = 0
+                pending_at_height = 0
                 
                 # Calculate percentage using counts at this specific height (not cumulative)
                 if transaction_type == 'cat':
@@ -552,7 +557,7 @@ def plot_transaction_percentage_delta(data: Dict[str, Any], param_name: str, res
                 continue
             
             # Calculate deltas from percentage data
-            from plot_utils import calculate_delta_from_counts
+            from plot_utils_delta import calculate_delta_from_counts
             percentage_data = list(zip(heights, percentages))
             delta_data = calculate_delta_from_counts(percentage_data)
             
@@ -1201,7 +1206,7 @@ def plot_transaction_percentage_delta_with_moving_average(
                 continue
             
             # Calculate deltas from percentage data
-            from plot_utils import calculate_delta_from_counts
+            from plot_utils_delta import calculate_delta_from_counts
             percentage_data = list(zip(heights, percentages))
             delta_data = calculate_delta_from_counts(percentage_data)
             

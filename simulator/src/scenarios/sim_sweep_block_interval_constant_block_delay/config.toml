@@ -52,7 +52,7 @@ num_simulations = 4
 block_interval_step = 0.01
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 1000
+sim_total_block_number = 500
 
 # Logging control for the simulator
 [logging_config]

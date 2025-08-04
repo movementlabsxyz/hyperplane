@@ -38,7 +38,7 @@ pub struct SimulationResults {
     // Simulation parameters
     pub initial_balance: u64,
     pub num_accounts: usize,
-    pub target_tps: u64,
+    pub target_tpb: u64,
     pub sim_total_block_number: u64,  // Total number of blocks to simulate
     pub zipf_parameter: f64,
     pub ratio_cats: f64,
@@ -113,7 +113,7 @@ impl Default for SimulationResults {
             regular_transactions: 0,
             initial_balance: 0,
             num_accounts: 0,
-            target_tps: 0,
+            target_tpb: 0,
             sim_total_block_number: 0,
             zipf_parameter: 0.0,
             ratio_cats: 0.0,
@@ -302,7 +302,7 @@ impl SimulationResults {
             "parameters": {
                 "initial_balance": self.initial_balance,
                 "num_accounts": self.num_accounts,
-                "target_tps": self.target_tps,
+                "target_tpb": self.target_tpb,
                 "sim_total_block_number": self.sim_total_block_number,
                 "zipf_parameter": self.zipf_parameter,
                 "ratio_cats": self.ratio_cats,

@@ -197,7 +197,7 @@ def plot_locked_keys_with_pending():
 
 def plot_transactions_per_block():
     """
-    Plot transactions per block and TPS for both chains.
+    Plot transactions per block (TPB) for both chains.
     """
     try:
         # Load transactions per block data from chain 1
@@ -212,39 +212,28 @@ def plot_transactions_per_block():
         chain_2_blocks = [entry['height'] for entry in chain_2_data['chain_2_tx_per_block']]
         chain_2_tx_per_block = [entry['count'] for entry in chain_2_data['chain_2_tx_per_block']]
         
-        # Load block interval from simulation stats to calculate TPS
+        # Load target TPB from simulation stats
         with open(f'{BASE_DATA_PATH}/simulation_stats.json', 'r') as f:
             stats_data = json.load(f)
-        block_interval = stats_data['parameters']['block_interval']  # in seconds
+        target_tpb = stats_data['parameters']['target_tpb']  # target transactions per block
         
-        # Calculate TPS (transactions per second)
-        chain_1_tps = [tx_count / block_interval for tx_count in chain_1_tx_per_block]
-        chain_2_tps = [tx_count / block_interval for tx_count in chain_2_tx_per_block]
+        # Create single plot for TPB
+        fig, ax = plt.subplots(1, 1, figsize=(12, 6))
         
-        # Create subplots
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10), sharex=True)
-        
-        # Plot 1: Transactions per Block
-        ax1.plot(chain_1_blocks, chain_1_tx_per_block, 'b-', label='Chain 1', linewidth=2)
-        ax1.plot(chain_2_blocks, chain_2_tx_per_block, 'r--', label='Chain 2', linewidth=2)
-        ax1.set_title('Transactions per Block (Averaged)')
-        ax1.set_ylabel('Number of Transactions')
-        ax1.grid(True, alpha=0.3)
-        ax1.legend()
-        
-        # Plot 2: TPS
-        ax2.plot(chain_1_blocks, chain_1_tps, 'b-', label='Chain 1', linewidth=2)
-        ax2.plot(chain_2_blocks, chain_2_tps, 'r--', label='Chain 2', linewidth=2)
-        ax2.set_title(f'Transactions per Second (Block Interval: {block_interval}s)')
-        ax2.set_xlabel('Block Height')
-        ax2.set_ylabel('TPS')
-        ax2.grid(True, alpha=0.3)
-        ax2.legend()
+        # Plot Transactions per Block
+        ax.plot(chain_1_blocks, chain_1_tx_per_block, 'b-', label='Chain 1', linewidth=2)
+        ax.plot(chain_2_blocks, chain_2_tx_per_block, 'r--', label='Chain 2', linewidth=2)
+        ax.axhline(y=target_tpb, color='g', linestyle=':', label=f'Target TPB: {target_tpb}', linewidth=2)
+        ax.set_title('Transactions per Block (TPB)')
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('Number of Transactions')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
         
         plt.tight_layout()
         
         # Save the plot
-        plt.savefig(f'{FIGS_PATH}/tps.png', dpi=300, bbox_inches='tight')
+        plt.savefig(f'{FIGS_PATH}/tpb.png', dpi=300, bbox_inches='tight')
         plt.close()
         
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
