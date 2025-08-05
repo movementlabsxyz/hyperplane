@@ -30,7 +30,7 @@ target_tpb = 20.0
 # Must be greater than or equal to 0
 zipf_parameter = 0.0
 # Ratio of transactions that will be CATs
-ratio_cats = 0.1
+ratio_cats = 1.0
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 10
@@ -45,9 +45,9 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 1
+num_runs = 3
 # Number of simulations to run in the sweep
-num_simulations = 5
+num_simulations = 7
 # Step size for Zipf parameter sweeps
 zipf_step = 0.25
 # Total number of blocks to simulate
