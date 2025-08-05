@@ -812,7 +812,8 @@ def generate_all_plots(
             if hasattr(paper_module, 'plot_tx_pending_regular_violin'):
                 paper_module.plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
             
-            print("Paper plots generated successfully!")
+            if debug_mode:
+                print("Paper plots generated successfully!")
         except Exception as e:
             print(f"Error generating paper plots: {e}")
             import traceback

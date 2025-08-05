@@ -248,7 +248,9 @@ impl SimulatorInterface {
             _ => return Err(format!("Unknown simulation type: {}", simulation_type)),
         };
 
-        println!("DEBUG: About to execute Python script: {}", script_path);
+        if self.debug_mode {
+            println!("DEBUG: About to execute Python script: {}", script_path);
+        }
         let mut child = Command::new("python3")
             .arg(script_path)
             .env("DEBUG_MODE", if self.debug_mode { "1" } else { "0" })
@@ -259,7 +261,9 @@ impl SimulatorInterface {
         
         let status = child.wait()
             .map_err(|e| format!("Failed to wait for plotting script: {}", e))?;
-        println!("DEBUG: Python script execution completed, status: {}", status);
+        if self.debug_mode {
+            println!("DEBUG: Python script execution completed, status: {}", status);
+        }
 
         if !status.success() {
             return Err(format!("Plot generation failed with status: {}", status));

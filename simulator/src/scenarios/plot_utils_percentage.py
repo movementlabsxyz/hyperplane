@@ -1244,7 +1244,11 @@ def plot_transaction_percentage_delta_with_moving_average(
                     label=label, linewidth=1.5)
         
         # Set x-axis limits before finalizing the plot
-        plt.xlim(left=0, right=max_height)
+        if max_height > 0:
+            plt.xlim(left=0, right=max_height)
+        else:
+            # If no data was plotted, set a default range
+            plt.xlim(left=0, right=100)
         
         # Create title and filename based on transaction type and percentage type
         if transaction_type == 'cat':
@@ -1284,7 +1288,11 @@ def plot_transaction_percentage_delta_with_moving_average(
         plt.xlabel('Block Height')
         plt.ylabel(f'{percentage_type.title()} Percentage Delta (%)')
         plt.grid(True, alpha=0.3)
-        plt.legend(loc="upper right")
+        
+        # Only add legend if there are plotted artists
+        if plt.gca().get_legend_handles_labels()[0]:
+            plt.legend(loc="upper right")
+        
         plt.tight_layout()
         
         # Determine directory based on whether moving average is applied
