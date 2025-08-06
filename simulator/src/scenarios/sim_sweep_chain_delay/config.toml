@@ -53,6 +53,10 @@ chain_delay_step = 0.4
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 200
+# Transaction submission frequency
+# How many times per block to check for transaction submission opportunities
+# Higher values = more frequent, smaller batches (e.g., 10 = check 10 times per block)
+transaction_submission_frequency = 10
 
 # Logging control for the simulator
 [logging_config]

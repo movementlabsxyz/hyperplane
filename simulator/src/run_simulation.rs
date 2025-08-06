@@ -211,8 +211,8 @@ pub async fn run_simulation_with_message_and_retries(
             // increment the block counter
             block_counter += 1;
 
-            // Wait in intervals of 1/5 of the block interval until next block
-            let wait_interval = Duration::from_secs_f64(results.block_interval / 5.0);
+            // Wait in intervals based on transaction submission frequency
+            let wait_interval = Duration::from_secs_f64(results.block_interval / results.transaction_submission_frequency as f64);
             tokio::time::sleep(wait_interval).await;
         }
     }

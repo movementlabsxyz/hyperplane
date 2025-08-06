@@ -45,6 +45,7 @@ pub struct SimulationResults {
     pub block_interval: f64,
     pub cat_lifetime: u64,
     pub initialization_wait_blocks: u64,
+    pub transaction_submission_frequency: u64,  // How many times per block to check for transaction submission
     pub chain_delays: Vec<f64>,  // Chain delays in blocks
     
     // Chain data - Combined totals (for backward compatibility)
@@ -123,6 +124,7 @@ impl Default for SimulationResults {
             block_interval: 0.0,
             cat_lifetime: 0,
             initialization_wait_blocks: 0,
+            transaction_submission_frequency: 10,  // Default to 10 times per block
             chain_delays: Vec::new(),
             chain_1_pending: Vec::new(),
             chain_2_pending: Vec::new(),
