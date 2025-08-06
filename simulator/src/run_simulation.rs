@@ -328,6 +328,11 @@ async fn process_block_data(
     let total_cpu_usage = crate::SimulationResults::get_current_total_cpu_usage();
     results.total_cpu_usage.push((block_height, total_cpu_usage));
     
+    // Record CL queue length for this block
+    let cl_queue_length = cl_node.lock().await.get_pending_transactions().await
+        .map_err(|e| format!("Failed to get CL queue length: {}", e))?;
+    results.cl_queue_length.push((block_height, cl_queue_length as u64));
+    
     Ok(())
 }
 

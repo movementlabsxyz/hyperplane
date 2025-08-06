@@ -434,6 +434,105 @@ def plot_system_total_cpu():
         print(f"Warning: Error processing system total CPU data: {e}")
         return
 
+def plot_cl_queue_length():
+    """
+    Plot CL queue length over time.
+    """
+    try:
+        # Load CL queue length data
+        with open(f'{BASE_DATA_PATH}/cl_queue_length.json', 'r') as f:
+            cl_queue_data = json.load(f)
+        
+        # Extract CL queue length data
+        if 'cl_queue_length' in cl_queue_data:
+            cl_queue_entries = cl_queue_data['cl_queue_length']
+            if cl_queue_entries:
+                # Extract block heights and queue length values
+                heights = [entry['height'] for entry in cl_queue_entries]
+                queue_length_values = [entry['count'] for entry in cl_queue_entries]
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.scatter(heights, queue_length_values, color='purple', s=20, marker='o', alpha=0.7)
+                plt.title('CL Queue Length Over Time (Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('CL Queue Length')
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/cl_queue_length.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No CL queue length data found")
+        else:
+            print("Warning: CL queue length data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing CL queue length data: {e}")
+        return
+
+def plot_loops_steps_without_tx_issuance_and_cl_queue():
+    """
+    Plot loop steps without transaction issuance and CL queue length overlaid.
+    """
+    try:
+        # Load loop steps data
+        with open(f'{BASE_DATA_PATH}/loop_steps_without_tx_issuance.json', 'r') as f:
+            loop_steps_data = json.load(f)
+        
+        # Load CL queue length data
+        with open(f'{BASE_DATA_PATH}/cl_queue_length.json', 'r') as f:
+            cl_queue_data = json.load(f)
+        
+        # Create figure with two y-axes
+        fig, ax1 = plt.subplots(figsize=(12, 8))
+        ax2 = ax1.twinx()
+        
+        # Extract and plot loop steps data
+        if 'loop_steps_without_tx_issuance' in loop_steps_data:
+            loop_entries = loop_steps_data['loop_steps_without_tx_issuance']
+            if loop_entries:
+                heights = [entry['height'] for entry in loop_entries]
+                loop_values = [entry['count'] for entry in loop_entries]
+                
+                # Plot loop steps on left y-axis as continuous line
+                ax1.plot(heights, loop_values, color='blue', alpha=0.7, linewidth=2, 
+                         label='Loop Steps Without Transaction Issuance')
+        
+        # Extract and plot CL queue length data
+        if 'cl_queue_length' in cl_queue_data:
+            cl_queue_entries = cl_queue_data['cl_queue_length']
+            if cl_queue_entries:
+                heights = [entry['height'] for entry in cl_queue_entries]
+                queue_values = [entry['count'] for entry in cl_queue_entries]
+                
+                # Plot CL queue length on right y-axis
+                ax2.scatter(heights, queue_values, color='red', alpha=0.7, s=20, marker='s', 
+                           label='CL Queue Length')
+        
+        # Customize plot
+        ax1.set_xlabel('Block Height')
+        ax1.set_ylabel('Loop Steps Without Transaction Issuance', color='blue')
+        ax2.set_ylabel('CL Queue Length', color='red')
+        ax1.tick_params(axis='y', labelcolor='blue')
+        ax2.tick_params(axis='y', labelcolor='red')
+        
+        ax1.set_title('Loop Steps and CL Queue Length Over Time (Averaged)')
+        ax1.grid(True, alpha=0.3)
+        
+        # Combine legends
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+        
+        # Save the plot
+        plt.savefig(f'{FIGS_PATH}/loops_steps_without_tx_issuance_and_cl_queue.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing combined data: {e}")
+        return
+
 def plot_loop_steps_without_tx_issuance():
     """
     Plot loop steps without transaction issuance over time.
@@ -546,6 +645,12 @@ def main():
     
     # Plot system total CPU usage
     plot_system_total_cpu()
+    
+    # Plot CL queue length
+    plot_cl_queue_length()
+    
+    # Plot combined loop steps and CL queue length
+    plot_loops_steps_without_tx_issuance_and_cl_queue()
     
     # Plot loop steps without transaction issuance
     plot_loop_steps_without_tx_issuance()

@@ -96,6 +96,9 @@ pub struct SimulationResults {
     // Loop steps without transaction issuance tracking
     pub loop_steps_without_tx_issuance: Vec<(u64, u64)>, // (block_height, loop_steps_count)
     
+    // CL queue length tracking
+    pub cl_queue_length: Vec<(u64, u64)>, // (block_height, queue_length)
+    
     // Statistics
     pub account_stats: AccountSelectionStats,
     pub start_time: Instant,
@@ -152,6 +155,7 @@ impl Default for SimulationResults {
             cpu_usage: Vec::new(),
             total_cpu_usage: Vec::new(),
             loop_steps_without_tx_issuance: Vec::new(),
+            cl_queue_length: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -746,6 +750,19 @@ impl SimulationResults {
         let loop_steps_file = format!("{}/data/loop_steps_without_tx_issuance.json", base_dir);
         fs::write(&loop_steps_file, serde_json::to_string_pretty(&loop_steps_data).expect("Failed to serialize loop steps data")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved loop steps data to {}", loop_steps_file));
+
+        // Save CL queue length data
+        let cl_queue_length_data = serde_json::json!({
+            "cl_queue_length": self.cl_queue_length.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let cl_queue_length_file = format!("{}/data/cl_queue_length.json", base_dir);
+        fs::write(&cl_queue_length_file, serde_json::to_string_pretty(&cl_queue_length_data).expect("Failed to serialize CL queue length data")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved CL queue length data to {}", cl_queue_length_file));
 
         Ok(())
     }

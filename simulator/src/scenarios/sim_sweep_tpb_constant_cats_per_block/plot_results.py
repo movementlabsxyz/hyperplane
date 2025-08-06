@@ -28,7 +28,7 @@ def main():
     
     # Configuration for this specific sweep
     param_name = 'target_tpb'
-    results_dir = 'simulator/results/sim_sweep_cat_ratio_constant_cats_per_block'
+    results_dir = 'simulator/results/sim_sweep_tpb_constant_cats_per_block'
     sweep_type = 'CAT Ratio with Constant CATs per Block'
     
     if debug_mode:

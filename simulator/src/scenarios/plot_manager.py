@@ -16,6 +16,7 @@ from plot_utils import (
 from plot_system import (
     plot_system_memory, plot_system_memory_total,
     plot_system_cpu, plot_system_cpu_filtered, plot_system_cpu_total,
+    plot_cl_queue_length, plot_loops_steps_without_tx_issuance_and_cl_queue,
     plot_loop_steps_without_tx_issuance, plot_loop_steps_without_tx_issuance_moving_average
 )
 from plot_utils_delta import (
@@ -49,6 +50,8 @@ def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config
     plot_system_cpu(data, param_name, results_dir, sweep_type)
     plot_system_cpu_filtered(data, param_name, results_dir, sweep_type)
     plot_system_cpu_total(data, param_name, results_dir, sweep_type)
+    plot_cl_queue_length(data, param_name, results_dir, sweep_type)
+    plot_loops_steps_without_tx_issuance_and_cl_queue(data, param_name, results_dir, sweep_type)
     plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
     plot_loop_steps_without_tx_issuance_moving_average(data, param_name, results_dir, sweep_type, plot_config)
 

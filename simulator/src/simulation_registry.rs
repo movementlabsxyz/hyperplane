@@ -12,7 +12,7 @@ use tokio::sync::Mutex;
 use crate::scenarios::{
     sim_simple,
     sim_sweep_cat_ratio,
-    sim_sweep_cat_ratio_constant_cats_per_block,
+    sim_sweep_tpb_constant_cats_per_block,
     sim_sweep_zipf,
     sim_sweep_chain_delay,
     sim_sweep_total_block_number,
@@ -87,7 +87,7 @@ impl SimulationRegistry {
         let (sim_type, sim_config) = sim_sweep_cat_ratio::simulation::register();
         simulations.insert(sim_type, sim_config);
         
-        let (sim_type, sim_config) = sim_sweep_cat_ratio_constant_cats_per_block::simulation::register();
+        let (sim_type, sim_config) = sim_sweep_tpb_constant_cats_per_block::simulation::register();
         simulations.insert(sim_type, sim_config);
         
         let (sim_type, sim_config) = sim_sweep_chain_delay::simulation::register();

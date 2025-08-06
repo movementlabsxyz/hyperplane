@@ -32,7 +32,7 @@ pub struct CatRatioConstantCatsPerBlockSweepParameters {
 // - SweepConfigTrait implementation for integration with the generic SweepRunner
 // - A load_config() function that reads and validates the TOML configuration file
 define_sweep_config!(
-    "sim_sweep_cat_ratio_constant_cats_per_block",
+    "sim_sweep_tpb_constant_cats_per_block",
     SweepCatRatioConstantCatsPerBlockConfig,
     validate_sweep_specific = |self_: &Self| {
         // Need target_tpb_multiplier_per_step to calculate the sequence of target TPB values to test
@@ -62,7 +62,7 @@ define_sweep_config!(
 /// This ensures that regardless of the target TPB, the same number of CATs are
 /// generated per block, allowing us to isolate the effect of transaction rate
 /// from the effect of CAT frequency.
-pub async fn run_sweep_cat_ratio_constant_cats_per_block_simulation() -> Result<(), crate::config::ConfigError> {
+pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), crate::config::ConfigError> {
     // Load sweep configuration to get parameter values
     // This reads the sweep settings from config_sweep_cat_ratio_constant_cats_per_block.toml
     let sweep_config = load_config()?;
@@ -73,7 +73,7 @@ pub async fn run_sweep_cat_ratio_constant_cats_per_block_simulation() -> Result<
     
     // Calculate target TPB values using the multiplier
     // base_tpb * (multiplier ^ step) for each simulation
-    let base_tpb = 2.0; // Starting value
+    let base_tpb = 100.0; // Starting value
     let mut target_tpb_values = Vec::new();
     for step in 0..num_simulations {
         let target_tpb = base_tpb * multiplier.powi(step as i32);
@@ -83,13 +83,20 @@ pub async fn run_sweep_cat_ratio_constant_cats_per_block_simulation() -> Result<
     // Calculate the reference CATs per block from the base config (for verification)
     let reference_target_tpb = sweep_config.transaction_config.target_tpb;
     let reference_cat_ratio = sweep_config.transaction_config.ratio_cats;
-    let _constant_cats_per_block = reference_target_tpb * reference_cat_ratio; // Should be 2.0
+    let constant_cats_per_block = reference_target_tpb * reference_cat_ratio; // Should be 2.0
+    
+    // Calculate CAT TPB values (constant at 2.0)
+    let cat_tpb_values: Vec<f64> = vec![constant_cats_per_block; num_simulations];
+    
+    // Print both target TPB and CAT TPB values
+    println!("Target TPB values to test: {:?}", target_tpb_values);
+    println!("CAT TPB values (constant): {:?}", cat_tpb_values);
 
     // Create the generic sweep runner that handles all the common functionality
     // This eliminates code duplication across different sweep types
     let runner = SweepRunner::new(
         "CAT Ratio with Constant CATs per Block",  // Human-readable name for logging
-        "sim_sweep_cat_ratio_constant_cats_per_block",  // Directory name for results
+        "sim_sweep_tpb_constant_cats_per_block",  // Directory name for results
         "target_tpb",                             // Parameter name for JSON output
         target_tpb_values,                        // List of parameter values to test
         // Function to load the sweep configuration
@@ -146,10 +153,10 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
     (SimulationType::SweepCatRatioConstantCatsPerBlock, SimulationConfig {
         name: "CAT Ratio with Constant CATs per Block Sweep",
         run_fn: Box::new(|| Box::pin(async {
-            run_sweep_cat_ratio_constant_cats_per_block_simulation().await
+            run_sweep_tpb_constant_cats_per_block_simulation().await
                 .map_err(|e| format!("CAT ratio constant CATs per block sweep failed: {}", e))
         })),
-        plot_script: "simulator/src/scenarios/sim_sweep_cat_ratio_constant_cats_per_block/plot_results.py",
+        plot_script: "simulator/src/scenarios/sim_sweep_tpb_constant_cats_per_block/plot_results.py",
     })
 }
 
@@ -163,8 +170,8 @@ pub fn register() -> (crate::interface::SimulationType, crate::simulation_regist
 /// It loads the configuration, runs the sweep, and generates plots.
 pub async fn run_with_plotting() -> Result<(), crate::config::ConfigError> {
     run_simulation_with_plotting(
-        || run_sweep_cat_ratio_constant_cats_per_block_simulation(),
+        || run_sweep_tpb_constant_cats_per_block_simulation(),
         "CAT Ratio with Constant CATs per Block Sweep",
-        "simulator/src/scenarios/sim_sweep_cat_ratio_constant_cats_per_block/plot_results.py"
+        "simulator/src/scenarios/sim_sweep_tpb_constant_cats_per_block/plot_results.py"
     ).await
 } 

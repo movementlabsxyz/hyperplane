@@ -60,8 +60,8 @@ impl SimulationType {
             "5" => Some(SimulationType::SweepCatLifetime),
             "6" => Some(SimulationType::SweepCatPendingDependencies),
             "7" => Some(SimulationType::SweepCatRatio),
-            "8" => Some(SimulationType::SweepCatRatioConstantCatsPerBlock),
-            "9" => Some(SimulationType::SweepChainDelay),
+            "8" => Some(SimulationType::SweepChainDelay),
+            "9" => Some(SimulationType::SweepCatRatioConstantCatsPerBlock),
             "10" => Some(SimulationType::SweepTotalBlockNumber),
             "11" => Some(SimulationType::SweepZipf),
             "12" => Some(SimulationType::RunAllTests),
@@ -94,7 +94,7 @@ impl SimulatorInterface {
     /// Returns the menu text for available simulation types
     pub fn get_menu_text(&self) -> String {
         let debug_status = if self.debug_mode { "ON" } else { "OFF" };
-        format!("Available simulation types:\n  1. Simple simulation\n  ------------------------\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT ratio\n  8. Sweep CAT ratio (constant CATs per block)\n  9. Sweep Chain Delay\n 10. Sweep Total Block Number\n 11. Sweep Zipf distribution\n  ------------------------\n 12. Run All Tests\n 13. Run Missing Tests Only\n 14. Rerun All Plots Only\n 15. Toggle Debug Mode (currently {})\n  0. Exit", debug_status)
+        format!("Available simulation types:\n  1. Simple simulation\n  2. Sweep Block Interval (All Scaled)\n  3. Sweep Block Interval (Constant Block Delay)\n  4. Sweep Block Interval (Constant Time Delay)\n  5. Sweep CAT lifetime\n  6. Sweep CAT Pending Dependencies\n  7. Sweep CAT ratio\n  8. Sweep Chain Delay\n  9. Sweep TPB (constant CATs per block)\n 10. Sweep Total Block Number\n 11. Sweep Zipf distribution\n  ------------------------\n 12. Run All Tests\n 13. Run Missing Tests Only\n 14. Rerun All Plots Only\n 15. Toggle Debug Mode (currently {})\n  0. Exit", debug_status)
     }
 
     /// Displays the simulator menu
@@ -130,7 +130,7 @@ impl SimulatorInterface {
         let data_path = match simulation_type {
             "simple" => "simulator/results/sim_simple/data",
             "sweep_cat_ratio" => "simulator/results/sim_sweep_cat_ratio/data",
-            "sweep_cat_ratio_constant_cats_per_block" => "simulator/results/sim_sweep_cat_ratio_constant_cats_per_block/data",
+            "sweep_tpb_constant_cats_per_block" => "simulator/results/sim_sweep_tpb_constant_cats_per_block/data",
             "sweep_cat_pending_dependencies" => "simulator/results/sim_sweep_cat_pending_dependencies/data",
             "sweep_block_interval_constant_time_delay" => "simulator/results/sim_sweep_block_interval_constant_time_delay/data",
             "sweep_block_interval_constant_block_delay" => "simulator/results/sim_sweep_block_interval_constant_block_delay/data",
@@ -150,7 +150,7 @@ impl SimulatorInterface {
         let simulation_types = vec![
             ("simple", "Simple Simulation"),
             ("sweep_cat_ratio", "CAT Ratio Sweep"),
-            ("sweep_cat_ratio_constant_cats_per_block", "CAT Ratio with Constant CATs per Block Sweep"),
+            ("sweep_tpb_constant_cats_per_block", "TPB with Constant CATs per Block Sweep"),
             ("sweep_cat_pending_dependencies", "CAT Pending Dependencies Sweep"),
             ("sweep_block_interval_constant_time_delay", "Block Interval (Constant Time Delay) Sweep"),
             ("sweep_block_interval_constant_block_delay", "Block Interval (Constant Block Delay) Sweep"),
@@ -189,7 +189,7 @@ impl SimulatorInterface {
             let simulation_type = match sim_type {
                 "simple" => SimulationType::Simple,
                 "sweep_cat_ratio" => SimulationType::SweepCatRatio,
-                "sweep_cat_ratio_constant_cats_per_block" => SimulationType::SweepCatRatioConstantCatsPerBlock,
+                "sweep_tpb_constant_cats_per_block" => SimulationType::SweepCatRatioConstantCatsPerBlock,
                 "sweep_cat_pending_dependencies" => SimulationType::SweepCatPendingDependencies,
                 "sweep_block_interval_constant_time_delay" => SimulationType::SweepBlockIntervalConstantTimeDelay,
                 "sweep_block_interval_constant_block_delay" => SimulationType::SweepBlockIntervalConstantBlockDelay,
@@ -236,7 +236,7 @@ impl SimulatorInterface {
             "simple" => "simulator/src/scenarios/sim_simple/plot_results.py",
 
             "sweep_cat_ratio" => "simulator/src/scenarios/sim_sweep_cat_ratio/plot_results.py",
-            "sweep_cat_ratio_constant_cats_per_block" => "simulator/src/scenarios/sim_sweep_cat_ratio_constant_cats_per_block/plot_results.py",
+            "sweep_tpb_constant_cats_per_block" => "simulator/src/scenarios/sim_sweep_tpb_constant_cats_per_block/plot_results.py",
             "sweep_cat_pending_dependencies" => "simulator/src/scenarios/sim_sweep_cat_pending_dependencies/plot_results.py",
             "sweep_block_interval_constant_time_delay" => "simulator/src/scenarios/sim_sweep_block_interval_constant_time_delay/plot_results.py",
             "sweep_block_interval_constant_block_delay" => "simulator/src/scenarios/sim_sweep_block_interval_constant_block_delay/plot_results.py",
@@ -352,7 +352,7 @@ impl SimulatorInterface {
                                             SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
                                             SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
                                             SimulationType::SweepCatRatio => "sweep_cat_ratio",
-                                            SimulationType::SweepCatRatioConstantCatsPerBlock => "sweep_cat_ratio_constant_cats_per_block",
+                                            SimulationType::SweepCatRatioConstantCatsPerBlock => "sweep_tpb_constant_cats_per_block",
                                             SimulationType::SweepChainDelay => "sweep_chain_delay",
                                             SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
                                             SimulationType::SweepZipf => "sweep_zipf",
@@ -378,7 +378,7 @@ impl SimulatorInterface {
                                     SimulationType::SweepCatLifetime => "sweep_cat_lifetime",
                                     SimulationType::SweepCatPendingDependencies => "sweep_cat_pending_dependencies",
                                     SimulationType::SweepCatRatio => "sweep_cat_ratio",
-                                    SimulationType::SweepCatRatioConstantCatsPerBlock => "sweep_cat_ratio_constant_cats_per_block",
+                                    SimulationType::SweepCatRatioConstantCatsPerBlock => "sweep_tpb_constant_cats_per_block",
                                     SimulationType::SweepChainDelay => "sweep_chain_delay",
                                     SimulationType::SweepTotalBlockNumber => "sweep_total_block_number",
                                     SimulationType::SweepZipf => "sweep_zipf",
