@@ -274,7 +274,6 @@ def plot_cl_queue_length(data: Dict[str, Any], param_name: str, results_dir: str
         plt.savefig(f'{figs_dir}/cl_queue_length.png', dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated CL queue length plot: cl_queue_length.png")
         
     except Exception as e:
         print(f"Error generating CL queue length plot: {e}")
@@ -371,10 +370,89 @@ def plot_loops_steps_without_tx_issuance_and_cl_queue(data: Dict[str, Any], para
         plt.savefig(f'{figs_dir}/loops_steps_without_tx_issuance_and_cl_queue.png', dpi=300, bbox_inches='tight')
         plt.close()
         
-        print(f"Generated combined plot: loops_steps_without_tx_issuance_and_cl_queue.png")
         
     except Exception as e:
         print(f"Error generating combined plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_block_height_delta(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+    """Plot block height delta over time for sweep simulations"""
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping block height delta plot")
+            return
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(12, 8))
+        
+        # Get parameter values for coloring
+        param_values = [result[param_name] for result in individual_results]
+        colors = create_color_gradient(len(param_values))
+        
+        # Plot each simulation's block height delta data
+        missing_files = []
+        for sim_index, (result, color) in enumerate(zip(individual_results, colors)):
+            param_value = result[param_name]
+            label = create_parameter_label(param_name, param_value)
+            
+            # Load block height delta data for this simulation
+            delta_file = f'{results_dir}/data/sim_{sim_index}/run_average/block_height_delta.json'
+            if os.path.exists(delta_file):
+                with open(delta_file, 'r') as f:
+                    delta_data = json.load(f)
+                
+                # Extract block height delta data
+                if 'block_height_delta' in delta_data:
+                    delta_entries = delta_data['block_height_delta']
+                    if delta_entries:
+                        # Extract block heights and delta values
+                        heights = [entry['height'] for entry in delta_entries]
+                        delta_values = [entry['delta'] for entry in delta_entries]
+                        
+                        # Ensure heights and delta_values have the same length
+                        if len(heights) != len(delta_values):
+                            print(f"Warning: Heights ({len(heights)}) and delta values ({len(delta_values)}) have different lengths for simulation {sim_index}")
+                            # Use the shorter length
+                            min_length = min(len(heights), len(delta_values))
+                            heights = heights[:min_length]
+                            delta_values = delta_values[:min_length]
+                        
+                        # Plot the data as dots to show individual points
+                        ax.scatter(heights, delta_values, color=color, alpha=0.7, s=20, marker='o')
+                    else:
+                        print(f"Warning: No block height delta entries found for simulation {sim_index}")
+                else:
+                    print(f"Warning: No block_height_delta key found in {delta_file}")
+            else:
+                missing_files.append(delta_file)
+            
+            # Add legend entry for this parameter value
+            ax.scatter([], [], color=color, label=label, s=20, marker='o')
+        
+        # Print summary warning for missing files
+        if missing_files:
+            print(f"Warning: {len(missing_files)} block_height_delta.json files not found across all simulations")
+        
+        # Customize plot
+        ax.set_xlabel('Block Height')
+        ax.set_ylabel('Block Height Delta')
+        ax.set_title(f'Block Height Delta Over Time by {PARAM_DISPLAY_NAMES.get(param_name, param_name.replace("_", " ").title())}')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        
+        # Save the plot
+        figs_dir = f'{results_dir}/figs'
+        os.makedirs(figs_dir, exist_ok=True)
+        plt.savefig(f'{figs_dir}/block_height_delta.png', dpi=300, bbox_inches='tight')
+        plt.close()
+        
+        
+    except Exception as e:
+        print(f"Error generating block height delta plot: {e}")
         import traceback
         traceback.print_exc()
 

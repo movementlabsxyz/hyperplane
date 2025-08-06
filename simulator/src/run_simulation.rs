@@ -174,12 +174,17 @@ pub async fn run_simulation_with_message_and_retries(
 
             // Record the block counter for the previous block before resetting it
             results.loop_steps_without_tx_issuance.push((current_block, block_counter));
+            
+            // Record the block height delta (how many blocks we skipped)
+            let height_delta = new_block - current_block;
+            results.block_height_delta.push((current_block, height_delta));
+            
             // reset the block counter
             block_counter = 0;
 
             logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
             
-            // Process and record all data for this block
+            // Process and record all data for this height
             process_block_data(
                 &cl_node,
                 &hig_nodes,
@@ -195,7 +200,7 @@ pub async fn run_simulation_with_message_and_retries(
             let blocks_completed = new_block - initial_block;
             progress_bar.set_position(blocks_completed);
             
-            // Release all transactions for this block at once
+            // Release transactions for this block, compensating for missed blocks
             release_transactions_for_block(
                 &cl_node,
                 &mut rng,
@@ -206,6 +211,7 @@ pub async fn run_simulation_with_message_and_retries(
                 chain_id_2.clone(),
                 transactions_per_block,
                 new_block,
+                height_delta,
             ).await?;
         } else {
             // increment the block counter
@@ -351,8 +357,15 @@ async fn release_transactions_for_block(
     chain_id_2: ChainId,
     transactions_per_block: u64,
     _current_block: u64,
+    height_delta: u64,
 ) -> Result<(), String> {
-    for tx_index in 0..transactions_per_block {
+    // Calculate total transactions to send (compensate for missed blocks)
+    let total_transactions = transactions_per_block * height_delta;
+    
+    logging::log("SIMULATOR", &format!("Releasing {} transactions ({} per block × {} blocks)", 
+        total_transactions, transactions_per_block, height_delta));
+    
+    for tx_index in 0..total_transactions {
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(rng);
         let to_account = account_selector_receiver.select_account(rng);

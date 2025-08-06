@@ -533,6 +533,43 @@ def plot_loops_steps_without_tx_issuance_and_cl_queue():
         print(f"Warning: Error processing combined data: {e}")
         return
 
+def plot_block_height_delta():
+    """
+    Plot block height delta over time.
+    """
+    try:
+        # Load block height delta data
+        with open(f'{BASE_DATA_PATH}/block_height_delta.json', 'r') as f:
+            delta_data = json.load(f)
+        
+        # Extract block height delta data
+        if 'block_height_delta' in delta_data:
+            delta_entries = delta_data['block_height_delta']
+            if delta_entries:
+                # Extract block heights and delta values
+                heights = [entry['height'] for entry in delta_entries]
+                delta_values = [entry['delta'] for entry in delta_entries]
+                
+                # Create the plot
+                plt.figure(figsize=(12, 6))
+                plt.scatter(heights, delta_values, color='orange', s=20, marker='o', alpha=0.7)
+                plt.title('Block Height Delta Over Time (Averaged)')
+                plt.xlabel('Block Height')
+                plt.ylabel('Block Height Delta')
+                plt.grid(True, alpha=0.3)
+                
+                # Save the plot
+                plt.savefig(f'{FIGS_PATH}/block_height_delta.png', dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                print("Warning: No block height delta data found")
+        else:
+            print("Warning: Block height delta data not found in expected format")
+            
+    except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+        print(f"Warning: Error processing block height delta data: {e}")
+        return
+
 def plot_loop_steps_without_tx_issuance():
     """
     Plot loop steps without transaction issuance over time.
@@ -651,6 +688,9 @@ def main():
     
     # Plot combined loop steps and CL queue length
     plot_loops_steps_without_tx_issuance_and_cl_queue()
+    
+    # Plot block height delta
+    plot_block_height_delta()
     
     # Plot loop steps without transaction issuance
     plot_loop_steps_without_tx_issuance()
