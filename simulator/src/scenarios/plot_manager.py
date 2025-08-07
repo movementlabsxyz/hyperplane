@@ -76,9 +76,9 @@ def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_conf
     plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
     
     # Total transaction plots
-    # plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
-    # plot_total_regular_transactions(data, param_name, results_dir, sweep_type)
-    # plot_total_sumtypes_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_regular_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_sumtypes_transactions(data, param_name, results_dir, sweep_type)
     
     # Moving average overlays (if enabled)
     if plot_config.get('plot_moving_average', False):

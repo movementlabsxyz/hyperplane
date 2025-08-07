@@ -378,7 +378,7 @@ def plot_total_cat_transactions(data: Dict[str, Any], param_name: str, results_d
         
         # Create title and filename
         title = f'Total CAT Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        filename = 'tx_sumStates_cat.png'
+        filename = 'tx_sumStatus_cat.png'
         
         plt.title(title)
         plt.xlabel('Block Height')
@@ -472,7 +472,7 @@ def plot_total_regular_transactions(data: Dict[str, Any], param_name: str, resul
         
         # Create title and filename
         title = f'Total Regular Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        filename = 'tx_sumStates_regular.png'
+        filename = 'tx_sumStatus_regular.png'
         
         plt.title(title)
         plt.xlabel('Block Height')
@@ -583,7 +583,7 @@ def plot_total_sumtypes_transactions(data: Dict[str, Any], param_name: str, resu
         
         # Create title and filename
         title = f'Total SumTypes Transactions (CAT + Regular) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        filename = 'tx_sumStates_sumTypes.png'
+        filename = 'tx_sumStatus_sumTypes.png'
         
         plt.title(title)
         plt.xlabel('Block Height')
@@ -783,7 +783,7 @@ def generate_all_plots(
             module_name = os.path.basename(results_dir_name)
             if debug_mode:
                 print(f"DEBUG: Importing module: {module_name}.plot_paper")
-            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin_paper', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
+            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin_paper', 'plot_cat_success_percentage_violin', 'plot_cat_success_percentage_violin_by_simulation', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
             
             # Call the individual paper plot functions directly if they exist
             if debug_mode:
@@ -798,6 +798,9 @@ def generate_all_plots(
                 
             if hasattr(paper_module, 'plot_cat_success_percentage_violin'):
                 paper_module.plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+                
+            if hasattr(paper_module, 'plot_cat_success_percentage_violin_by_simulation'):
+                paper_module.plot_cat_success_percentage_violin_by_simulation(data, param_name, results_dir, sweep_type, plot_config)
                 
             if debug_mode:
                 print("DEBUG: About to run postponed violin plot...")
