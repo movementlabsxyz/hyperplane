@@ -80,12 +80,10 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
         target_tpb_values.push(target_tpb);
     }
     
-    // Calculate the reference CATs per block from the base config (for verification)
-    let reference_target_tpb = sweep_config.transaction_config.target_tpb;
-    let reference_cat_ratio = sweep_config.transaction_config.ratio_cats;
-    let constant_cats_per_block = reference_target_tpb * reference_cat_ratio; // Should be 2.0
+    // Get the constant CATs per block from the simulation config
+    let constant_cats_per_block = sweep_config.simulation_config.constants_cats_per_block.unwrap_or(50.0);
     
-    // Calculate CAT TPB values (constant at 2.0)
+    // Calculate CAT TPB values (constant)
     let cat_tpb_values: Vec<f64> = vec![constant_cats_per_block; num_simulations];
     
     // Print both target TPB and CAT TPB values
@@ -108,7 +106,7 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
             // Calculate the CAT ratio to maintain constant CATs per block
             // constant_cats_per_block = target_tpb * cat_ratio
             // So: cat_ratio = constant_cats_per_block / target_tpb
-            let constant_cats_per_block = 2.0; // From reference config (20.0 * 0.1)
+            let constant_cats_per_block = 50.0; // From config file
             let cat_ratio = constant_cats_per_block / target_tpb;
             
             create_modified_config(sweep_config, |base_config| {

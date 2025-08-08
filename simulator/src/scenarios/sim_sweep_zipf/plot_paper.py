@@ -223,8 +223,12 @@ def main():
         from plot_utils import load_plot_config
         plot_config = load_plot_config(results_dir)
         
-        # Generate paper-specific plots
-        plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+        # Apply cutoff to the data for paper plots (for better stability)
+        from plot_utils_cutoff import apply_cutoff_to_percentage_data
+        cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
+        
+        # Generate paper-specific plots with cutoff data
+        plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

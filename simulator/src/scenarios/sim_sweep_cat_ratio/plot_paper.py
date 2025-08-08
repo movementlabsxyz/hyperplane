@@ -21,9 +21,15 @@ from plot_utils_percentage import plot_transaction_percentage
 # Check if debug mode is enabled
 DEBUG_MODE = os.environ.get('DEBUG_MODE', '0') == '1'
 
-def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str, Any]]:
+def load_individual_run_data(results_dir: str, param_name: str, apply_cutoff: bool = False, plot_config: Dict[str, Any] = None) -> List[Dict[str, Any]]:
     """
     Load individual run data from data/sim_x/run_y/data/ directories.
+    
+    Args:
+        results_dir: Directory containing results
+        param_name: Name of the parameter being swept
+        apply_cutoff: Whether to apply cutoff processing to the data
+        plot_config: Plot configuration containing cutoff settings (required if apply_cutoff=True)
     
     Returns a list of run data dictionaries, each containing:
     - param_name: parameter value
@@ -97,11 +103,32 @@ def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str
                             time_series_data.append((entry['height'], entry['count']))
                         run_data['chain_1_cat_failure'] = time_series_data
             
+            # Apply cutoff if requested
+            if apply_cutoff and plot_config:
+                from plot_utils_cutoff import apply_cutoff_to_data
+                cutoff_percentage = plot_config.get('cutoff', 0.5)
+                
+                # Apply cutoff to success data
+                if 'chain_1_cat_success' in run_data and run_data['chain_1_cat_success']:
+                    max_height = max(run_data['chain_1_cat_success'], key=lambda x: x[0])[0]
+                    cutoff_height = int(max_height * cutoff_percentage)
+                    run_data['chain_1_cat_success'] = apply_cutoff_to_data(
+                        run_data['chain_1_cat_success'], cutoff_height, 'cat_success'
+                    )
+                
+                # Apply cutoff to failure data
+                if 'chain_1_cat_failure' in run_data and run_data['chain_1_cat_failure']:
+                    max_height = max(run_data['chain_1_cat_failure'], key=lambda x: x[0])[0]
+                    cutoff_height = int(max_height * cutoff_percentage)
+                    run_data['chain_1_cat_failure'] = apply_cutoff_to_data(
+                        run_data['chain_1_cat_failure'], cutoff_height, 'cat_failure'
+                    )
+            
             individual_runs.append(run_data)
     
     return individual_runs
 
-def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any] = None) -> None:
     """
     Plot CAT success percentage with both average and individual curves overlaid.
     
@@ -118,9 +145,10 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
             print(f"Warning: No individual results found, skipping CAT success percentage plot")
             return
         
-        # Load individual run data
-        individual_runs = load_individual_run_data(results_dir, param_name)
-        print(f"Loaded {len(individual_runs)} individual runs")
+        # Load individual run data with cutoff if plot_config is provided
+        apply_cutoff = plot_config is not None
+        individual_runs = load_individual_run_data(results_dir, param_name, apply_cutoff, plot_config)
+        print(f"Loaded {len(individual_runs)} individual runs" + (" with cutoff" if apply_cutoff else ""))
         
         # Create figure
         plt.figure(figsize=(10, 6))
@@ -162,6 +190,8 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                 
                 if not cat_success_data and not cat_failure_data:
                     continue
+                
+
                 
                 # Calculate percentage over time
                 combined_data = {}
@@ -219,6 +249,9 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
             param_values = sorted([extract_parameter_value(r, param_name) for r in individual_results])
             color_idx = param_values.index(param_value)
             base_color = colors[color_idx]
+            
+            # Apply cutoff to the data if plot_config is provided (individual runs already have cutoff applied in load_individual_run_data)
+            # But we need to apply cutoff here too for consistency with the main curves
             
             # Calculate percentage over time (same logic as above)
             combined_data = {}
@@ -288,149 +321,6 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
         traceback.print_exc()
         raise  # Re-raise to trigger panic
 
-
-
-def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """
-    Plot CAT success percentage violin plot for paper publication.
-    
-    This creates a violin plot showing the distribution of CAT success percentages
-    for each CAT ratio, using cutoff data to avoid edge effects.
-    """
-    try:
-        individual_results = data['individual_results']
-        
-        # Extract parameter values and results
-        param_values = []
-        results = []
-        
-        for result in individual_results:
-            param_value = extract_parameter_value(result, param_name)
-            param_values.append(param_value)
-            results.append(result)
-        
-        # Apply cutoff to the data to match tx_count_cutoff processing
-        from plot_utils_cutoff import apply_cutoff_to_percentage_data
-        cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
-        
-        # Collect percentage data for each simulation
-        violin_data = []
-        labels = []
-        
-        for i, (param_value, result) in enumerate(zip(param_values, cutoff_data['individual_results'])):
-            # Get CAT success and failure data with cutoff applied
-            cat_success_data = result.get('chain_1_cat_success', [])
-            cat_failure_data = result.get('chain_1_cat_failure', [])
-            
-            if not cat_success_data and not cat_failure_data:
-                continue
-            
-            # Calculate percentage over time using point-in-time calculations
-            percentages = []
-            
-            # Convert to height->count mapping
-            cat_success_by_height = {entry[0]: entry[1] for entry in cat_success_data}
-            cat_failure_by_height = {entry[0]: entry[1] for entry in cat_failure_data}
-            
-            # Get all unique heights
-            all_heights = set()
-            for height, _ in cat_success_data:
-                all_heights.add(height)
-            for height, _ in cat_failure_data:
-                all_heights.add(height)
-            
-            # Calculate percentage at each height
-            for height in sorted(all_heights):
-                success_at_height = cat_success_by_height.get(height, 0)
-                failure_at_height = cat_failure_by_height.get(height, 0)
-                
-                # Calculate percentage of success vs total (success + failure)
-                total = success_at_height + failure_at_height
-                if total > 0:
-                    percentage = (success_at_height / total) * 100
-                    percentages.append(percentage)
-            
-            # Discard the first 20% of data points for violin plot
-            if percentages:
-                num_points = len(percentages)
-                discard_count = int(num_points * 0.2)  # 20% of data points
-                filtered_percentages = percentages[discard_count:]
-                
-                if filtered_percentages:  # Only add if we have data after filtering
-                    violin_data.append(filtered_percentages)
-                    labels.append(f'{param_value:.3f}')
-        
-        if not violin_data:
-            print("Warning: No data available for violin plot")
-            return
-        
-        # Save violin plot data to data/paper/ folder
-        paper_data_dir = f'{results_dir}/data/paper'
-        os.makedirs(paper_data_dir, exist_ok=True)
-        
-        # Create data structure for saving
-        violin_plot_data = {
-            'parameter_name': param_name,
-            'sweep_type': sweep_type,
-            'num_simulations': len(violin_data),
-            'num_runs': len(violin_data[0]) if violin_data else 0,
-            'data': []
-        }
-        
-        for i, (percentages, label) in enumerate(zip(violin_data, labels)):
-            violin_plot_data['data'].append({
-                'simulation_index': i,
-                'parameter_value': float(label),
-                'final_percentages': percentages,
-                'mean_percentage': np.mean(percentages),
-                'std_percentage': np.std(percentages),
-                'min_percentage': np.min(percentages),
-                'max_percentage': np.max(percentages)
-            })
-        
-        # Save the data
-        violin_data_file = f'{paper_data_dir}/cat_success_percentage_violin_paper.json'
-        with open(violin_data_file, 'w') as f:
-            json.dump(violin_plot_data, f, indent=2)
-        
-        # print(f"Saved violin plot data to: {violin_data_file}")
-        
-        # Create violin plot
-        plt.figure(figsize=(10, 6))
-        
-        # Create violin plot
-        violin_parts = plt.violinplot(violin_data, positions=range(len(violin_data)), showmeans=True)
-        
-        # Customize violin plot appearance
-        violin_parts['cmeans'].set_color('red')
-        violin_parts['cmeans'].set_linewidth(2)
-        violin_parts['cbars'].set_color('black')
-        violin_parts['cmins'].set_color('black')
-        violin_parts['cmaxes'].set_color('black')
-        
-        # Set x-axis labels
-        plt.xticks(range(len(violin_data)), labels)
-        
-        # Customize plot
-        plt.xlabel('CAT Ratio')
-        plt.ylabel('CAT Success Percentage (%)')
-        plt.title(f'CAT Success Percentage Distribution by CAT Ratio - {create_sweep_title(param_name, sweep_type)}')
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
-        
-        # Create the paper directory and plot
-        paper_dir = f'{results_dir}/figs/paper'
-        os.makedirs(paper_dir, exist_ok=True)
-        plt.savefig(f'{paper_dir}/cat_success_percentage_violin_paper.png', 
-                   dpi=300, bbox_inches='tight')
-        plt.close()
-        
-        # print(f"Generated violin plot: cat_success_percentage_violin_paper.png")
-        
-    except Exception as e:
-        print(f"Error generating violin plot: {e}")
-        import traceback
-        traceback.print_exc()
 
 
 def plot_cat_success_percentage_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
@@ -698,10 +588,10 @@ def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, 
                 'simulation_index': i,
                 'parameter_value': float(label),
                 'final_values': values,
-                'mean_value': np.mean(values),
-                'std_value': np.std(values),
-                'min_value': np.min(values),
-                'max_value': np.max(values)
+                'mean_value': float(np.mean(values)),
+                'std_value': float(np.std(values)),
+                'min_value': int(np.min(values)),
+                'max_value': int(np.max(values))
             })
         
         # Save the data
@@ -829,10 +719,10 @@ def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, 
                 'simulation_index': i,
                 'parameter_value': float(label),
                 'final_values': values,
-                'mean_value': np.mean(values),
-                'std_value': np.std(values),
-                'min_value': np.min(values),
-                'max_value': np.max(values)
+                'mean_value': float(np.mean(values)),
+                'std_value': float(np.std(values)),
+                'min_value': int(np.min(values)),
+                'max_value': int(np.max(values))
             })
         
         # Save the data
@@ -960,10 +850,10 @@ def plot_tx_pending_regular_violin(data: Dict[str, Any], param_name: str, result
                 'simulation_index': i,
                 'parameter_value': float(label),
                 'final_values': values,
-                'mean_value': np.mean(values),
-                'std_value': np.std(values),
-                'min_value': np.min(values),
-                'max_value': np.max(values)
+                'mean_value': float(np.mean(values)),
+                'std_value': float(np.std(values)),
+                'min_value': int(np.min(values)),
+                'max_value': int(np.max(values))
             })
         
         # Save the data
@@ -1034,15 +924,16 @@ def main():
         from plot_utils import load_plot_config
         plot_config = load_plot_config(results_dir)
         
-        # Generate paper-specific plots
-        plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
-        plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
-        plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
-        print("DEBUG: About to run postponed violin plot...")
-        plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
-        print("DEBUG: About to run resolving violin plot...")
-        plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
-        plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
+        # Apply cutoff to the data for paper plots (for better stability)
+        from plot_utils_cutoff import apply_cutoff_to_percentage_data
+        cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
+        
+        # Generate paper-specific plots with cutoff data
+        plot_cat_success_percentage_with_overlay(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_cat_postponed_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_cat_resolving_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_regular_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

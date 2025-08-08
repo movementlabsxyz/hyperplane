@@ -21,9 +21,15 @@ from plot_utils_percentage import plot_transaction_percentage
 # Check if debug mode is enabled
 DEBUG_MODE = os.environ.get('DEBUG_MODE', '0') == '1'
 
-def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str, Any]]:
+def load_individual_run_data(results_dir: str, param_name: str, apply_cutoff: bool = False, plot_config: Dict[str, Any] = None) -> List[Dict[str, Any]]:
     """
     Load individual run data from data/sim_x/run_y/data/ directories.
+    
+    Args:
+        results_dir: Directory containing results
+        param_name: Name of the parameter being swept
+        apply_cutoff: Whether to apply cutoff processing to the data
+        plot_config: Plot configuration containing cutoff settings (required if apply_cutoff=True)
     
     Returns a list of run data dictionaries, each containing:
     - param_name: parameter value
@@ -97,11 +103,32 @@ def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str
                             time_series_data.append((entry['height'], entry['count']))
                         run_data['chain_1_cat_failure'] = time_series_data
             
+            # Apply cutoff if requested
+            if apply_cutoff and plot_config:
+                from plot_utils_cutoff import apply_cutoff_to_data
+                cutoff_percentage = plot_config.get('cutoff', 0.5)
+                
+                # Apply cutoff to success data
+                if 'chain_1_cat_success' in run_data and run_data['chain_1_cat_success']:
+                    max_height = max(run_data['chain_1_cat_success'], key=lambda x: x[0])[0]
+                    cutoff_height = int(max_height * cutoff_percentage)
+                    run_data['chain_1_cat_success'] = apply_cutoff_to_data(
+                        run_data['chain_1_cat_success'], cutoff_height, 'cat_success'
+                    )
+                
+                # Apply cutoff to failure data
+                if 'chain_1_cat_failure' in run_data and run_data['chain_1_cat_failure']:
+                    max_height = max(run_data['chain_1_cat_failure'], key=lambda x: x[0])[0]
+                    cutoff_height = int(max_height * cutoff_percentage)
+                    run_data['chain_1_cat_failure'] = apply_cutoff_to_data(
+                        run_data['chain_1_cat_failure'], cutoff_height, 'cat_failure'
+                    )
+            
             individual_runs.append(run_data)
     
     return individual_runs
 
-def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any] = None) -> None:
     """
     Plot CAT success percentage with both average and individual curves overlaid.
     
@@ -118,9 +145,10 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
             print(f"Warning: No individual results found, skipping CAT success percentage plot")
             return
         
-        # Load individual run data
-        individual_runs = load_individual_run_data(results_dir, param_name)
-        print(f"Loaded {len(individual_runs)} individual runs")
+        # Load individual run data with cutoff if plot_config is provided
+        apply_cutoff = plot_config is not None
+        individual_runs = load_individual_run_data(results_dir, param_name, apply_cutoff, plot_config)
+        print(f"Loaded {len(individual_runs)} individual runs" + (" with cutoff" if apply_cutoff else ""))
         
         # Create figure
         plt.figure(figsize=(10, 6))
@@ -162,6 +190,8 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
                 
                 if not cat_success_data and not cat_failure_data:
                     continue
+                
+
                 
                 # Calculate percentage over time
                 combined_data = {}
@@ -894,14 +924,16 @@ def main():
         from plot_utils import load_plot_config
         plot_config = load_plot_config(results_dir)
         
-        # Generate paper-specific plots
-        plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
-        plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
-        print("DEBUG: About to run postponed violin plot...")
-        plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
-        print("DEBUG: About to run resolving violin plot...")
-        plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
-        plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
+        # Apply cutoff to the data for paper plots (for better stability)
+        from plot_utils_cutoff import apply_cutoff_to_percentage_data
+        cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
+        
+        # Generate paper-specific plots with cutoff data
+        plot_cat_success_percentage_with_overlay(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_cat_postponed_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_cat_resolving_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_tx_pending_regular_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

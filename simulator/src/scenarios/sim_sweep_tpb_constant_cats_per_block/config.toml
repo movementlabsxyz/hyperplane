@@ -8,7 +8,7 @@ num_chains = 2
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds - this will be varied in the sweep
-block_interval = 1.0
+block_interval = 10.0
 
 # Account parameters
 [account_config]
@@ -24,7 +24,7 @@ num_accounts = 10000
 # Target transactions per block to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
 # This is the reference value (20.0) - will be varied in sweep
-target_tpb = 1000.0
+target_tpb = 100.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -32,7 +32,6 @@ target_tpb = 1000.0
 zipf_parameter = 1.0
 # Ratio of transactions that will be CATs
 # This is the reference value (0.1) - will be calculated for each sweep
-# Reference gives 20.0 * 0.1 = 2 CATs per block
 ratio_cats = 0.1
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
@@ -48,7 +47,7 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 10
+num_runs = 3
 # Number of simulations to run in the sweep
 num_simulations = 5
 # Multiplier for target TPB per simulation step
@@ -56,7 +55,9 @@ num_simulations = 5
 target_tpb_multiplier_per_step = 3.16227766017 # sqrt(10)
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 400
+sim_total_block_number = 100
+# Constant number of CATs per block (used instead of ratio_cats)
+constants_cats_per_block = 50
 
 # Logging control for the simulator
 [logging_config]
@@ -70,4 +71,4 @@ plot_moving_average = true
 # How many consecutive data points get averaged
 range_moving_average = 20
 # cuts off data at sim_total_block_number * cutoff
-cutoff = 0.01 
+cutoff = 0.5

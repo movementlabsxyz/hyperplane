@@ -867,7 +867,7 @@ def plot_loop_steps_without_tx_issuance_moving_average(data: Dict[str, Any], par
                             # Plot the smoothed data
                             ax.plot(smoothed_heights, smoothed_values, color=color, alpha=0.7, linewidth=2)
                         else:
-                            print(f"Warning: Not enough data points for moving average (window={window_size}) for simulation {sim_index}")
+                            # Not enough data points for moving average - skipping silently
                             # Plot original data if not enough points
                             ax.plot(heights, loop_steps_values, color=color, alpha=0.7, linewidth=2)
                     else:
