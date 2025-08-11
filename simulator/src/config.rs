@@ -148,6 +148,9 @@ pub struct SimulationConfig {
     /// Multiplier for target TPB per simulation step (for CAT ratio with constant CATs per block sweeps)
     #[serde(default)]
     pub target_tpb_multiplier_per_step: Option<f64>,
+    /// Constant number of CATs per block (for TPB sweeps with constant CATs per block)
+    #[serde(default)]
+    pub constants_cats_per_block: Option<f64>,
 }
 
 impl Default for SimulationConfig {
@@ -165,6 +168,7 @@ impl Default for SimulationConfig {
             reference_chain_delay_duration: None,
             reference_tps: None,
             target_tpb_multiplier_per_step: None,
+            constants_cats_per_block: None,
             sim_total_block_number: 1000, // Default value for sim_total_block_number
         }
     }

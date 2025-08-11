@@ -174,12 +174,17 @@ pub async fn run_simulation_with_message_and_retries(
 
             // Record the block counter for the previous block before resetting it
             results.loop_steps_without_tx_issuance.push((current_block, block_counter));
+            
+            // Record the block height delta (how many blocks we skipped)
+            let height_delta = new_block - current_block;
+            results.block_height_delta.push((current_block, height_delta));
+            
             // reset the block counter
             block_counter = 0;
 
             logging::log("SIMULATOR", &format!("🎯 NEW BLOCK CREATED - Height: {} 🎯", new_block));
             
-            // Process and record all data for this block
+            // Process and record all data for this height
             process_block_data(
                 &cl_node,
                 &hig_nodes,
@@ -195,7 +200,7 @@ pub async fn run_simulation_with_message_and_retries(
             let blocks_completed = new_block - initial_block;
             progress_bar.set_position(blocks_completed);
             
-            // Release all transactions for this block at once
+            // Release transactions for this block, compensating for missed blocks
             release_transactions_for_block(
                 &cl_node,
                 &mut rng,
@@ -206,13 +211,14 @@ pub async fn run_simulation_with_message_and_retries(
                 chain_id_2.clone(),
                 transactions_per_block,
                 new_block,
+                height_delta,
             ).await?;
         } else {
             // increment the block counter
             block_counter += 1;
 
-            // Wait in intervals of 1/5 of the block interval until next block
-            let wait_interval = Duration::from_secs_f64(results.block_interval / 5.0);
+            // Wait in intervals based on transaction submission frequency
+            let wait_interval = Duration::from_secs_f64(results.block_interval / results.transaction_submission_frequency as f64);
             tokio::time::sleep(wait_interval).await;
         }
     }
@@ -328,6 +334,11 @@ async fn process_block_data(
     let total_cpu_usage = crate::SimulationResults::get_current_total_cpu_usage();
     results.total_cpu_usage.push((block_height, total_cpu_usage));
     
+    // Record CL queue length for this block
+    let cl_queue_length = cl_node.lock().await.get_pending_transactions().await
+        .map_err(|e| format!("Failed to get CL queue length: {}", e))?;
+    results.cl_queue_length.push((block_height, cl_queue_length as u64));
+    
     Ok(())
 }
 
@@ -346,8 +357,15 @@ async fn release_transactions_for_block(
     chain_id_2: ChainId,
     transactions_per_block: u64,
     _current_block: u64,
+    height_delta: u64,
 ) -> Result<(), String> {
-    for tx_index in 0..transactions_per_block {
+    // Calculate total transactions to send (compensate for missed blocks)
+    let total_transactions = transactions_per_block * height_delta;
+    
+    logging::log("SIMULATOR", &format!("Releasing {} transactions ({} per block × {} blocks)", 
+        total_transactions, transactions_per_block, height_delta));
+    
+    for tx_index in 0..total_transactions {
         // Select accounts for transaction
         let from_account = account_selector_sender.select_account(rng);
         let to_account = account_selector_receiver.select_account(rng);

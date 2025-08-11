@@ -6,9 +6,9 @@
 num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
-chain_delays = [0.0, 8.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
+chain_delays = [0.0, 9.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds
-block_interval = 0.1
+block_interval = 1.0
 
 # Account parameters
 [account_config]
@@ -17,13 +17,13 @@ block_interval = 0.1
 initial_balance = 9999
 # Number of accounts to create in the simulation
 # These accounts will be used to send transactions between
-num_accounts = 1000
+num_accounts = 10000
 
 # Transaction parameters
 [transaction_config]
 # Target transactions per block to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-target_tpb = 20.0
+target_tpb = 100.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -45,14 +45,18 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 6
+num_runs = 3
 # Number of simulations to run in the sweep
 num_simulations = 6
 # Step size for chain delay sweeps
-chain_delay_step = 0.4
+chain_delay_step = 0.2
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 500
+sim_total_block_number = 100
+# Transaction submission frequency
+# How many times per block to check for transaction submission opportunities
+# Higher values = more frequent, smaller batches (e.g., 10 = check 10 times per block)
+transaction_submission_frequency = 10
 
 # Logging control for the simulator
 [logging_config]
@@ -66,4 +70,4 @@ plot_moving_average = true
 # How many consecutive data points get averaged
 range_moving_average = 10
 # cuts off data at sim_total_block_number * cutoff
-cutoff = 0.2
+cutoff = 0.5

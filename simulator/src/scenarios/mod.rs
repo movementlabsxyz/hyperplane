@@ -1,6 +1,6 @@
 pub mod sim_simple;
 pub mod sim_sweep_cat_ratio;
-pub mod sim_sweep_cat_ratio_constant_cats_per_block;
+pub mod sim_sweep_tpb_constant_cats_per_block;
 pub mod sim_sweep_chain_delay;
 pub mod sim_sweep_total_block_number;
 pub mod sim_sweep_zipf;

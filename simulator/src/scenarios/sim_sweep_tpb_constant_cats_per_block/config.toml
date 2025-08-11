@@ -7,7 +7,9 @@ num_chains = 2
 # Delay in blocks for each chain
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
-# Block interval in seconds - this will be varied in the sweep
+# Block interval in seconds - this will be automatically scaled with target_tpb
+# The relationship is: block_interval = target_tpb / 100
+# So: target_tpb=10 -> block_interval=0.1, target_tpb=100 -> block_interval=1.0
 block_interval = 0.1
 
 # Account parameters
@@ -17,14 +19,15 @@ block_interval = 0.1
 initial_balance = 9999
 # Number of accounts to create in the simulation
 # These accounts will be used to send transactions between
-num_accounts = 1000
+num_accounts = 10000
 
 # Transaction parameters
 [transaction_config]
 # Target transactions per block to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-# This is the reference value (20.0) - will be varied in sweep
-target_tpb = 20.0
+# This is the starting value (10.0) - will be varied in sweep
+# Block interval will automatically scale with target_tpb: block_interval = target_tpb / 100
+target_tpb = 10.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -32,7 +35,6 @@ target_tpb = 20.0
 zipf_parameter = 1.0
 # Ratio of transactions that will be CATs
 # This is the reference value (0.1) - will be calculated for each sweep
-# Reference gives 20.0 * 0.1 = 2 CATs per block
 ratio_cats = 0.1
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
@@ -48,15 +50,19 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 10
+num_runs = 5
 # Number of simulations to run in the sweep
-num_simulations = 5
+num_simulations = 7
 # Multiplier for target TPB per simulation step
 # Values will be calculated as: base_tpb * (multiplier ^ step)
+# With base_tpb=10 and 5 simulations, this gives: [10, 31.6, 100, 316, 1000]
+# Block intervals will scale accordingly: [0.1, 0.316, 1.0, 3.16, 10.0]
 target_tpb_multiplier_per_step = 3.16227766017 # sqrt(10)
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 400
+sim_total_block_number = 100
+# Constant number of CATs per block (used instead of ratio_cats)
+constants_cats_per_block = 10
 
 # Logging control for the simulator
 [logging_config]
@@ -70,4 +76,4 @@ plot_moving_average = true
 # How many consecutive data points get averaged
 range_moving_average = 20
 # cuts off data at sim_total_block_number * cutoff
-cutoff = 0.01 
+cutoff = 0.5

@@ -102,26 +102,8 @@ def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str
     return individual_runs
 
 
-# Stub functions for other plots that the system expects
-def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
 
-def plot_cat_success_percentage_violin_paper(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
 
-def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
-
-def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
-
-def plot_tx_pending_regular_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
-    """Stub function - not implemented for this sweep."""
-    pass
 
 
 def plot_cat_success_percentage_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
@@ -310,7 +292,7 @@ def main():
     """Main function to generate paper-specific plots for cat ratio constant cats per block sweep simulation."""
     # Configuration for this specific sweep
     param_name = 'target_tpb'
-    results_dir = '../../../results/sim_sweep_cat_ratio_constant_cats_per_block'
+    results_dir = '../../../results/sim_sweep_tpb_constant_cats_per_block'
     sweep_type = 'CAT Ratio Constant Cats Per Block'
     
     # Load sweep data directly from run_average folders
@@ -319,7 +301,7 @@ def main():
         from plot_utils import load_sweep_data_from_run_average
         
         # Load data directly from run_average folders
-        results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_cat_ratio_constant_cats_per_block'
+        results_dir_name = results_dir.split('/')[-1]  # Extract 'sim_sweep_tpb_constant_cats_per_block'
         data = load_sweep_data_from_run_average(results_dir_name, '../../../results')
         
         # Check if we have any data to plot
@@ -331,8 +313,12 @@ def main():
         from plot_utils import load_plot_config
         plot_config = load_plot_config(results_dir)
         
-        # Generate paper-specific plots
-        plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+        # Apply cutoff to the data for paper plots (for better stability)
+        from plot_utils_cutoff import apply_cutoff_to_percentage_data
+        cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
+        
+        # Generate paper-specific plots with cutoff data
+        plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

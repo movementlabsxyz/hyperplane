@@ -378,7 +378,7 @@ def plot_total_cat_transactions(data: Dict[str, Any], param_name: str, results_d
         
         # Create title and filename
         title = f'Total CAT Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        filename = 'tx_sumStates_cat.png'
+        filename = 'tx_sumStatus_cat.png'
         
         plt.title(title)
         plt.xlabel('Block Height')
@@ -472,7 +472,7 @@ def plot_total_regular_transactions(data: Dict[str, Any], param_name: str, resul
         
         # Create title and filename
         title = f'Total Regular Transactions (Success + Failure + Pending) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        filename = 'tx_sumStates_regular.png'
+        filename = 'tx_sumStatus_regular.png'
         
         plt.title(title)
         plt.xlabel('Block Height')
@@ -583,7 +583,7 @@ def plot_total_sumtypes_transactions(data: Dict[str, Any], param_name: str, resu
         
         # Create title and filename
         title = f'Total SumTypes Transactions (CAT + Regular) by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-        filename = 'tx_sumStates_sumTypes.png'
+        filename = 'tx_sumStatus_sumTypes.png'
         
         plt.title(title)
         plt.xlabel('Block Height')
@@ -783,23 +783,38 @@ def generate_all_plots(
             module_name = os.path.basename(results_dir_name)
             if debug_mode:
                 print(f"DEBUG: Importing module: {module_name}.plot_paper")
-            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin_paper', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
+            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
             
-            # Call the individual paper plot functions directly
+            # Apply cutoff to the data for paper plots (for better stability)
+            from plot_utils_cutoff import apply_cutoff_to_percentage_data
+            cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
+            
+            # Call the individual paper plot functions directly if they exist
             if debug_mode:
-                print(f"DEBUG: Calling paper plot functions with data keys: {list(data.keys())}")
-            paper_module.plot_cat_success_percentage_with_overlay(data, param_name, results_dir, sweep_type)
-            paper_module.plot_cat_success_percentage_violin_paper(data, param_name, results_dir, sweep_type, plot_config)
-            paper_module.plot_cat_success_percentage_violin(data, param_name, results_dir, sweep_type, plot_config)
+                print(f"DEBUG: Calling paper plot functions with cutoff data keys: {list(cutoff_data.keys())}")
+            
+            # Check and call each function only if it exists
+            if hasattr(paper_module, 'plot_cat_success_percentage_with_overlay'):
+                paper_module.plot_cat_success_percentage_with_overlay(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+                
+            if hasattr(paper_module, 'plot_cat_success_percentage_violin'):
+                paper_module.plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+                
             if debug_mode:
                 print("DEBUG: About to run postponed violin plot...")
-            paper_module.plot_tx_pending_cat_postponed_violin(data, param_name, results_dir, sweep_type, plot_config)
+            if hasattr(paper_module, 'plot_tx_pending_cat_postponed_violin'):
+                paper_module.plot_tx_pending_cat_postponed_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+                
             if debug_mode:
                 print("DEBUG: About to run resolving violin plot...")
-            paper_module.plot_tx_pending_cat_resolving_violin(data, param_name, results_dir, sweep_type, plot_config)
-            paper_module.plot_tx_pending_regular_violin(data, param_name, results_dir, sweep_type, plot_config)
+            if hasattr(paper_module, 'plot_tx_pending_cat_resolving_violin'):
+                paper_module.plot_tx_pending_cat_resolving_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+                
+            if hasattr(paper_module, 'plot_tx_pending_regular_violin'):
+                paper_module.plot_tx_pending_regular_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
             
-            print("Paper plots generated successfully!")
+            if debug_mode:
+                print("Paper plots generated successfully!")
         except Exception as e:
             print(f"Error generating paper plots: {e}")
             import traceback
@@ -1161,7 +1176,7 @@ def plot_sweep_tpb_moving_average(data: Dict[str, Any], param_name: str, results
                             # Plot the smoothed data
                             ax.plot(smoothed_heights, smoothed_values, color=color, alpha=0.7, linewidth=2)
                         else:
-                            print(f"Warning: Not enough data points for moving average (window={window_size}) for simulation {sim_index}")
+                            # Not enough data points for moving average - skipping silently
                             # Plot original data if not enough points
                             ax.plot(heights, tpb_values, color=color, alpha=0.7, linewidth=2)
                     else:

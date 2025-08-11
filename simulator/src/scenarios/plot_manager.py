@@ -16,7 +16,9 @@ from plot_utils import (
 from plot_system import (
     plot_system_memory, plot_system_memory_total,
     plot_system_cpu, plot_system_cpu_filtered, plot_system_cpu_total,
-    plot_loop_steps_without_tx_issuance, plot_loop_steps_without_tx_issuance_moving_average
+    plot_cl_queue_length, plot_loops_steps_without_tx_issuance_and_cl_queue,
+    plot_loop_steps_without_tx_issuance, plot_loop_steps_without_tx_issuance_moving_average,
+    plot_block_height_delta
 )
 from plot_utils_delta import (
     plot_transactions_delta_overlay
@@ -49,6 +51,9 @@ def generate_system_plots(data, param_name, results_dir, sweep_type, plot_config
     plot_system_cpu(data, param_name, results_dir, sweep_type)
     plot_system_cpu_filtered(data, param_name, results_dir, sweep_type)
     plot_system_cpu_total(data, param_name, results_dir, sweep_type)
+    plot_cl_queue_length(data, param_name, results_dir, sweep_type)
+    plot_loops_steps_without_tx_issuance_and_cl_queue(data, param_name, results_dir, sweep_type)
+    plot_block_height_delta(data, param_name, results_dir, sweep_type)
     plot_loop_steps_without_tx_issuance(data, param_name, results_dir, sweep_type)
     plot_loop_steps_without_tx_issuance_moving_average(data, param_name, results_dir, sweep_type, plot_config)
 
@@ -71,9 +76,9 @@ def generate_tx_count_plots(data, param_name, results_dir, sweep_type, plot_conf
     plot_transactions_overlay(data, param_name, 'regular_failure', results_dir, sweep_type)
     
     # Total transaction plots
-    # plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
-    # plot_total_regular_transactions(data, param_name, results_dir, sweep_type)
-    # plot_total_sumtypes_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_regular_transactions(data, param_name, results_dir, sweep_type)
+    plot_total_sumtypes_transactions(data, param_name, results_dir, sweep_type)
     
     # Moving average overlays (if enabled)
     if plot_config.get('plot_moving_average', False):

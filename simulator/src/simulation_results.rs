@@ -45,6 +45,7 @@ pub struct SimulationResults {
     pub block_interval: f64,
     pub cat_lifetime: u64,
     pub initialization_wait_blocks: u64,
+    pub transaction_submission_frequency: u64,  // How many times per block to check for transaction submission
     pub chain_delays: Vec<f64>,  // Chain delays in blocks
     
     // Chain data - Combined totals (for backward compatibility)
@@ -96,6 +97,12 @@ pub struct SimulationResults {
     // Loop steps without transaction issuance tracking
     pub loop_steps_without_tx_issuance: Vec<(u64, u64)>, // (block_height, loop_steps_count)
     
+    // Block height delta tracking
+    pub block_height_delta: Vec<(u64, u64)>, // (block_height, height_delta)
+    
+    // CL queue length tracking
+    pub cl_queue_length: Vec<(u64, u64)>, // (block_height, queue_length)
+    
     // Statistics
     pub account_stats: AccountSelectionStats,
     pub start_time: Instant,
@@ -120,6 +127,7 @@ impl Default for SimulationResults {
             block_interval: 0.0,
             cat_lifetime: 0,
             initialization_wait_blocks: 0,
+            transaction_submission_frequency: 10,  // Default to 10 times per block
             chain_delays: Vec::new(),
             chain_1_pending: Vec::new(),
             chain_2_pending: Vec::new(),
@@ -152,6 +160,8 @@ impl Default for SimulationResults {
             cpu_usage: Vec::new(),
             total_cpu_usage: Vec::new(),
             loop_steps_without_tx_issuance: Vec::new(),
+            block_height_delta: Vec::new(),
+            cl_queue_length: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -746,6 +756,32 @@ impl SimulationResults {
         let loop_steps_file = format!("{}/data/loop_steps_without_tx_issuance.json", base_dir);
         fs::write(&loop_steps_file, serde_json::to_string_pretty(&loop_steps_data).expect("Failed to serialize loop steps data")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved loop steps data to {}", loop_steps_file));
+
+        // Save block height delta data
+        let block_height_delta_data = serde_json::json!({
+            "block_height_delta": self.block_height_delta.iter().map(|(height, delta)| {
+                serde_json::json!({
+                    "height": height,
+                    "delta": delta
+                })
+            }).collect::<Vec<_>>()
+        });
+        let block_height_delta_file = format!("{}/data/block_height_delta.json", base_dir);
+        fs::write(&block_height_delta_file, serde_json::to_string_pretty(&block_height_delta_data).expect("Failed to serialize block height delta data")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved block height delta data to {}", block_height_delta_file));
+
+        // Save CL queue length data
+        let cl_queue_length_data = serde_json::json!({
+            "cl_queue_length": self.cl_queue_length.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let cl_queue_length_file = format!("{}/data/cl_queue_length.json", base_dir);
+        fs::write(&cl_queue_length_file, serde_json::to_string_pretty(&cl_queue_length_data).expect("Failed to serialize CL queue length data")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved CL queue length data to {}", cl_queue_length_file));
 
         Ok(())
     }
