@@ -73,7 +73,7 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
     
     // Calculate target TPB values using the multiplier
     // base_tpb * (multiplier ^ step) for each simulation
-    let base_tpb = 100.0; // Starting value
+    let base_tpb = 10.0; // Starting value (will give block_interval = 0.1)
     let mut target_tpb_values = Vec::new();
     for step in 0..num_simulations {
         let target_tpb = base_tpb * multiplier.powi(step as i32);
@@ -81,13 +81,17 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
     }
     
     // Get the constant CATs per block from the simulation config
-    let constant_cats_per_block = sweep_config.simulation_config.constants_cats_per_block.unwrap_or(50.0);
+    let constant_cats_per_block = sweep_config.simulation_config.constants_cats_per_block.unwrap_or(10.0);
     
     // Calculate CAT TPB values (constant)
     let cat_tpb_values: Vec<f64> = vec![constant_cats_per_block; num_simulations];
     
-    // Print both target TPB and CAT TPB values
+    // Calculate corresponding block interval values
+    let block_interval_values: Vec<f64> = target_tpb_values.iter().map(|&tpb| tpb / 100.0).collect();
+    
+    // Print target TPB, block interval, and CAT TPB values
     println!("Target TPB values to test: {:?}", target_tpb_values);
+    println!("Block interval values (scaled): {:?}", block_interval_values);
     println!("CAT TPB values (constant): {:?}", cat_tpb_values);
 
     // Create the generic sweep runner that handles all the common functionality
@@ -106,12 +110,20 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
             // Calculate the CAT ratio to maintain constant CATs per block
             // constant_cats_per_block = target_tpb * cat_ratio
             // So: cat_ratio = constant_cats_per_block / target_tpb
-            let constant_cats_per_block = 50.0; // From config file
-            let cat_ratio = constant_cats_per_block / target_tpb;
+            let cat_ratio = 10.0 / target_tpb; // Using hardcoded value for now
+            
+            // Scale block_interval with target_tpb
+            // We want: target_tpb=10 -> block_interval=0.1, target_tpb=100 -> block_interval=1.0
+            // So: block_interval = target_tpb / 100
+            let scaled_block_interval = target_tpb / 100.0;
             
             create_modified_config(sweep_config, |base_config| {
                 crate::config::Config {
-                    network_config: base_config.network_config.clone(),
+                    network_config: crate::config::NetworkConfig {
+                        num_chains: base_config.network_config.num_chains,
+                        chain_delays: base_config.network_config.chain_delays.clone(),
+                        block_interval: scaled_block_interval,  // Scaled with target_tpb
+                    },
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
                         target_tpb: target_tpb,  // This is the parameter we're varying

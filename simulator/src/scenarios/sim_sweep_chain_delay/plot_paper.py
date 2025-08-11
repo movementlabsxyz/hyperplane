@@ -17,8 +17,9 @@ from typing import Dict, List, Tuple, Any
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 from plot_utils import create_color_gradient, extract_parameter_value, create_parameter_label, create_sweep_title, trim_time_series_data
 from plot_utils_percentage import plot_transaction_percentage
+from plot_utils_cutoff import apply_cutoff_to_percentage_data
 
-def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str, Any]]:
+def load_individual_run_data(results_dir: str, param_name: str, plot_config: Dict[str, Any] = None) -> List[Dict[str, Any]]:
     """
     Load individual run data from data/sim_x/run_y/data/ directories.
     
@@ -96,9 +97,25 @@ def load_individual_run_data(results_dir: str, param_name: str) -> List[Dict[str
             
             individual_runs.append(run_data)
     
+    # Apply cutoff processing if plot_config is provided
+    if plot_config and plot_config.get('apply_cutoff', True):
+        # Convert individual_runs to the format expected by apply_cutoff_to_percentage_data
+        # We need to create a data structure that matches what the cutoff function expects
+        cutoff_data = {
+            'individual_results': individual_runs,
+            'metadata': {'parameter_name': param_name}
+        }
+        
+        # Apply cutoff
+        cutoff_individual_runs = apply_cutoff_to_percentage_data(cutoff_data, plot_config)
+        
+        # Extract the individual results from the cutoff data
+        if 'individual_results' in cutoff_individual_runs:
+            individual_runs = cutoff_individual_runs['individual_results']
+    
     return individual_runs
 
-def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str) -> None:
+def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any] = None) -> None:
     """
     Plot CAT success percentage with both average and individual curves overlaid.
     
@@ -115,8 +132,8 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
             print(f"Warning: No individual results found, skipping CAT success percentage plot")
             return
         
-        # Load individual run data
-        individual_runs = load_individual_run_data(results_dir, param_name)
+        # Load individual run data with cutoff processing
+        individual_runs = load_individual_run_data(results_dir, param_name, plot_config)
         print(f"Loaded {len(individual_runs)} individual runs")
         
         # Create figure
@@ -285,7 +302,7 @@ def plot_cat_success_percentage_with_overlay(data: Dict[str, Any], param_name: s
         traceback.print_exc()
         raise  # Re-raise to trigger panic
 
-def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+def plot_cat_success_percentage_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
     """
     Plot CAT success percentage violin plot for paper publication.
     
@@ -426,7 +443,7 @@ def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param
             })
         
         # Save the data
-        violin_data_file = f'{paper_data_dir}/cat_success_percentage_violin_by_simulation.json'
+        violin_data_file = f'{paper_data_dir}/cat_success_percentage_violin.json'
         with open(violin_data_file, 'w') as f:
             json.dump(violin_plot_data, f, indent=2)
         
@@ -455,11 +472,11 @@ def plot_cat_success_percentage_violin_by_simulation(data: Dict[str, Any], param
         # Create the paper directory and plot
         paper_dir = f'{results_dir}/figs/paper'
         os.makedirs(paper_dir, exist_ok=True)
-        plt.savefig(f'{paper_dir}/cat_success_percentage_violin_by_simulation.png', 
+        plt.savefig(f'{paper_dir}/cat_success_percentage_violin.png', 
                 dpi=300, bbox_inches='tight')
         plt.close()
         
-        # print(f"Generated violin plot: cat_success_percentage_violin_by_simulation.png")
+        # print(f"Generated violin plot: cat_success_percentage_violin.png")
         
     except Exception as e:
         print(f"Error generating violin plot: {e}")
@@ -497,7 +514,7 @@ def main():
         
         # Generate paper-specific plots with cutoff data
         plot_cat_success_percentage_with_overlay(cutoff_data, param_name, results_dir, sweep_type)
-        plot_cat_success_percentage_violin_by_simulation(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

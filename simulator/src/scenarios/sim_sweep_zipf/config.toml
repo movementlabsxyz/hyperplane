@@ -23,7 +23,7 @@ num_accounts = 10000
 [transaction_config]
 # Target transactions per block to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
-target_tpb = 1000.0
+target_tpb = 100.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -45,14 +45,14 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 3
+num_runs = 5
 # Number of simulations to run in the sweep
 num_simulations = 7
 # Step size for Zipf parameter sweeps
 zipf_step = 0.25
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
-sim_total_block_number = 500
+sim_total_block_number = 100
 
 # Logging control for the simulator
 [logging_config]

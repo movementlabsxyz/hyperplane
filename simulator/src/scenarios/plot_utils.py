@@ -783,7 +783,7 @@ def generate_all_plots(
             module_name = os.path.basename(results_dir_name)
             if debug_mode:
                 print(f"DEBUG: Importing module: {module_name}.plot_paper")
-            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin', 'plot_cat_success_percentage_violin_by_simulation', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
+            paper_module = __import__(f"{module_name}.plot_paper", fromlist=['plot_cat_success_percentage_with_overlay', 'plot_cat_success_percentage_violin', 'plot_tx_pending_cat_postponed_violin', 'plot_tx_pending_cat_resolving_violin', 'plot_tx_pending_regular_violin'])
             
             # Apply cutoff to the data for paper plots (for better stability)
             from plot_utils_cutoff import apply_cutoff_to_percentage_data
@@ -799,9 +799,6 @@ def generate_all_plots(
                 
             if hasattr(paper_module, 'plot_cat_success_percentage_violin'):
                 paper_module.plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
-                
-            if hasattr(paper_module, 'plot_cat_success_percentage_violin_by_simulation'):
-                paper_module.plot_cat_success_percentage_violin_by_simulation(cutoff_data, param_name, results_dir, sweep_type, plot_config)
                 
             if debug_mode:
                 print("DEBUG: About to run postponed violin plot...")
