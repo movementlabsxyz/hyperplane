@@ -14,17 +14,22 @@ set -e  # Exit immediately if any command fails
 
 echo "Installing Rust..."
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source $HOME/.cargo/env
 
-echo "Installing minimal C build tools (gcc, g++)..."
+echo "Make cargo available immediately"
+source "$HOME/.cargo/env"
+
+echo "Persist cargo path for all future sessions"
+echo 'source $HOME/.cargo/env' >> ~/.bashrc
+
+echo "Installing minimal C build tools (gcc, g++)"
 sudo yum install -y gcc gcc-c++ make
 
-echo "Installing Python 3 and pip..."
+echo "Installing Python 3 and pip"
 sudo yum install -y python3 python3-pip
 
-echo "Installing Python plotting libraries..."
+echo "Installing Python plotting libraries"
 pip3 install matplotlib numpy pandas scipy "python-dateutil<=2.9.0"
 
 echo "✅ Setup complete!"
 echo "Next: run your simulation:"
-echo "   ./run_tests.sh 1 0"
+echo "   ./simulator/run.sh"
