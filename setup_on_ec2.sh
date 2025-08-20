@@ -9,11 +9,8 @@ set -e  # Exit immediately if any command fails
 # sudo yum install -y git
 
 # echo "Downloading Hyperplane repo..."
-# git clone https://github.com/movementlabsxyz/hyperplane.git
+# git clone --recursive https://github.com/movementlabsxyz/hyperplane.git
 # cd hyperplane
-
-echo "Cloning Hyperplane repo with submodules..."
-git clone --recursive https://github.com/movementlabsxyz/hyperplane.git
 
 echo "Installing Rust..."
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y

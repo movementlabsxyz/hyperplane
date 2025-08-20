@@ -8,7 +8,7 @@ num_chains = 2
 # The order of delays corresponds to the chain order (chain-1, chain-2, etc.)
 chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds (will be varied in sweep)
-block_interval = 0.1
+block_interval = 1.0
 
 # Account parameters
 [account_config]
@@ -24,14 +24,14 @@ num_accounts = 10000
 # Target transactions per block to maintain during simulation
 # The simulator will try to maintain this rate by adjusting delays
 # NOTE: This will be scaled to maintain constant transactions per block
-target_tpb = 1000.0
+target_tpb = 200.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
 # Must be greater than or equal to 0
-zipf_parameter = 1.0
+zipf_parameter = 0.8
 # Ratio of transactions that will be CATs
-ratio_cats = 0.1
+ratio_cats = 0.5
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 10
