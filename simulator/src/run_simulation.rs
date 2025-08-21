@@ -273,11 +273,20 @@ async fn process_block_data(
     let chain_2_success_filtered = chain_2_success.saturating_sub(init_tx_count);
     
     // Get transactions per block for current block (only once per block)
+    // Filter out status update transactions as they are internal system messages, not user transactions
     let chain_1_tx_per_block = cl_node.lock().await.get_subblock(chain_id_1.clone(), block_height).await
-        .map(|subblock| subblock.transactions.len() as u64)
+        .map(|subblock| {
+            subblock.transactions.iter()
+                .filter(|tx| !tx.data.starts_with("STATUS_UPDATE"))
+                .count() as u64
+        })
         .unwrap_or(0);
     let chain_2_tx_per_block = cl_node.lock().await.get_subblock(chain_id_2.clone(), block_height).await
-        .map(|subblock| subblock.transactions.len() as u64)
+        .map(|subblock| {
+            subblock.transactions.iter()
+                .filter(|tx| !tx.data.starts_with("STATUS_UPDATE"))
+                .count() as u64
+        })
         .unwrap_or(0);
     
     // Record combined totals (for backward compatibility)
@@ -314,9 +323,22 @@ async fn process_block_data(
     results.chain_1_locked_keys.push((block_height, chain_1_locked_keys));
     results.chain_2_locked_keys.push((block_height, chain_2_locked_keys));
     
-    // Record transactions per block data
+    // Record transactions per block data (excluding status updates)
     results.chain_1_tx_per_block.push((block_height, chain_1_tx_per_block));
     results.chain_2_tx_per_block.push((block_height, chain_2_tx_per_block));
+    
+    // Log TPB information for debugging
+    let chain_1_total = cl_node.lock().await.get_subblock(chain_id_1.clone(), block_height).await
+        .map(|subblock| subblock.transactions.len() as u64)
+        .unwrap_or(0);
+    let chain_2_total = cl_node.lock().await.get_subblock(chain_id_2.clone(), block_height).await
+        .map(|subblock| subblock.transactions.len() as u64)
+        .unwrap_or(0);
+    
+    if chain_1_total != chain_1_tx_per_block || chain_2_total != chain_2_tx_per_block {
+        logging::log("SIMULATOR", &format!("Block {}: Chain-1 TPB: {} (filtered from {} total), Chain-2 TPB: {} (filtered from {} total)", 
+            block_height, chain_1_tx_per_block, chain_1_total, chain_2_tx_per_block, chain_2_total));
+    }
     
     // Record memory usage for this block
     let memory_usage = crate::SimulationResults::get_current_memory_usage();
