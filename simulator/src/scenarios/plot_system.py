@@ -245,8 +245,8 @@ def plot_cl_queue_length(data: Dict[str, Any], param_name: str, results_dir: str
                             heights = heights[:min_length]
                             queue_length_values = queue_length_values[:min_length]
                         
-                        # Plot the data as dots to make individual points visible
-                        ax.scatter(heights, queue_length_values, color=color, alpha=0.7, s=20, marker='o')
+                        # Plot the data as lines for better visibility of trends
+                        ax.plot(heights, queue_length_values, color=color, alpha=0.7, linewidth=1.5)
                     else:
                         print(f"Warning: No CL queue length entries found for simulation {sim_index}")
                 else:
@@ -255,7 +255,7 @@ def plot_cl_queue_length(data: Dict[str, Any], param_name: str, results_dir: str
                 missing_files.append(cl_queue_file)
             
             # Add legend entry for this parameter value
-            ax.scatter([], [], color=color, label=label, s=20, marker='o')
+            ax.plot([], [], color=color, label=label, linewidth=1.5)
         
         # Print summary warning for missing files
         if missing_files:
@@ -339,9 +339,9 @@ def plot_loops_steps_without_tx_issuance_and_cl_queue(data: Dict[str, Any], para
                     heights = [entry['height'] for entry in cl_queue_entries]
                     queue_values = [entry['count'] for entry in cl_queue_entries]
                     
-                    # Plot CL queue length on right y-axis
-                    ax2.scatter(heights, queue_values, color=color, alpha=0.7, s=20, marker='s', 
-                               label=f'{label} (CL Queue)')
+                    # Plot CL queue length on right y-axis as lines for better visibility
+                    ax2.plot(heights, queue_values, color=color, alpha=0.7, linewidth=1.5, 
+                             label=f'{label} (CL Queue)')
             else:
                 missing_files.append(cl_queue_file)
         
