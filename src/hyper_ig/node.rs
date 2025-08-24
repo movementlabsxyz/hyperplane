@@ -38,6 +38,8 @@ struct HyperIGState {
     cat_proposed_statuses: HashMap<TransactionId, CATStatus>,
     /// Mapping from CAT IDs to transaction IDs
     cat_to_tx_id: HashMap<CATId, TransactionId>,
+    /// Map of transaction IDs to their CAT IDs (reverse index for O(1) CAT ID lookup)
+    tx_to_cat_id: HashMap<TransactionId, CATId>,
     /// Map of locked keys to the CAT transaction ID that locked them
     key_locked_by_tx: HashMap<String, TransactionId>,
     /// Map of transaction IDs to the keys they lock (reverse index for O(1) key lookup)
@@ -271,6 +273,7 @@ impl HyperIGNode {
                 
                 cat_proposed_statuses: HashMap::new(),
                 cat_to_tx_id: HashMap::new(),
+                tx_to_cat_id: HashMap::new(),
                 key_locked_by_tx: HashMap::new(),
                 tx_locks_keys: HashMap::new(),
                 key_causes_dependencies_for_txs: HashMap::new(),
@@ -344,18 +347,15 @@ impl HyperIGNode {
         
         let mut timed_out_cats = Vec::new();
         
-        // Check all pending transactions (both postponed and resolving CATs)
+        // OPTIMIZED: Use reverse index for O(1) CAT ID lookup instead of O(n²) nested search
         for tx_id in &state.pending_transactions {
-            // Find the CAT ID for this pending transaction
-            for (cat_id, stored_tx_id) in &state.cat_to_tx_id {
-                if stored_tx_id == tx_id {
-                    // Check if this CAT has timed out
-                    if let Some(max_lifetime) = state.cat_max_lifetime.get(cat_id) {
-                        if current_block_height > *max_lifetime {
-                            timed_out_cats.push((cat_id.clone(), tx_id.clone()));
-                        }
+            // Find the CAT ID for this pending transaction using reverse index
+            if let Some(cat_id) = state.tx_to_cat_id.get(tx_id) {
+                // Check if this CAT has timed out
+                if let Some(max_lifetime) = state.cat_max_lifetime.get(cat_id) {
+                    if current_block_height > *max_lifetime {
+                        timed_out_cats.push((cat_id.clone(), tx_id.clone()));
                     }
-                    break;
                 }
             }
         }
@@ -472,6 +472,7 @@ impl HyperIGNode {
             state.pending_transactions.clear();
             state.cat_proposed_statuses.clear();
             state.cat_to_tx_id.clear();
+            state.tx_to_cat_id.clear();
             state.key_locked_by_tx.clear();
             state.tx_locks_keys.clear();
             state.key_causes_dependencies_for_txs.clear();
@@ -793,6 +794,8 @@ impl HyperIGNode {
             // Set up the mapping from CAT ID to transaction ID (only if not already set)
             if !state.cat_to_tx_id.contains_key(&cat_id) {
                 state.cat_to_tx_id.insert(cat_id.clone(), tx.id.clone());
+                // NEW: Maintain reverse index for O(1) CAT ID lookup
+                state.tx_to_cat_id.insert(tx.id.clone(), cat_id.clone());
                 // Set timeout lifetime for this CAT
                 // If the CAT is already in cat_max_lifetime, this indicates a bug, we should set the CAT max lifetime exactly when we add the mapping to cat_to_tx_id
                 if state.cat_max_lifetime.contains_key(&cat_id) {
