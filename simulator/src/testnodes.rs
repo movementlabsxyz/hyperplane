@@ -30,6 +30,7 @@ use tokio::sync::Mutex;
 /// * `cat_lifetime_blocks` - The default lifetime for CATs in blocks
 /// * `num_accounts` - Number of accounts to preload (0 for no preloading)
 /// * `preload_value` - Value to preload each account with
+/// * `channel_buffer_size` - Buffer size for communication channels
 ///
 /// # Returns
 ///
@@ -39,16 +40,16 @@ use tokio::sync::Mutex;
 /// * `hig_node_2` - The hyperig node for chain-2
 /// * `current_block` - The current block number at the end of the setup
 ///
-pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[f64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64, num_accounts: u32, preload_value: u32) 
+pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[f64], allow_cat_pending_dependencies: bool, cat_lifetime_blocks: u64, num_accounts: u32, preload_value: u32, channel_buffer_size: usize) 
 -> (Arc<Mutex<HyperSchedulerNode>>, Arc<Mutex<ConfirmationLayerNode>>, Arc<Mutex<HyperIGNode>>, Arc<Mutex<HyperIGNode>>, u64) {
     // Note: Logging should be initialized by the calling code before calling this function
 
     // Create channels for communication
-    let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(1000);
-    let (sender_hig1_to_hs, receiver_hig1_to_hs) = mpsc::channel(1000);
-    let (sender_hig2_to_hs, receiver_hig2_to_hs) = mpsc::channel(1000);
-    let (sender_cl_to_hig1, receiver_cl_to_hig1) = mpsc::channel(1000);
-    let (sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(1000);
+    let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(channel_buffer_size);
+    let (sender_hig1_to_hs, receiver_hig1_to_hs) = mpsc::channel(channel_buffer_size);
+    let (sender_hig2_to_hs, receiver_hig2_to_hs) = mpsc::channel(channel_buffer_size);
+    let (sender_cl_to_hig1, receiver_cl_to_hig1) = mpsc::channel(channel_buffer_size);
+    let (sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(channel_buffer_size);
     
     // Create nodes with their channels
     let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(sender_hs_to_cl)));

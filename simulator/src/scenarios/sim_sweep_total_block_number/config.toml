@@ -9,6 +9,9 @@ num_chains = 2
 chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds
 block_interval = 1.0
+# Channel buffer size for high-performance communication
+# Larger values handle higher TPS but use more memory
+channel_buffer_size = 1000
 
 # Account parameters
 [account_config]

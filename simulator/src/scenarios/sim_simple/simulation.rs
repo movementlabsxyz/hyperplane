@@ -95,6 +95,7 @@ pub async fn run_simple_simulation() -> Result<(), crate::config::ConfigError> {
             config.transaction_config.cat_lifetime_blocks,
             config.account_config.num_accounts.try_into().unwrap(), // Preload accounts from config
             config.account_config.initial_balance.try_into().unwrap(), // Preload value from config
+            config.network_config.channel_buffer_size, // Channel buffer size from config
         ).await;
         
         logging::log("SIMULATOR", &format!("Test nodes setup complete with {} accounts preloaded with {} tokens each", 

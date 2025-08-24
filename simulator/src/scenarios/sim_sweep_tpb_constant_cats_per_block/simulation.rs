@@ -123,6 +123,7 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
                         num_chains: base_config.network_config.num_chains,
                         chain_delays: base_config.network_config.chain_delays.clone(),
                         block_interval: scaled_block_interval,  // Scaled with target_tpb
+                        channel_buffer_size: base_config.network_config.channel_buffer_size,
                     },
                     account_config: base_config.account_config.clone(),
                     transaction_config: crate::config::TransactionConfig {
