@@ -40,10 +40,14 @@ struct HyperIGState {
     cat_to_tx_id: HashMap<CATId, TransactionId>,
     /// Map of locked keys to the CAT transaction ID that locked them
     key_locked_by_tx: HashMap<String, TransactionId>,
+    /// Map of transaction IDs to the keys they lock (reverse index for O(1) key lookup)
+    tx_locks_keys: HashMap<TransactionId, HashSet<String>>,
     /// Map of keys to transactions waiting on them
     key_causes_dependencies_for_txs: HashMap<String, Vec<TransactionId>>,
     /// Map of transaction IDs to the transaction IDs they depend on
     tx_depends_on_txs: HashMap<TransactionId, HashSet<TransactionId>>,
+    /// Map of transaction IDs to the keys they depend on (reverse index for O(1) key cleanup)
+    tx_depends_on_keys: HashMap<TransactionId, HashSet<String>>,
     /// my chain id
     my_chain_id: ChainId,
     /// Mock VM for transaction execution
@@ -268,8 +272,10 @@ impl HyperIGNode {
                 cat_proposed_statuses: HashMap::new(),
                 cat_to_tx_id: HashMap::new(),
                 key_locked_by_tx: HashMap::new(),
+                tx_locks_keys: HashMap::new(),
                 key_causes_dependencies_for_txs: HashMap::new(),
                 tx_depends_on_txs: HashMap::new(),
+                tx_depends_on_keys: HashMap::new(),
                 received_txs: HashMap::new(),
                 my_chain_id: my_chain_id.clone(),
                 vm,
@@ -377,13 +383,15 @@ impl HyperIGNode {
             // Remove from dependency tracking maps to prevent reprocessing
             state.cat_proposed_statuses.remove(&tx_id);
             
-            // Remove from key dependency tracking
-            let keys_to_remove: Vec<String> = state.key_causes_dependencies_for_txs.iter()
-                .filter(|(_, tx_list)| tx_list.contains(&tx_id))
-                .map(|(key, _)| key.clone())
-                .collect();
+            // OPTIMIZED: Use reverse index for O(1) key cleanup instead of O(n) search
+            let keys_to_cleanup: Vec<String> = if let Some(keys) = state.tx_depends_on_keys.get(&tx_id) {
+                keys.iter().cloned().collect()
+            } else {
+                Vec::new()
+            };
             
-            for key in keys_to_remove {
+            // Clean up key dependencies
+            for key in keys_to_cleanup {
                 if let Some(tx_list) = state.key_causes_dependencies_for_txs.get_mut(&key) {
                     tx_list.retain(|tx| tx != &tx_id);
                     if tx_list.is_empty() {
@@ -391,6 +399,9 @@ impl HyperIGNode {
                     }
                 }
             }
+            
+            // Clean up the reverse index
+            state.tx_depends_on_keys.remove(&tx_id);
             
             // Remove from transaction dependency tracking
             state.tx_depends_on_txs.remove(&tx_id);
@@ -462,8 +473,10 @@ impl HyperIGNode {
             state.cat_proposed_statuses.clear();
             state.cat_to_tx_id.clear();
             state.key_locked_by_tx.clear();
+            state.tx_locks_keys.clear();
             state.key_causes_dependencies_for_txs.clear();
             state.tx_depends_on_txs.clear();
+            state.tx_depends_on_keys.clear();
             state.pending_proposals.clear();
             state.cat_max_lifetime.clear();
             state.current_block_height = 0;
@@ -706,6 +719,13 @@ impl HyperIGNode {
             log(&format!("HIG-{}", chain_id), &format!("Added tx-id='{}' to dependencies of key '{}'. (in key_causes_dependencies_for_txs)", tx_id_clone.0, key));
         }
         
+        // NEW: Maintain reverse index for O(1) key cleanup
+        state.tx_depends_on_keys
+            .entry(tx_id.clone())
+            .or_insert_with(HashSet::new)
+            .extend(keys.iter().cloned());
+        log(&format!("HIG-{}", chain_id), &format!("Added reverse index: tx-id='{}' depends on keys: {:?}", tx_id_clone.0, keys));
+        
         // Add the locking transactions as dependencies
         for (key, locking_tx_id) in locking_tx_ids {
             state.tx_depends_on_txs
@@ -842,6 +862,11 @@ impl HyperIGNode {
             for key in &keys {
                 state.key_locked_by_tx.insert(key.clone(), tx.id.clone());
             }
+            // NEW: Maintain reverse index for O(1) key lookup
+            state.tx_locks_keys
+                .entry(tx.id.clone())
+                .or_insert_with(HashSet::new)
+                .extend(keys.iter().cloned());
         }
 
         // Check if transaction would succeed (but don't execute it)
@@ -999,13 +1024,13 @@ impl HyperIGNode {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Processing transactions pending on CAT tx-id='{}'", cat_tx_id.0));
 
-        // for now only one transaction can lock a key. TODO : this will change as we add deeper dependencies.
-        // Get all keys that were locked by this CAT
+        // OPTIMIZED: Use reverse index for O(1) key lookup instead of O(n) search
         let locked_keys: Vec<String> = {
             let state = self.state.lock().await;
-            state.key_locked_by_tx.iter()
-                .filter(|(_, tx_id)| **tx_id == cat_tx_id)
-                .map(|(key, _)| key.clone())
+            state.tx_locks_keys.get(&cat_tx_id)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
                 .collect()
         };
         log(&format!("HIG-{}", chain_id), &format!("Found locked keys: {:?}", locked_keys));
@@ -1016,6 +1041,8 @@ impl HyperIGNode {
             for key in &locked_keys {
                 state.key_locked_by_tx.remove(key);
             }
+            // NEW: Clean up reverse index for O(1) key lookup
+            state.tx_locks_keys.remove(&cat_tx_id);
         }
         log(&format!("HIG-{}", chain_id), &format!("Removed locked keys '{:?}' by tx-id='{}' in key_locked_by_tx", locked_keys, cat_tx_id.0));
 
