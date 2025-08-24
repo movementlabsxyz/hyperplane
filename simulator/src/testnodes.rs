@@ -44,11 +44,11 @@ pub async fn setup_test_nodes(block_interval: Duration, chain_delays: &[f64], al
     // Note: Logging should be initialized by the calling code before calling this function
 
     // Create channels for communication
-    let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(100);
-    let (sender_hig1_to_hs, receiver_hig1_to_hs) = mpsc::channel(100);
-    let (sender_hig2_to_hs, receiver_hig2_to_hs) = mpsc::channel(100);
-    let (sender_cl_to_hig1, receiver_cl_to_hig1) = mpsc::channel(100);
-    let (sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(100);
+    let (sender_hs_to_cl, receiver_hs_to_cl) = mpsc::channel(1000);
+    let (sender_hig1_to_hs, receiver_hig1_to_hs) = mpsc::channel(1000);
+    let (sender_hig2_to_hs, receiver_hig2_to_hs) = mpsc::channel(1000);
+    let (sender_cl_to_hig1, receiver_cl_to_hig1) = mpsc::channel(1000);
+    let (sender_cl_to_hig2, receiver_cl_to_hig2) = mpsc::channel(1000);
     
     // Create nodes with their channels
     let hs_node = Arc::new(Mutex::new(HyperSchedulerNode::new(sender_hs_to_cl)));

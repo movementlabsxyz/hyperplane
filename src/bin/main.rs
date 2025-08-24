@@ -65,9 +65,9 @@ async fn main() {
     for chain_id in default_chains {
         println!("[shell] Adding chain: {}", chain_id.0);
         // Channels for CL <-> HIG
-        let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel::<SubBlock>(100);
+        let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel::<SubBlock>(1000);
         // Channels for HIG <-> HS
-        let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
+        let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(1000);
         // Create HIG node
         let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS, config::ALLOW_CAT_PENDING_DEPENDENCIES)));
         // Register chain with CL
@@ -253,9 +253,9 @@ async fn main() {
                     let chain_id = ChainId(chain_id_str.to_string());
                     println!("[shell] Adding chain: {}", chain_id.0);
                     // Channels for CL <-> HIG
-                    let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel::<SubBlock>(100);
+                    let (sender_cl_to_hig, receiver_cl_to_hig) = mpsc::channel::<SubBlock>(1000);
                     // Channels for HIG <-> HS
-                    let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(100);
+                    let (sender_hig_to_hs, receiver_hig_to_hs) = mpsc::channel::<CATStatusUpdate>(1000);
                     // Create HIG node
                     let hig_node = Arc::new(Mutex::new(HyperIGNode::new(receiver_cl_to_hig, sender_hig_to_hs, chain_id.clone(), config::CAT_MAX_LIFETIME_BLOCKS, config::ALLOW_CAT_PENDING_DEPENDENCIES)));
                     // Register chain with CL
