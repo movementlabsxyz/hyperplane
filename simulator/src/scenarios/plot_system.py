@@ -421,8 +421,8 @@ def plot_block_height_delta(data: Dict[str, Any], param_name: str, results_dir: 
                             heights = heights[:min_length]
                             delta_values = delta_values[:min_length]
                         
-                        # Plot the data as dots to show individual points
-                        ax.scatter(heights, delta_values, color=color, alpha=0.7, s=20, marker='o')
+                        # Plot the data as lines for better visibility of trends
+                        ax.plot(heights, delta_values, color=color, alpha=0.7, linewidth=1.5)
                     else:
                         print(f"Warning: No block height delta entries found for simulation {sim_index}")
                 else:
@@ -431,7 +431,7 @@ def plot_block_height_delta(data: Dict[str, Any], param_name: str, results_dir: 
                 missing_files.append(delta_file)
             
             # Add legend entry for this parameter value
-            ax.scatter([], [], color=color, label=label, s=20, marker='o')
+            ax.plot([], [], color=color, label=label, linewidth=1.5)
         
         # Print summary warning for missing files
         if missing_files:
