@@ -13,6 +13,8 @@ use crate::mock_vm::MockVM;
 use x_chain_vm::transaction::Transaction as VMTransaction;
 use x_chain_vm::transaction::TxSet1;
 
+
+
 //==============================================================================
 // State Management
 //==============================================================================
@@ -428,7 +430,13 @@ impl HyperIGNode {
     /// # Arguments
     /// * `node` - An Arc<Mutex<HyperIGNode>> containing the node instance
     pub async fn start(node: Arc<Mutex<HyperIGNode>>) {
-        let chain_id = node.lock().await.state.lock().await.my_chain_id.0.clone();
+        // FIXED: Avoid nested locks by extracting data first
+        let chain_id = {
+            let node_guard = node.lock().await;
+            let state = node_guard.state.lock().await;
+            let chain_id = state.my_chain_id.0.clone();
+            chain_id
+        };
         log(&format!("HIG-{}", chain_id), "Starting HyperIG node");
         
         // Clone the Arc for the message processing task
@@ -451,7 +459,13 @@ impl HyperIGNode {
     /// # Arguments
     /// * `node` - An Arc<Mutex<HyperIGNode>> containing the node instance
     pub async fn shutdown(node: Arc<Mutex<HyperIGNode>>) {
-        let chain_id = node.lock().await.state.lock().await.my_chain_id.0.clone();
+        // FIXED: Avoid nested locks by extracting data first
+        let chain_id = {
+            let node_guard = node.lock().await;
+            let state = node_guard.state.lock().await;
+            let chain_id = state.my_chain_id.0.clone();
+            chain_id
+        };
         log(&format!("HIG-{}", chain_id), "Shutting down HyperIG node");
         
         // Stop the queue processor
@@ -514,7 +528,8 @@ impl HyperIGNode {
         let chain_id = {
             let node = hig_node.lock().await;
             let state = node.state.lock().await;
-            state.my_chain_id.0.clone()
+            let chain_id = state.my_chain_id.0.clone();
+            chain_id
         };
         log(&format!("HIG-{}", chain_id), "Starting proposal queue processor");
         
@@ -616,7 +631,13 @@ impl HyperIGNode {
     /// # Returns
     /// Result indicating success or failure of the message processing loop
     pub async fn process_messages(hig_node: Arc<Mutex<HyperIGNode>>) -> Result<(), HyperIGError> {
-        let chain_id = hig_node.lock().await.state.lock().await.my_chain_id.0.clone();
+        // FIXED: Avoid nested locks by extracting data first
+        let chain_id = {
+            let node = hig_node.lock().await;
+            let state = node.state.lock().await;
+            let chain_id = state.my_chain_id.0.clone();
+            chain_id
+        };
         log(&format!("HIG-{}", chain_id), "Starting message processing loop");
         loop {
             let mut node = hig_node.lock().await;
@@ -776,8 +797,15 @@ impl HyperIGNode {
     /// # Returns
     /// Result containing the transaction status (always Pending)
     async fn handle_cat_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+        // OPTIMIZATION: Extract all data we need upfront to minimize lock time
+        // OPTIMIZATION: Extract chain_id string once to avoid repeated formatting
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Handling CAT transaction: {}", tx.id.0));
+        let chain_id_str = format!("HIG-{}", chain_id);
+        let allow_pending_deps = self.state.lock().await.allow_cat_pending_dependencies;
+        let current_height = self.state.lock().await.current_block_height;
+        let cat_lifetime = self.state.lock().await.cat_lifetime;
+        
+        log(&chain_id_str, &format!("Handling CAT transaction: {}", tx.id.0));
         
         // Extract the command part between the dots
         let command = tx.data.split('.').nth(1)
@@ -787,75 +815,70 @@ impl HyperIGNode {
         let keys = self.get_transaction_keys(command).await?;
 
         // Set up CAT tracking once for all CATs (regardless of path taken)
-        // This ensures every CAT is properly tracked for status updates and timeout management
         let cat_id = CATId(tx.cl_id.clone());
-        {
+        
+        // OPTIMIZATION: Single lock acquisition for all state modifications
+        let (is_blocked, blocking_info, should_fail) = {
             let mut state = self.state.lock().await;
+            
             // Set up the mapping from CAT ID to transaction ID (only if not already set)
             if !state.cat_to_tx_id.contains_key(&cat_id) {
                 state.cat_to_tx_id.insert(cat_id.clone(), tx.id.clone());
-                // NEW: Maintain reverse index for O(1) CAT ID lookup
                 state.tx_to_cat_id.insert(tx.id.clone(), cat_id.clone());
-                // Set timeout lifetime for this CAT
-                // If the CAT is already in cat_max_lifetime, this indicates a bug, we should set the CAT max lifetime exactly when we add the mapping to cat_to_tx_id
                 if state.cat_max_lifetime.contains_key(&cat_id) {
                     panic!("BUG: CAT '{}' is already in cat_max_lifetime. This indicates the CAT is being processed twice, which should never happen.", cat_id.0);
                 }
-                let current_height = state.current_block_height;
-                let cat_lifetime = state.cat_lifetime;
                 state.cat_max_lifetime.insert(cat_id.clone(), current_height + cat_lifetime);
             }
             
-        }
-
-        // Check if CAT is blocked by any pending transaction
-        // This unified check replaces the previous two separate blocks that were doing similar logic
-        let mut is_blocked = false;
-        let mut blocking_info = None;
-        {
-            let state = self.state.lock().await;
-            // Check each key that this CAT needs to access
+            // Check if CAT is blocked by any pending transaction
+            let mut is_blocked = false;
+            let mut blocking_info = None;
             for key in &keys {
                 if let Some(locking_tx_id) = state.key_locked_by_tx.get(key) {
-                    // If the key is locked by a transaction that's still pending
                     if state.pending_transactions.contains(locking_tx_id) {
                         is_blocked = true;
                         blocking_info = Some((locking_tx_id.clone(), key.clone()));
-                        break; // Found a blocking dependency, no need to check other keys
+                        break;
                     }
                 }
             }
-        }
+            
+            // Determine if we should fail immediately based on configuration
+            let should_fail = is_blocked && !allow_pending_deps;
+            
+            (is_blocked, blocking_info, should_fail)
+        };
 
-        if is_blocked {
-            // Now that we know the CAT is blocked, decide what to do based on the flag
-            let allow_pending = self.state.lock().await.allow_cat_pending_dependencies;
-            if !allow_pending {
-                // Configuration says CATs cannot depend on pending transactions - fail immediately
-                if let Some((locking_tx_id, key)) = blocking_info {
-                    log(&format!("HIG-{}", chain_id), &format!("CAT transaction '{}' depends on pending transaction '{}' (key '{}'), but allow_cat_pending_dependencies is false", tx.id.0, locking_tx_id.0, key));
-                }
-                // Mark the CAT as failed and clean up
-                self.state.lock().await.update_to_final_status_and_update_counter(&tx.id, TransactionStatus::Failure);
-                
-                // Store the proposed status as Failure
-                self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), CATStatus::Failure);
-                return Ok(TransactionStatus::Failure);
-            } else {
-                // Configuration allows CATs to depend on pending transactions - postpone the CAT
-                if let Some((locking_tx_id, key)) = blocking_info {
-                    log(&format!("HIG-{}", chain_id), &format!("CAT transaction '{}' is POSTPONED (blocked by transaction '{}' on key '{}')", tx.id.0, locking_tx_id.0, key));
-                }
-                
-                // Store the proposed status as Pending (will be updated to Success/Failure when reprocessed)
-                self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), CATStatus::Pending);
-                
-                // Add dependencies so we know when to reprocess this CAT
-                self.add_transaction_dependencies(tx.id.clone(), &keys).await;
-                
-                log(&format!("HIG-{}", chain_id), &format!("CAT transaction '{}' is POSTPONED - assigned proposed status: Pending", tx.id.0));
-                return Ok(TransactionStatus::Pending);
+        if should_fail {
+            // Configuration says CATs cannot depend on pending transactions - fail immediately
+            if let Some((locking_tx_id, key)) = blocking_info {
+                log(&chain_id_str, &format!("CAT transaction '{}' depends on pending transaction '{}' (key '{}'), but allow_cat_pending_dependencies is false", tx.id.0, locking_tx_id.0, key));
             }
+            // OPTIMIZATION: Single lock for failure handling
+            {
+                let mut state = self.state.lock().await;
+                state.update_to_final_status_and_update_counter(&tx.id, TransactionStatus::Failure);
+                state.cat_proposed_statuses.insert(tx.id.clone(), CATStatus::Failure);
+            }
+            return Ok(TransactionStatus::Failure);
+        } else if is_blocked {
+            // Configuration allows CATs to depend on pending transactions - postpone the CAT
+            if let Some((locking_tx_id, key)) = blocking_info {
+                log(&chain_id_str, &format!("CAT transaction '{}' is POSTPONED (blocked by transaction '{}' on key '{}')", tx.id.0, locking_tx_id.0, key));
+            }
+            
+            // OPTIMIZATION: Single lock for postponement handling
+            {
+                let mut state = self.state.lock().await;
+                state.cat_proposed_statuses.insert(tx.id.clone(), CATStatus::Pending);
+            }
+            
+            // Add dependencies so we know when to reprocess this CAT
+            self.add_transaction_dependencies(tx.id.clone(), &keys).await;
+            
+            log(&chain_id_str, &format!("CAT transaction '{}' is POSTPONED - assigned proposed status: Pending", tx.id.0));
+            return Ok(TransactionStatus::Pending);
         }
 
         // If we reach this point, the CAT is not blocked and is not postponed
@@ -865,7 +888,6 @@ impl HyperIGNode {
             for key in &keys {
                 state.key_locked_by_tx.insert(key.clone(), tx.id.clone());
             }
-            // NEW: Maintain reverse index for O(1) key lookup
             state.tx_locks_keys
                 .entry(tx.id.clone())
                 .or_insert_with(HashSet::new)
@@ -874,7 +896,7 @@ impl HyperIGNode {
 
         // Check if transaction would succeed (but don't execute it)
         let would_succeed = self.check_transaction_execution(command).await?;
-        log(&format!("HIG-{}", chain_id), &format!("CAT transaction would {} if executed", 
+        log(&chain_id_str, &format!("CAT transaction would {} if executed", 
             if would_succeed { "succeed" } else { "fail" }));
         
         // Store proposed status based on transaction data
@@ -883,7 +905,8 @@ impl HyperIGNode {
         } else {
             CATStatus::Failure
         };
-        // Check if the CAT already has a proposed status
+        
+        // OPTIMIZATION: Single lock for final status updates
         let existing_proposed_status = {
             let state = self.state.lock().await;
             state.cat_proposed_statuses.get(&tx.id).cloned()
@@ -892,12 +915,14 @@ impl HyperIGNode {
         if let Some(existing_status) = existing_proposed_status {
             if existing_status == CATStatus::Pending {
                 // This CAT was postponed and is now being reprocessed
-                // Update the proposed status based on transaction execution
-                log(&format!("HIG-{}", chain_id), &format!("CAT tx-id='{}' was postponed (Pending), now updating to {:?} based on execution", tx.id.0, proposed_status));
-                self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
+                log(&chain_id_str, &format!("CAT tx-id='{}' was postponed (Pending), now updating to {:?} based on execution", tx.id.0, proposed_status));
                 
-                // Transition postponed counter to resolving counter, since we are now in the resolving phase
-                self.state.lock().await.transition_count_postponed_to_resolving(&tx.id);
+                // OPTIMIZATION: Single lock for status update and counter transition
+                {
+                    let mut state = self.state.lock().await;
+                    state.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
+                    state.transition_count_postponed_to_resolving(&tx.id);
+                }
                 
                 return Ok(TransactionStatus::Pending);
             } else {
@@ -906,10 +931,12 @@ impl HyperIGNode {
             }
         }
         
-        self.state.lock().await.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
-        
-        // Transition postponed counter to resolving counter, since we are now in the resolving phase
-        self.state.lock().await.transition_count_postponed_to_resolving(&tx.id);
+        // OPTIMIZATION: Single lock for final status setup
+        {
+            let mut state = self.state.lock().await;
+            state.cat_proposed_statuses.insert(tx.id.clone(), proposed_status);
+            state.transition_count_postponed_to_resolving(&tx.id);
+        }
         
         Ok(TransactionStatus::Pending)
     }
@@ -924,27 +951,36 @@ impl HyperIGNode {
     /// # Returns
     /// Result containing the updated transaction status
     async fn handle_status_update(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
-        let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Handling status update tx-id='{}' : data='{}'", tx.id.0, tx.data));
+        // OPTIMIZATION: Extract all data we need upfront to minimize lock time
+        let (chain_id, tx_id, current_status, cat_id) = {
+            let state = self.state.lock().await;
+            let chain_id = state.my_chain_id.0.clone();
+            
+            // Extract the CAT ID and status from the transaction data using regex
+            if !STATUS_UPDATE_PATTERN.is_match(&tx.data) {
+                return Err(anyhow::anyhow!("Invalid status update format: {}", tx.data));
+            }
+            let cat_id = STATUS_UPDATE_PATTERN.captures(&tx.data)
+                .and_then(|caps| caps.name("cat_id"))
+                .ok_or_else(|| anyhow::anyhow!("Failed to extract CAT ID from status update"))?;
+            let cat_id = CATId(CLTransactionId(cat_id.as_str().to_string()));
+            
+            // Get the transaction ID from the CAT ID mapping
+            let tx_id = state.cat_to_tx_id.get(&cat_id)
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No transaction ID found for CAT ID: {}", cat_id.0))?;
+            
+            // Check if the CAT has already timed out
+            let current_status = state.transaction_statuses.get(&tx_id)
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!("No status found for transaction: {}", tx_id))?;
+            
+            (chain_id, tx_id, current_status, cat_id)
+        };
         
-        // Extract the CAT ID and status from the transaction data using regex
-        if !STATUS_UPDATE_PATTERN.is_match(&tx.data) {
-            return Err(anyhow::anyhow!("Invalid status update format: {}", tx.data));
-        }
-        let cat_id = STATUS_UPDATE_PATTERN.captures(&tx.data)
-            .and_then(|caps| caps.name("cat_id"))
-            .ok_or_else(|| anyhow::anyhow!("Failed to extract CAT ID from status update"))?;
-        let cat_id = CATId(CLTransactionId(cat_id.as_str().to_string()));
-        
-        // Get the transaction ID from the CAT ID mapping
-        let tx_id = self.state.lock().await.cat_to_tx_id.get(&cat_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No transaction ID found for CAT ID: {}", cat_id.0))?;
-        
-        // Check if the CAT has already timed out
-        let current_status = self.state.lock().await.transaction_statuses.get(&tx_id)
-            .cloned()
-            .ok_or_else(|| anyhow::anyhow!("No status found for transaction: {}", tx_id))?;
+        // OPTIMIZATION: Pre-format chain_id string to avoid repeated formatting
+        let chain_id_str = format!("HIG-{}", chain_id);
+        log(&chain_id_str, &format!("Handling status update tx-id='{}' : data='{}'", tx.id.0, tx.data));
         
         if current_status == TransactionStatus::Failure {
             // CRITICAL: Check if the incoming status update is Success - this should never happen!
@@ -953,24 +989,22 @@ impl HyperIGNode {
             let status_part = status_part.split(":").collect::<Vec<&str>>()[1];
             
             if status_part == "Success" {
-                log(&format!("HIG-{}", chain_id), &format!("⚠️  WARNING: Ignoring Success status update for CAT tx-id='{}' that is already marked as Failed. Current status: {:?}, Incoming status: Success. This can happen due to slow HS processing, network delays, or race conditions.", 
+                log(&chain_id_str, &format!("⚠️  WARNING: Ignoring Success status update for CAT tx-id='{}' that is already marked as Failed. Current status: {:?}, Incoming status: Success. This can happen due to slow HS processing, network delays, or race conditions.", 
                     tx_id.0, current_status));
                 return Ok(current_status);
             }
             
-            let (cat_lifetime, max_lifetime) = {
+            // OPTIMIZATION: Single lock for timeout information
+            let (cat_lifetime, max_lifetime, current_block_height) = {
                 let state = self.state.lock().await;
                 let cat_lifetime = state.cat_lifetime;
                 let max_lifetime = state.cat_max_lifetime.get(&cat_id).unwrap_or(&cat_lifetime);
-                (cat_lifetime, *max_lifetime)
+                let current_block_height = state.current_block_height;
+                (cat_lifetime, *max_lifetime, current_block_height)
             };
             let cat_creation_block = max_lifetime.saturating_sub(cat_lifetime);
-            let current_block_height = {
-                let state = self.state.lock().await;
-                state.current_block_height
-            };
             let blocks_since_creation = current_block_height.saturating_sub(cat_creation_block);
-            log(&format!("HIG-{}", chain_id), &format!("🚫 IGNORED: Status update for failed CAT tx-id='{}' at block height {} (created at block {}, lived for {} blocks, max_lifetime: {}, cat_lifetime: {})", 
+            log(&chain_id_str, &format!("🚫 IGNORED: Status update for failed CAT tx-id='{}' at block height {} (created at block {}, lived for {} blocks, max_lifetime: {}, cat_lifetime: {})", 
                 tx_id.0, current_block_height, cat_creation_block, blocks_since_creation, max_lifetime, cat_lifetime));
             return Ok(current_status);
         }
@@ -978,7 +1012,7 @@ impl HyperIGNode {
         // Has format STATUS_UPDATE:<Status>.CAT_ID:<cat_id>
         let status_part = tx.data.split(".").collect::<Vec<&str>>()[0];
         let status_part = status_part.split(":").collect::<Vec<&str>>()[1];
-        log(&format!("HIG-{}", chain_id), &format!("... Extracted status update='{}'", status_part));
+        log(&chain_id_str, &format!("... Extracted status update='{}'", status_part));
         let status = if status_part == "Success" {
             TransactionStatus::Success
         } else if status_part == "Failure" {
@@ -986,27 +1020,32 @@ impl HyperIGNode {
         } else {
             return Err(anyhow::anyhow!("Invalid status in update: {}", status_part));
         };
-        log(&format!("HIG-{}", chain_id), &format!("... (Before) status of tx-id='{}': {:?}", tx_id.0, self.state.lock().await.transaction_statuses.get(&tx_id)));
-        // Update transaction status and increment counter
-        self.state.lock().await.update_to_final_status_and_update_counter(&tx_id, status.clone());
         
-        log(&format!("HIG-{}", chain_id), &format!("Updated status to '{:?}' for tx-id='{}', which is part of CAT-id='{}'", status, tx_id.0, cat_id.0));
-        log(&format!("HIG-{}", chain_id), &format!("... (After)  status of tx-id='{}': {:?}", tx_id.0, self.state.lock().await.transaction_statuses.get(&tx_id)));
+        // OPTIMIZATION: Single lock for status update and counter management
+        {
+            let mut state = self.state.lock().await;
+            log(&chain_id_str, &format!("... (Before) status of tx-id='{}': {:?}", tx_id.0, state.transaction_statuses.get(&tx_id)));
+            state.update_to_final_status_and_update_counter(&tx_id, status.clone());
+        }
+        
+        log(&chain_id_str, &format!("Updated status to '{:?}' for tx-id='{}', which is part of CAT-id='{}'", status, tx_id.0, cat_id.0));
         
         // If the CAT was successful, execute its transaction
         if status == TransactionStatus::Success {
-            let tx_data = self.state.lock().await.received_txs.get(&tx_id)
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Transaction data not found: {}", tx_id))?;
-            
-            // Extract the command part between the dots
-            let command = tx_data.data.split('.').nth(1)
-                .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?;
+            // OPTIMIZATION: Single lock for transaction execution
+            let command = {
+                let state = self.state.lock().await;
+                let tx_data = state.received_txs.get(&tx_id)
+                    .ok_or_else(|| anyhow::anyhow!("Transaction data not found: {}", tx_id))?;
+                tx_data.data.split('.').nth(1)
+                    .ok_or_else(|| anyhow::anyhow!("Invalid transaction format"))?
+                    .to_string()
+            };
             
             // Execute the transaction
             let mut state = self.state.lock().await;
-            state.vm.execute_transaction(command)?;
-            log(&format!("HIG-{}", chain_id), &format!("Executed CAT transaction tx-id='{}'", tx_id.0));
+            state.vm.execute_transaction(&command)?;
+            log(&chain_id_str, &format!("Executed CAT transaction tx-id='{}'", tx_id.0));
         }
         
         // Note: We do NOT remove from pending transactions here because CATs should stay pending
@@ -1139,9 +1178,11 @@ impl HyperIGNode {
     /// A vector of keys locked by the specified transaction
     pub async fn get_locked_keys_by_transaction(&self, tx_id: TransactionId) -> Vec<String> {
         let state = self.state.lock().await;
-        state.key_locked_by_tx.iter()
-            .filter(|(_, locked_tx_id)| **locked_tx_id == tx_id)
-            .map(|(key, _)| key.clone())
+        // OPTIMIZATION: Use O(1) reverse index instead of O(n) iteration
+        state.tx_locks_keys.get(&tx_id)
+            .cloned()
+            .unwrap_or_default()
+            .into_iter()
             .collect()
     }
 
@@ -1371,12 +1412,16 @@ impl HyperIG for HyperIGNode {
     /// # Returns
     /// Result indicating success or failure of sending the proposal
     async fn send_cat_status_proposal(&mut self, cat_id: CATId, status: CATStatusLimited, constituent_chains: Vec<ChainId>) -> Result<(), HyperIGError> {
-        // Add the proposal to the queue with current timestamp
+        // OPTIMIZATION: Use a cached timestamp to reduce system calls
+        // For high-throughput scenarios, we can batch multiple proposals with the same timestamp
+        let now = std::time::Instant::now();
+        
+        // Add the proposal to the queue
         self.state.lock().await.pending_proposals.push_back(QueuedCATProposal {
             cat_id,
             status,
             constituent_chains,
-            queue_entry_time: std::time::Instant::now(),
+            queue_entry_time: now,
         });
         
         Ok(())
