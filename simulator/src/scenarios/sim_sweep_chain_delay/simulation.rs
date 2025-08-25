@@ -91,6 +91,7 @@ pub async fn run_sweep_chain_delay() -> Result<(), crate::config::ConfigError> {
                             chain_delay,                     // Apply delay to second chain in blocks
                         ],
                         block_interval: base_config.network_config.block_interval,
+                        channel_buffer_size: base_config.network_config.channel_buffer_size,
                     },
                     account_config: base_config.account_config.clone(),
                     transaction_config: base_config.transaction_config.clone(),

@@ -9,6 +9,9 @@ num_chains = 2
 chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has second value blocks delay
 # Block interval in seconds
 block_interval = 1.0
+# Channel buffer size for high-performance communication
+# Larger values handle higher TPS but use more memory
+channel_buffer_size = 1000
 
 # Account parameters
 [account_config]
@@ -45,11 +48,11 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 10
+num_runs = 1
 # Number of simulations to run in the sweep
-num_simulations = 10
+num_simulations = 3
 # Step size for CAT ratio sweeps
-cat_ratio_step = 0.1
+cat_ratio_step = 0.2
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 100

@@ -14,13 +14,13 @@ use hyperplane::{
 // ------------------------------------------------------------------------------------------------
 
 /// Creates a network of nodes with the specified number of nodes and chains
-pub async fn create_network(num_nodes: usize, num_chains: usize) -> Vec<Arc<Mutex<ConfirmationLayerNode>>> {
+pub async fn create_network(num_nodes: usize, num_chains: usize, channel_buffer_size: usize) -> Vec<Arc<Mutex<ConfirmationLayerNode>>> {
     let mut nodes = Vec::new();
     let mut senders = Vec::new();
     
     // Create nodes
     for _i in 0..num_nodes {
-        let (tx, rx) = mpsc::channel::<CLTransaction>(100);
+        let (tx, rx) = mpsc::channel::<CLTransaction>(channel_buffer_size);
         let node = ConfirmationLayerNode::new(rx);
         nodes.push(Arc::new(Mutex::new(node)));
         senders.push(tx);
@@ -31,7 +31,7 @@ pub async fn create_network(num_nodes: usize, num_chains: usize) -> Vec<Arc<Mute
         let chain_id = ChainId(format!("chain-{}", i));
         for (node, _sender) in nodes.iter().zip(senders.iter()) {
             let mut node = node.lock().await;
-            let (subblock_tx, _) = mpsc::channel::<SubBlock>(100);
+            let (subblock_tx, _) = mpsc::channel::<SubBlock>(channel_buffer_size);
             node.register_chain(chain_id.clone(), subblock_tx).await.expect("Failed to register chain");
         }
     }

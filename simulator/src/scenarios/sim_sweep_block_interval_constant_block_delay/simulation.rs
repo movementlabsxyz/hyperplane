@@ -91,6 +91,7 @@ pub async fn run_sweep_block_interval_constant_block_delay() -> Result<(), crate
                             base_config.network_config.chain_delays[1],  // Use the second chain delay for constant block delay
                         ],
                         block_interval: block_interval,                        // Apply the varied block interval
+                        channel_buffer_size: base_config.network_config.channel_buffer_size,
                     },
                     account_config: base_config.account_config.clone(),
                     transaction_config: base_config.transaction_config.clone(),

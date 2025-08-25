@@ -7,6 +7,8 @@ use serde::Deserialize;
 use std::time::Duration;
 use thiserror::Error;
 
+
+
 // ------------------------------------------------------------------------------------------------
 // Main Configuration Structs
 // ------------------------------------------------------------------------------------------------
@@ -47,6 +49,10 @@ pub struct NetworkConfig {
     pub chain_delays: Vec<f64>,
     /// Block interval in seconds (time between block productions)
     pub block_interval: f64,
+    /// Channel buffer size for high-performance communication
+    /// Larger values handle higher TPS but use more memory
+    #[serde(default = "default_channel_buffer_size")]
+    pub channel_buffer_size: usize,
 }
 
 /// Configuration for account-related simulation parameters.
@@ -96,10 +102,26 @@ fn default_log_to_file() -> bool {
     false
 }
 
+/// Default value for channel buffer size
+fn default_channel_buffer_size() -> usize {
+    1000
+}
+
 impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
             log_to_file: false,
+        }
+    }
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            num_chains: 2,
+            chain_delays: vec![0.0, 5.0],
+            block_interval: 1.0,
+            channel_buffer_size: default_channel_buffer_size(),
         }
     }
 }

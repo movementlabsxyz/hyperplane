@@ -211,6 +211,7 @@ impl<T: std::fmt::Debug + Clone> SweepRunner<T> {
                     sim_config.transaction_config.cat_lifetime_blocks,
                     sim_config.account_config.num_accounts.try_into().unwrap(), // Preload accounts from config
                     sim_config.account_config.initial_balance.try_into().unwrap(), // Preload value from config
+                    sim_config.network_config.channel_buffer_size, // Channel buffer size from config
                 ).await;
                 
                 logging::log("SIMULATOR", &format!("Test nodes setup complete with {} accounts preloaded with {} tokens each", 
