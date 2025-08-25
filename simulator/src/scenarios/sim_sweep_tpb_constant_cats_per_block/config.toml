@@ -10,6 +10,7 @@ chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has s
 # Block interval in seconds - this will be automatically scaled with target_tpb
 # The relationship is: block_interval = target_tpb / 100
 # So: target_tpb=200 -> block_interval=2.0, target_tpb=100 -> block_interval=1.0
+# Note: This value is the starting point and will be scaled for each simulation step
 block_interval = 1.0
 # Channel buffer size for high-performance communication
 # Larger values handle higher TPS but use more memory
@@ -30,7 +31,7 @@ num_accounts = 10000
 # The simulator will try to maintain this rate by adjusting delays
 # This is the starting value (200.0) - will be varied in sweep
 # Block interval will automatically scale with target_tpb: block_interval = target_tpb / 100
-target_tpb = 200.0
+target_tpb = 100.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -53,19 +54,19 @@ allow_cat_pending_dependencies = true
 # This ensures the system is fully initialized and stable
 initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
-num_runs = 5
+num_runs = 3
 # Number of simulations to run in the sweep
 num_simulations = 7
 # Multiplier for target TPB per simulation step
 # Values will be calculated as: base_tpb * (multiplier ^ step)
-# With base_tpb=10 and 5 simulations, this gives: [10, 31.6, 100, 316, 1000]
-# Block intervals will scale accordingly: [0.1, 0.316, 1.0, 3.16, 10.0]
-target_tpb_multiplier_per_step = 3.16227766017 # sqrt(10)
+# With base_tpb=100 (from target_tpb) and 7 simulations, this gives: [100, 200, 400, 800, 1600, 3200, 6400]
+# Block intervals will scale accordingly: [1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+target_tpb_multiplier_per_step = 2 # sqrt(10)
 # Total number of blocks to simulate
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 100
 # Constant number of CATs per block (used instead of ratio_cats)
-constants_cats_per_block = 10
+constants_cats_per_block = 100
 
 # Logging control for the simulator
 [logging_config]
@@ -79,4 +80,4 @@ plot_moving_average = true
 # How many consecutive data points get averaged
 range_moving_average = 20
 # cuts off data at sim_total_block_number * cutoff
-cutoff = 0.5
+cutoff = 0.8

@@ -72,8 +72,8 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
     let num_simulations = sweep_config.simulation_config.num_simulations.unwrap();
     
     // Calculate target TPB values using the multiplier
-    // base_tpb * (multiplier ^ step) for each simulation
-    let base_tpb = 10.0; // Starting value (will give block_interval = 0.1)
+    // Start with the target_tpb from config and multiply by the multiplier for each step
+    let base_tpb = sweep_config.transaction_config.target_tpb;
     let mut target_tpb_values = Vec::new();
     for step in 0..num_simulations {
         let target_tpb = base_tpb * multiplier.powi(step as i32);
@@ -81,7 +81,7 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
     }
     
     // Get the constant CATs per block from the simulation config
-    let constant_cats_per_block = sweep_config.simulation_config.constants_cats_per_block.unwrap_or(10.0);
+    let constant_cats_per_block = sweep_config.simulation_config.constants_cats_per_block.unwrap_or(base_tpb);
     
     // Calculate CAT TPB values (constant)
     let cat_tpb_values: Vec<f64> = vec![constant_cats_per_block; num_simulations];
@@ -90,6 +90,7 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
     let block_interval_values: Vec<f64> = target_tpb_values.iter().map(|&tpb| tpb / 100.0).collect();
     
     // Print target TPB, block interval, and CAT TPB values
+    println!("Starting TPB: {}", base_tpb);
     println!("Target TPB values to test: {:?}", target_tpb_values);
     println!("Block interval values (scaled): {:?}", block_interval_values);
     println!("CAT TPB values (constant): {:?}", cat_tpb_values);
@@ -106,11 +107,11 @@ pub async fn run_sweep_tpb_constant_cats_per_block_simulation() -> Result<(), cr
             load_config().map(|config| Box::new(config) as Box<dyn crate::scenarios::sweep_runner::SweepConfigTrait>)
         }),
         // Function to create a modified config for each simulation using the helper
-        Box::new(|sweep_config, target_tpb| {
+        Box::new(move |sweep_config, target_tpb| {
             // Calculate the CAT ratio to maintain constant CATs per block
             // constant_cats_per_block = target_tpb * cat_ratio
             // So: cat_ratio = constant_cats_per_block / target_tpb
-            let cat_ratio = 10.0 / target_tpb; // Using hardcoded value for now
+            let cat_ratio = constant_cats_per_block / target_tpb;
             
             // Scale block_interval with target_tpb
             // We want: target_tpb=10 -> block_interval=0.1, target_tpb=100 -> block_interval=1.0
