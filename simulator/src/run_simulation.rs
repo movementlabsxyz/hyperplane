@@ -327,6 +327,21 @@ async fn process_block_data(
     results.chain_1_tx_per_block.push((block_height, chain_1_tx_per_block));
     results.chain_2_tx_per_block.push((block_height, chain_2_tx_per_block));
     
+    // Record regular transaction timing metrics
+    let chain_1_avg_latency = hig_nodes[0].lock().await.get_average_regular_tx_latency().await;
+    let chain_2_avg_latency = hig_nodes[1].lock().await.get_average_regular_tx_latency().await;
+    let chain_1_max_latency = hig_nodes[0].lock().await.get_max_regular_tx_latency().await;
+    let chain_2_max_latency = hig_nodes[1].lock().await.get_max_regular_tx_latency().await;
+    let chain_1_finalized_count = hig_nodes[0].lock().await.get_regular_tx_finalized_count().await;
+    let chain_2_finalized_count = hig_nodes[1].lock().await.get_regular_tx_finalized_count().await;
+    
+    results.chain_1_regular_tx_avg_latency.push((block_height, chain_1_avg_latency));
+    results.chain_2_regular_tx_avg_latency.push((block_height, chain_2_avg_latency));
+    results.chain_1_regular_tx_max_latency.push((block_height, chain_1_max_latency));
+    results.chain_2_regular_tx_max_latency.push((block_height, chain_2_max_latency));
+    results.chain_1_regular_tx_finalized_count.push((block_height, chain_1_finalized_count));
+    results.chain_2_regular_tx_finalized_count.push((block_height, chain_2_finalized_count));
+    
     // Log TPB information for debugging
     let chain_1_total = cl_node.lock().await.get_subblock(chain_id_1.clone(), block_height).await
         .map(|subblock| subblock.transactions.len() as u64)

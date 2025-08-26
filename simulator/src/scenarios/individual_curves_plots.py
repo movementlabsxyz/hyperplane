@@ -561,10 +561,10 @@ def create_transaction_plots(run_dirs: List[str], sim_data_dir: str, sim_figs_di
         
         plt.tight_layout()
         
-        # Create tx_count directory and save the transaction plot
-        tx_count_dir = f'{sim_figs_dir}/tx_count'
-        os.makedirs(tx_count_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_dir}/tx_{tx_type}.png', dpi=300, bbox_inches='tight')
+        # Create tx directory and save the transaction plot
+        tx_dir = f'{sim_figs_dir}/tx'
+        os.makedirs(tx_dir, exist_ok=True)
+        plt.savefig(f'{tx_dir}/tx_{tx_type}.png', dpi=300, bbox_inches='tight')
         plt.close()
     
     # Create combined transaction plots (sumTypes) that combine CAT and regular transactions
@@ -651,8 +651,8 @@ def create_transaction_plots(run_dirs: List[str], sim_data_dir: str, sim_figs_di
         
         plt.tight_layout()
         
-        # Create tx_count directory and save the combined transaction plot
-        tx_count_dir = f'{sim_figs_dir}/tx_count'
-        os.makedirs(tx_count_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_dir}/tx_{combined_name}.png', dpi=300, bbox_inches='tight')
+        # Create tx directory and save the combined transaction plot
+        tx_dir = f'{sim_figs_dir}/tx'
+        os.makedirs(tx_dir, exist_ok=True)
+        plt.savefig(f'{tx_dir}/tx_{combined_name}.png', dpi=300, bbox_inches='tight')
         plt.close() 

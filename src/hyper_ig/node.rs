@@ -52,6 +52,8 @@ struct HyperIGState {
     tx_depends_on_txs: HashMap<TransactionId, HashSet<TransactionId>>,
     /// Map of transaction IDs to the keys they depend on (reverse index for O(1) key cleanup)
     tx_depends_on_keys: HashMap<TransactionId, HashSet<String>>,
+    /// Map of transaction IDs to when they entered pending state (for timing metrics)
+    tx_pending_start_time: HashMap<TransactionId, std::time::Instant>,
     /// my chain id
     my_chain_id: ChainId,
     /// Mock VM for transaction execution
@@ -77,6 +79,10 @@ struct HyperIGState {
     count_regular_pending: u64,
     count_regular_success: u64,
     count_regular_failure: u64,
+    /// Regular transaction timing metrics
+    latency_regular_tx_finalized: f64, // Average latency in milliseconds
+    max_latency_regular_tx_finalized: f64, // Maximum latency in milliseconds
+    count_regular_tx_finalized: u64,   // Number of finalized regular transactions
 }
 
 impl HyperIGState {
@@ -177,6 +183,8 @@ impl HyperIGState {
     fn add_to_pending_and_increment_counter(&mut self, tx_id: &TransactionId) {
         // Add to pending set first
         self.pending_transactions.insert(tx_id.clone());
+        // Record when transaction entered pending state (for timing metrics)
+        self.tx_pending_start_time.insert(tx_id.clone(), std::time::Instant::now());
         // Then increment the counter
         self.increment_count_pending(tx_id);
     }
@@ -199,6 +207,24 @@ impl HyperIGState {
         
         // Remove from pending set since the transaction has reached a final status
         self.pending_transactions.remove(tx_id);
+        
+        // CRITICAL: Calculate timing metrics for regular transactions
+        if let Some(start_time) = self.tx_pending_start_time.remove(tx_id) {
+            // Check if this is a regular transaction (not a CAT)
+            // A transaction is a CAT if it exists as a value in cat_to_tx_id
+            let is_cat = self.cat_to_tx_id.values().any(|cat_tx_id| cat_tx_id == tx_id);
+            if !is_cat {
+                let latency_ms = start_time.elapsed().as_millis() as f64;
+                let n = self.count_regular_tx_finalized;
+                // Update running average: new_avg = (old_avg * n + new_value) / (n + 1)
+                self.latency_regular_tx_finalized = (self.latency_regular_tx_finalized * n as f64 + latency_ms) / (n as f64 + 1.0);
+                // Update maximum latency if this is higher
+                if latency_ms > self.max_latency_regular_tx_finalized {
+                    self.max_latency_regular_tx_finalized = latency_ms;
+                }
+                self.count_regular_tx_finalized += 1;
+            }
+        }
         
         // Remove from cat_max_lifetime map to prevent timeout checking for final status CATs
         // Find the CAT ID for this transaction
@@ -281,6 +307,7 @@ impl HyperIGNode {
                 key_causes_dependencies_for_txs: HashMap::new(),
                 tx_depends_on_txs: HashMap::new(),
                 tx_depends_on_keys: HashMap::new(),
+                tx_pending_start_time: HashMap::new(),
                 received_txs: HashMap::new(),
                 my_chain_id: my_chain_id.clone(),
                 vm,
@@ -297,6 +324,9 @@ impl HyperIGNode {
                 count_regular_pending: 0,
                 count_regular_success: 0,
                 count_regular_failure: 0,
+                latency_regular_tx_finalized: 0.0,
+                max_latency_regular_tx_finalized: 0.0,
+                count_regular_tx_finalized: 0,
             })),
             receiver_cl_to_hig: Some(receiver_cl_to_hig),
             sender_hig_to_hs: Some(sender_hig_to_hs),
@@ -1192,6 +1222,30 @@ impl HyperIGNode {
     /// The total number of locked keys
     pub async fn get_total_locked_keys_count(&self) -> u64 {
         self.state.lock().await.key_locked_by_tx.len() as u64
+    }
+
+    /// Gets the average latency for regular transaction finalization.
+    /// 
+    /// # Returns
+    /// The average latency in milliseconds
+    pub async fn get_average_regular_tx_latency(&self) -> f64 {
+        self.state.lock().await.latency_regular_tx_finalized
+    }
+
+    /// Gets the maximum latency for regular transaction finalization.
+    /// 
+    /// # Returns
+    /// The maximum latency in milliseconds
+    pub async fn get_max_regular_tx_latency(&self) -> f64 {
+        self.state.lock().await.max_latency_regular_tx_finalized
+    }
+
+    /// Gets the count of finalized regular transactions.
+    /// 
+    /// # Returns
+    /// The number of regular transactions that have been finalized
+    pub async fn get_regular_tx_finalized_count(&self) -> u64 {
+        self.state.lock().await.count_regular_tx_finalized
     }
 
 

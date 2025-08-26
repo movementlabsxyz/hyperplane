@@ -114,6 +114,7 @@ TESTS=(
     hyper_ig::tests::counter_management::test_cat_timeout_counter_management
     hyper_ig::tests::counter_management::test_cat_accumulation_management
     hyper_ig::tests::counter_management::test_postponed_to_resolving_transition
+    hyper_ig::tests::counter_management::test_regular_transaction_timing_metrics
 
     # Hyper Scheduler tests
     hyper_scheduler::tests::basic::test_receive_cat_for_unregistered_chain
@@ -158,6 +159,7 @@ TESTS=(
 
 TESTS2=(
     hyper_ig::tests::counter_management::test_postponed_to_resolving_transition
+    hyper_ig::tests::counter_management::test_regular_transaction_timing_metrics
 )
 
 # Check if arguments are provided

@@ -103,6 +103,14 @@ pub struct SimulationResults {
     // CL queue length tracking
     pub cl_queue_length: Vec<(u64, u64)>, // (block_height, queue_length)
     
+    // Regular transaction timing metrics
+    pub chain_1_regular_tx_avg_latency: Vec<(u64, f64)>, // (block_height, average_latency_ms)
+    pub chain_2_regular_tx_avg_latency: Vec<(u64, f64)>, // (block_height, average_latency_ms)
+    pub chain_1_regular_tx_max_latency: Vec<(u64, f64)>, // (block_height, max_latency_ms)
+    pub chain_2_regular_tx_max_latency: Vec<(u64, f64)>, // (block_height, max_latency_ms)
+    pub chain_1_regular_tx_finalized_count: Vec<(u64, u64)>, // (block_height, finalized_count)
+    pub chain_2_regular_tx_finalized_count: Vec<(u64, u64)>, // (block_height, finalized_count)
+    
     // Statistics
     pub account_stats: AccountSelectionStats,
     pub start_time: Instant,
@@ -162,6 +170,12 @@ impl Default for SimulationResults {
             loop_steps_without_tx_issuance: Vec::new(),
             block_height_delta: Vec::new(),
             cl_queue_length: Vec::new(),
+            chain_1_regular_tx_avg_latency: Vec::new(),
+            chain_2_regular_tx_avg_latency: Vec::new(),
+            chain_1_regular_tx_max_latency: Vec::new(),
+            chain_2_regular_tx_max_latency: Vec::new(),
+            chain_1_regular_tx_finalized_count: Vec::new(),
+            chain_2_regular_tx_finalized_count: Vec::new(),
             account_stats: AccountSelectionStats::new(),
             start_time: Instant::now(),
         }
@@ -782,6 +796,80 @@ impl SimulationResults {
         let cl_queue_length_file = format!("{}/data/cl_queue_length.json", base_dir);
         fs::write(&cl_queue_length_file, serde_json::to_string_pretty(&cl_queue_length_data).expect("Failed to serialize CL queue length data")).map_err(|e| e.to_string())?;
         logging::log("SIMULATOR", &format!("Saved CL queue length data to {}", cl_queue_length_file));
+
+        // Save regular transaction timing metrics data from chain 1
+        let regular_tx_avg_latency_chain_1 = serde_json::json!({
+            "chain_1_regular_tx_avg_latency": self.chain_1_regular_tx_avg_latency.iter().map(|(height, latency)| {
+                serde_json::json!({
+                    "height": height,
+                    "latency": latency
+                })
+            }).collect::<Vec<_>>()
+        });
+        let regular_tx_avg_latency_file_chain_1 = format!("{}/data/regular_tx_avg_latency_chain_1.json", base_dir);
+        fs::write(&regular_tx_avg_latency_file_chain_1, serde_json::to_string_pretty(&regular_tx_avg_latency_chain_1).expect("Failed to serialize regular transaction average latency")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved regular transaction average latency data to {}", regular_tx_avg_latency_file_chain_1));
+
+        let regular_tx_max_latency_chain_1 = serde_json::json!({
+            "chain_1_regular_tx_max_latency": self.chain_1_regular_tx_max_latency.iter().map(|(height, latency)| {
+                serde_json::json!({
+                    "height": height,
+                    "latency": latency
+                })
+            }).collect::<Vec<_>>()
+        });
+        let regular_tx_max_latency_file_chain_1 = format!("{}/data/regular_tx_max_latency_chain_1.json", base_dir);
+        fs::write(&regular_tx_max_latency_file_chain_1, serde_json::to_string_pretty(&regular_tx_max_latency_chain_1).expect("Failed to serialize regular transaction max latency")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved regular transaction max latency data to {}", regular_tx_max_latency_file_chain_1));
+
+        let regular_tx_finalized_count_chain_1 = serde_json::json!({
+            "chain_1_regular_tx_finalized_count": self.chain_1_regular_tx_finalized_count.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let regular_tx_finalized_count_file_chain_1 = format!("{}/data/regular_tx_finalized_count_chain_1.json", base_dir);
+        fs::write(&regular_tx_finalized_count_file_chain_1, serde_json::to_string_pretty(&regular_tx_finalized_count_chain_1).expect("Failed to serialize regular transaction finalized count")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved regular transaction finalized count data to {}", regular_tx_finalized_count_file_chain_1));
+
+        // Save regular transaction timing metrics data from chain 2
+        let regular_tx_avg_latency_chain_2 = serde_json::json!({
+            "chain_2_regular_tx_avg_latency": self.chain_2_regular_tx_avg_latency.iter().map(|(height, latency)| {
+                serde_json::json!({
+                    "height": height,
+                    "latency": latency
+                })
+            }).collect::<Vec<_>>()
+        });
+        let regular_tx_avg_latency_file_chain_2 = format!("{}/data/regular_tx_avg_latency_chain_2.json", base_dir);
+        fs::write(&regular_tx_avg_latency_file_chain_2, serde_json::to_string_pretty(&regular_tx_avg_latency_chain_2).expect("Failed to serialize regular transaction average latency")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved regular transaction average latency data to {}", regular_tx_avg_latency_file_chain_2));
+
+        let regular_tx_max_latency_chain_2 = serde_json::json!({
+            "chain_2_regular_tx_max_latency": self.chain_2_regular_tx_max_latency.iter().map(|(height, latency)| {
+                serde_json::json!({
+                    "height": height,
+                    "latency": latency
+                })
+            }).collect::<Vec<_>>()
+        });
+        let regular_tx_max_latency_file_chain_2 = format!("{}/data/regular_tx_max_latency_chain_2.json", base_dir);
+        fs::write(&regular_tx_max_latency_file_chain_2, serde_json::to_string_pretty(&regular_tx_max_latency_chain_2).expect("Failed to serialize regular transaction max latency")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved regular transaction max latency data to {}", regular_tx_max_latency_file_chain_2));
+
+        let regular_tx_finalized_count_chain_2 = serde_json::json!({
+            "chain_2_regular_tx_finalized_count": self.chain_2_regular_tx_finalized_count.iter().map(|(height, count)| {
+                serde_json::json!({
+                    "height": height,
+                    "count": count
+                })
+            }).collect::<Vec<_>>()
+        });
+        let regular_tx_finalized_count_file_chain_2 = format!("{}/data/regular_tx_finalized_count_chain_2.json", base_dir);
+        fs::write(&regular_tx_finalized_count_file_chain_2, serde_json::to_string_pretty(&regular_tx_finalized_count_chain_2).expect("Failed to serialize regular transaction finalized count")).map_err(|e| e.to_string())?;
+        logging::log("SIMULATOR", &format!("Saved regular transaction finalized count data to {}", regular_tx_finalized_count_file_chain_2));
 
         Ok(())
     }

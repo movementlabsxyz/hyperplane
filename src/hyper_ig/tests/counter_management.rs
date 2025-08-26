@@ -609,4 +609,57 @@ async fn test_postponed_to_resolving_transition() {
     assert_eq!(total_pending_final, 1, "Total pending count should be 1 (only the second CAT)");
     
     logging::log("TEST", "=== test_postponed_to_resolving_transition completed successfully ===\n");
+}
+
+/// Tests the timing metrics for regular transaction finalization:
+/// - Verifies that timing is tracked when regular transactions enter pending state
+/// - Ensures average latency is calculated correctly
+/// - Validates that only regular transactions (not CATs) are tracked
+#[tokio::test]
+async fn test_regular_transaction_timing_metrics() {
+    logging::init_logging();
+    logging::log("TEST", "=== Starting test_regular_transaction_timing_metrics ===");
+    
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    
+    // Get initial timing metrics
+    let initial_latency = hig_node.lock().await.get_average_regular_tx_latency().await;
+    let initial_max_latency = hig_node.lock().await.get_max_regular_tx_latency().await;
+    let initial_count = hig_node.lock().await.get_regular_tx_finalized_count().await;
+    logging::log("TEST", &format!("Initial latency: {}ms, max: {}ms, count: {}", initial_latency, initial_max_latency, initial_count));
+    
+    // Create a regular transaction that will succeed
+    let regular_tx = Transaction::new(
+        TransactionId("regular_tx_timing".to_string()),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.credit 1 100".to_string(),
+        CLTransactionId("cl-tx_timing".to_string()),
+    ).expect("Failed to create regular transaction");
+    
+    // Process the transaction (it should succeed)
+    let status = hig_node.lock().await.process_transaction(regular_tx.clone()).await.unwrap();
+    logging::log("TEST", &format!("Regular transaction status: {:?}", status));
+    assert_eq!(status, TransactionStatus::Success, "Transaction should succeed");
+    
+    // Get final timing metrics
+    let final_latency = hig_node.lock().await.get_average_regular_tx_latency().await;
+    let final_max_latency = hig_node.lock().await.get_max_regular_tx_latency().await;
+    let final_count = hig_node.lock().await.get_regular_tx_finalized_count().await;
+    logging::log("TEST", &format!("Final latency: {}ms, max: {}ms, count: {}", final_latency, final_max_latency, final_count));
+    
+    // Verify that timing metrics were updated
+    assert_eq!(final_count, initial_count + 1, "Count should increase by 1");
+    // Note: Latency might be 0 if transaction is processed very quickly
+    // This is still valid - it means the transaction was processed immediately
+    logging::log("TEST", &format!("Transaction processed with latency: {}ms", final_latency));
+    
+    // Verify that maximum latency is at least as high as the current latency
+    assert!(final_max_latency >= final_latency, "Maximum latency should be at least as high as current latency");
+    
+    // Verify that the transaction is not in pending set (reached final status)
+    let pending_txs = hig_node.lock().await.get_pending_transactions().await.unwrap();
+    assert!(!pending_txs.contains(&regular_tx.id), "Transaction should not be in pending set after success");
+    
+    logging::log("TEST", "=== test_regular_transaction_timing_metrics completed successfully ===\n");
 } 

@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 from plot_utils import generate_all_plots
 from plot_utils_percentage import plot_transaction_percentage
 
+
+
 def plot_specific_simulation(sim_number: int, results_dir: str, param_name: str, sweep_type: str):
     """Plot a specific simulation by number."""
     # Load metadata to get parameter values
@@ -91,6 +93,8 @@ def main():
         # Generate all plots using the generic utility
         # Data flow: run_average folders -> sweep_results_averaged.json -> plots
         generate_all_plots(results_dir, param_name, sweep_type)
+        
+
 
 if __name__ == "__main__":
     main() 

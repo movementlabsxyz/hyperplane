@@ -223,10 +223,10 @@ def plot_transactions_cutoff_overlay(
         plt.legend(loc="upper right", fontsize=10)
         plt.tight_layout()
         
-        # Create tx_count_cutoff directory and save plot
-        tx_count_cutoff_dir = f'{results_dir}/figs/tx_count_cutoff'
-        os.makedirs(tx_count_cutoff_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_cutoff_dir}/{filename}', 
+        # Create tx_cutoff directory and save plot
+        tx_cutoff_dir = f'{results_dir}/figs/tx_cutoff'
+        os.makedirs(tx_cutoff_dir, exist_ok=True)
+        plt.savefig(f'{tx_cutoff_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         

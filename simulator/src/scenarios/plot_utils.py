@@ -109,6 +109,13 @@ def load_sweep_data_from_run_average(results_dir_name: str, base_path: str = 'si
                 ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
                 ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
                 ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
+                # Regular transaction timing metrics
+                ('regular_tx_avg_latency_chain_1.json', 'chain_1_regular_tx_avg_latency'),
+                ('regular_tx_avg_latency_chain_2.json', 'chain_2_regular_tx_avg_latency'),
+                ('regular_tx_max_latency_chain_1.json', 'chain_1_regular_tx_max_latency'),
+                ('regular_tx_max_latency_chain_2.json', 'chain_2_regular_tx_max_latency'),
+                ('regular_tx_finalized_count_chain_1.json', 'chain_1_regular_tx_finalized_count'),
+                ('regular_tx_finalized_count_chain_2.json', 'chain_2_regular_tx_finalized_count'),
             ]
             
             for filename, key_name in time_series_files:
@@ -120,7 +127,14 @@ def load_sweep_data_from_run_average(results_dir_name: str, base_path: str = 'si
                         if key_name in data:
                             time_series_data = []
                             for entry in data[key_name]:
-                                time_series_data.append((entry['height'], entry['count']))
+                                # Handle different field names for different data types
+                                if 'latency' in key_name:
+                                    time_series_data.append((entry['height'], entry['latency']))
+                                elif 'count' in key_name:
+                                    time_series_data.append((entry['height'], entry['count']))
+                                else:
+                                    # Fallback to count if neither exists
+                                    time_series_data.append((entry['height'], entry.get('count', 0)))
                             result_entry[key_name] = time_series_data
             
             individual_results.append(result_entry)
@@ -272,8 +286,18 @@ def plot_transactions_overlay(
         elif transaction_type.startswith('regular_'):
             # Regular transactions
             status = transaction_type.replace('regular_', '')
+            
+            # Handle timing metrics with special naming
+            if 'tx_avg_latency' in transaction_type:
+                filename = 'tx_pending_regular_avg_latency.png'
+            elif 'tx_max_latency' in transaction_type:
+                filename = 'tx_pending_regular_max_latency.png'
+            elif 'tx_finalized_count' in transaction_type:
+                filename = 'tx_pending_regular_finalized_count.png'
+            else:
+                filename = f'tx_{status}_regular.png'
+            
             title = f'Regular {status.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
-            filename = f'tx_{status}_regular.png'
         else:
             # Fallback
             title = f'{transaction_type.title()} Transactions by Height (Chain 1) - {create_sweep_title(param_name, sweep_type)}'
@@ -281,15 +305,26 @@ def plot_transactions_overlay(
         
         plt.title(title)
         plt.xlabel('Block Height')
-        plt.ylabel(f'Number of {transaction_type.title()} Transactions')
+        
+        # Handle y-axis labels for different data types
+        if 'latency' in transaction_type:
+            if 'avg' in transaction_type:
+                plt.ylabel('Average Latency (ms)')
+            elif 'max' in transaction_type:
+                plt.ylabel('Maximum Latency (ms)')
+            else:
+                plt.ylabel('Latency (ms)')
+        else:
+            plt.ylabel(f'Number of {transaction_type.title()} Transactions')
+        
         plt.grid(True, alpha=0.3)
         plt.legend(loc="upper right")
         plt.tight_layout()
         
-        # Create tx_count directory and save plot
-        tx_count_dir = f'{results_dir}/figs/tx_count'
-        os.makedirs(tx_count_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_dir}/{filename}', 
+        # Create tx directory and save plot
+        tx_dir = f'{results_dir}/figs/tx'
+        os.makedirs(tx_dir, exist_ok=True)
+        plt.savefig(f'{tx_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -387,10 +422,10 @@ def plot_total_cat_transactions(data: Dict[str, Any], param_name: str, results_d
         plt.legend(loc="upper left")
         plt.tight_layout()
         
-        # Create tx_count directory and save plot
-        tx_count_dir = f'{results_dir}/figs/tx_count'
-        os.makedirs(tx_count_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_dir}/{filename}', 
+        # Create tx directory and save plot
+        tx_dir = f'{results_dir}/figs/tx'
+        os.makedirs(tx_dir, exist_ok=True)
+        plt.savefig(f'{tx_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -481,10 +516,10 @@ def plot_total_regular_transactions(data: Dict[str, Any], param_name: str, resul
         plt.legend(loc="upper left")
         plt.tight_layout()
         
-        # Create tx_count directory and save plot
-        tx_count_dir = f'{results_dir}/figs/tx_count'
-        os.makedirs(tx_count_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_dir}/{filename}', 
+        # Create tx directory and save plot
+        tx_dir = f'{results_dir}/figs/tx'
+        os.makedirs(tx_dir, exist_ok=True)
+        plt.savefig(f'{tx_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -592,10 +627,10 @@ def plot_total_sumtypes_transactions(data: Dict[str, Any], param_name: str, resu
         plt.legend(loc="upper left")
         plt.tight_layout()
         
-        # Create tx_count directory and save plot
-        tx_count_dir = f'{results_dir}/figs/tx_count'
-        os.makedirs(tx_count_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_dir}/{filename}', 
+        # Create tx directory and save plot
+        tx_dir = f'{results_dir}/figs/tx'
+        os.makedirs(tx_dir, exist_ok=True)
+        plt.savefig(f'{tx_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         

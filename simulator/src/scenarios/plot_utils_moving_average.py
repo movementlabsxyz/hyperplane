@@ -154,10 +154,10 @@ def plot_transactions_overlay_with_moving_average(
         plt.legend(loc="upper right", fontsize=10)
         plt.tight_layout()
         
-        # Create tx_count/moving_average directory and save plot
-        tx_count_ma_dir = f'{results_dir}/figs/tx_count/moving_average'
-        os.makedirs(tx_count_ma_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_ma_dir}/{filename}', 
+        # Create tx/moving_average directory and save plot
+        tx_ma_dir = f'{results_dir}/figs/tx/moving_average'
+        os.makedirs(tx_ma_dir, exist_ok=True)
+        plt.savefig(f'{tx_ma_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -283,10 +283,10 @@ def plot_transactions_delta_overlay_with_moving_average(
         plt.legend(loc="upper right", fontsize=10)
         plt.tight_layout()
         
-        # Create tx_count_delta/moving_average directory and save plot
-        tx_count_delta_ma_dir = f'{results_dir}/figs/tx_count_delta/moving_average'
-        os.makedirs(tx_count_delta_ma_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_delta_ma_dir}/{filename}', 
+        # Create tx_delta/moving_average directory and save plot
+        tx_delta_ma_dir = f'{results_dir}/figs/tx_delta/moving_average'
+        os.makedirs(tx_delta_ma_dir, exist_ok=True)
+        plt.savefig(f'{tx_delta_ma_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         

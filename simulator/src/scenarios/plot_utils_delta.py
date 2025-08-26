@@ -164,10 +164,10 @@ def plot_transactions_delta_overlay(
         plt.legend(loc="upper right")
         plt.tight_layout()
         
-        # Create tx_count_delta directory and save plot
-        tx_count_delta_dir = f'{results_dir}/figs/tx_count_delta'
-        os.makedirs(tx_count_delta_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_delta_dir}/{filename}', 
+        # Create tx_delta directory and save plot
+        tx_delta_dir = f'{results_dir}/figs/tx_delta'
+        os.makedirs(tx_delta_dir, exist_ok=True)
+        plt.savefig(f'{tx_delta_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         

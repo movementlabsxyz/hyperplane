@@ -305,10 +305,10 @@ def plot_transaction_percentage(data: Dict[str, Any], param_name: str, results_d
         plt.legend(loc="upper right")
         plt.tight_layout()
         
-        # Create tx_count directory and save plot
-        tx_count_dir = f'{results_dir}/figs/tx_count'
-        os.makedirs(tx_count_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_dir}/{filename}', 
+        # Create tx directory and save plot
+        tx_dir = f'{results_dir}/figs/tx'
+        os.makedirs(tx_dir, exist_ok=True)
+        plt.savefig(f'{tx_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -633,10 +633,10 @@ def plot_transaction_percentage_delta(data: Dict[str, Any], param_name: str, res
         
         plt.tight_layout()
         
-        # Create tx_count_delta directory and save plot
-        tx_count_delta_dir = f'{results_dir}/figs/tx_count_delta'
-        os.makedirs(tx_count_delta_dir, exist_ok=True)
-        plt.savefig(f'{tx_count_delta_dir}/{filename}', 
+        # Create tx_delta directory and save plot
+        tx_delta_dir = f'{results_dir}/figs/tx_delta'
+        os.makedirs(tx_delta_dir, exist_ok=True)
+        plt.savefig(f'{tx_delta_dir}/{filename}', 
                    dpi=300, bbox_inches='tight')
         plt.close()
         
@@ -1009,9 +1009,9 @@ def plot_transaction_percentage_with_moving_average(
         
         # Determine directory based on whether moving average is applied
         if plot_config.get('plot_moving_average', False):
-            base_dir = f'{results_dir}/figs/tx_count/moving_average'
+            base_dir = f'{results_dir}/figs/tx/moving_average'
         else:
-            base_dir = f'{results_dir}/figs/tx_count'
+            base_dir = f'{results_dir}/figs/tx'
         
         # Create directory and save plot
         os.makedirs(base_dir, exist_ok=True)
@@ -1305,9 +1305,9 @@ def plot_transaction_percentage_delta_with_moving_average(
         
         # Determine directory based on whether moving average is applied
         if plot_config.get('plot_moving_average', False):
-            base_dir = f'{results_dir}/figs/tx_count_delta/moving_average'
+                    base_dir = f'{results_dir}/figs/tx_delta/moving_average'
         else:
-            base_dir = f'{results_dir}/figs/tx_count_delta'
+            base_dir = f'{results_dir}/figs/tx_delta'
         
         # Create directory and save plot
         os.makedirs(base_dir, exist_ok=True)

@@ -62,6 +62,8 @@ def average_time_series_data(all_runs_data, key_name):
                         value = entry['bytes']
                     elif 'percent' in entry:
                         value = entry['percent']
+                    elif 'latency' in entry:
+                        value = entry['latency']
                     else:
                         # Skip entries without expected value field
                         continue
@@ -94,6 +96,11 @@ def average_time_series_data(all_runs_data, key_name):
             averaged_data.append({
                 'height': height,
                 'bytes': avg_value
+            })
+        elif 'latency' in key_name:
+            averaged_data.append({
+                'height': height,
+                'latency': avg_value
             })
         else:
             averaged_data.append({
@@ -260,6 +267,12 @@ def create_averaged_data(results_dir):
             ('locked_keys_chain_2.json', 'chain_2_locked_keys'),
             ('tx_per_block_chain_1.json', 'chain_1_tx_per_block'),
             ('tx_per_block_chain_2.json', 'chain_2_tx_per_block'),
+            ('regular_tx_avg_latency_chain_1.json', 'chain_1_regular_tx_avg_latency'),
+            ('regular_tx_avg_latency_chain_2.json', 'chain_2_regular_tx_avg_latency'),
+            ('regular_tx_max_latency_chain_1.json', 'chain_1_regular_tx_max_latency'),
+            ('regular_tx_max_latency_chain_2.json', 'chain_2_regular_tx_max_latency'),
+            ('regular_tx_finalized_count_chain_1.json', 'chain_1_regular_tx_finalized_count'),
+            ('regular_tx_finalized_count_chain_2.json', 'chain_2_regular_tx_finalized_count'),
             ('system_memory.json', 'system_memory'),
             ('system_total_memory.json', 'system_total_memory'),
             ('system_cpu.json', 'system_cpu'),
