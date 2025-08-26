@@ -251,14 +251,14 @@ def plot_transaction_percentage_cutoff(
     Plot transaction percentage with cutoff applied.
     
     This function applies cutoff to the data and creates percentage plots
-    saved to the tx_count_cutoff directory.
+            saved to the tx_cutoff directory.
     """
     # Apply cutoff to the data
     cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
     
     # Create a modified version that saves to the correct directory
     def plot_transaction_percentage_cutoff_save(cutoff_data, param_name, results_dir, sweep_type, transaction_type, percentage_type):
-        """Modified version of plot_transaction_percentage that saves to tx_count_cutoff directory"""
+        """Modified version of plot_transaction_percentage that saves to tx_cutoff directory"""
         try:
             # Extract parameter values and results
             param_values = []
@@ -501,10 +501,10 @@ def plot_transaction_percentage_cutoff(
             plt.legend(loc="upper right")
             plt.tight_layout()
             
-            # Create tx_count_cutoff directory and save plot
-            tx_count_cutoff_dir = f'{results_dir}/figs/tx_count_cutoff'
-            os.makedirs(tx_count_cutoff_dir, exist_ok=True)
-            plt.savefig(f'{tx_count_cutoff_dir}/{filename}', 
+            # Create tx_cutoff directory and save plot
+            tx_cutoff_dir = f'{results_dir}/figs/tx_cutoff'
+            os.makedirs(tx_cutoff_dir, exist_ok=True)
+            plt.savefig(f'{tx_cutoff_dir}/{filename}', 
                        dpi=300, bbox_inches='tight')
             plt.close()
             
