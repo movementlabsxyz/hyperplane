@@ -485,7 +485,13 @@ def create_transaction_plots(run_dirs: List[str], sim_data_dir: str, sim_figs_di
         ('cat_failure_transactions_chain_2', 'failure_cat__chain2'),
         ('regular_pending_transactions_chain_2', 'pending_regular__chain2'),
         ('regular_success_transactions_chain_2', 'success_regular__chain2'),
-        ('regular_failure_transactions_chain_2', 'failure_regular__chain2')
+        ('regular_failure_transactions_chain_2', 'failure_regular__chain2'),
+        # Chain 1 latency plots
+        ('regular_tx_avg_latency_chain_1', 'pending_regular_avg_latency__chain1'),
+        ('regular_tx_max_latency_chain_1', 'pending_regular_max_latency__chain1'),
+        # Chain 2 latency plots
+        ('regular_tx_avg_latency_chain_2', 'pending_regular_avg_latency__chain2'),
+        ('regular_tx_max_latency_chain_2', 'pending_regular_max_latency__chain2')
     ]
     
     # Create plots for each transaction type
@@ -514,7 +520,13 @@ def create_transaction_plots(run_dirs: List[str], sim_data_dir: str, sim_figs_di
                     chain_num = tx_type.split('__')[1]
                     base_type = tx_type.split('__')[0]
                     # Extract the transaction type (cat/regular) and status (pending/success/failure)
-                    if base_type.startswith('pending_'):
+                    if base_type == 'pending_regular_avg_latency':
+                        tx_type_name = 'regular'
+                        status = 'tx_avg_latency'
+                    elif base_type == 'pending_regular_max_latency':
+                        tx_type_name = 'regular'
+                        status = 'tx_max_latency'
+                    elif base_type.startswith('pending_'):
                         tx_type_name = base_type.split('_')[1]  # 'cat' or 'regular'
                         status = 'pending'
                     elif base_type.startswith('success_'):
@@ -529,32 +541,63 @@ def create_transaction_plots(run_dirs: List[str], sim_data_dir: str, sim_figs_di
                         status = base_type
                     
                     chain_id = 'chain_1' if chain_num == 'chain1' else 'chain_2'
-                    data_key = f'{chain_id}_{tx_type_name}_{status}'
+                    if status == 'tx_avg_latency':
+                        data_key = f'{chain_id}_regular_tx_avg_latency'
+                    elif status == 'tx_max_latency':
+                        data_key = f'{chain_id}_regular_tx_max_latency'
+                    else:
+                        data_key = f'{chain_id}_{tx_type_name}_{status}'
                 else:
                     # Fallback for other formats
                     data_key = f'chain_1_{tx_type}'
                 
+                # Ensure data_key is always defined
+                if 'data_key' not in locals():
+                    data_key = f'chain_1_{tx_type}'
+                
+
+                
                 if data_key in run_data:
                     tx_entries = run_data[data_key]
                     if tx_entries:
-                        # Extract block heights and transaction counts
+                        # Extract block heights and values (count for transactions, latency for latency plots)
                         heights = [entry['height'] for entry in tx_entries]
-                        tx_counts = [entry['count'] for entry in tx_entries]
+                        if 'latency' in tx_entries[0]:
+                            # This is latency data
+                            values = [entry['latency'] for entry in tx_entries]
+                        else:
+                            # This is transaction count data
+                            values = [entry['count'] for entry in tx_entries]
                         
                         # Plot with color based on run (plot all runs, not just legend runs)
-                        ax.plot(heights, tx_counts, color=colors[run_idx], alpha=0.7, 
+                        ax.plot(heights, values, color=colors[run_idx], alpha=0.7, 
                                 label=label, linewidth=1.5)
                         plotted_runs += 1
+
                 
             except Exception as e:
                 print(f"Warning: Error processing {tx_type} for run {run_dir}: {e}")
                 continue
         
-        # Create title
-        tx_type_display = tx_type.replace('_', ' ').title()
-        ax.set_title(f'{tx_type_display} Transactions Over Time - Per Run Analysis')
+        # Create title and labels based on plot type
+        if 'latency' in tx_type:
+            if 'avg_latency' in tx_type:
+                title = f'Regular Transaction Average Latency Over Time - Per Run Analysis'
+                ylabel = 'Average Latency (ms)'
+            elif 'max_latency' in tx_type:
+                title = f'Regular Transaction Maximum Latency Over Time - Per Run Analysis'
+                ylabel = 'Maximum Latency (ms)'
+            else:
+                title = f'Regular Transaction Latency Over Time - Per Run Analysis'
+                ylabel = 'Latency (ms)'
+        else:
+            tx_type_display = tx_type.replace('_', ' ').title()
+            title = f'{tx_type_display} Transactions Over Time - Per Run Analysis'
+            ylabel = f'Number of {tx_type_display} Transactions'
+        
+        ax.set_title(title)
         ax.set_xlabel('Block Height')
-        ax.set_ylabel(f'Number of {tx_type_display} Transactions')
+        ax.set_ylabel(ylabel)
         ax.grid(True, alpha=0.3)
         if plotted_runs > 0:
             ax.legend()
