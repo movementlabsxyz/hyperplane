@@ -272,6 +272,8 @@ impl SimulatorInterface {
         Ok(())
     }
 
+
+
     /// Main simulation loop with user interaction
     pub async fn run_simple_simulation_async(&mut self) -> Result<(), String> {
         loop {

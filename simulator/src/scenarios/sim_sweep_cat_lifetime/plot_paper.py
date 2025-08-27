@@ -491,7 +491,7 @@ def plot_cat_success_percentage_violin(data: Dict[str, Any], param_name: str, re
                     dpi=300, bbox_inches='tight')
         plt.close()
         
-        # print(f"Generated violin plot: cat_success_percentage_violin.png")
+
         
     except Exception as e:
         print(f"Error generating violin plot: {e}")
@@ -622,7 +622,7 @@ def plot_tx_pending_cat_postponed_violin(data: Dict[str, Any], param_name: str, 
                     dpi=300, bbox_inches='tight')
         plt.close()
         
-        # print(f"Generated violin plot: tx_pending_cat_postponed_violin.png")
+
         
     except Exception as e:
         print(f"Error generating CAT pending postponed violin plot: {e}")
@@ -753,7 +753,7 @@ def plot_tx_pending_cat_resolving_violin(data: Dict[str, Any], param_name: str, 
                     dpi=300, bbox_inches='tight')
         plt.close()
         
-        # print(f"Generated violin plot: tx_pending_cat_resolving_violin.png")
+
         
     except Exception as e:
         print(f"Error generating CAT pending resolving violin plot: {e}")
@@ -884,10 +884,179 @@ def plot_tx_pending_regular_violin(data: Dict[str, Any], param_name: str, result
                     dpi=300, bbox_inches='tight')
         plt.close()
         
-        # print(f"Generated violin plot: tx_pending_regular_violin.png")
+
         
     except Exception as e:
         print(f"Error generating regular pending violin plot: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def plot_regular_avg_latency_violin(data: Dict[str, Any], param_name: str, results_dir: str, sweep_type: str, plot_config: Dict[str, Any]) -> None:
+    """
+    Plot regular average latency violin plot for paper publication.
+    
+    This function creates a violin plot showing the distribution of final average latency
+    values across different simulations, using data from individual runs.
+    Each violin represents one simulation (sim_0, sim_1, etc.) and contains
+    the final average latency values from all runs for that simulation.
+    """
+    try:
+        individual_results = data['individual_results']
+        
+        if not individual_results:
+            print("Warning: No individual results found, skipping regular average latency violin plot")
+            return
+        
+        # Load data from individual run directories to get the final latency values
+        violin_data = []
+        labels = []
+        
+        # Get the number of simulations from the results
+        num_simulations = len(individual_results)
+        
+        for sim_index in range(num_simulations):
+            # Get the parameter value from the individual results
+            param_value = individual_results[sim_index][param_name]
+            labels.append(f'{param_value:.3f}')
+            
+            # Load data from individual run directories for this simulation
+            sim_dir = f'{results_dir}/data/sim_{sim_index}'
+            if not os.path.exists(sim_dir):
+                violin_data.append([0])  # No data available
+                continue
+            
+            # Find all run directories
+            run_dirs = [d for d in os.listdir(sim_dir) if d.startswith('run_') and d != 'run_average']
+            
+            if not run_dirs:
+                violin_data.append([0])  # No runs available
+                continue
+            
+            # Collect final latency values from all runs
+            final_latency_values = []
+            
+            for run_dir in run_dirs:
+                run_data_dir = f'{sim_dir}/{run_dir}/data'
+                if not os.path.exists(run_data_dir):
+                    continue
+                
+                # Load average latency data for chain 1
+                avg_latency_file = f'{run_data_dir}/regular_tx_avg_latency_chain_1.json'
+                if os.path.exists(avg_latency_file):
+                    try:
+                        with open(avg_latency_file, 'r') as f:
+                            latency_data = json.load(f)
+                            if 'chain_1_regular_tx_avg_latency' in latency_data:
+                                latency_entries = latency_data['chain_1_regular_tx_avg_latency']
+                                if latency_entries:
+                                    # Get the last (final) latency value
+                                    final_latency = latency_entries[-1]['latency']
+                                    final_latency_values.append(final_latency)
+                    except Exception as e:
+                        if DEBUG_MODE:
+                            print(f"Warning: Error loading latency data from {avg_latency_file}: {e}")
+                        continue
+            
+            if final_latency_values:
+                violin_data.append(final_latency_values)
+                if DEBUG_MODE:
+                    print(f"Simulation {sim_index}: {len(final_latency_values)} final latency values, range: {min(final_latency_values):.2f} - {max(final_latency_values):.2f}")
+            else:
+                violin_data.append([0])  # No data available
+                if DEBUG_MODE:
+                    print(f"Simulation {sim_index}: No latency data available")
+        
+        if not violin_data or all(len(values) == 0 for values in violin_data):
+            print("Warning: No regular average latency data found, skipping violin plot")
+            return
+        
+        # Debug: Print the data before creating violin plot
+        if DEBUG_MODE:
+            print("=== Regular Average Latency Violin Data ===")
+            for i, (values, label) in enumerate(zip(violin_data, labels)):
+                if values != [0]:
+                    print(f"Simulation {i} ({label}): {len(values)} values, min={min(values):.2f}, max={max(values):.2f}, mean={np.mean(values):.2f}")
+                    if len(values) > 10:
+                        print(f"  - Sample values: {values[:5]} ... {values[-5:]}")
+                    else:
+                        print(f"  - All values: {values}")
+                else:
+                    print(f"Simulation {i} ({label}): No data available")
+            print("========================================")
+        
+        # Create violin plot
+        plt.figure(figsize=(10, 6))
+        
+        # Create data structure for saving
+        violin_plot_data = {
+            'parameter_name': param_name,
+            'sweep_type': sweep_type,
+            'num_simulations': len(violin_data),
+            'data': []
+        }
+        
+        for i, (values, label) in enumerate(zip(violin_data, labels)):
+            if values != [0]:
+                violin_plot_data['data'].append({
+                    'simulation_index': i,
+                    'simulation_label': label,
+                    'final_values': [float(v) for v in values],  # Convert to native Python float
+                    'mean_value': float(np.mean(values)),  # Convert to native Python float
+                    'std_value': float(np.std(values)),  # Convert to native Python float
+                    'min_value': float(np.min(values)),  # Convert to native Python float
+                    'max_value': float(np.max(values))  # Convert to native Python float
+                })
+            else:
+                violin_plot_data['data'].append({
+                    'simulation_index': i,
+                    'simulation_label': label,
+                    'final_values': [],
+                    'mean_value': 0.0,
+                    'std_value': 0.0,
+                    'min_value': 0.0,
+                    'max_value': 0.0
+                })
+        
+        # Save the data
+        paper_data_dir = f'{results_dir}/data/paper'
+        os.makedirs(paper_data_dir, exist_ok=True)
+        violin_data_file = f'{paper_data_dir}/tx_pending_regular_avg_latency_violin.json'
+        with open(violin_data_file, 'w') as f:
+            json.dump(violin_plot_data, f, indent=2)
+        
+        # Create violin plot
+        violin_parts = plt.violinplot(violin_data, positions=range(len(violin_data)), showmeans=True)
+        
+        # Customize violin plot appearance
+        violin_parts['cmeans'].set_color('red')
+        violin_parts['cmeans'].set_linewidth(2)
+        violin_parts['cbars'].set_color('black')
+        violin_parts['cmins'].set_color('black')
+        violin_parts['cmaxes'].set_color('black')
+        
+        # Set x-axis labels
+        plt.xticks(range(len(violin_data)), labels)
+        
+        # Customize plot
+        plt.xlabel('CAT Lifetime')
+        plt.ylabel('Final Average Latency (ms)')
+        plt.title(f'Regular Transaction Final Average Latency Distribution by CAT Lifetime - {create_sweep_title(param_name, sweep_type)}')
+        plt.ylim(bottom=0)  # Set y-axis to start at 0
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        # Create the paper directory and plot
+        paper_dir = f'{results_dir}/figs/paper'
+        os.makedirs(paper_dir, exist_ok=True)
+        plt.savefig(f'{paper_dir}/tx_pending_regular_avg_latency_violin.png',
+                    dpi=300, bbox_inches='tight')
+        plt.close()
+        
+
+        
+    except Exception as e:
+        print(f"Error generating regular average latency violin plot: {e}")
         import traceback
         traceback.print_exc()
 
@@ -923,11 +1092,23 @@ def main():
         cutoff_data = apply_cutoff_to_percentage_data(data, plot_config)
         
         # Generate paper-specific plots with cutoff data
+        print("Generating paper plot: cat_success_percentage_with_overlay...")
         plot_cat_success_percentage_with_overlay(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        
+        print("Generating paper plot: cat_success_percentage_violin...")
         plot_cat_success_percentage_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        
+        print("Generating paper plot: tx_pending_cat_postponed_violin...")
         plot_tx_pending_cat_postponed_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        
+        print("Generating paper plot: tx_pending_cat_resolving_violin...")
         plot_tx_pending_cat_resolving_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        
+        print("Generating paper plot: tx_pending_regular_violin...")
         plot_tx_pending_regular_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+        
+        print("Generating paper plot: regular_avg_latency_violin...")
+        plot_regular_avg_latency_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
         
     except Exception as e:
         print(f"Error in main: {e}")

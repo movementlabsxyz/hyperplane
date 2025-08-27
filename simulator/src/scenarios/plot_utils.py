@@ -848,6 +848,9 @@ def generate_all_plots(
             if hasattr(paper_module, 'plot_tx_pending_regular_violin'):
                 paper_module.plot_tx_pending_regular_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
             
+            if hasattr(paper_module, 'plot_regular_avg_latency_violin'):
+                paper_module.plot_regular_avg_latency_violin(cutoff_data, param_name, results_dir, sweep_type, plot_config)
+            
             if debug_mode:
                 print("Paper plots generated successfully!")
         except Exception as e:
