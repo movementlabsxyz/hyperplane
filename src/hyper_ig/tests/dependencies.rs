@@ -490,3 +490,125 @@ async fn test_key_last_locked_by_tx_length_tracking() {
 
     logging::log("TEST", "=== test_key_last_locked_by_tx_length_tracking completed successfully ===");
 }
+
+/// Test to verify that regular transactions can block CATs transitively and that CATs are correctly postponed when they have locked key dependencies.
+/// 
+/// This test creates:
+/// - cat-1: credits key "1" (locks key "1")
+/// - reg-1: sends from key "1" to key "2" (locks keys "1" and "2")
+/// - cat-2: sends from key "2" to key "3" (should be postponed because key "2" is locked by reg-1)
+/// - reg-2: credits key "3" (should execute immediately because key "3" is not locked)
+/// 
+/// It verifies:
+/// - cat-2 is correctly postponed when it has locked key dependencies
+/// - reg-2 executes immediately because key "3" is not locked
+/// - After resolving cat-1, cat-2 remains postponed (waiting for reg-1)
+#[tokio::test]
+async fn test_regular_tx_blocks_cat_transitively() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_regular_tx_blocks_cat_transitively ===");
+    
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+
+    // Step 1: Create cat-1 that credits key "1"
+    let cl_id_cat1 = CLTransactionId("cl-cat-1".to_string());
+    let cat_tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:cat-credit-tx-1", cl_id_cat1)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        "CAT.credit 1 100".to_string(),
+        cl_id_cat1.clone(),
+    ).expect("Failed to create CAT transaction 1");
+
+    // Step 2: Process cat-1 - it should be pending and lock key "1"
+    let status1 = hig_node.lock().await.process_transaction(cat_tx_1.clone()).await.unwrap();
+    assert_eq!(status1, TransactionStatus::Pending);
+    
+    // Check that cat-1 has Success proposed status (no dependencies)
+    let proposed_status_cat1 = hig_node.lock().await.get_proposed_status(cat_tx_1.id.clone()).await.unwrap();
+    assert_eq!(proposed_status_cat1, crate::types::CATStatus::Success);
+    logging::log("TEST", "cat-1 processed and is pending");
+
+    // Step 3: Create reg-1 that sends from key "1" to key "2"
+    let cl_id_reg1 = CLTransactionId("cl-reg-1".to_string());
+    let reg_tx_1 = Transaction::new(
+        TransactionId(format!("{:?}:regular-send-tx-1", cl_id_reg1)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.send 1 2 50".to_string(),
+        cl_id_reg1.clone(),
+    ).expect("Failed to create regular transaction 1");
+
+    // Step 4: Process reg-1 - it should be pending and lock keys "1" and "2"
+    let status_reg1 = hig_node.lock().await.process_transaction(reg_tx_1.clone()).await.unwrap();
+    assert_eq!(status_reg1, TransactionStatus::Pending);
+    logging::log("TEST", "reg-1 processed and is pending (locks keys 1 and 2)");
+
+    // Step 5: Create cat-2 that sends from key "2" to key "3"
+    let cl_id_cat2 = CLTransactionId("cl-cat-2".to_string());
+    let cat_tx_2 = Transaction::new(
+        TransactionId(format!("{:?}:cat-send-tx-2", cl_id_cat2)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string()), ChainId("chain-2".to_string())],
+        "CAT.send 2 3 50".to_string(),
+        cl_id_cat2.clone(),
+    ).expect("Failed to create CAT transaction 2");
+
+    // Step 6: Process cat-2 - it should be postponed because key "2" is locked by reg-1
+    let status_cat2 = hig_node.lock().await.process_transaction(cat_tx_2.clone()).await.unwrap();
+    assert_eq!(status_cat2, TransactionStatus::Pending);
+    
+    // Check that cat-2 has Pending proposed status (postponed)
+    let proposed_status_cat2 = hig_node.lock().await.get_proposed_status(cat_tx_2.id.clone()).await.unwrap();
+    assert_eq!(proposed_status_cat2, crate::types::CATStatus::Pending);
+    logging::log("TEST", "cat-2 processed and is postponed (key 2 is locked by reg-1)");
+
+    // Step 7: Create reg-2 that credits key "3"
+    let cl_id_reg2 = CLTransactionId("cl-reg-2".to_string());
+    let reg_tx_2 = Transaction::new(
+        TransactionId(format!("{:?}:regular-credit-tx-2", cl_id_reg2)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        "REGULAR.credit 3 100".to_string(),
+        cl_id_reg2.clone(),
+    ).expect("Failed to create regular transaction 2");
+
+    // Step 8: Process reg-2 - it should execute immediately because key "3" is not locked
+    let status_reg2 = hig_node.lock().await.process_transaction(reg_tx_2.clone()).await.unwrap();
+    assert_eq!(status_reg2, TransactionStatus::Success);
+    logging::log("TEST", "reg-2 processed and succeeded immediately (key 3 is not locked)");
+
+    // Step 9: Resolve cat-1 with success
+    let status_update = Transaction::new(
+        TransactionId(format!("{:?}:status-update", cl_id_cat1)),
+        ChainId("chain-1".to_string()),
+        vec![ChainId("chain-1".to_string())],
+        format!("STATUS_UPDATE:Success.CAT_ID:{}", cl_id_cat1.0),
+        cl_id_cat1.clone(),
+    ).expect("Failed to create status update transaction");
+
+    let status = hig_node.lock().await.process_transaction(status_update).await.unwrap();
+    assert_eq!(status, TransactionStatus::Success);
+    logging::log("TEST", "cat-1 resolved with success");
+
+    // Step 10: Verify that cat-2 is still postponed (waiting for reg-1 to complete)
+    let cat2_status = hig_node.lock().await.get_transaction_status(cat_tx_2.id.clone()).await.unwrap();
+    assert_eq!(cat2_status, TransactionStatus::Pending);
+    
+    // Check that cat-2 now has Success proposed status (dependencies resolved)
+    let proposed_status_cat2_after = hig_node.lock().await.get_proposed_status(cat_tx_2.id.clone()).await.unwrap();
+    assert_eq!(proposed_status_cat2_after, crate::types::CATStatus::Success);
+    logging::log("TEST", "cat-2 now has Success proposed status (dependencies resolved)");
+
+    // Step 11: Verify that reg-1 is now Success (no longer pending)
+    let reg1_status = hig_node.lock().await.get_transaction_status(reg_tx_1.id.clone()).await.unwrap();
+    assert_eq!(reg1_status, TransactionStatus::Success);
+    logging::log("TEST", "reg-1 is now Success after cat-1 resolution");
+
+    // Step 12: Verify that reg-2 is Success (executed immediately)
+    let reg2_status = hig_node.lock().await.get_transaction_status(reg_tx_2.id.clone()).await.unwrap();
+    assert_eq!(reg2_status, TransactionStatus::Success);
+    logging::log("TEST", "reg-2 is Success (executed immediately)");
+
+    logging::log("TEST", "=== test_regular_tx_blocks_cat_transitively completed successfully ===");
+}
