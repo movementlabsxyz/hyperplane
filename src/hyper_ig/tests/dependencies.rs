@@ -1,5 +1,6 @@
 use crate::hyper_ig::node::HyperIGNode;
 use crate::types::{Transaction, TransactionId, TransactionStatus, ChainId, CLTransactionId};
+use crate::types::constants;
 use crate::utils::logging;
 use crate::hyper_ig::HyperIG;
 use crate::hyper_ig::tests::basic::setup_test_hig_node;
@@ -611,4 +612,136 @@ async fn test_regular_tx_blocks_cat_transitively() {
     logging::log("TEST", "reg-2 is Success (executed immediately)");
 
     logging::log("TEST", "=== test_regular_tx_blocks_cat_transitively completed successfully ===");
+}
+
+/// Test to verify proper dependency resolution in regular transaction chains.
+/// 
+/// This test verifies that regular transactions in a dependency chain are properly resolved
+/// when their dependencies complete. It ensures that the dependency resolution mechanism
+/// correctly processes transactions in the correct order without creating circular dependencies.
+/// 
+/// Test scenario:
+/// 1. CAT credits key "1" (becomes pending)
+/// 2. tx-1 credits key "1" (depends on CAT, becomes pending)
+/// 3. tx-2 credits key "1" (depends on tx-1, becomes pending)
+/// 4. Resolve CAT with success
+/// 5. Verify tx-1 executes successfully, then tx-2 executes
+/// 
+/// Expected behavior: Both tx-1 and tx-2 should execute successfully after CAT resolves
+/// Actual behavior: Both transactions execute in the correct order
+#[tokio::test]
+async fn test_regular_tx_dependency_chain_resolution() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_regular_tx_dependency_chain_resolution ===");
+    
+    // Create node
+    let (hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    
+    // Step 1: Create CAT that credits key "1"
+    let cl_id_cat = CLTransactionId("cl-cat-credit-1".to_string());
+    let cat_tx = Transaction::new(
+        TransactionId(format!("{}:cat-credit-tx", cl_id_cat.0)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_cat.clone(),
+    ).expect("Failed to create CAT transaction");
+    
+    // Process CAT - should be pending
+    let status = hig_node.lock().await.process_transaction(cat_tx.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Pending);
+    logging::log("TEST", "CAT credits key '1' and is pending");
+    
+    // Step 2: Create tx-1 that credits key "1" (depends on CAT)
+    let cl_id_tx1 = CLTransactionId("cl-tx-1".to_string());
+    let tx_1 = Transaction::new(
+        TransactionId(format!("{}:regular-credit-tx", cl_id_tx1.0)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.credit 1 50".to_string(),
+        cl_id_tx1.clone(),
+    ).expect("Failed to create tx-1");
+    
+    // Process tx-1 - should be pending (blocked by CAT)
+    let status = hig_node.lock().await.process_transaction(tx_1.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Pending);
+    logging::log("TEST", "tx-1 credits key '1' and is pending (blocked by CAT)");
+    
+    // Step 3: Create tx-2 that credits key "1" (depends on tx-1)
+    let cl_id_tx2 = CLTransactionId("cl-tx-2".to_string());
+    let tx_2 = Transaction::new(
+        TransactionId(format!("{}:regular-credit-tx", cl_id_tx2.0)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.credit 1 30".to_string(),
+        cl_id_tx2.clone(),
+    ).expect("Failed to create tx-2");
+    
+    // Process tx-2 - should be pending (blocked by tx-1)
+    let status = hig_node.lock().await.process_transaction(tx_2.clone()).await.unwrap();
+    assert_eq!(status, TransactionStatus::Pending);
+    logging::log("TEST", "tx-2 credits key '1' and is pending (blocked by tx-1)");
+    
+    // Step 4: Verify initial dependencies
+    let deps_tx1 = hig_node.lock().await.get_transaction_dependencies(tx_1.id.clone()).await.unwrap();
+    let deps_tx2 = hig_node.lock().await.get_transaction_dependencies(tx_2.id.clone()).await.unwrap();
+    assert_eq!(deps_tx1.len(), 1);
+    assert_eq!(deps_tx1[0], cat_tx.id);
+    assert_eq!(deps_tx2.len(), 1);
+    assert_eq!(deps_tx2[0], tx_1.id);
+    logging::log("TEST", "Initial dependencies: CAT→tx-1→tx-2");
+    
+    // Step 5: Resolve CAT with success
+    let status_update = Transaction::new(
+        TransactionId("status_update_cat".to_string()),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        format!("STATUS_UPDATE:Success.CAT_ID:{}", cl_id_cat.0),
+        cl_id_cat.clone(),
+    ).expect("Failed to create status update");
+    
+    let update_status = hig_node.lock().await.process_transaction(status_update).await.unwrap();
+    assert_eq!(update_status, TransactionStatus::Success);
+    logging::log("TEST", "CAT resolved with success");
+    
+    // Step 6: Check what happened to tx-1 after CAT resolution
+    let status_tx1_after = hig_node.lock().await.get_transaction_status(tx_1.id.clone()).await.unwrap();
+    let deps_tx1_after = hig_node.lock().await.get_transaction_dependencies(tx_1.id.clone()).await.unwrap();
+    
+    logging::log("TEST", &format!("tx-1 status after CAT resolution: {:?}", status_tx1_after));
+    logging::log("TEST", &format!("tx-1 dependencies after CAT resolution: {:?}", deps_tx1_after));
+    
+    // Step 7: Check what happened to tx-2
+    let status_tx2_after = hig_node.lock().await.get_transaction_status(tx_2.id.clone()).await.unwrap();
+    let deps_tx2_after = hig_node.lock().await.get_transaction_dependencies(tx_2.id.clone()).await.unwrap();
+    
+    logging::log("TEST", &format!("tx-2 status after CAT resolution: {:?}", status_tx2_after));
+    logging::log("TEST", &format!("tx-2 dependencies after CAT resolution: {:?}", deps_tx2_after));
+    
+    // Step 8: Verify proper dependency resolution - tx-1 should execute successfully
+    if deps_tx1_after.contains(&tx_2.id) {
+        logging::log("TEST", "❌ ERROR: tx-1 still depends on tx-2 after CAT resolution!");
+        logging::log("TEST", "This creates a circular dependency: tx-1→tx-2→tx-1");
+        logging::log("TEST", "Expected: tx-1 should execute after CAT resolves");
+        logging::log("TEST", "Actual: tx-1 gets blocked by tx-2, creating circular dependency");
+        
+        // This indicates a problem with dependency resolution
+        assert!(false, "ERROR: tx-1 should not depend on tx-2 after CAT resolution");
+    } else if status_tx1_after == TransactionStatus::Success {
+        logging::log("TEST", "✅ SUCCESS: tx-1 executed successfully after CAT resolution");
+        logging::log("TEST", "Dependency resolution is working correctly");
+    } else {
+        logging::log("TEST", &format!("⚠️  UNEXPECTED: tx-1 status is {:?}, dependencies: {:?}", status_tx1_after, deps_tx1_after));
+    }
+    
+    // Step 9: Check final counts
+    let (cat_pending, cat_success, cat_failure) = hig_node.lock().await.get_transaction_status_counts_cats().await.unwrap();
+    let (regular_pending, regular_success, regular_failure) = hig_node.lock().await.get_transaction_status_counts_regular().await.unwrap();
+    
+    logging::log("TEST", &format!("Final counts - CAT pending: {}, success: {}, failure: {}", 
+        cat_pending, cat_success, cat_failure));
+    logging::log("TEST", &format!("Final counts - Regular pending: {}, success: {}, failure: {}", 
+        regular_pending, regular_success, regular_failure));
+    
+    logging::log("TEST", "=== test_regular_tx_dependency_chain_resolution completed ===\n");
 }

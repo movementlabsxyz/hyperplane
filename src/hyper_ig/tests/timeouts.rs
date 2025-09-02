@@ -413,3 +413,114 @@ async fn test_status_update_at_timeout_boundary_should_process() {
     
     logging::log("TEST", "=== Test completed successfully ===\n");
 }
+
+/// Tests that regular transactions depending on timed-out CATs are properly released and processed.
+/// 
+/// This test verifies that when a CAT times out, any regular transactions that were
+/// depending on that CAT are properly released from their pending state and can be
+/// processed (either succeed or fail based on their own logic).
+/// 
+/// Test flow:
+/// 1. Creates a CAT transaction that will timeout
+/// 2. Creates a regular transaction that depends on the CAT (blocked by the CAT)
+/// 3. Waits for the CAT to timeout
+/// 4. Verifies the regular transaction is released and processed
+#[tokio::test]
+async fn test_regular_tx_released_on_cat_timeout() {
+    logging::init_logging();
+    logging::log("TEST", "\n=== Starting test_regular_tx_released_on_cat_timeout ===");
+    
+    // Create node
+    let (mut hig_node, _receiver_hig_to_hs) = setup_test_hig_node(true).await;
+    
+    // Create a CAT transaction that will timeout
+    let cl_id_cat = CLTransactionId("cl-cat-timeout".to_string());
+    let cat_tx = Transaction::new(
+        TransactionId(format!("{}:cat-credit-tx", cl_id_cat.0)),
+        constants::chain_1(),
+        vec![constants::chain_1(), constants::chain_2()],
+        "CAT.credit 1 100".to_string(),
+        cl_id_cat.clone(),
+    ).expect("Failed to create CAT transaction");
+    
+    // Create a regular transaction that depends on the CAT
+    let cl_id_reg = CLTransactionId("cl-reg-depends".to_string());
+    let regular_tx = Transaction::new(
+        TransactionId(format!("{}:regular-send-tx", cl_id_reg.0)),
+        constants::chain_1(),
+        vec![constants::chain_1()],
+        "REGULAR.send 1 2 50".to_string(),
+        cl_id_reg.clone(),
+    ).expect("Failed to create regular transaction");
+    
+    // Process both transactions in block 1
+    let subblock = SubBlock {
+        block_height: 1,
+        chain_id: constants::chain_1(),
+        transactions: vec![cat_tx.clone(), regular_tx.clone()],
+    };
+    hig_node.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", "Processed block height=1 with CAT and regular transaction");
+    
+    // Verify both transactions are pending
+    let cat_status = hig_node.get_transaction_status(cat_tx.id.clone()).await.unwrap();
+    let reg_status = hig_node.get_transaction_status(regular_tx.id.clone()).await.unwrap();
+    assert_eq!(cat_status, TransactionStatus::Pending, "CAT should be pending");
+    assert_eq!(reg_status, TransactionStatus::Pending, "Regular transaction should be pending (blocked by CAT)");
+    
+    // Check initial counts
+    let (cat_pending, _, _) = hig_node.get_transaction_status_counts_cats().await.unwrap();
+    let (regular_pending, _, _) = hig_node.get_transaction_status_counts_regular().await.unwrap();
+    let locked_keys = hig_node.lock().await.get_total_locked_keys_count().await;
+    
+    logging::log("TEST", &format!("Initial counts - CAT pending: {}, Regular pending: {}, Locked keys: {}", 
+        cat_pending, regular_pending, locked_keys));
+    
+    assert_eq!(cat_pending, 1, "Should have 1 pending CAT");
+    assert_eq!(regular_pending, 1, "Should have 1 pending regular transaction");
+    assert!(locked_keys > 0, "Should have some locked keys");
+    
+    // Get the max lifetime to determine when CAT will timeout
+    let cat_id = CATId(cl_id_cat.clone());
+    let max_lifetime = hig_node.get_cat_max_lifetime(cat_id).await.unwrap();
+    logging::log("TEST", &format!("CAT max_lifetime: {}", max_lifetime));
+    
+    // Process a block after the CAT timeout
+    let timeout_block = max_lifetime + 1;
+    let subblock = SubBlock {
+        block_height: timeout_block,
+        chain_id: constants::chain_1(),
+        transactions: vec![],
+    };
+    hig_node.process_subblock(subblock).await.unwrap();
+    logging::log("TEST", &format!("Processed block height={} (after CAT timeout)", timeout_block));
+    
+    // Verify CAT is now failed due to timeout
+    let cat_status = hig_node.get_transaction_status(cat_tx.id.clone()).await.unwrap();
+    assert_eq!(cat_status, TransactionStatus::Failure, "CAT should be failed due to timeout");
+    
+    // Verify regular transaction is now processed (should fail due to insufficient balance)
+    let reg_status = hig_node.get_transaction_status(regular_tx.id.clone()).await.unwrap();
+    assert_eq!(reg_status, TransactionStatus::Failure, "Regular transaction should be failed (insufficient balance)");
+    
+    // Check final counts
+    let (cat_pending_final, cat_success_final, cat_failure_final) = hig_node.get_transaction_status_counts_cats().await.unwrap();
+    let (regular_pending_final, regular_success_final, regular_failure_final) = hig_node.get_transaction_status_counts_regular().await.unwrap();
+    let locked_keys_final = hig_node.lock().await.get_total_locked_keys_count().await;
+    
+    logging::log("TEST", &format!("Final counts - CAT pending: {}, success: {}, failure: {}", 
+        cat_pending_final, cat_success_final, cat_failure_final));
+    logging::log("TEST", &format!("Final counts - Regular pending: {}, success: {}, failure: {}", 
+        regular_pending_final, regular_success_final, regular_failure_final));
+    logging::log("TEST", &format!("Final locked keys: {}", locked_keys_final));
+    
+    // Verify counts are correct
+    assert_eq!(cat_pending_final, 0, "Should have 0 pending CATs");
+    assert_eq!(cat_failure_final, 1, "Should have 1 failed CAT");
+    assert_eq!(regular_pending_final, 0, "Should have 0 pending regular transactions");
+    assert_eq!(regular_failure_final, 1, "Should have 1 failed regular transaction");
+    assert_eq!(locked_keys_final, 0, "Should have 0 locked keys (all released)");
+    
+    logging::log("TEST", "=== Test completed successfully ===\n");
+}
+

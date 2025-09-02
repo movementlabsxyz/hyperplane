@@ -1192,7 +1192,139 @@ impl HyperIGNode {
                 };
 
                 log(&format!("HIG-{}", chain_id), &format!("Processing pending transaction tx-id='{}' (all dependencies resolved)", tx_id.0));
-                self.process_transaction(tx).await?;
+                
+                // Process the transaction directly with skip_lock_check=true since all dependencies are resolved
+                let status = if tx.data.starts_with("CAT") {
+                    self.handle_cat_transaction(tx.clone()).await?
+                } else {
+                    self.handle_regular_transaction(tx.clone(), true).await?
+                };
+                
+                // Update status
+                self.state.lock().await.transaction_statuses.insert(tx.id.clone(), status.clone());
+                log(&format!("HIG-{}", chain_id), &format!("Updated status to '{:?}' for tx-id='{}'", status, tx.id.0));
+                
+                // If this was a regular transaction that succeeded, we need to process its consumers
+                if !tx.data.starts_with("CAT") && status == TransactionStatus::Success {
+                    // Release locks and trigger dependency resolution for this regular transaction
+                    let locked_keys: Vec<String> = {
+                        let state = self.state.lock().await;
+                        state.tx_locks_keys.get(&tx.id)
+                            .cloned()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect()
+                    };
+                    
+                    let consumers: Vec<TransactionId> = {
+                        let state = self.state.lock().await;
+                        state.tx_locks_consumer.get(&tx.id)
+                            .cloned()
+                            .unwrap_or_default()
+                            .into_iter()
+                            .collect()
+                    };
+                    
+                    // Remove the locks and clean up mappings
+                    {
+                        let mut state = self.state.lock().await;
+                        for key in &locked_keys {
+                            if state.key_last_locked_by_tx.get(key) == Some(&tx.id) {
+                                state.key_last_locked_by_tx.remove(key);
+                            }
+                        }
+                        state.tx_locks_keys.remove(&tx.id);
+                        state.tx_locks_consumer.remove(&tx.id);
+                    }
+                    
+                    // Process consumers recursively using a queue-based approach
+                    let mut to_process: Vec<(TransactionId, TransactionId)> = consumers.into_iter().map(|consumer_id| (tx.id.clone(), consumer_id)).collect();
+                    
+                    while !to_process.is_empty() {
+                        let current_batch = to_process.clone();
+                        to_process.clear();
+                        
+                        for (completed_tx_id, consumer_tx_id) in current_batch {
+                            log(&format!("HIG-{}", chain_id), &format!("Processing consumer tx-id='{}' of completed transaction tx-id='{}'", consumer_tx_id.0, completed_tx_id.0));
+                            
+                            // Check if consumer should be processed
+                            let (should_process, _remaining_deps) = {
+                                let mut state = self.state.lock().await;
+                                if let Some(dependencies) = state.tx_depends_on_txs.get_mut(&consumer_tx_id) {
+                                    dependencies.remove(&completed_tx_id);
+                                    let is_empty = dependencies.is_empty();
+                                    let deps = dependencies.clone();
+                                    if is_empty {
+                                        state.tx_depends_on_txs.remove(&consumer_tx_id);
+                                    }
+                                    (is_empty, deps)
+                                } else {
+                                    (false, HashSet::new())
+                                }
+                            };
+                            
+                            if should_process {
+                                // Get the consumer transaction
+                                let consumer_tx = {
+                                    let state = self.state.lock().await;
+                                    state.received_txs.get(&consumer_tx_id)
+                                        .cloned()
+                                        .ok_or_else(|| anyhow::anyhow!("Consumer transaction not found: {}", consumer_tx_id))?
+                                };
+                                
+                                // Process the consumer transaction
+                                let consumer_status = if consumer_tx.data.starts_with("CAT") {
+                                    self.handle_cat_transaction(consumer_tx.clone()).await?
+                                } else {
+                                    self.handle_regular_transaction(consumer_tx.clone(), true).await?
+                                };
+                                
+                                // Update status
+                                self.state.lock().await.transaction_statuses.insert(consumer_tx_id.clone(), consumer_status.clone());
+                                log(&format!("HIG-{}", chain_id), &format!("Updated status to '{:?}' for consumer tx-id='{}'", consumer_status, consumer_tx_id.0));
+                                
+                                // If this consumer was a regular transaction that succeeded, add its consumers to the queue
+                                if !consumer_tx.data.starts_with("CAT") && consumer_status == TransactionStatus::Success {
+                                    // Release locks and get consumers for the next iteration
+                                    let consumer_locked_keys: Vec<String> = {
+                                        let state = self.state.lock().await;
+                                        state.tx_locks_keys.get(&consumer_tx_id)
+                                            .cloned()
+                                            .unwrap_or_default()
+                                            .into_iter()
+                                            .collect()
+                                    };
+                                    
+                                    let consumer_consumers: Vec<TransactionId> = {
+                                        let state = self.state.lock().await;
+                                        state.tx_locks_consumer.get(&consumer_tx_id)
+                                            .cloned()
+                                            .unwrap_or_default()
+                                            .into_iter()
+                                            .collect()
+                                    };
+                                    
+                                    // Remove the locks and clean up mappings for the consumer
+                                    {
+                                        let mut state = self.state.lock().await;
+                                        for key in &consumer_locked_keys {
+                                            if state.key_last_locked_by_tx.get(key) == Some(&consumer_tx_id) {
+                                                state.key_last_locked_by_tx.remove(key);
+                                            }
+                                        }
+                                        state.tx_locks_keys.remove(&consumer_tx_id);
+                                        state.tx_locks_consumer.remove(&consumer_tx_id);
+                                    }
+                                    
+                                    // Add consumers to the queue for the next iteration
+                                    for consumer_consumer_id in consumer_consumers {
+                                        to_process.push((consumer_tx_id.clone(), consumer_consumer_id));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 log(&format!("HIG-{}", chain_id), &format!("Finished processing tx-id='{}'", tx_id.0));
             } else {
                 log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' still has remaining dependencies", tx_id.0));
@@ -1280,10 +1412,11 @@ impl HyperIGNode {
     /// 
     /// # Arguments
     /// * `tx` - The transaction to handle
+    /// * `skip_lock_check` - If true, skip the lock check (used when reprocessing after dependencies resolve)
     /// 
     /// # Returns
     /// Result containing the final transaction status
-    async fn handle_regular_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+    async fn handle_regular_transaction(&mut self, tx: Transaction, skip_lock_check: bool) -> Result<TransactionStatus, anyhow::Error> {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Executing regular transaction: {}", tx.id));
         
@@ -1296,35 +1429,39 @@ impl HyperIGNode {
         let keys = self.get_transaction_keys(command).await?;
         log(&format!("HIG-{}", chain_id), &format!("Transaction accesses keys: {:?}", keys));
 
-                // Check if any keys are locked (but not by this transaction itself)
-        if let Some(locking_tx_id) = self.check_locked_keys(&keys).await? {
-            // Don't block if the transaction is blocking itself (already processed and locked its keys)
-            if locking_tx_id == tx.id {
-                log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is not blocked (self-lock detected)", tx.id.0));
-                // Continue to execution below
-            } else {
-                log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is blocked by tx-id='{}'", tx.id.0, locking_tx_id.0));
-                
-                // Add this transaction to the dependency list for each key
-                self.add_transaction_dependencies(tx.id.clone(), &keys).await;
-                
-                // Lock the keys this transaction will access (like CATs do)
-                {
-                    let mut state = self.state.lock().await;
-                    for key in &keys {
-                        state.key_last_locked_by_tx.insert(key.clone(), tx.id.clone());
+                // Check if any keys are locked (but not by this transaction itself) - unless we're reprocessing after dependencies resolved
+        if !skip_lock_check {
+            if let Some(locking_tx_id) = self.check_locked_keys(&keys).await? {
+                // Don't block if the transaction is blocking itself (already processed and locked its keys)
+                if locking_tx_id == tx.id {
+                    log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is not blocked (self-lock detected)", tx.id.0));
+                    // Continue to execution below
+                } else {
+                    log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is blocked by tx-id='{}'", tx.id.0, locking_tx_id.0));
+                    
+                    // Add this transaction to the dependency list for each key
+                    self.add_transaction_dependencies(tx.id.clone(), &keys).await;
+                    
+                    // Lock the keys this transaction will access (like CATs do)
+                    {
+                        let mut state = self.state.lock().await;
+                        for key in &keys {
+                            state.key_last_locked_by_tx.insert(key.clone(), tx.id.clone());
+                        }
+                        state.tx_locks_keys
+                            .entry(tx.id.clone())
+                            .or_insert_with(HashSet::new)
+                            .extend(keys.iter().cloned());
                     }
-                    state.tx_locks_keys
-                        .entry(tx.id.clone())
-                        .or_insert_with(HashSet::new)
-                        .extend(keys.iter().cloned());
-                }
-                log(&format!("HIG-{}", chain_id), &format!("Locked keys {:?} for pending regular transaction tx-id='{}'", keys, tx.id.0));
-                
-                // Transaction is already in pending set from initial processing, no need to add again
+                    log(&format!("HIG-{}", chain_id), &format!("Locked keys {:?} for pending regular transaction tx-id='{}'", keys, tx.id.0));
+                    
+                    // Transaction is already in pending set from initial processing, no need to add again
                            
-                return Ok(TransactionStatus::Pending);
+                    return Ok(TransactionStatus::Pending);
+                }
             }
+        } else {
+            log(&format!("HIG-{}", chain_id), &format!("Skipping lock check for tx-id='{}' (reprocessing after dependencies resolved)", tx.id.0));
         }
 
         // Check if transaction would succeed
@@ -1347,9 +1484,7 @@ impl HyperIGNode {
             state.update_to_final_status_and_update_counter(&tx.id, TransactionStatus::Success);
             log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Success' for transaction: {}", tx.id.0));
             
-            // Release locks and trigger dependency resolution (like CATs do)
-            drop(state); // Release lock before async call
-            self.process_pending_transactions(tx.id.clone(), TransactionStatus::Success).await?;
+            // Note: Dependency resolution is handled in process_pending_transactions when this transaction is processed
             
             Ok(TransactionStatus::Success)
         } else {
@@ -1357,8 +1492,32 @@ impl HyperIGNode {
             self.state.lock().await.update_to_final_status_and_update_counter(&tx.id, TransactionStatus::Failure);
             log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Failure' for transaction: {}", tx.id.0));
 
-            // Release locks and trigger dependency resolution (like CATs do)
-            self.process_pending_transactions(tx.id.clone(), TransactionStatus::Failure).await?;
+            // Release locks for failed transaction (if it had any)
+            let locked_keys: Vec<String> = {
+                let state = self.state.lock().await;
+                state.tx_locks_keys.get(&tx.id)
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect()
+            };
+            
+            if !locked_keys.is_empty() {
+                // Remove the locks and clean up mappings for the failed transaction
+                {
+                    let mut state = self.state.lock().await;
+                    for key in &locked_keys {
+                        if state.key_last_locked_by_tx.get(key) == Some(&tx.id) {
+                            state.key_last_locked_by_tx.remove(key);
+                        }
+                    }
+                    state.tx_locks_keys.remove(&tx.id);
+                    state.tx_locks_consumer.remove(&tx.id);
+                }
+                log(&format!("HIG-{}", chain_id), &format!("Released locks {:?} for failed transaction tx-id='{}'", locked_keys, tx.id.0));
+            }
+
+            // Note: Dependency resolution is handled in process_pending_transactions when this transaction is processed
             
             Ok(TransactionStatus::Failure)
         }
@@ -1414,7 +1573,7 @@ impl HyperIG for HyperIGNode {
             let status = if tx.data.starts_with("CAT") {
                 self.handle_cat_transaction(tx.clone()).await?
             } else {
-                self.handle_regular_transaction(tx.clone()).await?
+                self.handle_regular_transaction(tx.clone(), false).await?
             };
             
             // Update status

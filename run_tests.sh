@@ -158,9 +158,8 @@ TESTS=(
 )
 
 TESTS2=(
-    hyper_ig::tests::dependencies::test_regular_tx_depends_on_pending_regular_tx
-    hyper_ig::tests::dependencies::test_key_last_locked_by_tx_length_tracking
-    hyper_ig::tests::dependencies::test_regular_tx_blocks_cat_transitively
+    hyper_ig::tests::dependencies::test_regular_tx_dependency_chain_resolution
+    hyper_ig::tests::counter_management::test_regular_tx_multiple_dependencies
 )
 
 # Check if arguments are provided
