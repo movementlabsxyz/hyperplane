@@ -170,7 +170,30 @@ When any transaction (CAT or regular) completes:
 1. **Release locks** → Remove the lock on the key that is locked by the dependency-creator.
 2. **Find dependents** → Look up transactions waiting on the released keys. (dependency-consumers)
 3. **Update dependencies** → Remove the dependency-creator from the dependency-consumer's dependency list.
-4. **Process dependents** → If all dependencies are resolved of the dependency-consumer, add the dependency-consumer to the indexed list of ordered transactions that are being processed in this block..
+4. **Process dependents** → If all dependencies are resolved of the dependency-consumer, process the dependency-consumer immediately. (we go through the list of consumers and check if any of them can be processed now.)
+
+### Onion Layer Dependency Model
+
+The dependency system works like an onion with multiple layers:
+
+**Example Scenario**:
+1. **CAT A** locks key "1" → Becomes pending
+2. **Regular TX B** tries to access key "1" → Becomes pending, depends on CAT A
+3. **Regular TX C** tries to access key "1" → Becomes pending, depends on Regular TX B (not CAT A!)
+4. **Regular TX D** tries to access key "1" → Becomes pending, depends on Regular TX C
+
+**Key Insight**: Each key can be locked multiple times in layers:
+- **Layer 1**: CAT A locks key "1"
+- **Layer 2**: Regular TX B locks key "1" (depends on CAT A)
+- **Layer 3**: Regular TX C locks key "1" (depends on Regular TX B)
+- **Layer 4**: Regular TX D locks key "1" (depends on Regular TX C)
+
+**Resolution Order**:
+1. When **CAT A** resolves → Regular TX B can proceed
+2. When **Regular TX B** completes → Regular TX C can proceed  
+3. When **Regular TX C** completes → Regular TX D can proceed
+
+**Important**: Each transaction only depends on the **immediate previous layer**, not on all previous layers. This creates a chain of dependencies rather than a tree.
 
 ### Key Data Structures
 
@@ -184,12 +207,10 @@ When any transaction (CAT or regular) completes:
 **Current Limitation**: Regular transactions cannot depend on other regular transactions
 
 **Issues to Fix**:
-- [ ] Missing index for transactions.
 - [ ] Regular transactions that execute immediately don't participate in the dependency resolution system
 - [ ] The dependency tracking structures are not updated for regular transaction completion
 
 **Implementation Tasks**:
-- [ ] Introduce an index for transactions. When a transaction is added to the list of transactions that are being processed in this block, we need to add the transaction at the correct position. (This means it may be handled before all other transactions that are still in that list.)
 - [ ] **Lock keys during pending state** (when regular transactions have dependencies)
 - [ ] **Release locks and notify dependents** when regular transactions complete
 - [ ] **Participate in the dependency resolution system** like CATs do
