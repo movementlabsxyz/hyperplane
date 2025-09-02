@@ -1133,7 +1133,10 @@ impl HyperIGNode {
         {
             let mut state = self.state.lock().await;
             for key in &locked_keys {
-                state.key_last_locked_by_tx.remove(key);
+                // Only remove the key if the completed transaction is still the last locker
+                if state.key_last_locked_by_tx.get(key) == Some(&completed_tx_id) {
+                    state.key_last_locked_by_tx.remove(key);
+                }
             }
             // Clean up reverse index for O(1) key lookup
             state.tx_locks_keys.remove(&completed_tx_id);
