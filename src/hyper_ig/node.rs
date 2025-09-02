@@ -42,10 +42,12 @@ struct HyperIGState {
     cat_to_tx_id: HashMap<CATId, TransactionId>,
     /// Map of transaction IDs to their CAT IDs (reverse index for O(1) CAT ID lookup)
     tx_to_cat_id: HashMap<TransactionId, CATId>,
-    /// Map of locked keys to the CAT transaction ID that locked them
-    key_locked_by_tx: HashMap<String, TransactionId>,
+    /// Map of locked keys to the last transaction ID that locked them (onion layer model)
+    key_last_locked_by_tx: HashMap<String, TransactionId>,
     /// Map of transaction IDs to the keys they lock (reverse index for O(1) key lookup)
     tx_locks_keys: HashMap<TransactionId, HashSet<String>>,
+    /// Map of transaction IDs to the transactions that depend on them (dependency consumers)
+    tx_locks_consumer: HashMap<TransactionId, HashSet<TransactionId>>,
     /// Map of keys to transactions waiting on them
     key_causes_dependencies_for_txs: HashMap<String, Vec<TransactionId>>,
     /// Map of transaction IDs to the transaction IDs they depend on
@@ -302,8 +304,9 @@ impl HyperIGNode {
                 cat_proposed_statuses: HashMap::new(),
                 cat_to_tx_id: HashMap::new(),
                 tx_to_cat_id: HashMap::new(),
-                key_locked_by_tx: HashMap::new(),
+                key_last_locked_by_tx: HashMap::new(),
                 tx_locks_keys: HashMap::new(),
+                tx_locks_consumer: HashMap::new(),
                 key_causes_dependencies_for_txs: HashMap::new(),
                 tx_depends_on_txs: HashMap::new(),
                 tx_depends_on_keys: HashMap::new(),
@@ -517,7 +520,7 @@ impl HyperIGNode {
             state.cat_proposed_statuses.clear();
             state.cat_to_tx_id.clear();
             state.tx_to_cat_id.clear();
-            state.key_locked_by_tx.clear();
+            state.key_last_locked_by_tx.clear();
             state.tx_locks_keys.clear();
             state.key_causes_dependencies_for_txs.clear();
             state.tx_depends_on_txs.clear();
@@ -736,7 +739,7 @@ impl HyperIGNode {
     async fn check_locked_keys(&self, keys: &[String]) -> Result<Option<TransactionId>, anyhow::Error> {
         let state = self.state.lock().await;
         for key in keys {
-            if let Some(tx_id) = state.key_locked_by_tx.get(key) {
+            if let Some(tx_id) = state.key_last_locked_by_tx.get(key) {
                 return Ok(Some(tx_id.clone()));
             }
         }
@@ -757,7 +760,7 @@ impl HyperIGNode {
         // First, collect all locking transaction IDs
         let locking_tx_ids: Vec<(String, TransactionId)> = keys.iter()
             .filter_map(|key| {
-                state.key_locked_by_tx.get(key)
+                state.key_last_locked_by_tx.get(key)
                     .map(|locking_tx_id| (key.clone(), locking_tx_id.clone()))
             })
             .collect();
@@ -786,6 +789,14 @@ impl HyperIGNode {
                 .insert(locking_tx_id.clone());
             log(&format!("HIG-{}", chain_id), &format!("Added tx-id='{}' as dependency of tx-id='{}' (locked key '{}'). (in tx_depends_on_txs)", 
                 locking_tx_id.0, tx_id_clone.0, key));
+            
+            // Add this transaction as a consumer of the locking transaction
+            state.tx_locks_consumer
+                .entry(locking_tx_id.clone())
+                .or_insert_with(HashSet::new)
+                .insert(tx_id.clone());
+            log(&format!("HIG-{}", chain_id), &format!("Added tx-id='{}' as consumer of tx-id='{}' (in tx_locks_consumer)", 
+                tx_id_clone.0, locking_tx_id.0));
         }
     }
 
@@ -865,7 +876,7 @@ impl HyperIGNode {
             let mut is_blocked = false;
             let mut blocking_info = None;
             for key in &keys {
-                if let Some(locking_tx_id) = state.key_locked_by_tx.get(key) {
+                if let Some(locking_tx_id) = state.key_last_locked_by_tx.get(key) {
                     if state.pending_transactions.contains(locking_tx_id) {
                         is_blocked = true;
                         blocking_info = Some((locking_tx_id.clone(), key.clone()));
@@ -916,7 +927,7 @@ impl HyperIGNode {
         {
             let mut state = self.state.lock().await;
             for key in &keys {
-                state.key_locked_by_tx.insert(key.clone(), tx.id.clone());
+                state.key_last_locked_by_tx.insert(key.clone(), tx.id.clone());
             }
             state.tx_locks_keys
                 .entry(tx.id.clone())
@@ -1087,19 +1098,19 @@ impl HyperIGNode {
         Ok(status)
     }
 
-    /// Processes pending transactions that were waiting on a resolved CAT.
+    /// Processes pending transactions that were waiting on a resolved transaction (CAT or regular).
     /// 
     /// # Arguments
-    /// * `cat_tx_id` - The transaction ID of the resolved CAT
-    /// * `status` - The final status of the CAT
-    async fn process_pending_transactions(&mut self, cat_tx_id: TransactionId, _status: TransactionStatus) -> Result<(), anyhow::Error> {
+    /// * `completed_tx_id` - The transaction ID of the completed transaction
+    /// * `status` - The final status of the transaction
+    async fn process_pending_transactions(&mut self, completed_tx_id: TransactionId, _status: TransactionStatus) -> Result<(), anyhow::Error> {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
-        log(&format!("HIG-{}", chain_id), &format!("Processing transactions pending on CAT tx-id='{}'", cat_tx_id.0));
+        log(&format!("HIG-{}", chain_id), &format!("Processing transactions pending on tx-id='{}'", completed_tx_id.0));
 
         // OPTIMIZED: Use reverse index for O(1) key lookup instead of O(n) search
         let locked_keys: Vec<String> = {
             let state = self.state.lock().await;
-            state.tx_locks_keys.get(&cat_tx_id)
+            state.tx_locks_keys.get(&completed_tx_id)
                 .cloned()
                 .unwrap_or_default()
                 .into_iter()
@@ -1107,78 +1118,81 @@ impl HyperIGNode {
         };
         log(&format!("HIG-{}", chain_id), &format!("Found locked keys: {:?}", locked_keys));
 
-        // Remove the locks
+        // Get the consumers of this transaction
+        let consumers: Vec<TransactionId> = {
+            let state = self.state.lock().await;
+            state.tx_locks_consumer.get(&completed_tx_id)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .collect()
+        };
+        log(&format!("HIG-{}", chain_id), &format!("Found consumers: {:?}", consumers));
+
+        // Remove the locks and clean up mappings
         {
             let mut state = self.state.lock().await;
             for key in &locked_keys {
-                state.key_locked_by_tx.remove(key);
+                state.key_last_locked_by_tx.remove(key);
             }
-            // NEW: Clean up reverse index for O(1) key lookup
-            state.tx_locks_keys.remove(&cat_tx_id);
+            // Clean up reverse index for O(1) key lookup
+            state.tx_locks_keys.remove(&completed_tx_id);
+            // Clean up consumer mapping
+            state.tx_locks_consumer.remove(&completed_tx_id);
         }
-        log(&format!("HIG-{}", chain_id), &format!("Removed locked keys '{:?}' by tx-id='{}' in key_locked_by_tx", locked_keys, cat_tx_id.0));
+        log(&format!("HIG-{}", chain_id), &format!("Removed locked keys '{:?}' by tx-id='{}' in key_last_locked_by_tx", locked_keys, completed_tx_id.0));
 
-        // Process all transactions that were waiting on these keys
-        for key in locked_keys {
-            log(&format!("HIG-{}", chain_id), &format!("Processing transactions waiting on key '{}'", key));
-            let pending_txs = {
+        // Process all transactions that were waiting on this transaction
+        for tx_id in consumers {
+            log(&format!("HIG-{}", chain_id), &format!("Processing consumer tx-id='{}'", tx_id.0));
+            
+            // First check if we should process this transaction
+            let (should_process, remaining_deps) = {
                 let mut state = self.state.lock().await;
-                state.key_causes_dependencies_for_txs.remove(&key)
-                    .unwrap_or_default()
-            };
-            log(&format!("HIG-{}", chain_id), &format!("Found pending transactions: {:?}", pending_txs));
-
-            for tx_id in pending_txs {
-                log(&format!("HIG-{}", chain_id), &format!("Checking dependencies for tx-id='{}'", tx_id.0));
-                
-                // First check if we should process this transaction
-                let (should_process, remaining_deps) = {
-                    let mut state = self.state.lock().await;
-                    if let Some(dependencies) = state.tx_depends_on_txs.get_mut(&tx_id) {
-                        dependencies.remove(&cat_tx_id);
-                        let is_empty = dependencies.is_empty();
-                        let deps = dependencies.clone();
-                        if is_empty {
-                            state.tx_depends_on_txs.remove(&tx_id);
-                        }
-                        (is_empty, deps)
-                    } else {
-                        (false, HashSet::new())
+                if let Some(dependencies) = state.tx_depends_on_txs.get_mut(&tx_id) {
+                    dependencies.remove(&completed_tx_id);
+                    let is_empty = dependencies.is_empty();
+                    let deps = dependencies.clone();
+                    if is_empty {
+                        state.tx_depends_on_txs.remove(&tx_id);
                     }
+                    (is_empty, deps)
+                } else {
+                    (false, HashSet::new())
+                }
+            };
+
+            log(&format!("HIG-{}", chain_id), &format!("Dependencies after removal: {:?}", remaining_deps));
+
+            if should_process {
+                log(&format!("HIG-{}", chain_id), &format!("Will process tx-id='{}'", tx_id.0));
+                
+                // Check if the transaction has already reached final status
+                let current_status = {
+                    let state = self.state.lock().await;
+                    state.transaction_statuses.get(&tx_id).cloned()
+                };
+                
+                if let Some(status) = current_status {
+                    if matches!(status, TransactionStatus::Success | TransactionStatus::Failure) {
+                        log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' has already reached final status {:?}, skipping reprocessing", tx_id.0, status));
+                        continue;
+                    }
+                }
+                
+                // Get transaction from state
+                let tx = {
+                    let state = self.state.lock().await;
+                    state.received_txs.get(&tx_id)
+                        .cloned()
+                        .ok_or_else(|| anyhow::anyhow!("Transaction not found: {}", tx_id))?
                 };
 
-                log(&format!("HIG-{}", chain_id), &format!("Dependencies after removal: {:?}", remaining_deps));
-
-                if should_process {
-                    log(&format!("HIG-{}", chain_id), &format!("Will process tx-id='{}'", tx_id.0));
-                    
-                    // Check if the transaction has already reached final status
-                    let current_status = {
-                        let state = self.state.lock().await;
-                        state.transaction_statuses.get(&tx_id).cloned()
-                    };
-                    
-                    if let Some(status) = current_status {
-                        if matches!(status, TransactionStatus::Success | TransactionStatus::Failure) {
-                            log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' has already reached final status {:?}, skipping reprocessing", tx_id.0, status));
-                            continue;
-                        }
-                    }
-                    
-                    // Get transaction from state
-                    let tx = {
-                        let state = self.state.lock().await;
-                        state.received_txs.get(&tx_id)
-                            .cloned()
-                            .ok_or_else(|| anyhow::anyhow!("Transaction not found: {}", tx_id))?
-                    };
-
-                    log(&format!("HIG-{}", chain_id), &format!("Processing pending transaction tx-id='{}' (all dependencies resolved)", tx_id.0));
-                    self.process_transaction(tx).await?;
-                    log(&format!("HIG-{}", chain_id), &format!("Finished processing tx-id='{}'", tx_id.0));
-                } else {
-                    log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' still has remaining dependencies", tx_id.0));
-                }
+                log(&format!("HIG-{}", chain_id), &format!("Processing pending transaction tx-id='{}' (all dependencies resolved)", tx_id.0));
+                self.process_transaction(tx).await?;
+                log(&format!("HIG-{}", chain_id), &format!("Finished processing tx-id='{}'", tx_id.0));
+            } else {
+                log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' still has remaining dependencies", tx_id.0));
             }
         }
 
@@ -1221,7 +1235,7 @@ impl HyperIGNode {
     /// # Returns
     /// The total number of locked keys
     pub async fn get_total_locked_keys_count(&self) -> u64 {
-        self.state.lock().await.key_locked_by_tx.len() as u64
+        self.state.lock().await.key_last_locked_by_tx.len() as u64
     }
 
     /// Gets the average latency for regular transaction finalization.
@@ -1266,7 +1280,7 @@ impl HyperIGNode {
     /// 
     /// # Returns
     /// Result containing the final transaction status
-    async fn handle_regular_transaction(&self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
+    async fn handle_regular_transaction(&mut self, tx: Transaction) -> Result<TransactionStatus, anyhow::Error> {
         let chain_id = self.state.lock().await.my_chain_id.0.clone();
         log(&format!("HIG-{}", chain_id), &format!("Executing regular transaction: {}", tx.id));
         
@@ -1279,16 +1293,35 @@ impl HyperIGNode {
         let keys = self.get_transaction_keys(command).await?;
         log(&format!("HIG-{}", chain_id), &format!("Transaction accesses keys: {:?}", keys));
 
-        // Check if any keys are locked
+                // Check if any keys are locked (but not by this transaction itself)
         if let Some(locking_tx_id) = self.check_locked_keys(&keys).await? {
-            log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is blocked by CAT tx-id='{}'", tx.id.0, locking_tx_id.0));
-            
-            // Add this transaction to the dependency list for each key
-            self.add_transaction_dependencies(tx.id.clone(), &keys).await;
-            
-            // Transaction is already in pending set from initial processing, no need to add again
-                        
-            return Ok(TransactionStatus::Pending);
+            // Don't block if the transaction is blocking itself (already processed and locked its keys)
+            if locking_tx_id == tx.id {
+                log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is not blocked (self-lock detected)", tx.id.0));
+                // Continue to execution below
+            } else {
+                log(&format!("HIG-{}", chain_id), &format!("Transaction tx-id='{}' is blocked by tx-id='{}'", tx.id.0, locking_tx_id.0));
+                
+                // Add this transaction to the dependency list for each key
+                self.add_transaction_dependencies(tx.id.clone(), &keys).await;
+                
+                // Lock the keys this transaction will access (like CATs do)
+                {
+                    let mut state = self.state.lock().await;
+                    for key in &keys {
+                        state.key_last_locked_by_tx.insert(key.clone(), tx.id.clone());
+                    }
+                    state.tx_locks_keys
+                        .entry(tx.id.clone())
+                        .or_insert_with(HashSet::new)
+                        .extend(keys.iter().cloned());
+                }
+                log(&format!("HIG-{}", chain_id), &format!("Locked keys {:?} for pending regular transaction tx-id='{}'", keys, tx.id.0));
+                
+                // Transaction is already in pending set from initial processing, no need to add again
+                           
+                return Ok(TransactionStatus::Pending);
+            }
         }
 
         // Check if transaction would succeed
@@ -1311,12 +1344,18 @@ impl HyperIGNode {
             state.update_to_final_status_and_update_counter(&tx.id, TransactionStatus::Success);
             log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Success' for transaction: {}", tx.id.0));
             
+            // Release locks and trigger dependency resolution (like CATs do)
+            drop(state); // Release lock before async call
+            self.process_pending_transactions(tx.id.clone(), TransactionStatus::Success).await?;
+            
             Ok(TransactionStatus::Success)
         } else {
             // Update transaction status and increment counter
             self.state.lock().await.update_to_final_status_and_update_counter(&tx.id, TransactionStatus::Failure);
             log(&format!("HIG-{}", chain_id), &format!("Set final status to 'Failure' for transaction: {}", tx.id.0));
 
+            // Release locks and trigger dependency resolution (like CATs do)
+            self.process_pending_transactions(tx.id.clone(), TransactionStatus::Failure).await?;
             
             Ok(TransactionStatus::Failure)
         }

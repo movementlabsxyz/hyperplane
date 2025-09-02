@@ -158,8 +158,7 @@ TESTS=(
 )
 
 TESTS2=(
-    hyper_ig::tests::counter_management::test_postponed_to_resolving_transition
-    hyper_ig::tests::counter_management::test_regular_transaction_timing_metrics
+    hyper_ig::tests::dependencies::test_regular_tx_depends_on_pending_regular_tx
 )
 
 # Check if arguments are provided

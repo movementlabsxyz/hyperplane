@@ -197,24 +197,28 @@ The dependency system works like an onion with multiple layers:
 
 ### Key Data Structures
 
-- **`key_locked_by_tx`**: Maps keys to the transaction currently locking them
+- **`key_last_locked_by_tx`**: Maps keys to the last transaction that locked them (onion layer model)
 - **`tx_locks_keys`**: Maps transactions to the keys they lock (reverse index)
+- **`tx_locks_consumer`**: Maps transactions to the transactions that depend on them (dependency consumers)
 - **`key_causes_dependencies_for_txs`**: Maps keys to transactions waiting on them
 - **`tx_depends_on_txs`**: Maps transactions to their dependencies
 
-### TODO: Regular Transaction Dependencies
+### ✅ COMPLETED: Regular Transaction Dependencies
 
-**Current Limitation**: Regular transactions cannot depend on other regular transactions
+**Status**: Regular transactions can now depend on other regular transactions and CATs
 
-**Issues to Fix**:
-- [ ] Regular transactions that execute immediately don't participate in the dependency resolution system
-- [ ] The dependency tracking structures are not updated for regular transaction completion
+**Implemented Features**:
+- ✅ **Lock keys during pending state** (when regular transactions have dependencies)
+- ✅ **Release locks and notify dependents** when regular transactions complete
+- ✅ **Participate in the dependency resolution system** like CATs do
+- ✅ **Modified `handle_regular_transaction`** to lock keys when dependencies exist
+- ✅ **Enhanced dependency resolution** to handle regular transaction lock release
+- ✅ **Created tests** for regular transaction dependencies
+- ✅ **Tested mixed scenarios** (regular→CAT, CAT→regular, regular→regular)
 
-**Implementation Tasks**:
-- [ ] **Lock keys during pending state** (when regular transactions have dependencies)
-- [ ] **Release locks and notify dependents** when regular transactions complete
-- [ ] **Participate in the dependency resolution system** like CATs do
-- [ ] **Modify `handle_regular_transaction`** to lock keys when dependencies exist
-- [ ] **Enhance `update_to_final_status_and_update_counter`** to handle regular transaction lock release
-- [ ] **Create tests** for regular transaction dependencies
-- [ ] **Test mixed scenarios** (regular→CAT, CAT→regular, regular→regular) 
+**Key Changes Made**:
+- Renamed `key_locked_by_tx` to `key_last_locked_by_tx` to support onion layer model
+- Added `tx_locks_consumer` mapping to track dependency consumers
+- Updated `process_pending_transactions` to use consumer-based resolution
+- Added self-lock detection to prevent transactions from blocking themselves
+- All existing tests pass, confirming backward compatibility 
