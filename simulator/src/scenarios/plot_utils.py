@@ -239,10 +239,37 @@ def plot_transactions_overlay(
                 chain_data = sorted(combined_data.items())
             else:
                 # For CAT and regular specific types, use the data directly
-                chain_data = result[f'chain_1_{transaction_type}']
+                # Handle block-based latency by using the original latency data
+                if 'blocks' in transaction_type:
+                    # Remove '_blocks' suffix to get the original data key
+                    original_type = transaction_type.replace('_blocks', '')
+                    chain_data = result[f'chain_1_{original_type}']
+                else:
+                    chain_data = result[f'chain_1_{transaction_type}']
             
             if not chain_data:
                 continue
+            
+            # Handle block-based latency conversion
+            if 'blocks' in transaction_type:
+                # Get block interval from this simulation's stats
+                block_interval = None
+                try:
+                    stats_file = f'{results_dir}/data/sim_{i}/run_0/data/simulation_stats.json'
+                    if os.path.exists(stats_file):
+                        with open(stats_file, 'r') as f:
+                            stats_data = json.load(f)
+                        block_interval = stats_data['parameters']['block_interval']  # in seconds
+                except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+                    print(f"Warning: Could not load block interval for simulation {i}: {e}")
+                
+                if block_interval and block_interval > 0:
+                    # Convert latency from milliseconds to blocks
+                    block_interval_ms = block_interval * 1000.0
+                    chain_data = [(height, latency_ms / block_interval_ms) for height, latency_ms in chain_data]
+                else:
+                    print(f"Warning: Block interval not available for simulation {i}, skipping block-based latency conversion")
+                    continue
             
             # Trim the last 10% of data to avoid edge effects
             chain_data = trim_time_series_data(chain_data, 0.1)
@@ -289,9 +316,15 @@ def plot_transactions_overlay(
             
             # Handle timing metrics with special naming
             if 'tx_avg_latency' in transaction_type:
-                filename = 'tx_pending_regular_avg_latency.png'
+                if 'blocks' in transaction_type:
+                    filename = 'tx_pending_regular_avg_latency_blocks.png'
+                else:
+                    filename = 'tx_pending_regular_avg_latency.png'
             elif 'tx_max_latency' in transaction_type:
-                filename = 'tx_pending_regular_max_latency.png'
+                if 'blocks' in transaction_type:
+                    filename = 'tx_pending_regular_max_latency_blocks.png'
+                else:
+                    filename = 'tx_pending_regular_max_latency.png'
             elif 'tx_finalized_count' in transaction_type:
                 filename = 'tx_pending_regular_finalized_count.png'
             else:
@@ -309,11 +342,20 @@ def plot_transactions_overlay(
         # Handle y-axis labels for different data types
         if 'latency' in transaction_type:
             if 'avg' in transaction_type:
-                plt.ylabel('Average Latency (ms)')
+                if 'blocks' in transaction_type:
+                    plt.ylabel('Average Latency (blocks)')
+                else:
+                    plt.ylabel('Average Latency (ms)')
             elif 'max' in transaction_type:
-                plt.ylabel('Maximum Latency (ms)')
+                if 'blocks' in transaction_type:
+                    plt.ylabel('Maximum Latency (blocks)')
+                else:
+                    plt.ylabel('Maximum Latency (ms)')
             else:
-                plt.ylabel('Latency (ms)')
+                if 'blocks' in transaction_type:
+                    plt.ylabel('Latency (blocks)')
+                else:
+                    plt.ylabel('Latency (ms)')
         else:
             plt.ylabel(f'Number of {transaction_type.title()} Transactions')
         

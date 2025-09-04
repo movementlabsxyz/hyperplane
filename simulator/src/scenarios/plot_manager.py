@@ -80,6 +80,10 @@ def generate_tx_plots(data, param_name, results_dir, sweep_type, plot_config):
     plot_transactions_overlay(data, param_name, 'regular_tx_max_latency', results_dir, sweep_type)
     plot_transactions_overlay(data, param_name, 'regular_tx_finalized_count', results_dir, sweep_type)
     
+    # Regular transaction timing metrics in blocks
+    plot_transactions_overlay(data, param_name, 'regular_tx_avg_latency_blocks', results_dir, sweep_type)
+    plot_transactions_overlay(data, param_name, 'regular_tx_max_latency_blocks', results_dir, sweep_type)
+    
     # Total transaction plots
     plot_total_cat_transactions(data, param_name, results_dir, sweep_type)
     plot_total_regular_transactions(data, param_name, results_dir, sweep_type)

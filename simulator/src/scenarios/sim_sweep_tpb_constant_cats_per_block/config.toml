@@ -11,7 +11,7 @@ chain_delays = [0.0, 5.0]  # chain-1 has first value blocks delay, chain-2 has s
 # The relationship is: block_interval = target_tpb / 100
 # So: target_tpb=200 -> block_interval=2.0, target_tpb=100 -> block_interval=1.0
 # Note: This value is the starting point and will be scaled for each simulation step
-block_interval = 1.0
+block_interval = 0.5
 # Channel buffer size for high-performance communication
 # Larger values handle higher TPS but use more memory
 channel_buffer_size = 1000
@@ -31,7 +31,7 @@ num_accounts = 10000
 # The simulator will try to maintain this rate by adjusting delays
 # This is the starting value (200.0) - will be varied in sweep
 # Block interval will automatically scale with target_tpb: block_interval = target_tpb / 100
-target_tpb = 100.0
+target_tpb = 50.0
 # Zipf distribution parameter for account selection
 # Higher values (e.g., 1.5) make the distribution more skewed
 # Lower values (e.g., 0.5) make the distribution more uniform
@@ -39,7 +39,7 @@ target_tpb = 100.0
 zipf_parameter = 0.8
 # Ratio of transactions that will be CATs
 # This is the reference value (0.5) - will be calculated for each sweep
-ratio_cats = 0.5
+ratio_cats = 1.0
 # CAT lifetime in blocks
 # This is the maximum number of blocks a CAT transaction can remain pending
 cat_lifetime_blocks = 10
@@ -56,7 +56,7 @@ initialization_wait_blocks = 10
 # Number of times to run each simulation (results will be averaged)
 num_runs = 3
 # Number of simulations to run in the sweep
-num_simulations = 7
+num_simulations = 8
 # Multiplier for target TPB per simulation step
 # Values will be calculated as: base_tpb * (multiplier ^ step)
 # With base_tpb=100 (from target_tpb) and 7 simulations, this gives: [100, 200, 400, 800, 1600, 3200, 6400]
@@ -66,7 +66,7 @@ target_tpb_multiplier_per_step = 2 # sqrt(10)
 # The simulation will run until this many blocks have been produced
 sim_total_block_number = 100
 # Constant number of CATs per block (used instead of ratio_cats)
-constants_cats_per_block = 100
+constants_cats_per_block = 50
 
 # Logging control for the simulator
 [logging_config]
